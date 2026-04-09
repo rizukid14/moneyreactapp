@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Wallet, CreditCard, Landmark, Plus, Trash2, Smartphone, X } from 'lucide-react';
-import { useMoney, AssetType } from '../contexts/MoneyContext';
+import { useMoney } from '../contexts/MoneyContext';
+import type { AssetType } from '../contexts/MoneyContext';
 
 const getIconForType = (type: AssetType) => {
   switch (type) {
