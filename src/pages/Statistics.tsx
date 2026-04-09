@@ -13,7 +13,7 @@ const Statistics: React.FC = () => {
     const currentYear = now.getFullYear();
 
     // Prepare structure for last 5 months
-    const last5Months = [];
+    const last5Months: { name: string, month: number, year: number, pengeluaran: number, pendapatan: number }[] = [];
     for (let i = 4; i >= 0; i--) {
       // Create a date corresponding to (currentMonth - i) avoiding manual wrap logic
       const d = new Date(currentYear, currentMonth - i, 1);
@@ -72,7 +72,7 @@ const Statistics: React.FC = () => {
               <YAxis hide domain={[0, 'dataMax + 10000']} />
               <Tooltip 
                 cursor={{fill: 'var(--bg-color)'}} 
-                formatter={(val: number) => formatRupiah(val)}
+                formatter={(val: any) => formatRupiah(Number(val))}
               />
               <Legend wrapperStyle={{ fontSize: '12px' }}/>
               <Bar dataKey="pendapatan" fill="var(--secondary-blue)" radius={[4, 4, 0, 0]} name="Pendapatan" />
