@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { Plus, X, ArrowRightLeft, ArrowUpRight, ArrowDownRight, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, X, ArrowRightLeft, ArrowUpRight, ArrowDownRight, Trash2, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
+
+const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 const Transactions: React.FC = () => {
   const { transactions, assets, addTransaction, deleteTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewDate, setViewDate] = useState(new Date());
   
   // Form State
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
@@ -37,7 +40,6 @@ const Transactions: React.FC = () => {
 
   const saveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    
     addTransaction({
       type,
       amount: Number(amount.replace(/\./g, '')),
@@ -48,23 +50,80 @@ const Transactions: React.FC = () => {
       fromAssetId: type === 'transfer' ? fromAssetId : undefined,
       toAssetId: type === 'transfer' ? toAssetId : undefined,
     });
-    
     setIsModalOpen(false);
     setAmount(''); setNote('');
   };
 
+  const changeMonth = (offset: number) => {
+    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  };
+
+  const resetToToday = () => setViewDate(new Date());
+
+  const { filteredTransactions, monthlyIncome, monthlyExpense } = useMemo(() => {
+    const vM = viewDate.getMonth();
+    const vY = viewDate.getFullYear();
+    
+    let inc = 0;
+    let exp = 0;
+
+    const filtered = transactions.filter(tx => {
+      const txD = new Date(tx.date);
+      if (txD.getMonth() === vM && txD.getFullYear() === vY) {
+        if (tx.type === 'pendapatan') inc += tx.amount;
+        if (tx.type === 'pengeluaran') exp += tx.amount;
+        return true;
+      }
+      return false;
+    });
+
+    return { filteredTransactions: filtered, monthlyIncome: inc, monthlyExpense: exp };
+  }, [transactions, viewDate]);
+
   const getAssetName = (id?: string) => assets.find(a => a.id === id)?.name || 'Unknown';
 
   return (
-    <div className="page" style={{ paddingBottom: '80px' }}>
-      <h1 className="title">Transaksi</h1>
+    <div className="page" style={{ paddingBottom: '100px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
+        <button onClick={resetToToday} style={{ 
+          display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', 
+          borderRadius: '20px', border: '1px solid #e5e7eb', background: 'white',
+          fontSize: '12px', fontWeight: 600, color: 'var(--secondary-blue)', cursor: 'pointer'
+        }}>
+          <CalendarDays size={14} /> Hari Ini
+        </button>
+      </div>
+
+      {/* Month Switcher Header */}
+      <div className="card" style={{ padding: '8px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <ChevronLeft size={24} />
+          </button>
+          
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontWeight: 700, fontSize: '16px' }}>
+              {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '11px', fontWeight: 600 }}>
+              <span style={{ color: 'var(--secondary-blue)' }}>Masuk: Rp{monthlyIncome.toLocaleString('id-ID')}</span>
+              <span style={{ color: 'var(--primary-orange)' }}>Keluar: Rp{monthlyExpense.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+
+          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <ChevronRight size={24} />
+          </button>
+        </div>
+      </div>
       
-      {transactions.length === 0 ? (
+      {filteredTransactions.length === 0 ? (
         <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '40px' }}>
-          Belum ada transaksi. Klik + untuk menambah.
+          Tidak ada transaksi di bulan ini.
         </div>
       ) : (
-        transactions.map(tx => (
+        filteredTransactions.map(tx => (
           <div className="card" key={tx.id} style={{ display: 'flex', alignItems: 'center' }}>
             <div style={{ 
               width: 40, height: 40, borderRadius: '20px', 
