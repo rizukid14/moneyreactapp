@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MoneyProvider, useMoney } from './contexts/MoneyContext';
 import Layout from './components/Layout';
@@ -10,6 +11,14 @@ import LockScreen from './components/LockScreen';
 
 const AppContent: React.FC = () => {
   const { isAppLocked, theme } = useMoney();
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+  }, [theme]);
 
   if (isAppLocked) {
     return <LockScreen />;

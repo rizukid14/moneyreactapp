@@ -87,7 +87,7 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Notifikasi</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid #f3f4f6' }}>
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--border-subtle)' }}>
               <span>Pengingat Harian</span>
               <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--secondary-blue)', position: 'relative' }}>
                 <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', right: 2, top: 2 }} />
@@ -95,7 +95,7 @@ const Settings: React.FC = () => {
             </div>
             <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0' }}>
               <span>Laporan Mingguan</span>
-              <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: '#e5e7eb', position: 'relative' }}>
+              <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--bg-neutral)', position: 'relative' }}>
                 <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', left: 2, top: 2 }} />
               </div>
             </div>
@@ -114,7 +114,7 @@ const Settings: React.FC = () => {
               <div style={{ textAlign: 'center' }}>
                 <ShieldCheck size={48} color="var(--success-green)" style={{ margin: '0 auto 16px auto' }} />
                 <p style={{ marginBottom: '20px' }}>Keamanan PIN Aktif</p>
-                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: '#fee2e2', color: 'var(--danger-red)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
+                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-danger-subtle)', color: 'var(--danger-red)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
                 <button onClick={lockApp} className="btn btn-blue">Kunci Sekarang</button>
               </div>
             ) : (
@@ -222,7 +222,7 @@ const Settings: React.FC = () => {
               justifyContent: 'space-between', 
               alignItems: 'center',
               padding: '16px 0',
-              borderBottom: index < menuItems.length - 1 ? '1px solid #f3f4f6' : 'none',
+              borderBottom: index < menuItems.length - 1 ? '1px solid var(--border-subtle)' : 'none',
               cursor: 'pointer'
             }}>
               <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -238,8 +238,15 @@ const Settings: React.FC = () => {
         })}
       </div>
 
-      <div className="card" style={{ marginTop: '24px', textAlign: 'center', backgroundColor: '#f0f9ff', borderColor: '#bae6fd', borderStyle: 'solid', borderWidth: '1px' }}>
-         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--secondary-blue)', fontWeight: 600 }}>
+      <div className="card" style={{ 
+        marginTop: '24px', 
+        textAlign: 'center', 
+        backgroundColor: 'var(--bg-info-subtle)', 
+        borderColor: 'var(--secondary-blue)', 
+        borderStyle: 'solid', 
+        borderWidth: '1px' 
+      }}>
+         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--secondary-blue)', fontWeight: 700 }}>
             <Mail size={18} />
             Hubungi Dukungan
          </div>
@@ -247,10 +254,11 @@ const Settings: React.FC = () => {
       </div>
 
       <button className="btn" style={{ 
-        backgroundColor: '#fee2e2', 
+        backgroundColor: 'var(--bg-danger-subtle)', 
         color: 'var(--danger-red)', 
         display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px',
-        marginTop: '24px'
+        marginTop: '24px',
+        border: '1px solid var(--danger-red)'
       }}>
         <LogOut size={20} />
         Keluar
