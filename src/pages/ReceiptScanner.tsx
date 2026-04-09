@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, UploadCloud, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
+import { Camera, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 import { useMoney } from '../contexts/MoneyContext';
 
