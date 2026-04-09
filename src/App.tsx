@@ -9,24 +9,28 @@ import Settings from './pages/Settings';
 import LockScreen from './components/LockScreen';
 
 const AppContent: React.FC = () => {
-  const { isAppLocked } = useMoney();
+  const { isAppLocked, theme } = useMoney();
 
   if (isAppLocked) {
     return <LockScreen />;
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Transactions />} />
-          <Route path="stats" element={<Statistics />} />
-          <Route path="scan" element={<ReceiptScanner />} />
-          <Route path="assets" element={<Assets />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <div className={theme === 'dark' ? 'dark' : ''}>
+      <div className="app-container">
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Transactions />} />
+              <Route path="stats" element={<Statistics />} />
+              <Route path="scan" element={<ReceiptScanner />} />
+              <Route path="assets" element={<Assets />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </div>
+    </div>
   );
 };
 

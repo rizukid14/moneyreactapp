@@ -59,7 +59,7 @@ const Assets: React.FC = () => {
     <div className="page" style={{ paddingBottom: '80px' }}>
       <h1 className="title">Aset Saya</h1>
 
-      <div className="card" style={{ background: 'linear-gradient(135deg, var(--secondary-blue), #1e3a8a)', color: 'white', border: 'none' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg, var(--secondary-blue), #1d4ed8)', color: 'white', border: 'none' }}>
         <div style={{ opacity: 0.8, fontSize: '14px', marginBottom: '8px' }}>Total Kekayaan Bersih</div>
         <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '16px' }}>Rp{total.toLocaleString('id-ID')}</div>
       </div>

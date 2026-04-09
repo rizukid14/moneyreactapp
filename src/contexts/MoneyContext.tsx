@@ -33,6 +33,7 @@ interface MoneyContextType {
   user: UserProfile;
   pin: string | null;
   isAppLocked: boolean;
+  theme: 'light' | 'dark';
   addAsset: (asset: Omit<Asset, 'id'>) => void;
   deleteAsset: (id: string) => void;
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
@@ -42,6 +43,7 @@ interface MoneyContextType {
   setAppPin: (newPin: string | null) => void;
   unlockApp: (enteredPin: string) => boolean;
   lockApp: () => void;
+  toggleTheme: () => void;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -51,7 +53,8 @@ export const exportMoneyData = () => {
     assets: localStorage.getItem('moneyapp_assets_v2'),
     transactions: localStorage.getItem('moneyapp_transactions_v2'),
     user: localStorage.getItem('moneyapp_user'),
-    pin: localStorage.getItem('moneyapp_pin')
+    pin: localStorage.getItem('moneyapp_pin'),
+    theme: localStorage.getItem('moneyapp_theme')
   }
 }
 
@@ -61,6 +64,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [user, setUser] = useState<UserProfile>({ name: 'Pengguna MoneyApp', email: 'pengguna@email.com' });
   const [pin, setPin] = useState<string | null>(null);
   const [isAppLocked, setIsAppLocked] = useState<boolean>(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Load from local storage on mount
   useEffect(() => {
@@ -68,6 +72,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const savedTxs = localStorage.getItem('moneyapp_transactions_v2');
     const savedUser = localStorage.getItem('moneyapp_user');
     const savedPin = localStorage.getItem('moneyapp_pin');
+    const savedTheme = localStorage.getItem('moneyapp_theme');
 
     if (savedAssets) setAssets(JSON.parse(savedAssets));
     else {
@@ -83,6 +88,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setPin(savedPin);
       setIsAppLocked(true); // Lock if PIN exists
     }
+    if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
   }, []);
 
   // Sync to local storage
@@ -104,6 +110,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (pin) localStorage.setItem('moneyapp_pin', pin);
     else localStorage.removeItem('moneyapp_pin');
   }, [pin]);
+
+  useEffect(() => {
+    localStorage.setItem('moneyapp_theme', theme);
+  }, [theme]);
 
   const addAsset = (assetReq: Omit<Asset, 'id'>) => {
     const newAsset = { ...assetReq, id: Date.now().toString() };
@@ -163,11 +173,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (pin) setIsAppLocked(true);
   };
 
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
   return (
     <MoneyContext.Provider value={{
-      assets, transactions, user, pin, isAppLocked,
+      assets, transactions, user, pin, isAppLocked, theme,
       addAsset, deleteAsset, addTransaction, deleteTransaction, getAssetBalance,
-      updateUser, setAppPin, unlockApp, lockApp
+      updateUser, setAppPin, unlockApp, lockApp, toggleTheme
     }}>
       {children}
     </MoneyContext.Provider>

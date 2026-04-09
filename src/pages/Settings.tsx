@@ -3,7 +3,7 @@ import { User, Bell, Shield, Moon, CircleHelp, LogOut, ChevronRight, X, Lock, Sh
 import { useMoney } from '../contexts/MoneyContext';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Profile Form State
@@ -153,8 +153,38 @@ const Settings: React.FC = () => {
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
             <div style={{ textAlign: 'center', padding: '20px' }}>
-              <Moon size={48} color="var(--text-muted)" style={{ marginBottom: '16px' }} />
-              <p>Tema Gelap akan segera hadir di pembaruan mendatang!</p>
+              <div style={{ 
+                width: 80, height: 80, borderRadius: '40px', 
+                backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                margin: '0 auto 20px auto', color: theme === 'dark' ? '#fbbf24' : '#1f2937'
+              }}>
+                <Moon size={40} />
+              </div>
+              <p style={{ marginBottom: '20px' }}>Aktifkan mode gelap untuk kenyamanan mata di malam hari.</p>
+              
+              <div 
+                onClick={toggleTheme}
+                style={{ 
+                  width: '100%', height: '50px', borderRadius: '25px', 
+                  backgroundColor: theme === 'dark' ? 'var(--secondary-blue)' : '#e5e7eb',
+                  display: 'flex', alignItems: 'center', padding: '0 5px',
+                  justifyContent: theme === 'dark' ? 'flex-end' : 'flex-start',
+                  cursor: 'pointer', transition: 'background-color 0.3s'
+                }}>
+                <div style={{ 
+                  width: '40px', height: '40px', borderRadius: '20px', 
+                  backgroundColor: 'white',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                }}>
+                   {theme === 'dark' ? <Moon size={20} color="var(--secondary-blue)" /> : <User size={20} color="#9ca3af" />}
+                </div>
+              </div>
+              <p style={{ marginTop: '10px', fontWeight: 600, color: theme === 'dark' ? 'var(--secondary-blue)' : 'var(--text-muted)' }}>
+                {theme === 'dark' ? 'Mode Gelap Aktif' : 'Mode Terang Aktif'}
+              </p>
             </div>
           </>
         );

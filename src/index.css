@@ -11,7 +11,24 @@
   --success-green: #10b981;
   --danger-red: #ef4444;
 
+  --bg-expense: #fff1f2;
+  --bg-income: #eff6ff;
+  --bg-neutral: #f3f4f6;
+  --border-color: #e5e7eb;
+
   --nav-height: 64px;
+}
+
+.dark {
+  --bg-color: #0f172a;
+  --bg-card: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
+
+  --bg-expense: #450a0a;
+  --bg-income: #172554;
+  --bg-neutral: #1e293b;
 }
 
 * {
@@ -153,7 +170,9 @@ h2.subtitle {
 input, select {
   width: 100%;
   padding: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
   border-radius: 8px;
   margin-bottom: 16px;
   font-family: inherit;
