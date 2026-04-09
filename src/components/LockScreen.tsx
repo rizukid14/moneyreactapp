@@ -19,11 +19,11 @@ const LockScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    if (enteredPin.length >= 4) {
+    if (enteredPin.length >= 6) {
       // Small delay for UX so user sees the last bubble filled
       const timer = setTimeout(() => {
         const success = unlockApp(enteredPin);
-        if (!success && enteredPin.length >= 4) {
+        if (!success && enteredPin.length >= 6) {
            setError(true);
            setEnteredPin('');
         }

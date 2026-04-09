@@ -43,8 +43,8 @@ const Settings: React.FC = () => {
 
   const handleSetPin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPin.length < 4) {
-      setPinError('PIN minimal 4 digit');
+    if (newPin.length < 6) {
+      setPinError('PIN harus 6 digit');
       return;
     }
     if (newPin !== confirmPin) {
@@ -127,7 +127,7 @@ const Settings: React.FC = () => {
                   type="password" 
                   inputMode="numeric" 
                   maxLength={6} 
-                  placeholder="Masukkan PIN Baru (Min 4 digit)" 
+                  placeholder="Masukkan PIN Baru (6 digit)" 
                   value={newPin} 
                   onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} 
                 />
