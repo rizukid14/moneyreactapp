@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, X } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -9,12 +9,13 @@ const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'
 const Statistics: React.FC = () => {
   const { transactions } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'month' | 'year'>('month');
 
   const { chartData, currentMonthIncome, currentMonthExpense } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
-    // Prepare structure for last 5 months relative to viewDate
     const last5Months: { name: string, month: number, year: number, pengeluaran: number, pendapatan: number }[] = [];
     for (let i = 4; i >= 0; i--) {
       const d = new Date(vY, vM - i, 1);
@@ -35,13 +36,11 @@ const Statistics: React.FC = () => {
       const txM = txDate.getMonth();
       const txY = txDate.getFullYear();
 
-      // Check if viewing month
       if (txM === vM && txY === vY) {
         if (tx.type === 'pendapatan') thisMonthInc += tx.amount;
         if (tx.type === 'pengeluaran') thisMonthExp += tx.amount;
       }
 
-      // Populate chart data
       const chartItem = last5Months.find(m => m.month === txM && m.year === txY);
       if (chartItem) {
         if (tx.type === 'pendapatan') chartItem.pendapatan += tx.amount;
@@ -56,8 +55,27 @@ const Statistics: React.FC = () => {
     };
   }, [transactions, viewDate]);
 
+  const yearList = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+      years.push(i);
+    }
+    return years;
+  }, []);
+
   const changeMonth = (offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  };
+
+  const selectMonth = (idx: number) => {
+    setViewDate(new Date(viewDate.getFullYear(), idx, 1));
+    setIsDatePickerOpen(false);
+  };
+
+  const selectYear = (year: number) => {
+    setViewDate(new Date(year, viewDate.getMonth(), 1));
+    setPickerMode('month');
   };
 
   const resetToToday = () => setViewDate(new Date());
@@ -84,9 +102,12 @@ const Statistics: React.FC = () => {
             <ChevronLeft size={24} />
           </button>
           
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontWeight: 700, fontSize: '16px' }}>
+          <div 
+            onClick={() => { setIsDatePickerOpen(true); setPickerMode('month'); }}
+            style={{ textAlign: 'center', cursor: 'pointer', padding: '4px 12px', borderRadius: '8px' }}>
+            <div style={{ fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
               {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
+              <ChevronDown size={16} color="var(--text-muted)" />
             </div>
           </div>
 
@@ -127,6 +148,75 @@ const Statistics: React.FC = () => {
           <span style={{ color: 'var(--primary-orange)', fontWeight: 'bold' }}>{formatRupiah(currentMonthExpense)}</span>
         </div>
       </div>
+
+      {/* Date Picker Modal */}
+      {isDatePickerOpen && (
+        <div className="modal-overlay" onClick={() => setIsDatePickerOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ paddingBottom: '30px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={() => setPickerMode('month')}
+                  style={{ 
+                    padding: '4px 12px', borderRadius: '15px', border: 'none',
+                    backgroundColor: pickerMode === 'month' ? 'var(--secondary-blue)' : '#f3f4f6',
+                    color: pickerMode === 'month' ? 'white' : 'var(--text-muted)',
+                    fontWeight: 600, fontSize: '12px', cursor: 'pointer'
+                  }}>Bulan</button>
+                <button 
+                  onClick={() => setPickerMode('year')}
+                  style={{ 
+                    padding: '4px 12px', borderRadius: '15px', border: 'none',
+                    backgroundColor: pickerMode === 'year' ? 'var(--secondary-blue)' : '#f3f4f6',
+                    color: pickerMode === 'year' ? 'white' : 'var(--text-muted)',
+                    fontWeight: 600, fontSize: '12px', cursor: 'pointer'
+                  }}>Tahun</button>
+              </div>
+              <button className="close-btn" onClick={() => setIsDatePickerOpen(false)}><X size={24} /></button>
+            </div>
+
+            <div style={{ marginTop: '20px' }}>
+              {pickerMode === 'month' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                  {MONTH_NAMES.map((m, i) => (
+                    <button 
+                      key={m} 
+                      onClick={() => selectMonth(i)}
+                      style={{ 
+                        padding: '16px 8px', borderRadius: '12px', border: '1px solid #e5e7eb',
+                        backgroundColor: i === viewDate.getMonth() ? '#eff6ff' : 'white',
+                        borderColor: i === viewDate.getMonth() ? 'var(--secondary-blue)' : '#e5e7eb',
+                        color: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--text-main)',
+                        fontWeight: i === viewDate.getMonth() ? 700 : 500,
+                        cursor: 'pointer'
+                      }}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                  {yearList.map(y => (
+                    <button 
+                      key={y} 
+                      onClick={() => selectYear(y)}
+                      style={{ 
+                        padding: '16px 8px', borderRadius: '12px', border: '1px solid #e5e7eb',
+                        backgroundColor: y === viewDate.getFullYear() ? '#fff7ed' : 'white',
+                        borderColor: y === viewDate.getFullYear() ? 'var(--primary-orange)' : '#e5e7eb',
+                        color: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--text-main)',
+                        fontWeight: y === viewDate.getFullYear() ? 700 : 500,
+                        cursor: 'pointer'
+                      }}>
+                      {y}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
