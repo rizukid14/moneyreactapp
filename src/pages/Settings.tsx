@@ -19,7 +19,6 @@ const Settings: React.FC = () => {
     { id: 'profile', icon: User, label: 'Profil Saya' },
     { id: 'notif', icon: Bell, label: 'Notifikasi' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
-    { id: 'theme', icon: Moon, label: 'Tema Gelap' },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
   ];
 
@@ -145,49 +144,7 @@ const Settings: React.FC = () => {
             )}
           </>
         );
-      case 'theme':
-        return (
-          <>
-            <div className="modal-header">
-              <h2 className="subtitle">Tema Aplikasi</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
-            </div>
-            <div style={{ textAlign: 'center', padding: '20px' }}>
-              <div style={{ 
-                width: 80, height: 80, borderRadius: '40px', 
-                backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
-                display: 'flex', justifyContent: 'center', alignItems: 'center',
-                margin: '0 auto 20px auto', color: theme === 'dark' ? '#fbbf24' : '#1f2937'
-              }}>
-                <Moon size={40} />
-              </div>
-              <p style={{ marginBottom: '20px' }}>Aktifkan mode gelap untuk kenyamanan mata di malam hari.</p>
-              
-              <div 
-                onClick={toggleTheme}
-                style={{ 
-                  width: '100%', height: '50px', borderRadius: '25px', 
-                  backgroundColor: theme === 'dark' ? 'var(--secondary-blue)' : '#e5e7eb',
-                  display: 'flex', alignItems: 'center', padding: '0 5px',
-                  justifyContent: theme === 'dark' ? 'flex-end' : 'flex-start',
-                  cursor: 'pointer', transition: 'background-color 0.3s'
-                }}>
-                <div style={{ 
-                  width: '40px', height: '40px', borderRadius: '20px', 
-                  backgroundColor: 'white',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  display: 'flex', justifyContent: 'center', alignItems: 'center',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-                }}>
-                   {theme === 'dark' ? <Moon size={20} color="var(--secondary-blue)" /> : <User size={20} color="#9ca3af" />}
-                </div>
-              </div>
-              <p style={{ marginTop: '10px', fontWeight: 600, color: theme === 'dark' ? 'var(--secondary-blue)' : 'var(--text-muted)' }}>
-                {theme === 'dark' ? 'Mode Gelap Aktif' : 'Mode Terang Aktif'}
-              </p>
-            </div>
-          </>
-        );
+
       default:
         return null;
     }
@@ -214,26 +171,60 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="card" style={{ padding: '8px 16px' }}>
-        {menuItems.map((item, index) => {
+        {menuItems.map((item) => {
           const Icon = item.icon;
           return (
-            <div key={item.id} onClick={() => handleMenuClick(item.id)} style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              padding: '16px 0',
-              borderBottom: index < menuItems.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-              cursor: 'pointer'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Icon size={20} color={item.id === 'security' && pin ? 'var(--success-green)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
-                <span style={{ fontWeight: 500 }}>{item.label}</span>
+            <React.Fragment key={item.id}>
+              <div onClick={() => handleMenuClick(item.id)} style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: '16px 0',
+                borderBottom: '1px solid var(--border-subtle)',
+                cursor: 'pointer'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success-green)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
+                  <span style={{ fontWeight: 500 }}>{item.label}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success-green)', fontWeight: 600 }}>AKTIF</span>}
+                  <ChevronRight size={20} color="var(--text-muted)" />
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success-green)', fontWeight: 600 }}>AKTIF</span>}
-                <ChevronRight size={20} color="var(--text-muted)" />
-              </div>
-            </div>
+
+              {/* Tema Row - Inserted after Security */}
+              {item.id === 'security' && (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  padding: '16px 0',
+                  borderBottom: '1px solid var(--border-subtle)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />
+                    <span style={{ fontWeight: 500 }}>Tema Gelap</span>
+                  </div>
+                  <div 
+                    onClick={toggleTheme}
+                    style={{ 
+                      width: '44px', height: '24px', borderRadius: '12px', 
+                      backgroundColor: theme === 'dark' ? 'var(--secondary-blue)' : 'var(--border-color)',
+                      display: 'flex', alignItems: 'center', padding: '0 2px',
+                      cursor: 'pointer', transition: 'all 0.3s'
+                    }}>
+                    <div style={{ 
+                      width: '20px', height: '20px', borderRadius: '10px', 
+                      backgroundColor: 'white',
+                      transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                    }} />
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
       </div>
