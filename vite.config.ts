@@ -13,16 +13,13 @@ export default defineConfig({
         short_name: 'MoneyApp',
         description: 'Track your expenses and incomes easily',
         theme_color: '#f97316',
+        start_url: '/',
         icons: [
           {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            src: 'vite.svg',
+            sizes: '192x192 512x512',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
           }
         ],
         display: 'standalone',
