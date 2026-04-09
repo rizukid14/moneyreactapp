@@ -88,7 +88,7 @@ const Statistics: React.FC = () => {
         <h1 className="title" style={{ margin: 0 }}>Statistik</h1>
         <button onClick={resetToToday} style={{ 
           display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', 
-          borderRadius: '20px', border: '1px solid #e5e7eb', background: 'white',
+          borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-card)',
           fontSize: '12px', fontWeight: 600, color: 'var(--secondary-blue)', cursor: 'pointer'
         }}>
           <CalendarDays size={14} /> Hari Ini
@@ -159,7 +159,7 @@ const Statistics: React.FC = () => {
                   onClick={() => setPickerMode('month')}
                   style={{ 
                     padding: '4px 12px', borderRadius: '15px', border: 'none',
-                    backgroundColor: pickerMode === 'month' ? 'var(--secondary-blue)' : '#f3f4f6',
+                    backgroundColor: pickerMode === 'month' ? 'var(--secondary-blue)' : 'var(--bg-neutral)',
                     color: pickerMode === 'month' ? 'white' : 'var(--text-muted)',
                     fontWeight: 600, fontSize: '12px', cursor: 'pointer'
                   }}>Bulan</button>
@@ -167,7 +167,7 @@ const Statistics: React.FC = () => {
                   onClick={() => setPickerMode('year')}
                   style={{ 
                     padding: '4px 12px', borderRadius: '15px', border: 'none',
-                    backgroundColor: pickerMode === 'year' ? 'var(--secondary-blue)' : '#f3f4f6',
+                    backgroundColor: pickerMode === 'year' ? 'var(--secondary-blue)' : 'var(--bg-neutral)',
                     color: pickerMode === 'year' ? 'white' : 'var(--text-muted)',
                     fontWeight: 600, fontSize: '12px', cursor: 'pointer'
                   }}>Tahun</button>
@@ -183,9 +183,9 @@ const Statistics: React.FC = () => {
                       key={m} 
                       onClick={() => selectMonth(i)}
                       style={{ 
-                        padding: '16px 8px', borderRadius: '12px', border: '1px solid #e5e7eb',
-                        backgroundColor: i === viewDate.getMonth() ? '#eff6ff' : 'white',
-                        borderColor: i === viewDate.getMonth() ? 'var(--secondary-blue)' : '#e5e7eb',
+                        padding: '16px 8px', borderRadius: '12px', border: '1px solid var(--border-color)',
+                        backgroundColor: i === viewDate.getMonth() ? 'var(--bg-income)' : 'var(--bg-card)',
+                        borderColor: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--border-color)',
                         color: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--text-main)',
                         fontWeight: i === viewDate.getMonth() ? 700 : 500,
                         cursor: 'pointer'
@@ -201,9 +201,9 @@ const Statistics: React.FC = () => {
                       key={y} 
                       onClick={() => selectYear(y)}
                       style={{ 
-                        padding: '16px 8px', borderRadius: '12px', border: '1px solid #e5e7eb',
-                        backgroundColor: y === viewDate.getFullYear() ? '#fff7ed' : 'white',
-                        borderColor: y === viewDate.getFullYear() ? 'var(--primary-orange)' : '#e5e7eb',
+                        padding: '16px 8px', borderRadius: '12px', border: '1px solid var(--border-color)',
+                        backgroundColor: y === viewDate.getFullYear() ? 'var(--bg-expense)' : 'var(--bg-card)',
+                        borderColor: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--border-color)',
                         color: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--text-main)',
                         fontWeight: y === viewDate.getFullYear() ? 700 : 500,
                         cursor: 'pointer'

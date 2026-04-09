@@ -110,7 +110,7 @@ const Transactions: React.FC = () => {
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
         <button onClick={resetToToday} style={{ 
           display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', 
-          borderRadius: '20px', border: '1px solid #e5e7eb', background: 'white',
+          borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-card)',
           fontSize: '12px', fontWeight: 600, color: 'var(--secondary-blue)', cursor: 'pointer'
         }}>
           <CalendarDays size={14} /> Hari Ini
@@ -152,7 +152,7 @@ const Transactions: React.FC = () => {
           <div className="card" key={tx.id} style={{ display: 'flex', alignItems: 'center' }}>
             <div style={{ 
               width: 40, height: 40, borderRadius: '20px', 
-              backgroundColor: tx.type === 'pengeluaran' ? '#fff1f2' : tx.type === 'pendapatan' ? '#eff6ff' : '#f3f4f6',
+              backgroundColor: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
               display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '16px',
               color: tx.type === 'pengeluaran' ? 'var(--danger-red)' : tx.type === 'pendapatan' ? 'var(--secondary-blue)' : 'var(--text-muted)'
             }}>
@@ -214,9 +214,9 @@ const Transactions: React.FC = () => {
                       key={m} 
                       onClick={() => selectMonth(i)}
                       style={{ 
-                        padding: '16px 8px', borderRadius: '12px', border: '1px solid #e5e7eb',
-                        backgroundColor: i === viewDate.getMonth() ? '#eff6ff' : 'white',
-                        borderColor: i === viewDate.getMonth() ? 'var(--secondary-blue)' : '#e5e7eb',
+                        padding: '16px 8px', borderRadius: '12px', border: '1px solid var(--border-color)',
+                        backgroundColor: i === viewDate.getMonth() ? 'var(--bg-income)' : 'var(--bg-card)',
+                        borderColor: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--border-color)',
                         color: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--text-main)',
                         fontWeight: i === viewDate.getMonth() ? 700 : 500,
                         cursor: 'pointer'
@@ -232,9 +232,9 @@ const Transactions: React.FC = () => {
                       key={y} 
                       onClick={() => selectYear(y)}
                       style={{ 
-                        padding: '16px 8px', borderRadius: '12px', border: '1px solid #e5e7eb',
-                        backgroundColor: y === viewDate.getFullYear() ? '#fff7ed' : 'white',
-                        borderColor: y === viewDate.getFullYear() ? 'var(--primary-orange)' : '#e5e7eb',
+                        padding: '16px 8px', borderRadius: '12px', border: '1px solid var(--border-color)',
+                        backgroundColor: y === viewDate.getFullYear() ? 'var(--bg-expense)' : 'var(--bg-card)',
+                        borderColor: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--border-color)',
                         color: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--text-main)',
                         fontWeight: y === viewDate.getFullYear() ? 700 : 500,
                         cursor: 'pointer'
@@ -268,9 +268,9 @@ const Transactions: React.FC = () => {
             ) : (
               <form onSubmit={saveTransaction}>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                  <button type="button" onClick={() => setType('pengeluaran')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: type === 'pengeluaran' ? '2px solid var(--primary-orange)' : '1px solid #e5e7eb', background: type === 'pengeluaran' ? '#fff7ed' : 'white', fontWeight: 600, color: type === 'pengeluaran' ? 'var(--primary-orange)' : 'var(--text-muted)' }}>Pengeluaran</button>
-                  <button type="button" onClick={() => setType('pendapatan')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: type === 'pendapatan' ? '2px solid var(--secondary-blue)' : '1px solid #e5e7eb', background: type === 'pendapatan' ? '#eff6ff' : 'white', fontWeight: 600, color: type === 'pendapatan' ? 'var(--secondary-blue)' : 'var(--text-muted)' }}>Pendapatan</button>
-                  <button type="button" onClick={() => setType('transfer')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: type === 'transfer' ? '2px solid #6b7280' : '1px solid #e5e7eb', background: type === 'transfer' ? '#f3f4f6' : 'white', fontWeight: 600, color: type === 'transfer' ? '#374151' : 'var(--text-muted)' }}>Transfer</button>
+                  <button type="button" onClick={() => setType('pengeluaran')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: type === 'pengeluaran' ? '2px solid var(--primary-orange)' : '1px solid var(--border-color)', background: type === 'pengeluaran' ? 'var(--bg-expense)' : 'var(--bg-card)', fontWeight: 600, color: type === 'pengeluaran' ? 'var(--primary-orange)' : 'var(--text-muted)' }}>Pengeluaran</button>
+                  <button type="button" onClick={() => setType('pendapatan')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: type === 'pendapatan' ? '2px solid var(--secondary-blue)' : '1px solid var(--border-color)', background: type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-card)', fontWeight: 600, color: type === 'pendapatan' ? 'var(--secondary-blue)' : 'var(--text-muted)' }}>Pendapatan</button>
+                  <button type="button" onClick={() => setType('transfer')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: type === 'transfer' ? '2px solid var(--text-muted)' : '1px solid var(--border-color)', background: type === 'transfer' ? 'var(--bg-neutral)' : 'var(--bg-card)', fontWeight: 600, color: type === 'transfer' ? 'var(--text-main)' : 'var(--text-muted)' }}>Transfer</button>
                 </div>
                 
                 <input type="text" inputMode="numeric" required placeholder="Nominal (Rp)" value={amount} onChange={handleAmountChange} />

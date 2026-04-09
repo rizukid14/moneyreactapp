@@ -3,7 +3,7 @@ import { User, Bell, Shield, Moon, CircleHelp, LogOut, ChevronRight, X, Lock, Sh
 import { useMoney } from '../contexts/MoneyContext';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Profile Form State
@@ -19,7 +19,6 @@ const Settings: React.FC = () => {
     { id: 'profile', icon: User, label: 'Profil Saya' },
     { id: 'notif', icon: Bell, label: 'Notifikasi' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
-    { id: 'theme', icon: Moon, label: 'Tema Gelap' },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
   ];
 
@@ -87,7 +86,7 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Notifikasi</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid #f3f4f6' }}>
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--border-subtle)' }}>
               <span>Pengingat Harian</span>
               <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--secondary-blue)', position: 'relative' }}>
                 <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', right: 2, top: 2 }} />
@@ -95,7 +94,7 @@ const Settings: React.FC = () => {
             </div>
             <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0' }}>
               <span>Laporan Mingguan</span>
-              <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: '#e5e7eb', position: 'relative' }}>
+              <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--bg-neutral)', position: 'relative' }}>
                 <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', left: 2, top: 2 }} />
               </div>
             </div>
@@ -114,7 +113,7 @@ const Settings: React.FC = () => {
               <div style={{ textAlign: 'center' }}>
                 <ShieldCheck size={48} color="var(--success-green)" style={{ margin: '0 auto 16px auto' }} />
                 <p style={{ marginBottom: '20px' }}>Keamanan PIN Aktif</p>
-                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: '#fee2e2', color: 'var(--danger-red)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
+                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-danger-subtle)', color: 'var(--danger-red)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
                 <button onClick={lockApp} className="btn btn-blue">Kunci Sekarang</button>
               </div>
             ) : (
@@ -145,19 +144,7 @@ const Settings: React.FC = () => {
             )}
           </>
         );
-      case 'theme':
-        return (
-          <>
-            <div className="modal-header">
-              <h2 className="subtitle">Tema Aplikasi</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
-            </div>
-            <div style={{ textAlign: 'center', padding: '20px' }}>
-              <Moon size={48} color="var(--text-muted)" style={{ marginBottom: '16px' }} />
-              <p>Tema Gelap akan segera hadir di pembaruan mendatang!</p>
-            </div>
-          </>
-        );
+
       default:
         return null;
     }
@@ -184,32 +171,73 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="card" style={{ padding: '8px 16px' }}>
-        {menuItems.map((item, index) => {
+        {menuItems.map((item) => {
           const Icon = item.icon;
           return (
-            <div key={item.id} onClick={() => handleMenuClick(item.id)} style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              padding: '16px 0',
-              borderBottom: index < menuItems.length - 1 ? '1px solid #f3f4f6' : 'none',
-              cursor: 'pointer'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Icon size={20} color={item.id === 'security' && pin ? 'var(--success-green)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
-                <span style={{ fontWeight: 500 }}>{item.label}</span>
+            <React.Fragment key={item.id}>
+              <div onClick={() => handleMenuClick(item.id)} style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: '16px 0',
+                borderBottom: '1px solid var(--border-subtle)',
+                cursor: 'pointer'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success-green)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
+                  <span style={{ fontWeight: 500 }}>{item.label}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success-green)', fontWeight: 600 }}>AKTIF</span>}
+                  <ChevronRight size={20} color="var(--text-muted)" />
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success-green)', fontWeight: 600 }}>AKTIF</span>}
-                <ChevronRight size={20} color="var(--text-muted)" />
-              </div>
-            </div>
+
+              {/* Tema Row - Inserted after Security */}
+              {item.id === 'security' && (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  padding: '16px 0',
+                  borderBottom: '1px solid var(--border-subtle)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />
+                    <span style={{ fontWeight: 500 }}>Tema Gelap</span>
+                  </div>
+                  <div 
+                    onClick={toggleTheme}
+                    style={{ 
+                      width: '44px', height: '24px', borderRadius: '12px', 
+                      backgroundColor: theme === 'dark' ? 'var(--secondary-blue)' : 'var(--border-color)',
+                      display: 'flex', alignItems: 'center', padding: '0 2px',
+                      cursor: 'pointer', transition: 'all 0.3s'
+                    }}>
+                    <div style={{ 
+                      width: '20px', height: '20px', borderRadius: '10px', 
+                      backgroundColor: 'white',
+                      transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                    }} />
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
       </div>
 
-      <div className="card" style={{ marginTop: '24px', textAlign: 'center', backgroundColor: '#f0f9ff', borderColor: '#bae6fd', borderStyle: 'solid', borderWidth: '1px' }}>
-         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--secondary-blue)', fontWeight: 600 }}>
+      <div className="card" style={{ 
+        marginTop: '24px', 
+        textAlign: 'center', 
+        backgroundColor: 'var(--bg-info-subtle)', 
+        borderColor: 'var(--secondary-blue)', 
+        borderStyle: 'solid', 
+        borderWidth: '1px' 
+      }}>
+         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--secondary-blue)', fontWeight: 700 }}>
             <Mail size={18} />
             Hubungi Dukungan
          </div>
@@ -217,10 +245,11 @@ const Settings: React.FC = () => {
       </div>
 
       <button className="btn" style={{ 
-        backgroundColor: '#fee2e2', 
+        backgroundColor: 'var(--bg-danger-subtle)', 
         color: 'var(--danger-red)', 
         display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px',
-        marginTop: '24px'
+        marginTop: '24px',
+        border: '1px solid var(--danger-red)'
       }}>
         <LogOut size={20} />
         Keluar
