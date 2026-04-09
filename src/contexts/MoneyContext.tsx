@@ -3,6 +3,11 @@ import type { ReactNode } from 'react';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet';
 
+export interface UserProfile {
+  name: string;
+  email: string;
+}
+
 export interface Asset {
   id: string;
   name: string;
@@ -25,11 +30,18 @@ export interface Transaction {
 interface MoneyContextType {
   assets: Asset[];
   transactions: Transaction[];
+  user: UserProfile;
+  pin: string | null;
+  isAppLocked: boolean;
   addAsset: (asset: Omit<Asset, 'id'>) => void;
   deleteAsset: (id: string) => void;
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
   deleteTransaction: (id: string) => void;
   getAssetBalance: (assetId: string) => number;
+  updateUser: (user: UserProfile) => void;
+  setAppPin: (newPin: string | null) => void;
+  unlockApp: (enteredPin: string) => boolean;
+  lockApp: () => void;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -37,18 +49,25 @@ const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
 export const exportMoneyData = () => {
   return {
     assets: localStorage.getItem('moneyapp_assets_v2'),
-    transactions: localStorage.getItem('moneyapp_transactions_v2')
+    transactions: localStorage.getItem('moneyapp_transactions_v2'),
+    user: localStorage.getItem('moneyapp_user'),
+    pin: localStorage.getItem('moneyapp_pin')
   }
 }
 
 export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [user, setUser] = useState<UserProfile>({ name: 'Pengguna MoneyApp', email: 'pengguna@email.com' });
+  const [pin, setPin] = useState<string | null>(null);
+  const [isAppLocked, setIsAppLocked] = useState<boolean>(false);
 
   // Load from local storage on mount
   useEffect(() => {
     const savedAssets = localStorage.getItem('moneyapp_assets_v2');
     const savedTxs = localStorage.getItem('moneyapp_transactions_v2');
+    const savedUser = localStorage.getItem('moneyapp_user');
+    const savedPin = localStorage.getItem('moneyapp_pin');
 
     if (savedAssets) setAssets(JSON.parse(savedAssets));
     else {
@@ -59,6 +78,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     if (savedTxs) setTransactions(JSON.parse(savedTxs));
+    if (savedUser) setUser(JSON.parse(savedUser));
+    if (savedPin) {
+      setPin(savedPin);
+      setIsAppLocked(true); // Lock if PIN exists
+    }
   }, []);
 
   // Sync to local storage
@@ -72,6 +96,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     localStorage.setItem('moneyapp_transactions_v2', JSON.stringify(transactions));
   }, [transactions]);
 
+  useEffect(() => {
+    localStorage.setItem('moneyapp_user', JSON.stringify(user));
+  }, [user]);
+
+  useEffect(() => {
+    if (pin) localStorage.setItem('moneyapp_pin', pin);
+    else localStorage.removeItem('moneyapp_pin');
+  }, [pin]);
+
   const addAsset = (assetReq: Omit<Asset, 'id'>) => {
     const newAsset = { ...assetReq, id: Date.now().toString() };
     setAssets(prev => [...prev, newAsset]);
@@ -79,7 +112,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const deleteAsset = (id: string) => {
     setAssets(prev => prev.filter(a => a.id !== id));
-    // We optionally might want to clean up transactions too, but let's just keep them or orphans will just not affect balance.
   };
 
   const addTransaction = (txReq: Omit<Transaction, 'id'>) => {
@@ -101,8 +133,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (tx.type === 'pendapatan' && tx.assetId === assetId) {
         balance += tx.amount;
       } else if (tx.type === 'pengeluaran' && tx.assetId === assetId) {
-        // Jika Credit Card, pengeluaran berarti ngurangin balance positif kah? 
-        // Biasanya Credit Card itu minus, tapi anggap saldo = uang kita. Kalo Credit Card, ini limit terpotong.
         balance -= tx.amount;
       } else if (tx.type === 'transfer' && tx.fromAssetId === assetId) {
         balance -= tx.amount;
@@ -114,9 +144,30 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return balance;
   };
 
+  const updateUser = (newUser: UserProfile) => setUser(newUser);
+  
+  const setAppPin = (newPin: string | null) => {
+    setPin(newPin);
+    if (!newPin) setIsAppLocked(false);
+  };
+
+  const unlockApp = (enteredPin: string) => {
+    if (enteredPin === pin) {
+      setIsAppLocked(false);
+      return true;
+    }
+    return false;
+  };
+
+  const lockApp = () => {
+    if (pin) setIsAppLocked(true);
+  };
+
   return (
     <MoneyContext.Provider value={{
-      assets, transactions, addAsset, deleteAsset, addTransaction, deleteTransaction, getAssetBalance
+      assets, transactions, user, pin, isAppLocked,
+      addAsset, deleteAsset, addTransaction, deleteTransaction, getAssetBalance,
+      updateUser, setAppPin, unlockApp, lockApp
     }}>
       {children}
     </MoneyContext.Provider>
