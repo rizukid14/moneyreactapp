@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2 } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2, Pencil } from 'lucide-react';
 import type { Transaction } from '../../contexts/MoneyContext';
 
 interface TransactionItemProps {
@@ -8,6 +8,7 @@ interface TransactionItemProps {
   fromAssetName?: string;
   toAssetName?: string;
   onDelete: (id: string) => void;
+  onEdit: (tx: Transaction) => void;
 }
 
 const TransactionItem: React.FC<TransactionItemProps> = ({ 
@@ -15,7 +16,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   assetName, 
   fromAssetName, 
   toAssetName, 
-  onDelete 
+  onDelete,
+  onEdit
 }) => {
   return (
     <div className="card transaction-card" style={{ display: 'flex', alignItems: 'center' }}>
@@ -44,12 +46,20 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}Rp{tx.amount.toLocaleString('id-ID')}
       </div>
 
-      <button 
-        onClick={() => confirm('Hapus transaksi ini?') && onDelete(tx.id)} 
-        style={{ background: 'none', border: 'none', color: '#cbd5e1', padding: '0 0 0 12px', cursor: 'pointer' }}
-      >
-        <Trash2 size={16} />
-      </button>
+      <div style={{ display: 'flex', gap: '4px', marginLeft: '12px' }}>
+        <button 
+          onClick={() => onEdit(tx)} 
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px', cursor: 'pointer', opacity: 0.6 }}
+        >
+          <Pencil size={16} />
+        </button>
+        <button 
+          onClick={() => confirm('Hapus transaksi ini?') && onDelete(tx.id)} 
+          style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: '4px', cursor: 'pointer', opacity: 0.6 }}
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
     </div>
   );
 };

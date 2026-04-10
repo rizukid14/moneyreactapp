@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
+import type { Transaction } from '../contexts/MoneyContext';
 import TransactionItem from '../components/transactions/TransactionItem';
 import TransactionModal from '../components/modals/TransactionModal';
 import DatePickerModal from '../components/modals/DatePickerModal';
@@ -8,8 +9,9 @@ import DatePickerModal from '../components/modals/DatePickerModal';
 const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 const Transactions: React.FC = () => {
-  const { transactions, assets, addTransaction, deleteTransaction } = useMoney();
+  const { transactions, assets, addTransaction, deleteTransaction, updateTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
 
@@ -45,8 +47,23 @@ const Transactions: React.FC = () => {
     return assets.find(a => a.id === id)?.name || 'Unknown';
   }, [assets]);
 
+  const handleEdit = useCallback((tx: Transaction) => {
+    setEditingTransaction(tx);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleAdd = () => {
+    setEditingTransaction(null);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setEditingTransaction(null);
+  }, []);
+
   return (
-    <div className="page" style={{ paddingBottom: '100px' }}>
+    <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
         <button onClick={resetToToday} style={{
@@ -98,12 +115,12 @@ const Transactions: React.FC = () => {
               fromAssetName={getAssetName(tx.fromAssetId)}
               toAssetName={getAssetName(tx.toAssetId)}
               onDelete={deleteTransaction}
+              onEdit={handleEdit}
             />
           ))
         )}
       </div>
 
-      {/* Modals extracted for performance and readability */}
       <DatePickerModal 
         isOpen={isDatePickerOpen}
         onClose={() => setIsDatePickerOpen(false)}
@@ -111,15 +128,17 @@ const Transactions: React.FC = () => {
         onSelectDate={setViewDate}
       />
 
-      <button className="fab" onClick={() => setIsModalOpen(true)}>
+      <button className="fab" onClick={handleAdd}>
         <Plus size={32} strokeWidth={3} />
       </button>
 
       <TransactionModal 
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
         assets={assets}
         addTransaction={addTransaction}
+        updateTransaction={updateTransaction}
+        editingTransaction={editingTransaction}
       />
     </div>
   );

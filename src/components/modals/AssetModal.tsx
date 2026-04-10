@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Asset, AssetType } from '../../contexts/MoneyContext';
 
@@ -6,12 +6,26 @@ interface AssetModalProps {
   isOpen: boolean;
   onClose: () => void;
   addAsset: (asset: Omit<Asset, 'id'>) => void;
+  updateAsset?: (id: string, asset: Partial<Asset>) => void;
+  editingAsset?: Asset | null;
 }
 
-const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset }) => {
+const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, updateAsset, editingAsset }) => {
   const [name, setName] = useState('');
   const [type, setType] = useState<AssetType>('Cash');
   const [initialBalance, setInitialBalance] = useState('');
+
+  useEffect(() => {
+    if (editingAsset) {
+      setName(editingAsset.name);
+      setType(editingAsset.type);
+      setInitialBalance(editingAsset.initialBalance.toLocaleString('id-ID'));
+    } else {
+      setName('');
+      setType('Cash');
+      setInitialBalance('');
+    }
+  }, [editingAsset, isOpen]);
 
   if (!isOpen) return null;
 
@@ -26,13 +40,17 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset }) =>
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    addAsset({
+    const assetData = {
       name,
       type,
       initialBalance: Number(initialBalance.replace(/\./g, '')) || 0,
-    });
-    setName('');
-    setInitialBalance('');
+    };
+
+    if (editingAsset && updateAsset) {
+      updateAsset(editingAsset.id, assetData);
+    } else {
+      addAsset(assetData);
+    }
     onClose();
   };
 
@@ -40,7 +58,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset }) =>
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="subtitle" style={{ margin: 0 }}>Tambah Aset Baru</h2>
+          <h2 className="subtitle" style={{ margin: 0 }}>{editingAsset ? 'Edit Aset' : 'Tambah Aset Baru'}</h2>
           <button className="close-btn" onClick={onClose}><X size={24} /></button>
         </div>
         
@@ -69,7 +87,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset }) =>
           />
           
           <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
-            Simpan Aset
+            {editingAsset ? 'Simpan Perubahan' : 'Simpan Aset'}
           </button>
         </form>
       </div>

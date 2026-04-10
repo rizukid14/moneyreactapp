@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ArrowRightLeft } from 'lucide-react';
 import type { Asset, Transaction } from '../../contexts/MoneyContext';
 
@@ -7,9 +7,13 @@ interface TransactionModalProps {
   onClose: () => void;
   assets: Asset[];
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
+  updateTransaction?: (id: string, tx: Partial<Transaction>) => void;
+  editingTransaction?: Transaction | null;
 }
 
-const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, assets, addTransaction }) => {
+const TransactionModal: React.FC<TransactionModalProps> = ({ 
+  isOpen, onClose, assets, addTransaction, updateTransaction, editingTransaction 
+}) => {
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -18,6 +22,28 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, as
   const [assetId, setAssetId] = useState(assets[0]?.id || '');
   const [fromAssetId, setFromAssetId] = useState(assets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(assets[1]?.id || assets[0]?.id || '');
+
+  useEffect(() => {
+    if (editingTransaction) {
+      setType(editingTransaction.type);
+      setAmount(editingTransaction.amount.toLocaleString('id-ID'));
+      setCategory(editingTransaction.category);
+      setDate(editingTransaction.date);
+      setNote(editingTransaction.note);
+      setAssetId(editingTransaction.assetId || assets[0]?.id || '');
+      setFromAssetId(editingTransaction.fromAssetId || assets[0]?.id || '');
+      setToAssetId(editingTransaction.toAssetId || assets[1]?.id || assets[0]?.id || '');
+    } else {
+      setType('pengeluaran');
+      setAmount('');
+      setCategory('');
+      setDate(new Date().toISOString().split('T')[0]);
+      setNote('');
+      setAssetId(assets[0]?.id || '');
+      setFromAssetId(assets[0]?.id || '');
+      setToAssetId(assets[1]?.id || assets[0]?.id || '');
+    }
+  }, [editingTransaction, isOpen, assets]);
 
   if (!isOpen) return null;
 
@@ -32,7 +58,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, as
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    addTransaction({
+    const txData = {
       type,
       amount: Number(amount.replace(/\./g, '')),
       category: type === 'transfer' ? 'Transfer' : category,
@@ -41,8 +67,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, as
       assetId: type !== 'transfer' ? assetId : undefined,
       fromAssetId: type === 'transfer' ? fromAssetId : undefined,
       toAssetId: type === 'transfer' ? toAssetId : undefined,
-    });
-    setAmount(''); setNote(''); setCategory('');
+    };
+
+    if (editingTransaction && updateTransaction) {
+      updateTransaction(editingTransaction.id, txData);
+    } else {
+      addTransaction(txData);
+    }
     onClose();
   };
 
@@ -50,7 +81,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, as
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="subtitle" style={{ margin: 0 }}>Tambah Transaksi</h2>
+          <h2 className="subtitle" style={{ margin: 0 }}>{editingTransaction ? 'Edit Transaksi' : 'Tambah Transaksi'}</h2>
           <button className="close-btn" onClick={onClose}><X size={24} /></button>
         </div>
 
@@ -67,7 +98,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, as
                 style={{ 
                   flex: 1, padding: '10px', borderRadius: '8px', 
                   border: type === 'pengeluaran' ? '2px solid var(--secondary)' : '1px solid var(--border-color)', 
-                  background: type === 'pengeluaran' ? 'hsla(35, 95%, 55%, 0.15)' : 'var(--bg-card)', 
+                  background: type === 'pengeluaran' ? 'var(--bg-expense)' : 'var(--bg-card)', 
                   fontWeight: 700, color: type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)' 
                 }}
               >Pengeluaran</button>
@@ -77,7 +108,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, as
                 style={{ 
                   flex: 1, padding: '10px', borderRadius: '8px', 
                   border: type === 'pendapatan' ? '2px solid var(--primary)' : '1px solid var(--border-color)', 
-                  background: type === 'pendapatan' ? 'hsla(215, 90%, 55%, 0.15)' : 'var(--bg-card)', 
+                  background: type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-card)', 
                   fontWeight: 700, color: type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)' 
                 }}
               >Pendapatan</button>
@@ -128,7 +159,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, as
                 color: type === 'transfer' ? 'white' : undefined
               }}
             >
-              Simpan Transaksi
+              {editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi'}
             </button>
           </form>
         )}
