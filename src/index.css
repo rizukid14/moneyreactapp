@@ -64,8 +64,8 @@
 }
 
 html, body, #root {
-  height: auto;
-  min-height: auto;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -77,13 +77,14 @@ body {
 
 /* Layout Container */
 .app-container {
-  max-width: 800px;
+  max-width: 540px;
   margin: 0 auto;
   width: 100%;
-  min-height: auto; /* Fixed: only grow based on content to prevent over-scroll */
+  height: 100dvh; /* Dynamic viewport height — accounts for mobile browser chrome */
   background-color: var(--bg-main);
   position: relative;
   overflow-x: hidden;
+  overflow-y: auto;
   padding: 12px 12px calc(var(--nav-height) + 12px) 12px;
   display: flex;
   flex-direction: column;
@@ -113,7 +114,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 24px);
-  max-width: 776px;
+  max-width: 508px;
   height: calc(var(--nav-height) - 8px);
   border-radius: var(--radius-lg);
   display: flex;
@@ -200,9 +201,9 @@ body {
   z-index: 90;
 }
 
-@media (min-width: 801px) {
+@media (min-width: 541px) {
   .fab {
-    right: calc(50% - 400px + 20px);
+    right: calc(50% - 270px + 20px);
   }
 }
 
@@ -293,7 +294,7 @@ input:focus {
 .modal-content {
   background: var(--bg-card-solid);
   width: 100%;
-  max-width: 800px;
+  max-width: 540px;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 20px 20px 32px 20px;
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.1);
