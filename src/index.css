@@ -63,6 +63,11 @@
   transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
 }
 
+html, body, #root {
+  height: auto;
+  min-height: auto;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-main);
@@ -75,7 +80,7 @@ body {
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
-  min-height: 100vh;
+  min-height: auto; /* Fixed: only grow based on content to prevent over-scroll */
   background-color: var(--bg-main);
   position: relative;
   overflow-x: hidden;
@@ -96,7 +101,7 @@ body {
   background: var(--bg-card);
   border-radius: var(--radius-md);
   padding: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   border: 1px solid var(--border-color);
   box-shadow: 0 4px 20px hsla(var(--p-h), 20%, 10%, 0.03);
 }
@@ -162,13 +167,13 @@ body {
 .flex-center {
   display: flex;
   justify-content: center;
-  alignItems: center;
+  align-items: center;
 }
 
 .flex-between {
   display: flex;
   justify-content: space-between;
-  alignItems: center;
+  align-items: center;
 }
 
 .flex-gap {

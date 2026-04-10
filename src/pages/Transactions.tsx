@@ -101,7 +101,7 @@ const Transactions: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {filteredTransactions.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '20px' }}>
             Tidak ada transaksi di bulan ini.

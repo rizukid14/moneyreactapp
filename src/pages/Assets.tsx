@@ -81,7 +81,7 @@ const Assets: React.FC = () => {
         </button>
       </div>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {assets.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada aset.</div>
         ) : (
