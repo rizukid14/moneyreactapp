@@ -7,7 +7,7 @@ const Layout: React.FC = () => {
     <div className="app-container">
       <Outlet />
       
-      <nav className="bottom-nav">
+      <nav className="bottom-nav glass">
         <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Home size={24} />
           <span>Transaksi</span>

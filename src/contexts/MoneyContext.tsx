@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet';
@@ -51,11 +51,11 @@ const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
 
 export const exportMoneyData = () => {
   return {
-    assets: localStorage.getItem('moneyapp_assets_v2'),
-    transactions: localStorage.getItem('moneyapp_transactions_v2'),
-    user: localStorage.getItem('moneyapp_user'),
+    assets: JSON.parse(localStorage.getItem('moneyapp_assets_v2') || '[]'),
+    transactions: JSON.parse(localStorage.getItem('moneyapp_transactions_v2') || '[]'),
+    user: JSON.parse(localStorage.getItem('moneyapp_user') || 'null'),
     pin: localStorage.getItem('moneyapp_pin'),
-    theme: localStorage.getItem('moneyapp_theme')
+    theme: localStorage.getItem('moneyapp_theme') || 'light'
   }
 }
 
@@ -116,25 +116,25 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     localStorage.setItem('moneyapp_theme', theme);
   }, [theme]);
 
-  const addAsset = (assetReq: Omit<Asset, 'id'>) => {
+  const addAsset = useCallback((assetReq: Omit<Asset, 'id'>) => {
     const newAsset = { ...assetReq, id: Date.now().toString() };
     setAssets(prev => [...prev, newAsset]);
-  };
+  }, []);
 
-  const deleteAsset = (id: string) => {
+  const deleteAsset = useCallback((id: string) => {
     setAssets(prev => prev.filter(a => a.id !== id));
-  };
+  }, []);
 
-  const addTransaction = (txReq: Omit<Transaction, 'id'>) => {
+  const addTransaction = useCallback((txReq: Omit<Transaction, 'id'>) => {
     const newTx = { ...txReq, id: Date.now().toString() };
     setTransactions(prev => [newTx, ...prev]);
-  };
+  }, []);
 
-  const deleteTransaction = (id: string) => {
+  const deleteTransaction = useCallback((id: string) => {
     setTransactions(prev => prev.filter(tx => tx.id !== id));
-  };
+  }, []);
 
-  const getAssetBalance = (assetId: string) => {
+  const getAssetBalance = useCallback((assetId: string) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return 0;
 
@@ -153,37 +153,43 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
 
     return balance;
-  };
+  }, [assets, transactions]);
 
-  const updateUser = (newUser: UserProfile) => setUser(newUser);
+  const updateUser = useCallback((newUser: UserProfile) => setUser(newUser), []);
   
-  const setAppPin = (newPin: string | null) => {
+  const setAppPin = useCallback((newPin: string | null) => {
     setPin(newPin);
     if (!newPin) setIsAppLocked(false);
-  };
+  }, []);
 
-  const unlockApp = (enteredPin: string) => {
+  const unlockApp = useCallback((enteredPin: string) => {
     if (enteredPin === pin) {
       setIsAppLocked(false);
       return true;
     }
     return false;
-  };
+  }, [pin]);
 
-  const lockApp = () => {
+  const lockApp = useCallback(() => {
     if (pin) setIsAppLocked(true);
-  };
+  }, [pin]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    assets, transactions, user, pin, isAppLocked, theme,
+    addAsset, deleteAsset, addTransaction, deleteTransaction, getAssetBalance,
+    updateUser, setAppPin, unlockApp, lockApp, toggleTheme
+  }), [
+    assets, transactions, user, pin, isAppLocked, theme,
+    addAsset, deleteAsset, addTransaction, deleteTransaction, getAssetBalance,
+    updateUser, setAppPin, unlockApp, lockApp, toggleTheme
+  ]);
 
   return (
-    <MoneyContext.Provider value={{
-      assets, transactions, user, pin, isAppLocked, theme,
-      addAsset, deleteAsset, addTransaction, deleteTransaction, getAssetBalance,
-      updateUser, setAppPin, unlockApp, lockApp, toggleTheme
-    }}>
+    <MoneyContext.Provider value={value}>
       {children}
     </MoneyContext.Provider>
   );
