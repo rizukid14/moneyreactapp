@@ -38,30 +38,30 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({ isOpen, onClose, view
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ paddingBottom: '30px' }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-main)', padding: '4px', borderRadius: '20px' }}>
             <button
               onClick={() => setPickerMode('month')}
               style={{
-                padding: '4px 12px', borderRadius: '15px', border: 'none',
-                backgroundColor: pickerMode === 'month' ? 'var(--secondary-blue)' : '#f3f4f6',
+                padding: '6px 16px', borderRadius: '16px', border: 'none',
+                backgroundColor: pickerMode === 'month' ? 'var(--primary)' : 'transparent',
                 color: pickerMode === 'month' ? 'white' : 'var(--text-muted)',
-                fontWeight: 600, fontSize: '12px', cursor: 'pointer'
+                fontWeight: 700, fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s'
               }}>Bulan</button>
             <button
               onClick={() => setPickerMode('year')}
               style={{
-                padding: '4px 12px', borderRadius: '15px', border: 'none',
-                backgroundColor: pickerMode === 'year' ? 'var(--secondary-blue)' : '#f3f4f6',
+                padding: '6px 16px', borderRadius: '16px', border: 'none',
+                backgroundColor: pickerMode === 'year' ? 'var(--primary)' : 'transparent',
                 color: pickerMode === 'year' ? 'white' : 'var(--text-muted)',
-                fontWeight: 600, fontSize: '12px', cursor: 'pointer'
+                fontWeight: 700, fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s'
               }}>Tahun</button>
           </div>
-          <button className="close-btn" onClick={onClose}><X size={24} /></button>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
-        <div style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: '12px' }}>
           {pickerMode === 'month' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               {MONTH_SHORT.map((m, i) => (
@@ -69,12 +69,12 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({ isOpen, onClose, view
                   key={m}
                   onClick={() => selectMonth(i)}
                   style={{
-                    padding: '16px 8px', borderRadius: '12px', border: '1px solid var(--border-color)',
+                    padding: '18px 8px', borderRadius: '14px', border: '1px solid var(--border-color)',
                     backgroundColor: i === viewDate.getMonth() ? 'var(--bg-income)' : 'var(--bg-card)',
-                    borderColor: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--border-color)',
-                    color: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--text-main)',
-                    fontWeight: i === viewDate.getMonth() ? 700 : 500,
-                    cursor: 'pointer'
+                    borderColor: i === viewDate.getMonth() ? 'var(--primary)' : 'var(--border-color)',
+                    color: i === viewDate.getMonth() ? 'var(--primary)' : 'var(--text-main)',
+                    fontWeight: i === viewDate.getMonth() ? 800 : 600,
+                    cursor: 'pointer', transition: 'all 0.2s'
                   }}>
                   {m}
                 </button>
@@ -87,12 +87,12 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({ isOpen, onClose, view
                   key={y}
                   onClick={() => selectYear(y)}
                   style={{
-                    padding: '16px 8px', borderRadius: '12px', border: '1px solid var(--border-color)',
+                    padding: '18px 8px', borderRadius: '14px', border: '1px solid var(--border-color)',
                     backgroundColor: y === viewDate.getFullYear() ? 'var(--bg-expense)' : 'var(--bg-card)',
-                    borderColor: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--border-color)',
-                    color: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--text-main)',
-                    fontWeight: y === viewDate.getFullYear() ? 700 : 500,
-                    cursor: 'pointer'
+                    borderColor: y === viewDate.getFullYear() ? 'var(--secondary)' : 'var(--border-color)',
+                    color: y === viewDate.getFullYear() ? 'var(--secondary)' : 'var(--text-main)',
+                    fontWeight: y === viewDate.getFullYear() ? 800 : 600,
+                    cursor: 'pointer', transition: 'all 0.2s'
                   }}>
                   {y}
                 </button>

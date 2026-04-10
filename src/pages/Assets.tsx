@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Wallet, CreditCard, Landmark, Plus, Trash2, Smartphone } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Wallet, CreditCard, Landmark, Plus, Trash2, Smartphone, Pencil } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
-import type { AssetType } from '../contexts/MoneyContext';
+import type { Asset, AssetType } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
 
 const getIconForType = (type: AssetType) => {
@@ -25,8 +25,9 @@ const getColorForType = (type: AssetType) => {
 };
 
 const Assets: React.FC = () => {
-  const { assets, getAssetBalance, addAsset, deleteAsset } = useMoney();
+  const { assets, getAssetBalance, addAsset, deleteAsset, updateAsset } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   
   // Optimized derived state
   const { total, balances } = useMemo(() => {
@@ -40,8 +41,23 @@ const Assets: React.FC = () => {
     return { total: t, balances: b };
   }, [assets, getAssetBalance]);
 
+  const handleEdit = (asset: Asset) => {
+    setEditingAsset(asset);
+    setIsModalOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingAsset(null);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setEditingAsset(null);
+  }, []);
+
   return (
-    <div className="page" style={{ paddingBottom: '80px' }}>
+    <div className="page">
       <h1 className="title">Aset Saya</h1>
 
       <div className="card glass" style={{ 
@@ -57,7 +73,7 @@ const Assets: React.FC = () => {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px', marginBottom: '16px' }}>
         <h2 className="subtitle" style={{ margin: 0 }}>Daftar Rekening</h2>
-        <button onClick={() => setIsModalOpen(true)} className="btn-text" style={{ 
+        <button onClick={handleAdd} className="btn-text" style={{ 
           background: 'none', border: 'none', color: 'var(--primary)', 
           display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, cursor: 'pointer' 
         }}>
@@ -91,12 +107,20 @@ const Assets: React.FC = () => {
                   <div style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>{asset.name}</div>
                   <div style={{ fontSize: '18px', fontWeight: '800' }}>Rp{balance.toLocaleString('id-ID')}</div>
                 </div>
-                <button 
-                  onClick={() => confirm(`Hapus aset ${asset.name}?`) && deleteAsset(asset.id)} 
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.6 }}
-                >
-                  <Trash2 size={20} />
-                </button>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button 
+                    onClick={() => handleEdit(asset)} 
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.6 }}
+                  >
+                    <Pencil size={18} />
+                  </button>
+                  <button 
+                    onClick={() => confirm(`Hapus aset ${asset.name}?`) && deleteAsset(asset.id)} 
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: '10px', cursor: 'pointer', opacity: 0.6 }}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
             );
           })
@@ -105,8 +129,10 @@ const Assets: React.FC = () => {
 
       <AssetModal 
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
         addAsset={addAsset}
+        updateAsset={updateAsset}
+        editingAsset={editingAsset}
       />
     </div>
   );

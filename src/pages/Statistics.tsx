@@ -64,7 +64,7 @@ const Statistics: React.FC = () => {
   const resetToToday = useCallback(() => setViewDate(new Date()), []);
 
   return (
-    <div className="page" style={{ paddingBottom: '80px' }}>
+    <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Statistik</h1>
         <button onClick={resetToToday} style={{ 

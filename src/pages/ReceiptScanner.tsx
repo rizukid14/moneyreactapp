@@ -88,7 +88,7 @@ const ReceiptScanner: React.FC = () => {
   };
 
   return (
-    <div className="page" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="page">
       <h1 className="title">Scan Struk</h1>
       <p className="text-muted" style={{ marginBottom: '24px' }}>
         Gunakan AI untuk membaca nominal belanja dari kamera Anda.

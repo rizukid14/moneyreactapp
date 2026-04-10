@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, LogOut, ChevronRight, X, Lock, ShieldCheck, Mail, Camera } from 'lucide-react';
+import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 
 const Settings: React.FC = () => {
@@ -318,16 +318,6 @@ const Settings: React.FC = () => {
          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
       </div>
 
-      <button className="btn" style={{ 
-        backgroundColor: 'var(--bg-danger-subtle)', 
-        color: 'var(--danger-red)', 
-        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px',
-        marginTop: '24px',
-        border: '1px solid var(--danger-red)'
-      }}>
-        <LogOut size={20} />
-        Keluar
-      </button>
 
       {activeModal && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>

@@ -37,8 +37,10 @@ interface MoneyContextType {
   theme: 'light' | 'dark';
   addAsset: (asset: Omit<Asset, 'id'>) => void;
   deleteAsset: (id: string) => void;
+  updateAsset: (id: string, asset: Partial<Asset>) => void;
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
   deleteTransaction: (id: string) => void;
+  updateTransaction: (id: string, tx: Partial<Transaction>) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
@@ -125,6 +127,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setAssets(prev => prev.filter(a => a.id !== id));
   }, []);
 
+  const updateAsset = useCallback((id: string, updatedAsset: Partial<Asset>) => {
+    setAssets(prev => prev.map(a => a.id === id ? { ...a, ...updatedAsset } : a));
+  }, []);
+
   const addTransaction = useCallback((txReq: Omit<Transaction, 'id'>) => {
     const newTx = { ...txReq, id: Date.now().toString() };
     setTransactions(prev => [newTx, ...prev]);
@@ -132,6 +138,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const deleteTransaction = useCallback((id: string) => {
     setTransactions(prev => prev.filter(tx => tx.id !== id));
+  }, []);
+
+  const updateTransaction = useCallback((id: string, updatedTx: Partial<Transaction>) => {
+    setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, ...updatedTx } as Transaction : tx));
   }, []);
 
   const getAssetBalance = useCallback((assetId: string) => {
@@ -180,11 +190,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const value = useMemo(() => ({
     assets, transactions, user, pin, isAppLocked, theme,
-    addAsset, deleteAsset, addTransaction, deleteTransaction, getAssetBalance,
+    addAsset, deleteAsset, updateAsset, addTransaction, deleteTransaction, updateTransaction, getAssetBalance,
     updateUser, setAppPin, unlockApp, lockApp, toggleTheme
   }), [
     assets, transactions, user, pin, isAppLocked, theme,
-    addAsset, deleteAsset, addTransaction, deleteTransaction, getAssetBalance,
+    addAsset, deleteAsset, updateAsset, addTransaction, deleteTransaction, updateTransaction, getAssetBalance,
     updateUser, setAppPin, unlockApp, lockApp, toggleTheme
   ]);
 
