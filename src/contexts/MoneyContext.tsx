@@ -6,6 +6,7 @@ export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet';
 export interface UserProfile {
   name: string;
   email: string;
+  avatar?: string;
 }
 
 export interface Asset {

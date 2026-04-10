@@ -12,6 +12,14 @@ const ReceiptScanner: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Customization State
+  const [selectedAssetId, setSelectedAssetId] = useState('');
+  const [selectedType, setSelectedType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [editableAmount, setEditableAmount] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Belanja (OCR)');
+  const [recentSaves, setRecentSaves] = useState<{amount: number, category: string, type: string}[]>([]);
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -24,6 +32,7 @@ const ReceiptScanner: React.FC = () => {
     setResult(null);
     setError(null);
     setProgress(0);
+    setRecentSaves([]);
 
     try {
       const worker = await createWorker('ind', 1, {
@@ -46,6 +55,13 @@ const ReceiptScanner: React.FC = () => {
         ...parsed,
         rawText: text
       });
+
+      // Initialize customization states
+      setSelectedAssetId(assets[0]?.id || '');
+      setSelectedType('pengeluaran');
+      setSelectedDate(parsed.date);
+      setEditableAmount(parsed.amount.toString());
+      setSelectedCategory('Belanja (OCR)');
     } catch (err) {
       console.error(err);
       setError("Terjadi kesalahan saat memproses gambar.");
@@ -89,18 +105,38 @@ const ReceiptScanner: React.FC = () => {
     };
   };
 
-  const handleSave = () => {
+  const handleSave = (shouldClose: boolean) => {
     if (!result) return;
+    const finalAmount = parseInt(editableAmount.replace(/\D/g, '')) || 0;
+    
+    if (finalAmount <= 0) {
+      alert('Nominal harus lebih dari 0');
+      return;
+    }
+
+    if (!selectedAssetId) {
+      alert('Pilih rekening terlebih dahulu');
+      return;
+    }
+
     addTransaction({
-      type: 'pengeluaran',
-      amount: result.amount,
-      category: 'Belanja (OCR)',
-      date: result.date,
+      type: selectedType,
+      amount: finalAmount,
+      category: selectedCategory || 'Belanja (OCR)',
+      date: selectedDate,
       note: 'Scan Otomatis',
-      assetId: assets[0]?.id
+      assetId: selectedAssetId
     });
-    alert('Transaksi berhasil disimpan!');
-    resetScanner();
+
+    if (shouldClose) {
+      alert('Transaksi berhasil disimpan!');
+      resetScanner();
+    } else {
+      setRecentSaves(prev => [...prev, { amount: finalAmount, category: selectedCategory || 'Belanja (OCR)', type: selectedType }]);
+      setEditableAmount('');
+      setSelectedCategory('');
+      alert('Item berhasil disisihkan, silakan tambah nominal lainnya.');
+    }
   };
 
   const resetScanner = () => {
@@ -121,7 +157,7 @@ const ReceiptScanner: React.FC = () => {
       <input 
         type="file" 
         accept="image/*" 
-        capture="environment" 
+        capture={undefined} 
         ref={fileInputRef} 
         style={{ display: 'none' }} 
         onChange={handleFileSelect} 
@@ -151,24 +187,87 @@ const ReceiptScanner: React.FC = () => {
               </div>
             </div>
             
-            <h2 style={{ marginBottom: '10px' }}>Hasil Deteksi</h2>
-            <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'var(--primary-orange)', marginBottom: '5px' }}>
-              Rp{result.amount.toLocaleString('id-ID')}
+            <h2 style={{ marginBottom: '16px' }}>Konfirmasi Deteksi</h2>
+            
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <button 
+                onClick={() => setSelectedType('pengeluaran')}
+                style={{ 
+                  flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)',
+                  backgroundColor: selectedType === 'pengeluaran' ? 'var(--bg-expense)' : 'transparent',
+                  color: selectedType === 'pengeluaran' ? 'var(--danger-red)' : 'var(--text-muted)',
+                  fontWeight: 600, fontSize: '13px', cursor: 'pointer'
+                }}>Pengeluaran</button>
+              <button 
+                onClick={() => setSelectedType('pendapatan')}
+                style={{ 
+                  flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)',
+                  backgroundColor: selectedType === 'pendapatan' ? 'var(--bg-income)' : 'transparent',
+                  color: selectedType === 'pendapatan' ? 'var(--secondary-blue)' : 'var(--text-muted)',
+                  fontWeight: 600, fontSize: '13px', cursor: 'pointer'
+                }}>Pendapatan</button>
             </div>
-            <div style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '14px' }}>
-              Tanggal Terdeteksi: {result.date}
+
+            <div style={{ textAlign: 'left', marginBottom: '16px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>Nominal (Rp)</label>
+              <input 
+                type="text" 
+                value={editableAmount} 
+                onChange={e => setEditableAmount(e.target.value.replace(/\D/g, ''))}
+                style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--primary-orange)', textAlign: 'center', marginBottom: '12px' }}
+              />
+
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>Kategori</label>
+              <input 
+                type="text" 
+                value={selectedCategory} 
+                onChange={e => setSelectedCategory(e.target.value)}
+                placeholder="Kategori"
+                style={{ marginBottom: '12px' }}
+              />
+
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>Rekening / Dompet</label>
+              <select value={selectedAssetId} onChange={e => setSelectedAssetId(e.target.value)} style={{ marginBottom: '12px' }}>
+                <option value="" disabled>-- Pilih Rekening --</option>
+                {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>Tanggal Transaksi</label>
+              <input 
+                type="date" 
+                value={selectedDate} 
+                onChange={e => setSelectedDate(e.target.value)}
+                style={{ marginBottom: '12px' }}
+              />
             </div>
             
+            {recentSaves.length > 0 && (
+              <div style={{ textAlign: 'left', marginBottom: '16px', backgroundColor: 'var(--bg-info-subtle)', padding: '12px', borderRadius: '8px' }}>
+                <h3 style={{ fontSize: '13px', color: 'var(--secondary-blue)', marginBottom: '8px' }}>Tersimpan dari Struk ini:</h3>
+                {recentSaves.map((save, idx) => (
+                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px', paddingBottom: '4px', borderBottom: '1px dashed var(--border-color)' }}>
+                     <span style={{ color: 'var(--text-main)' }}>{save.category}</span>
+                     <span style={{ fontWeight: 'bold', color: save.type === 'pengeluaran' ? 'var(--danger-red)' : 'var(--secondary-blue)' }}>
+                       {save.type === 'pengeluaran' ? '-' : '+'}Rp{save.amount.toLocaleString('id-ID')}
+                     </span>
+                   </div>
+                ))}
+              </div>
+            )}
+            
             <details style={{ textAlign: 'left', marginBottom: '20px' }}>
-               <summary style={{ fontSize: '12px', color: 'var(--secondary-blue)', cursor: 'pointer', fontWeight: 600 }}>Lihat Teks Mentah</summary>
+               <summary style={{ fontSize: '12px', color: 'var(--secondary-blue)', cursor: 'pointer', fontWeight: 600 }}>Lihat Teks Mentah AI</summary>
                <div style={{ background: 'var(--bg-neutral)', padding: '10px', borderRadius: '8px', marginTop: '8px', maxHeight: '100px', overflowY: 'auto', fontSize: '10px', color: 'var(--text-muted)' }}>
                   {result.rawText}
                </div>
             </details>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn" style={{ flex: 1, backgroundColor: 'var(--bg-neutral)', color: 'var(--text-muted)' }} onClick={resetScanner}>Batal</button>
-              <button className="btn btn-orange" style={{ flex: 2 }} onClick={handleSave}>Simpan Transaksi</button>
+            <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                 <button className="btn" style={{ flex: 1, backgroundColor: 'var(--bg-neutral)', color: 'var(--text-muted)', fontSize: '14px' }} onClick={resetScanner}>Batal</button>
+                 <button className="btn btn-blue" style={{ flex: 2, fontSize: '14px' }} onClick={() => handleSave(false)}>Simpan & Tambah Lagi</button>
+              </div>
+              <button className="btn btn-orange" style={{ width: '100%' }} onClick={() => handleSave(true)}>Selesai & Tutup</button>
             </div>
           </div>
         ) : (

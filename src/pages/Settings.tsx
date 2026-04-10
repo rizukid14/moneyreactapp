@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, LogOut, ChevronRight, X, Lock, ShieldCheck, Mail } from 'lucide-react';
+import { User, Bell, Shield, Moon, CircleHelp, LogOut, ChevronRight, X, Lock, ShieldCheck, Mail, Camera } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 
 const Settings: React.FC = () => {
@@ -9,6 +9,7 @@ const Settings: React.FC = () => {
   // Profile Form State
   const [tempName, setTempName] = useState(user.name);
   const [tempEmail, setTempEmail] = useState(user.email);
+  const [tempAvatar, setTempAvatar] = useState(user.avatar || '');
 
   // PIN Form State
   const [newPin, setNewPin] = useState('');
@@ -31,12 +32,52 @@ const Settings: React.FC = () => {
     if (id === 'profile') {
       setTempName(user.name);
       setTempEmail(user.email);
+      setTempAvatar(user.avatar || '');
     }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxSize = 150;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxSize) {
+            height *= maxSize / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width *= maxSize / height;
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Compress to low quality JPEG to save storage space
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        setTempAvatar(dataUrl);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUpdateProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    updateUser({ name: tempName, email: tempEmail });
+    updateUser({ name: tempName, email: tempEmail, avatar: tempAvatar });
     setActiveModal(null);
   };
 
@@ -72,6 +113,34 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Edit Profil</h2>
               <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{ 
+                  width: 80, height: 80, borderRadius: '40px', 
+                  backgroundColor: 'var(--secondary-blue)', 
+                  display: 'flex', justifyContent: 'center', alignItems: 'center', 
+                  color: 'white', fontSize: '32px', fontWeight: 700,
+                  overflow: 'hidden', border: '3px solid var(--border-color)'
+                }}>
+                  {tempAvatar ? (
+                    <img src={tempAvatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    tempName.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <label style={{
+                  position: 'absolute', bottom: 0, right: -5,
+                  backgroundColor: 'var(--primary-orange)', padding: '6px', borderRadius: '50%',
+                  color: 'white', cursor: 'pointer', border: '2px solid var(--bg-card)'
+                }}>
+                  <Camera size={14} />
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                </label>
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>Pilih foto wajah</span>
+            </div>
+
             <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nama Lengkap</label>
             <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} required />
             <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Email</label>
@@ -160,9 +229,14 @@ const Settings: React.FC = () => {
           backgroundColor: 'var(--secondary-blue)', 
           display: 'flex', justifyContent: 'center', alignItems: 'center', 
           color: 'white', marginRight: '16px',
-          fontSize: '24px', fontWeight: 700
+          fontSize: '24px', fontWeight: 700,
+          overflow: 'hidden'
         }}>
-          {user.name.charAt(0).toUpperCase()}
+          {user.avatar ? (
+            <img src={user.avatar} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            user.name.charAt(0).toUpperCase()
+          )}
         </div>
         <div>
           <h2 className="subtitle" style={{ margin: 0, fontSize: '18px' }}>{user.name}</h2>
