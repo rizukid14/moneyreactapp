@@ -65,19 +65,20 @@ body {
   background-color: var(--bg-main);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
 }
 
 /* Layout Container */
 .app-container {
-  max-width: 480px;
+  max-width: 540px;
   margin: 0 auto;
   width: 100%;
   min-height: 100vh;
   background-color: var(--bg-main);
   position: relative;
   overflow-x: hidden;
-  padding: 20px 20px calc(var(--nav-height) + 30px) 20px;
+  padding: 16px 16px calc(var(--nav-height) + 16px) 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Glassmorphism Classes */
@@ -100,11 +101,11 @@ body {
 /* Navigation */
 .bottom-nav {
   position: fixed;
-  bottom: 20px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 40px);
-  max-width: 440px;
+  width: calc(100% - 32px);
+  max-width: 508px;
   height: var(--nav-height);
   border-radius: var(--radius-lg);
   display: flex;
@@ -161,8 +162,8 @@ body {
   z-index: 90;
 }
 
-@media (min-width: 481px) {
-  .fab { right: calc(50% - 240px + 20px); }
+@media (min-width: 541px) {
+  .fab { right: calc(50% - 270px + 20px); }
 }
 
 .btn {
