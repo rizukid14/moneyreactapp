@@ -1,16 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
+import DatePickerModal from '../components/modals/DatePickerModal';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+const formatRupiah = (value: number) => `Rp${value.toLocaleString('id-ID')}`;
 
 const Statistics: React.FC = () => {
   const { transactions } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'month' | 'year'>('month');
 
   const { chartData, currentMonthIncome, currentMonthExpense } = useMemo(() => {
     const vM = viewDate.getMonth();
@@ -55,32 +57,11 @@ const Statistics: React.FC = () => {
     };
   }, [transactions, viewDate]);
 
-  const yearList = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = currentYear - 5; i <= currentYear + 5; i++) {
-      years.push(i);
-    }
-    return years;
+  const changeMonth = useCallback((offset: number) => {
+    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
   }, []);
 
-  const changeMonth = (offset: number) => {
-    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
-  };
-
-  const selectMonth = (idx: number) => {
-    setViewDate(new Date(viewDate.getFullYear(), idx, 1));
-    setIsDatePickerOpen(false);
-  };
-
-  const selectYear = (year: number) => {
-    setViewDate(new Date(year, viewDate.getMonth(), 1));
-    setPickerMode('month');
-  };
-
-  const resetToToday = () => setViewDate(new Date());
-
-  const formatRupiah = (value: number) => `Rp${value.toLocaleString('id-ID')}`;
+  const resetToToday = useCallback(() => setViewDate(new Date()), []);
 
   return (
     <div className="page" style={{ paddingBottom: '80px' }}>
@@ -89,7 +70,7 @@ const Statistics: React.FC = () => {
         <button onClick={resetToToday} style={{ 
           display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', 
           borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-card)',
-          fontSize: '12px', fontWeight: 600, color: 'var(--secondary-blue)', cursor: 'pointer'
+          fontSize: '12px', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer'
         }}>
           <CalendarDays size={14} /> Hari Ini
         </button>
@@ -103,7 +84,7 @@ const Statistics: React.FC = () => {
           </button>
           
           <div 
-            onClick={() => { setIsDatePickerOpen(true); setPickerMode('month'); }}
+            onClick={() => setIsDatePickerOpen(true)}
             style={{ textAlign: 'center', cursor: 'pointer', padding: '4px 12px', borderRadius: '8px' }}>
             <div style={{ fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
               {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
@@ -117,106 +98,45 @@ const Statistics: React.FC = () => {
         </div>
       </div>
       
-      <div className="card">
-        <h2 className="subtitle" style={{ fontSize: '14px' }}>Tren 5 Bulan Terakhir</h2>
+      <div className="card glass">
+        <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>Tren 5 Bulan Terakhir</h2>
         <div style={{ width: '100%', height: 300 }}>
           <ResponsiveContainer>
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
               <YAxis hide domain={[0, 'dataMax + 10000']} />
               <Tooltip 
-                cursor={{fill: 'var(--bg-color)'}} 
+                cursor={{fill: 'var(--bg-main)'}} 
+                contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
                 formatter={(val: any) => formatRupiah(Number(val))}
               />
-              <Legend wrapperStyle={{ fontSize: '12px' }}/>
-              <Bar dataKey="pendapatan" fill="var(--secondary-blue)" radius={[4, 4, 0, 0]} name="Pendapatan" />
-              <Bar dataKey="pengeluaran" fill="var(--primary-orange)" radius={[4, 4, 0, 0]} name="Pengeluaran" />
+              <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}/>
+              <Bar dataKey="pendapatan" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pendapatan" />
+              <Bar dataKey="pengeluaran" fill="var(--secondary)" radius={[4, 4, 0, 0]} name="Pengeluaran" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
       
-      <div className="card">
-        <h2 className="subtitle">Ringkasan {MONTH_NAMES_FULL[viewDate.getMonth()]}</h2>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Total Pendapatan</span>
-          <span style={{ color: 'var(--secondary-blue)', fontWeight: 'bold' }}>{formatRupiah(currentMonthIncome)}</span>
+      <div className="card glass">
+        <h2 className="subtitle" style={{ marginBottom: '16px' }}>Ringkasan {MONTH_NAMES_FULL[viewDate.getMonth()]}</h2>
+        <div className="flex-between" style={{ marginBottom: '12px' }}>
+          <span className="text-muted">Total Pendapatan</span>
+          <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '18px' }}>{formatRupiah(currentMonthIncome)}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Total Pengeluaran</span>
-          <span style={{ color: 'var(--primary-orange)', fontWeight: 'bold' }}>{formatRupiah(currentMonthExpense)}</span>
+        <div className="flex-between">
+          <span className="text-muted">Total Pengeluaran</span>
+          <span style={{ color: 'var(--secondary)', fontWeight: '800', fontSize: '18px' }}>{formatRupiah(currentMonthExpense)}</span>
         </div>
       </div>
 
-      {/* Date Picker Modal */}
-      {isDatePickerOpen && (
-        <div className="modal-overlay" onClick={() => setIsDatePickerOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ paddingBottom: '30px' }}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  onClick={() => setPickerMode('month')}
-                  style={{ 
-                    padding: '4px 12px', borderRadius: '15px', border: 'none',
-                    backgroundColor: pickerMode === 'month' ? 'var(--secondary-blue)' : 'var(--bg-neutral)',
-                    color: pickerMode === 'month' ? 'white' : 'var(--text-muted)',
-                    fontWeight: 600, fontSize: '12px', cursor: 'pointer'
-                  }}>Bulan</button>
-                <button 
-                  onClick={() => setPickerMode('year')}
-                  style={{ 
-                    padding: '4px 12px', borderRadius: '15px', border: 'none',
-                    backgroundColor: pickerMode === 'year' ? 'var(--secondary-blue)' : 'var(--bg-neutral)',
-                    color: pickerMode === 'year' ? 'white' : 'var(--text-muted)',
-                    fontWeight: 600, fontSize: '12px', cursor: 'pointer'
-                  }}>Tahun</button>
-              </div>
-              <button className="close-btn" onClick={() => setIsDatePickerOpen(false)}><X size={24} /></button>
-            </div>
-
-            <div style={{ marginTop: '20px' }}>
-              {pickerMode === 'month' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                  {MONTH_NAMES.map((m, i) => (
-                    <button 
-                      key={m} 
-                      onClick={() => selectMonth(i)}
-                      style={{ 
-                        padding: '16px 8px', borderRadius: '12px', border: '1px solid var(--border-color)',
-                        backgroundColor: i === viewDate.getMonth() ? 'var(--bg-income)' : 'var(--bg-card)',
-                        borderColor: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--border-color)',
-                        color: i === viewDate.getMonth() ? 'var(--secondary-blue)' : 'var(--text-main)',
-                        fontWeight: i === viewDate.getMonth() ? 700 : 500,
-                        cursor: 'pointer'
-                      }}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                  {yearList.map(y => (
-                    <button 
-                      key={y} 
-                      onClick={() => selectYear(y)}
-                      style={{ 
-                        padding: '16px 8px', borderRadius: '12px', border: '1px solid var(--border-color)',
-                        backgroundColor: y === viewDate.getFullYear() ? 'var(--bg-expense)' : 'var(--bg-card)',
-                        borderColor: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--border-color)',
-                        color: y === viewDate.getFullYear() ? 'var(--primary-orange)' : 'var(--text-main)',
-                        fontWeight: y === viewDate.getFullYear() ? 700 : 500,
-                        cursor: 'pointer'
-                      }}>
-                      {y}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <DatePickerModal 
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        viewDate={viewDate}
+        onSelectDate={setViewDate}
+      />
     </div>
   );
 };

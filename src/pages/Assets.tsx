@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Wallet, CreditCard, Landmark, Plus, Trash2, Smartphone, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Wallet, CreditCard, Landmark, Plus, Trash2, Smartphone } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import type { AssetType } from '../contexts/MoneyContext';
+import AssetModal from '../components/modals/AssetModal';
 
 const getIconForType = (type: AssetType) => {
   switch (type) {
@@ -15,10 +16,10 @@ const getIconForType = (type: AssetType) => {
 
 const getColorForType = (type: AssetType) => {
   switch (type) {
-    case 'Cash': return 'var(--primary-orange)';
-    case 'Bank Account': return 'var(--secondary-blue)';
-    case 'Credit Card': return 'var(--danger-red)';
-    case 'eWallet': return 'var(--success-green)';
+    case 'Cash': return 'var(--secondary)';
+    case 'Bank Account': return 'var(--primary)';
+    case 'Credit Card': return 'var(--danger)';
+    case 'eWallet': return 'var(--success)';
     default: return 'var(--text-muted)';
   }
 };
@@ -27,109 +28,86 @@ const Assets: React.FC = () => {
   const { assets, getAssetBalance, addAsset, deleteAsset } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Form State
-  const [name, setName] = useState('');
-  const [type, setType] = useState<AssetType>('Cash');
-  const [initialBalance, setInitialBalance] = useState('');
-
-  const total = assets.reduce((acc, asset) => acc + getAssetBalance(asset.id), 0);
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const numericValue = e.target.value.replace(/\D/g, '');
-    if (!numericValue) {
-      setInitialBalance('');
-      return;
-    }
-    setInitialBalance(Number(numericValue).toLocaleString('id-ID'));
-  };
-
-  const saveAsset = (e: React.FormEvent) => {
-    e.preventDefault();
-    addAsset({
-      name,
-      type,
-      initialBalance: Number(initialBalance.replace(/\./g, '')) || 0,
+  // Optimized derived state
+  const { total, balances } = useMemo(() => {
+    let t = 0;
+    const b: Record<string, number> = {};
+    assets.forEach(asset => {
+      const bal = getAssetBalance(asset.id);
+      b[asset.id] = bal;
+      t += bal;
     });
-    setIsModalOpen(false);
-    setName('');
-    setInitialBalance('');
-  };
+    return { total: t, balances: b };
+  }, [assets, getAssetBalance]);
 
   return (
     <div className="page" style={{ paddingBottom: '80px' }}>
       <h1 className="title">Aset Saya</h1>
 
-      <div className="card" style={{ background: 'linear-gradient(135deg, var(--secondary-blue), #1d4ed8)', color: 'white', border: 'none' }}>
-        <div style={{ opacity: 0.8, fontSize: '14px', marginBottom: '8px' }}>Total Kekayaan Bersih</div>
-        <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '16px' }}>Rp{total.toLocaleString('id-ID')}</div>
+      <div className="card glass" style={{ 
+        background: 'linear-gradient(135deg, var(--primary), #1e40af)', 
+        color: 'white', 
+        border: 'none',
+        padding: '24px',
+        boxShadow: '0 10px 25px var(--primary-glow)'
+      }}>
+        <div style={{ opacity: 0.9, fontSize: '14px', marginBottom: '8px', fontWeight: 600 }}>Total Kekayaan Bersih</div>
+        <div style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-1px' }}>Rp{total.toLocaleString('id-ID')}</div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px', marginBottom: '16px' }}>
         <h2 className="subtitle" style={{ margin: 0 }}>Daftar Rekening</h2>
-        <button onClick={() => setIsModalOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--primary-orange)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, cursor: 'pointer' }}>
-          <Plus size={18} /> Tambah
+        <button onClick={() => setIsModalOpen(true)} className="btn-text" style={{ 
+          background: 'none', border: 'none', color: 'var(--primary)', 
+          display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, cursor: 'pointer' 
+        }}>
+          <Plus size={20} /> Tambah
         </button>
       </div>
       
-      {assets.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', margin: '20px 0' }}>Belum ada aset.</div>
-      ) : (
-        assets.map(asset => {
-          const Icon = getIconForType(asset.type);
-          const color = getColorForType(asset.type);
-          const balance = getAssetBalance(asset.id);
-          
-          return (
-            <div className="card" key={asset.id} style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ 
-                width: 48, height: 48, 
-                borderRadius: '12px', 
-                backgroundColor: `${color}20`, 
-                color: color,
-                display: 'flex', justifyContent: 'center', alignItems: 'center',
-                marginRight: '16px'
-              }}>
-                <Icon size={24} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>{asset.name}</div>
-                <div style={{ fontSize: '16px', fontWeight: 'bold' }}>Rp{balance.toLocaleString('id-ID')}</div>
-              </div>
-              <button onClick={() => confirm(`Hapus aset ${asset.name}?`) && deleteAsset(asset.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '8px', cursor: 'pointer' }}>
-                <Trash2 size={20} />
-              </button>
-            </div>
-          );
-        })
-      )}
-
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="subtitle" style={{ margin: 0 }}>Tambah Aset Baru</h2>
-              <button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={24} /></button>
-            </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {assets.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada aset.</div>
+        ) : (
+          assets.map(asset => {
+            const Icon = getIconForType(asset.type);
+            const color = getColorForType(asset.type);
+            const balance = balances[asset.id] || 0;
             
-            <form onSubmit={saveAsset}>
-              <input type="text" required placeholder="Nama Aset (mis: Rekening Mandiri)" value={name} onChange={e => setName(e.target.value)} />
-              
-              <select value={type} onChange={e => setType(e.target.value as AssetType)}>
-                <option value="Cash">Tunai / Dompet</option>
-                <option value="Bank Account">Rekening Bank</option>
-                <option value="eWallet">E-Wallet (Gopay, OVO)</option>
-                <option value="Credit Card">Kartu Kredit</option>
-              </select>
-              
-              <input type="text" inputMode="numeric" placeholder="Saldo Awal Opsional (Rp)" value={initialBalance} onChange={handleAmountChange} />
-              
-              <button type="submit" className="btn btn-blue" style={{ marginTop: '10px' }}>
-                Simpan Aset
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+            return (
+              <div className="card" key={asset.id} style={{ display: 'flex', alignItems: 'center', marginBottom: 0 }}>
+                <div style={{ 
+                  width: 52, height: 52, 
+                  borderRadius: '14px', 
+                  backgroundColor: `${color}15`, 
+                  color: color,
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  marginRight: '16px',
+                  border: `1px solid ${color}30`
+                }}>
+                  <Icon size={26} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>{asset.name}</div>
+                  <div style={{ fontSize: '18px', fontWeight: '800' }}>Rp{balance.toLocaleString('id-ID')}</div>
+                </div>
+                <button 
+                  onClick={() => confirm(`Hapus aset ${asset.name}?`) && deleteAsset(asset.id)} 
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.6 }}
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <AssetModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        addAsset={addAsset}
+      />
     </div>
   );
 };
