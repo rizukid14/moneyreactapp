@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, LogOut, ChevronRight, X, Lock, ShieldCheck, Mail } from 'lucide-react';
+import { User, Bell, Shield, Moon, CircleHelp, LogOut, ChevronRight, X, Lock, ShieldCheck, Mail, Camera } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 
 const Settings: React.FC = () => {
