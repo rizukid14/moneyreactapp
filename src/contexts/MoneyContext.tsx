@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet';
+export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 
 export interface UserProfile {
   name: string;
@@ -26,6 +26,7 @@ export interface Asset {
   name: string;
   type: AssetType;
   initialBalance: number;
+  isHidden?: boolean;
 }
 
 export interface Transaction {
