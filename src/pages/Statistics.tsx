@@ -12,7 +12,9 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 const formatRupiah = (value: number) => `Rp${value.toLocaleString('id-ID')}`;
 
 const Statistics: React.FC = () => {
-  const { transactions } = useMoney();
+  const { transactions, isPrivateMode } = useMoney();
+  
+  const formatValue = (val: number) => isPrivateMode ? 'Rp ••••••••' : formatRupiah(val);
   const [viewDate, setViewDate] = useState(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran'} | null>(null);
@@ -163,7 +165,7 @@ const Statistics: React.FC = () => {
               <Tooltip 
                 cursor={{fill: 'var(--bg-main)'}} 
                 contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
-                formatter={(val: any) => formatRupiah(Number(val))}
+                formatter={(val: any) => formatValue(Number(val))}
               />
               <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}/>
               <Bar dataKey="pendapatan" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pendapatan" />
@@ -177,11 +179,11 @@ const Statistics: React.FC = () => {
         <h2 className="subtitle" style={{ marginBottom: '16px' }}>Ringkasan {MONTH_NAMES_FULL[viewDate.getMonth()]}</h2>
         <div className="flex-between" style={{ marginBottom: '12px' }}>
           <span className="text-muted">Total Pendapatan</span>
-          <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '18px' }}>{formatRupiah(currentMonthIncome)}</span>
+          <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '18px' }}>{formatValue(currentMonthIncome)}</span>
         </div>
         <div className="flex-between">
           <span className="text-muted">Total Pengeluaran</span>
-          <span style={{ color: 'var(--secondary)', fontWeight: '800', fontSize: '18px' }}>{formatRupiah(currentMonthExpense)}</span>
+          <span style={{ color: 'var(--secondary)', fontWeight: '800', fontSize: '18px' }}>{formatValue(currentMonthExpense)}</span>
         </div>
       </div>
 
@@ -217,7 +219,7 @@ const Statistics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: any) => formatRupiah(Number(val))}
+                    formatter={(val: any) => formatValue(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
@@ -249,7 +251,7 @@ const Statistics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: any) => formatRupiah(Number(val))}
+                    formatter={(val: any) => formatValue(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
@@ -290,7 +292,7 @@ const Statistics: React.FC = () => {
                   </div>
                 </div>
                 <div style={{ fontWeight: 700, color: cat.type === 'pendapatan' ? 'var(--primary)' : 'var(--secondary)' }}>
-                  {cat.type === 'pendapatan' ? '+' : '-'}{formatRupiah(cat.amount)}
+                  {cat.type === 'pendapatan' ? '+' : '-'}{formatValue(cat.amount)}
                 </div>
               </div>
             ))}

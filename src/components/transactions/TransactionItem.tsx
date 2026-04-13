@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2, Pencil } from 'lucide-react';
+import { useMoney } from '../../contexts/MoneyContext';
 import type { Transaction } from '../../contexts/MoneyContext';
 
 interface TransactionItemProps {
@@ -19,6 +20,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   onDelete,
   onEdit
 }) => {
+  const { isPrivateMode } = useMoney();
+
   return (
     <div className="card transaction-card" style={{ display: 'flex', alignItems: 'center' }}>
       <div style={{
@@ -52,7 +55,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         fontWeight: 700,
         color: tx.type === 'pengeluaran' ? 'var(--text-main)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)'
       }}>
-        {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}Rp{tx.amount.toLocaleString('id-ID')}
+        {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}
+        {isPrivateMode ? 'Rp ••••••••' : `Rp${tx.amount.toLocaleString('id-ID')}`}
       </div>
 
       <div style={{ display: 'flex', gap: '4px', marginLeft: '12px' }}>
