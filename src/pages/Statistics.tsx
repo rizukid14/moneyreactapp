@@ -1,11 +1,13 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
+import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
 
 const formatRupiah = (value: number) => `Rp${value.toLocaleString('id-ID')}`;
 
@@ -14,7 +16,7 @@ const Statistics: React.FC = () => {
   const [viewDate, setViewDate] = useState(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
-  const { chartData, currentMonthIncome, currentMonthExpense } = useMemo(() => {
+  const { chartData, currentMonthIncome, currentMonthExpense, expenseCategoryData, incomeCategoryData, topCategories } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
@@ -32,6 +34,9 @@ const Statistics: React.FC = () => {
 
     let thisMonthInc = 0;
     let thisMonthExp = 0;
+    const expByCategory: Record<string, number> = {};
+    const incByCategory: Record<string, number> = {};
+    const currentMonthTxs: typeof transactions = [];
 
     transactions.forEach(tx => {
       const txDate = new Date(tx.date);
@@ -39,8 +44,15 @@ const Statistics: React.FC = () => {
       const txY = txDate.getFullYear();
 
       if (txM === vM && txY === vY) {
-        if (tx.type === 'pendapatan') thisMonthInc += tx.amount;
-        if (tx.type === 'pengeluaran') thisMonthExp += tx.amount;
+        currentMonthTxs.push(tx);
+        if (tx.type === 'pendapatan') {
+          thisMonthInc += tx.amount;
+          incByCategory[tx.category] = (incByCategory[tx.category] || 0) + tx.amount;
+        }
+        if (tx.type === 'pengeluaran') {
+          thisMonthExp += tx.amount;
+          expByCategory[tx.category] = (expByCategory[tx.category] || 0) + tx.amount;
+        }
       }
 
       const chartItem = last5Months.find(m => m.month === txM && m.year === txY);
@@ -50,10 +62,24 @@ const Statistics: React.FC = () => {
       }
     });
 
+    // Sort logic for pie chart slices
+    const expenseData = Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a,b) => b.value - a.value);
+    const incomeData = Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a,b) => b.value - a.value);
+    
+    // Total by categories
+    const allCategories = [
+      ...expenseData.map(d => ({ id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const })),
+      ...incomeData.map(d => ({ id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const }))
+    ];
+    const topCats = allCategories.sort((a, b) => b.amount - a.amount).slice(0, 5);
+
     return { 
       chartData: last5Months, 
       currentMonthIncome: thisMonthInc, 
-      currentMonthExpense: thisMonthExp 
+      currentMonthExpense: thisMonthExp,
+      expenseCategoryData: expenseData,
+      incomeCategoryData: incomeData,
+      topCategories: topCats
     };
   }, [transactions, viewDate]);
 
@@ -130,6 +156,92 @@ const Statistics: React.FC = () => {
           <span style={{ color: 'var(--secondary)', fontWeight: '800', fontSize: '18px' }}>{formatRupiah(currentMonthExpense)}</span>
         </div>
       </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+        {expenseCategoryData.length > 0 && (
+          <div className="card glass">
+            <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran per Kategori</h2>
+            <div style={{ width: '100%', height: 250 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={expenseCategoryData}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {expenseCategoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(val: number) => formatRupiah(val)}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {incomeCategoryData.length > 0 && (
+          <div className="card glass">
+            <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan per Kategori</h2>
+            <div style={{ width: '100%', height: 250 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={incomeCategoryData}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {incomeCategoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(val: number) => formatRupiah(val)}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {topCategories.length > 0 && (
+        <div className="card glass" style={{ marginBottom: '80px' }}>
+          <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>Total Terbesar per Kategori</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {topCategories.map(cat => (
+              <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-main)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ 
+                    width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: cat.type === 'pendapatan' ? '#10b98120' : '#ef444420',
+                    color: cat.type === 'pendapatan' ? '#10b981' : '#ef4444'
+                  }}>
+                    {cat.type === 'pendapatan' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{cat.category}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{cat.type === 'pendapatan' ? 'Total Pendapatan' : 'Total Pengeluaran'}</div>
+                  </div>
+                </div>
+                <div style={{ fontWeight: 700, color: cat.type === 'pendapatan' ? 'var(--primary)' : 'var(--secondary)' }}>
+                  {cat.type === 'pendapatan' ? '+' : '-'}{formatRupiah(cat.amount)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <DatePickerModal 
         isOpen={isDatePickerOpen}
