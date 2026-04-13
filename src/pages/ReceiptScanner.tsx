@@ -15,7 +15,7 @@ const CONFIDENCE_BADGE = {
 
 const ReceiptScanner: React.FC = () => {
   const { addTransaction, assets, categories } = useMoney();
-  const { scanReceipt, isScanning, progress, error, setError } = useReceiptOCR();
+  const { scanReceipt, progress, error, setError } = useReceiptOCR();
 
   // Stage management
   const [stage, setStage] = useState<Stage>('upload');
@@ -39,7 +39,6 @@ const ReceiptScanner: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [savedCount, setSavedCount] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,7 +51,6 @@ const ReceiptScanner: React.FC = () => {
     setStage('upload');
     setCropRect(null);
     setLineItems([]);
-    setSavedCount(0);
     setEditableAmount('');
     setSelectedCategory('');
     setSelectedSubCategory('');
@@ -242,7 +240,6 @@ const ReceiptScanner: React.FC = () => {
       note: 'Scan Otomatis',
       assetId: selectedAssetId,
     });
-    setSavedCount(prev => prev + 1);
     alert('Transaksi utama berhasil disimpan!');
     reset();
   };
@@ -264,7 +261,6 @@ const ReceiptScanner: React.FC = () => {
         assetId: selectedAssetId,
       });
     });
-    setSavedCount(prev => prev + toSave.length);
     alert(`${toSave.length} item berhasil disimpan!`);
     reset();
   };

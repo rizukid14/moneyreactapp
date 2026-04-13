@@ -208,7 +208,7 @@ const Statistics: React.FC = () => {
                     paddingAngle={5}
                     dataKey="value"
                     onClick={(data) => {
-                      if (!drillDownCategory) setDrillDownCategory({ name: data.name, type: 'pengeluaran' });
+                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pengeluaran' });
                     }}
                     style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
                   >
@@ -240,7 +240,7 @@ const Statistics: React.FC = () => {
                     paddingAngle={5}
                     dataKey="value"
                     onClick={(data) => {
-                      if (!drillDownCategory) setDrillDownCategory({ name: data.name, type: 'pendapatan' });
+                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pendapatan' });
                     }}
                     style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
                   >
