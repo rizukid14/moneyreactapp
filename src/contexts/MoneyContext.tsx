@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import {
-  dbGetAllAssets, dbPutAsset, dbDeleteAsset,
+  dbGetAllAssets, dbPutAsset,
   dbGetAllTransactions, dbPutTransaction, dbDeleteTransaction,
   dbGetAllCategories, dbPutCategory, dbDeleteCategory,
   dbGetSetting, dbPutSetting, dbDeleteSetting,
