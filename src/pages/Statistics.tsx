@@ -1,11 +1,13 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
+import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
 
 const formatRupiah = (value: number) => `Rp${value.toLocaleString('id-ID')}`;
 
@@ -13,8 +15,9 @@ const Statistics: React.FC = () => {
   const { transactions } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran'} | null>(null);
 
-  const { chartData, currentMonthIncome, currentMonthExpense } = useMemo(() => {
+  const { chartData, currentMonthIncome, currentMonthExpense, expenseCategoryData, incomeCategoryData, topCategories } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
@@ -32,6 +35,11 @@ const Statistics: React.FC = () => {
 
     let thisMonthInc = 0;
     let thisMonthExp = 0;
+    const expByCategory: Record<string, number> = {};
+    const incByCategory: Record<string, number> = {};
+    const expBySubCategory: Record<string, number> = {};
+    const incBySubCategory: Record<string, number> = {};
+    const currentMonthTxs: typeof transactions = [];
 
     transactions.forEach(tx => {
       const txDate = new Date(tx.date);
@@ -39,8 +47,23 @@ const Statistics: React.FC = () => {
       const txY = txDate.getFullYear();
 
       if (txM === vM && txY === vY) {
-        if (tx.type === 'pendapatan') thisMonthInc += tx.amount;
-        if (tx.type === 'pengeluaran') thisMonthExp += tx.amount;
+        currentMonthTxs.push(tx);
+        const subKey = tx.subCategory || 'Lainnya';
+
+        if (tx.type === 'pendapatan') {
+          thisMonthInc += tx.amount;
+          if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === tx.category) {
+            incBySubCategory[subKey] = (incBySubCategory[subKey] || 0) + tx.amount;
+          }
+          incByCategory[tx.category] = (incByCategory[tx.category] || 0) + tx.amount;
+        }
+        if (tx.type === 'pengeluaran') {
+          thisMonthExp += tx.amount;
+          if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === tx.category) {
+            expBySubCategory[subKey] = (expBySubCategory[subKey] || 0) + tx.amount;
+          }
+          expByCategory[tx.category] = (expByCategory[tx.category] || 0) + tx.amount;
+        }
       }
 
       const chartItem = last5Months.find(m => m.month === txM && m.year === txY);
@@ -50,18 +73,49 @@ const Statistics: React.FC = () => {
       }
     });
 
+    // Sort logic for pie chart slices
+    const expenseData = drillDownCategory?.type === 'pengeluaran' 
+      ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })).sort((a,b) => b.value - a.value)
+      : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a,b) => b.value - a.value);
+      
+    const incomeData = drillDownCategory?.type === 'pendapatan'
+      ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] })).sort((a,b) => b.value - a.value)
+      : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a,b) => b.value - a.value);
+    
+    // Total by categories
+    const allCategoriesSrcExpense = drillDownCategory?.type === 'pengeluaran' 
+      ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })) 
+      : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] }));
+
+    const allCategoriesSrcIncome = drillDownCategory?.type === 'pendapatan'
+      ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] }))
+      : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] }));
+
+    const allCategories = [
+      ...allCategoriesSrcExpense.map(d => ({ id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const })),
+      ...allCategoriesSrcIncome.map(d => ({ id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const }))
+    ];
+    const topCats = allCategories.sort((a, b) => b.amount - a.amount).slice(0, 5);
+
     return { 
       chartData: last5Months, 
       currentMonthIncome: thisMonthInc, 
-      currentMonthExpense: thisMonthExp 
+      currentMonthExpense: thisMonthExp,
+      expenseCategoryData: expenseData,
+      incomeCategoryData: incomeData,
+      topCategories: topCats
     };
-  }, [transactions, viewDate]);
+  }, [transactions, viewDate, drillDownCategory]);
 
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+    setDrillDownCategory(null);
   }, []);
 
-  const resetToToday = useCallback(() => setViewDate(new Date()), []);
+  const resetToToday = useCallback(() => {
+    setViewDate(new Date());
+    setDrillDownCategory(null);
+  }, []);
 
   return (
     <div className="page">
@@ -130,6 +184,119 @@ const Statistics: React.FC = () => {
           <span style={{ color: 'var(--secondary)', fontWeight: '800', fontSize: '18px' }}>{formatRupiah(currentMonthExpense)}</span>
         </div>
       </div>
+
+      {drillDownCategory && (
+        <div className="card glass" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => setDrillDownCategory(null)} className="btn" style={{ padding: '4px 12px', background: 'var(--bg-main)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <ChevronLeft size={16} /> Kembali
+          </button>
+          <span style={{ fontWeight: 600 }}>Rincian Sub-kategori: {drillDownCategory.name}</span>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+        {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
+          <div className="card glass">
+            <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
+            <div style={{ width: '100%', height: 250 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={expenseCategoryData}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    onClick={(data) => {
+                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pengeluaran' });
+                    }}
+                    style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
+                  >
+                    {expenseCategoryData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(val: any) => formatRupiah(Number(val))}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
+          <div className="card glass">
+            <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
+            <div style={{ width: '100%', height: 250 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={incomeCategoryData}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    onClick={(data) => {
+                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pendapatan' });
+                    }}
+                    style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
+                  >
+                    {incomeCategoryData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(val: any) => formatRupiah(Number(val))}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {topCategories.length > 0 && (
+        <div className="card glass" style={{ marginBottom: '80px' }}>
+          <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>Total Terbesar {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {topCategories.map(cat => (
+              <div 
+                key={cat.id} 
+                onClick={() => {
+                  if (!drillDownCategory) setDrillDownCategory({ name: cat.category, type: cat.type });
+                }}
+                style={{ 
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                  padding: '12px', background: 'var(--bg-main)', borderRadius: '12px',
+                  cursor: drillDownCategory ? 'default' : 'pointer'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ 
+                    width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: cat.type === 'pendapatan' ? '#10b98120' : '#ef444420',
+                    color: cat.type === 'pendapatan' ? '#10b981' : '#ef4444'
+                  }}>
+                    {cat.type === 'pendapatan' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{cat.category}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{cat.type === 'pendapatan' ? 'Total Pendapatan' : 'Total Pengeluaran'}</div>
+                  </div>
+                </div>
+                <div style={{ fontWeight: 700, color: cat.type === 'pendapatan' ? 'var(--primary)' : 'var(--secondary)' }}>
+                  {cat.type === 'pendapatan' ? '+' : '-'}{formatRupiah(cat.amount)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <DatePickerModal 
         isOpen={isDatePickerOpen}

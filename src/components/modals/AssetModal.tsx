@@ -14,16 +14,19 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
   const [name, setName] = useState('');
   const [type, setType] = useState<AssetType>('Cash');
   const [initialBalance, setInitialBalance] = useState('');
+  const [isHidden, setIsHidden] = useState(false);
 
   useEffect(() => {
     if (editingAsset) {
       setName(editingAsset.name);
       setType(editingAsset.type);
       setInitialBalance(editingAsset.initialBalance.toLocaleString('id-ID'));
+      setIsHidden(editingAsset.isHidden || false);
     } else {
       setName('');
       setType('Cash');
       setInitialBalance('');
+      setIsHidden(false);
     }
   }, [editingAsset, isOpen]);
 
@@ -44,6 +47,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
       name,
       type,
       initialBalance: Number(initialBalance.replace(/\./g, '')) || 0,
+      isHidden,
     };
 
     if (editingAsset && updateAsset) {
@@ -75,7 +79,10 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
             <option value="Cash">Tunai / Dompet</option>
             <option value="Bank Account">Rekening Bank</option>
             <option value="eWallet">E-Wallet (Gopay, OVO)</option>
+            <option value="Savings">Tabungan</option>
+            <option value="Investment">Investasi (Saham, Reksadana)</option>
             <option value="Credit Card">Kartu Kredit</option>
+            <option value="Loan">Pinjaman / Hutang</option>
           </select>
           
           <input 
@@ -85,6 +92,19 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
             value={initialBalance} 
             onChange={handleAmountChange} 
           />
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', marginBottom: '8px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={isHidden}
+              onChange={(e) => setIsHidden(e.target.checked)}
+              style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', marginBottom: 0 }}
+            />
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>Sembunyikan dari Total</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tidak akan dihitung dalam Total Kekayaan Bersih.</div>
+            </div>
+          </label>
           
           <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
             {editingAsset ? 'Simpan Perubahan' : 'Simpan Aset'}

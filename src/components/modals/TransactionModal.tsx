@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowRightLeft } from 'lucide-react';
+import { useMoney } from '../../contexts/MoneyContext';
 import type { Asset, Transaction } from '../../contexts/MoneyContext';
 
 interface TransactionModalProps {
@@ -14,9 +15,11 @@ interface TransactionModalProps {
 const TransactionModal: React.FC<TransactionModalProps> = ({ 
   isOpen, onClose, assets, addTransaction, updateTransaction, editingTransaction 
 }) => {
+  const { categories } = useMoney();
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
+  const [subCategory, setSubCategory] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
   const [assetId, setAssetId] = useState(assets[0]?.id || '');
@@ -28,6 +31,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setType(editingTransaction.type);
       setAmount(editingTransaction.amount.toLocaleString('id-ID'));
       setCategory(editingTransaction.category);
+      setSubCategory(editingTransaction.subCategory || '');
       setDate(editingTransaction.date);
       setNote(editingTransaction.note);
       setAssetId(editingTransaction.assetId || assets[0]?.id || '');
@@ -37,6 +41,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setType('pengeluaran');
       setAmount('');
       setCategory('');
+      setSubCategory('');
       setDate(new Date().toISOString().split('T')[0]);
       setNote('');
       setAssetId(assets[0]?.id || '');
@@ -62,6 +67,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       type,
       amount: Number(amount.replace(/\./g, '')),
       category: type === 'transfer' ? 'Transfer' : category,
+      subCategory: type === 'transfer' ? undefined : (subCategory || undefined),
       date,
       note,
       assetId: type !== 'transfer' ? assetId : undefined,
@@ -128,8 +134,32 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
             {type !== 'transfer' ? (
               <>
-                <input type="text" required placeholder={type === 'pendapatan' ? 'Misal: Gaji' : 'Misal: Makan'} value={category} onChange={e => setCategory(e.target.value)} />
-                <select value={assetId} onChange={e => setAssetId(e.target.value)}>
+                <select required value={category} onChange={e => {
+                  setCategory(e.target.value);
+                  setSubCategory('');
+                }}>
+                  <option value="" disabled>-- Pilih Kategori --</option>
+                  {categories.filter(c => c.type === type).map(c => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+                
+                {(() => {
+                  const selCat = categories.find(c => c.name === category && c.type === type);
+                  if (selCat && selCat.subcategories && selCat.subcategories.length > 0) {
+                    return (
+                      <select required value={subCategory} onChange={e => setSubCategory(e.target.value)}>
+                        <option value="" disabled>-- Pilih Sub-Kategori --</option>
+                        {selCat.subcategories.map(sub => (
+                          <option key={sub.id} value={sub.name}>{sub.name}</option>
+                        ))}
+                      </select>
+                    );
+                  }
+                  return null;
+                })()}
+
+                <select required value={assetId} onChange={e => setAssetId(e.target.value)}>
                   <option value="" disabled>-- Pilih Dompet/Rekening --</option>
                   {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
