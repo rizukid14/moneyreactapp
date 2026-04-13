@@ -1,6 +1,5 @@
 import React from 'react';
 import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2, Pencil } from 'lucide-react';
-import { useMoney } from '../../contexts/MoneyContext';
 import type { Transaction } from '../../contexts/MoneyContext';
 
 interface TransactionItemProps {
