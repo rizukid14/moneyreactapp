@@ -4,7 +4,7 @@ import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult } from '../hooks/useReceiptOCR';
 
 const ReceiptScanner: React.FC = () => {
-  const { addTransaction, assets } = useMoney();
+  const { addTransaction, assets, categories } = useMoney();
   const { scanReceipt, isScanning, progress, error, setError } = useReceiptOCR();
   
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -15,8 +15,9 @@ const ReceiptScanner: React.FC = () => {
   const [selectedType, setSelectedType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [editableAmount, setEditableAmount] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Belanja (OCR)');
-  const [recentSaves, setRecentSaves] = useState<{amount: number, category: string, type: string}[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('');
+  const [recentSaves, setRecentSaves] = useState<{amount: number, category: string, subCategory?: string, type: string}[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,7 +51,8 @@ const ReceiptScanner: React.FC = () => {
       setSelectedType('pengeluaran');
       setSelectedDate(ocrResult.date);
       setEditableAmount(ocrResult.amount.toString());
-      setSelectedCategory('Belanja (OCR)');
+      setSelectedCategory('');
+      setSelectedSubCategory('');
     }
   };
 
@@ -72,6 +74,7 @@ const ReceiptScanner: React.FC = () => {
       type: selectedType,
       amount: finalAmount,
       category: selectedCategory || 'Belanja (OCR)',
+      subCategory: selectedSubCategory || undefined,
       date: selectedDate,
       note: 'Scan Otomatis',
       assetId: selectedAssetId
@@ -81,9 +84,10 @@ const ReceiptScanner: React.FC = () => {
       alert('Transaksi berhasil disimpan!');
       resetScanner();
     } else {
-      setRecentSaves(prev => [...prev, { amount: finalAmount, category: selectedCategory || 'Belanja (OCR)', type: selectedType }]);
+      setRecentSaves(prev => [...prev, { amount: finalAmount, category: selectedCategory || 'Belanja (OCR)', subCategory: selectedSubCategory || undefined, type: selectedType }]);
       setEditableAmount('');
       setSelectedCategory('');
+      setSelectedSubCategory('');
     }
   };
 
@@ -156,13 +160,30 @@ const ReceiptScanner: React.FC = () => {
               />
 
               <div className="text-muted" style={{ fontSize: '12px', marginBottom: '4px', fontWeight: 600 }}>Kategori & Rekening</div>
-              <input 
-                type="text" 
-                value={selectedCategory} 
-                onChange={e => setSelectedCategory(e.target.value)}
-                placeholder="Misal: Makan"
-                style={{ marginBottom: '10px' }}
-              />
+              <select required value={selectedCategory} onChange={e => {
+                setSelectedCategory(e.target.value);
+                setSelectedSubCategory('');
+              }} style={{ marginBottom: '10px' }}>
+                <option value="" disabled>-- Pilih Kategori --</option>
+                {categories.filter(c => c.type === selectedType).map(c => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+
+              {(() => {
+                const selCat = categories.find(c => c.name === selectedCategory && c.type === selectedType);
+                if (selCat && selCat.subcategories && selCat.subcategories.length > 0) {
+                  return (
+                    <select required value={selectedSubCategory} onChange={e => setSelectedSubCategory(e.target.value)} style={{ marginBottom: '10px' }}>
+                      <option value="" disabled>-- Pilih Sub-Kategori --</option>
+                      {selCat.subcategories.map(sub => (
+                        <option key={sub.id} value={sub.name}>{sub.name}</option>
+                      ))}
+                    </select>
+                  );
+                }
+                return null;
+              })()}
               <select value={selectedAssetId} onChange={e => setSelectedAssetId(e.target.value)} style={{ marginBottom: '16px' }}>
                 <option value="" disabled>-- Pilih Rekening --</option>
                 {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}

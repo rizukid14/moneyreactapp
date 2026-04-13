@@ -32,7 +32,16 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 600 }}>
-          {tx.type === 'transfer' ? `Transfer: ${fromAssetName} ➔ ${toAssetName}` : tx.category}
+          {tx.type === 'transfer' ? `Transfer: ${fromAssetName} \u2794 ${toAssetName}` : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>{tx.category}</span>
+              {tx.subCategory && (
+                <span style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--bg-main)', color: 'var(--text-muted)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                  {tx.subCategory}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
           {tx.date} • {tx.type !== 'transfer' ? assetName : ''} {tx.note && `(${tx.note})`}

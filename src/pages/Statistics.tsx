@@ -15,6 +15,7 @@ const Statistics: React.FC = () => {
   const { transactions } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran'} | null>(null);
 
   const { chartData, currentMonthIncome, currentMonthExpense, expenseCategoryData, incomeCategoryData, topCategories } = useMemo(() => {
     const vM = viewDate.getMonth();
@@ -36,6 +37,8 @@ const Statistics: React.FC = () => {
     let thisMonthExp = 0;
     const expByCategory: Record<string, number> = {};
     const incByCategory: Record<string, number> = {};
+    const expBySubCategory: Record<string, number> = {};
+    const incBySubCategory: Record<string, number> = {};
     const currentMonthTxs: typeof transactions = [];
 
     transactions.forEach(tx => {
@@ -45,12 +48,20 @@ const Statistics: React.FC = () => {
 
       if (txM === vM && txY === vY) {
         currentMonthTxs.push(tx);
+        const subKey = tx.subCategory || 'Lainnya';
+
         if (tx.type === 'pendapatan') {
           thisMonthInc += tx.amount;
+          if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === tx.category) {
+            incBySubCategory[subKey] = (incBySubCategory[subKey] || 0) + tx.amount;
+          }
           incByCategory[tx.category] = (incByCategory[tx.category] || 0) + tx.amount;
         }
         if (tx.type === 'pengeluaran') {
           thisMonthExp += tx.amount;
+          if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === tx.category) {
+            expBySubCategory[subKey] = (expBySubCategory[subKey] || 0) + tx.amount;
+          }
           expByCategory[tx.category] = (expByCategory[tx.category] || 0) + tx.amount;
         }
       }
@@ -63,13 +74,26 @@ const Statistics: React.FC = () => {
     });
 
     // Sort logic for pie chart slices
-    const expenseData = Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a,b) => b.value - a.value);
-    const incomeData = Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a,b) => b.value - a.value);
+    const expenseData = drillDownCategory?.type === 'pengeluaran' 
+      ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })).sort((a,b) => b.value - a.value)
+      : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a,b) => b.value - a.value);
+      
+    const incomeData = drillDownCategory?.type === 'pendapatan'
+      ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] })).sort((a,b) => b.value - a.value)
+      : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a,b) => b.value - a.value);
     
     // Total by categories
+    const allCategoriesSrcExpense = drillDownCategory?.type === 'pengeluaran' 
+      ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })) 
+      : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] }));
+
+    const allCategoriesSrcIncome = drillDownCategory?.type === 'pendapatan'
+      ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] }))
+      : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] }));
+
     const allCategories = [
-      ...expenseData.map(d => ({ id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const })),
-      ...incomeData.map(d => ({ id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const }))
+      ...allCategoriesSrcExpense.map(d => ({ id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const })),
+      ...allCategoriesSrcIncome.map(d => ({ id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const }))
     ];
     const topCats = allCategories.sort((a, b) => b.amount - a.amount).slice(0, 5);
 
@@ -81,13 +105,17 @@ const Statistics: React.FC = () => {
       incomeCategoryData: incomeData,
       topCategories: topCats
     };
-  }, [transactions, viewDate]);
+  }, [transactions, viewDate, drillDownCategory]);
 
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+    setDrillDownCategory(null);
   }, []);
 
-  const resetToToday = useCallback(() => setViewDate(new Date()), []);
+  const resetToToday = useCallback(() => {
+    setViewDate(new Date());
+    setDrillDownCategory(null);
+  }, []);
 
   return (
     <div className="page">
@@ -157,10 +185,19 @@ const Statistics: React.FC = () => {
         </div>
       </div>
 
+      {drillDownCategory && (
+        <div className="card glass" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => setDrillDownCategory(null)} className="btn" style={{ padding: '4px 12px', background: 'var(--bg-main)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <ChevronLeft size={16} /> Kembali
+          </button>
+          <span style={{ fontWeight: 600 }}>Rincian Sub-kategori: {drillDownCategory.name}</span>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-        {expenseCategoryData.length > 0 && (
+        {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
           <div className="card glass">
-            <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran per Kategori</h2>
+            <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
             <div style={{ width: '100%', height: 250 }}>
               <ResponsiveContainer>
                 <PieChart>
@@ -170,13 +207,17 @@ const Statistics: React.FC = () => {
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
+                    onClick={(data) => {
+                      if (!drillDownCategory) setDrillDownCategory({ name: data.name, type: 'pengeluaran' });
+                    }}
+                    style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
                   >
-                    {expenseCategoryData.map((entry, index) => (
+                    {expenseCategoryData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: number) => formatRupiah(val)}
+                    formatter={(val: any) => formatRupiah(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
@@ -186,9 +227,9 @@ const Statistics: React.FC = () => {
           </div>
         )}
 
-        {incomeCategoryData.length > 0 && (
+        {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
           <div className="card glass">
-            <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan per Kategori</h2>
+            <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
             <div style={{ width: '100%', height: 250 }}>
               <ResponsiveContainer>
                 <PieChart>
@@ -198,13 +239,17 @@ const Statistics: React.FC = () => {
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
+                    onClick={(data) => {
+                      if (!drillDownCategory) setDrillDownCategory({ name: data.name, type: 'pendapatan' });
+                    }}
+                    style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
                   >
-                    {incomeCategoryData.map((entry, index) => (
+                    {incomeCategoryData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: number) => formatRupiah(val)}
+                    formatter={(val: any) => formatRupiah(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
@@ -217,10 +262,20 @@ const Statistics: React.FC = () => {
 
       {topCategories.length > 0 && (
         <div className="card glass" style={{ marginBottom: '80px' }}>
-          <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>Total Terbesar per Kategori</h2>
+          <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>Total Terbesar {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {topCategories.map(cat => (
-              <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-main)', borderRadius: '12px' }}>
+              <div 
+                key={cat.id} 
+                onClick={() => {
+                  if (!drillDownCategory) setDrillDownCategory({ name: cat.category, type: cat.type });
+                }}
+                style={{ 
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                  padding: '12px', background: 'var(--bg-main)', borderRadius: '12px',
+                  cursor: drillDownCategory ? 'default' : 'pointer'
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ 
                     width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',

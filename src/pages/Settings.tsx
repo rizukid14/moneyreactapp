@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera } from 'lucide-react';
+import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2 } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Profile Form State
@@ -16,8 +16,15 @@ const Settings: React.FC = () => {
   const [confirmPin, setConfirmPin] = useState('');
   const [pinError, setPinError] = useState('');
 
+  // Category State
+  const [catTab, setCatTab] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
+  const [newCatName, setNewCatName] = useState('');
+  const [expandedCat, setExpandedCat] = useState<string | null>(null);
+  const [newSubCatName, setNewSubCatName] = useState('');
+
   const menuItems = [
     { id: 'profile', icon: User, label: 'Profil Saya' },
+    { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
     { id: 'notif', icon: Bell, label: 'Notifikasi' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
@@ -104,8 +111,120 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleAddCat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    addCategory({ name: newCatName.trim(), type: catTab });
+    setNewCatName('');
+  };
+
   const renderModalContent = () => {
     switch (activeModal) {
+      case 'categories':
+        const filteredCats = categories.filter(c => c.type === catTab);
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Kategori</h2>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
+              <button 
+                type="button"
+                onClick={() => setCatTab('pengeluaran')}
+                style={{ 
+                  flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
+                  background: catTab === 'pengeluaran' ? 'var(--bg-card)' : 'transparent',
+                  color: catTab === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)',
+                  boxShadow: catTab === 'pengeluaran' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                Pengeluaran
+              </button>
+              <button 
+                type="button"
+                onClick={() => setCatTab('pendapatan')}
+                style={{ 
+                  flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
+                  background: catTab === 'pendapatan' ? 'var(--bg-card)' : 'transparent',
+                  color: catTab === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: catTab === 'pendapatan' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                Pendapatan
+              </button>
+            </div>
+
+            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
+              {filteredCats.map(c => (
+                <div key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div 
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', cursor: 'pointer' }}
+                    onClick={() => setExpandedCat(expandedCat === c.id ? null : c.id)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <ChevronRight size={18} style={{ transform: expandedCat === c.id ? 'rotate(90deg)' : 'none', transition: 'all 0.2s', marginRight: '8px', color: 'var(--text-muted)' }} />
+                      <span style={{ fontWeight: 500 }}>{c.name}</span>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); }} style={{ background: 'none', border: 'none', color: 'var(--danger-red)', cursor: 'pointer', padding: '4px' }}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  
+                  {expandedCat === c.id && (
+                    <div style={{ padding: '0 12px 12px 36px', background: 'var(--bg-main)', borderRadius: '0 0 8px 8px' }}>
+                      {(c.subcategories || []).map(sub => (
+                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed var(--border-color)', fontSize: '13px' }}>
+                          <span>{sub.name}</span>
+                          <button onClick={() => deleteSubCategory(c.id, sub.id)} style={{ background: 'none', border: 'none', color: 'var(--danger-red)', cursor: 'pointer' }}>
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                        <input 
+                          type="text" 
+                          value={newSubCatName} 
+                          onChange={e => setNewSubCatName(e.target.value)} 
+                          placeholder="Sub-kategori..." 
+                          style={{ flex: 1, marginBottom: 0, padding: '6px 10px', fontSize: '13px' }}
+                        />
+                        <button 
+                          onClick={() => {
+                            if (newSubCatName.trim()) {
+                              addSubCategory(c.id, newSubCatName.trim());
+                              setNewSubCatName('');
+                            }
+                          }}
+                          className="btn btn-blue" style={{ padding: '0 12px', margin: 0, fontSize: '13px' }}>
+                          Tambah
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {filteredCats.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Belum ada kategori.</div>
+              )}
+            </div>
+
+            <form onSubmit={handleAddCat} style={{ display: 'flex', gap: '8px' }}>
+              <input 
+                type="text" 
+                value={newCatName} 
+                onChange={e => setNewCatName(e.target.value)} 
+                placeholder="Nama kategori baru..." 
+                style={{ flex: 1, marginBottom: 0 }}
+                required 
+              />
+              <button type="submit" className="btn btn-blue" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
+                <Plus size={20} />
+              </button>
+            </form>
+          </>
+        );
       case 'profile':
         return (
           <form onSubmit={handleUpdateProfile}>
