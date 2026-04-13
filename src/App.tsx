@@ -29,7 +29,7 @@ const LoadingFallback = () => (
 );
 
 const AppContent: React.FC = () => {
-  const { isAppLocked, theme } = useMoney();
+  const { isAppLocked, isReady, theme } = useMoney();
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -38,6 +38,9 @@ const AppContent: React.FC = () => {
       document.body.classList.remove('dark');
     }
   }, [theme]);
+
+  // Wait for IndexedDB to load before rendering app
+  if (!isReady) return <LoadingFallback />;
 
   if (isAppLocked) {
     return <LockScreen />;

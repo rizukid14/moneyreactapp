@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Profile Form State
   const [tempName, setTempName] = useState(user.name);
@@ -437,6 +439,56 @@ const Settings: React.FC = () => {
          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
       </div>
 
+
+      {/* ── Data Backup Section ───────────────────────────────────────── */}
+      <div className="card glass" style={{ marginTop: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+          <DatabaseBackup size={20} color="var(--primary)" />
+          <span style={{ fontWeight: 700, fontSize: '15px' }}>Backup & Restore Data</span>
+        </div>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.6 }}>
+          Data tersimpan di <strong>IndexedDB</strong> browser. Ekspor secara berkala sebagai file backup .json agar tidak kehilangan data jika browser di-reset.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <button
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            onClick={exportData}
+          >
+            <Download size={16} /> Ekspor Data (Download Backup)
+          </button>
+          <button
+            className="btn"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--border-color)', color: 'var(--text-main)' }}
+            onClick={() => importInputRef.current?.click()}
+            disabled={isImporting}
+          >
+            <Upload size={16} /> {isImporting ? 'Mengimpor...' : 'Impor Data (Restore Backup)'}
+          </button>
+        </div>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (!confirm('Ini akan MENGGANTI semua data saat ini. Lanjutkan?')) return;
+            try {
+              setIsImporting(true);
+              await importData(file);
+              alert('Data berhasil diimpor! Halaman akan dimuat ulang.');
+              window.location.reload();
+            } catch {
+              alert('File backup tidak valid atau rusak.');
+            } finally {
+              setIsImporting(false);
+              e.target.value = '';
+            }
+          }}
+        />
+      </div>
 
       {activeModal && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
