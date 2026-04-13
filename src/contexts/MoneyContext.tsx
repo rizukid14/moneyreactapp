@@ -35,6 +35,7 @@ export interface Asset {
   type: AssetType;
   initialBalance: number;
   isHidden?: boolean;
+  isDeleted?: boolean;
 }
 
 export interface Transaction {
@@ -171,8 +172,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const deleteAsset = useCallback((id: string) => {
-    setAssets(prev => prev.filter(a => a.id !== id));
-    dbDeleteAsset(id);
+    setAssets(prev => prev.map(a => {
+      if (a.id !== id) return a;
+      const updated = { ...a, isDeleted: true };
+      dbPutAsset(updated);
+      return updated;
+    }));
   }, []);
 
   const updateAsset = useCallback((id: string, updatedAsset: Partial<Asset>) => {

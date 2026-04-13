@@ -50,6 +50,8 @@ const Assets: React.FC = () => {
     };
     
     assets.forEach(asset => {
+      if (asset.isDeleted) return;
+
       const bal = getAssetBalance(asset.id);
       b[asset.id] = bal;
       if (!asset.isHidden) {
