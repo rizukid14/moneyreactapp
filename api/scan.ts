@@ -36,7 +36,12 @@ export default async function handler(req: any, res: any) {
           content: [
             {
               type: "text",
-              text: "Analyze this receipt image and return a JSON object with the following fields: amount (number), date (string as YYYY-MM-DD), lineItems (array of {name: string, amount: number}), suggestedCategory (string), and confidence ('high', 'medium', or 'low' based on image quality). Be extremely careful to find the Total Amount (not just the subtotal)."
+              text: `Analyze this receipt image and return a JSON object with the following fields: amount (number), date (string as YYYY-MM-DD), lineItems (array of {name: string, amount: number}), suggestedCategory (string), and confidence ('high', 'medium', or 'low' based on image quality). 
+              
+              IMPORTANT: 
+              - Today's date is ${new Date().toISOString().split('T')[0]}. Use this as a reference.
+              - If the receipt does not have a clear date, default to today's date.
+              - Be extremely careful to find the Total Amount (not just the subtotal).`
             },
             {
               type: "image_url",
