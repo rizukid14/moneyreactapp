@@ -1,8 +1,40 @@
 import { useState, useCallback } from 'react';
 import * as ocr from '@paddlejs-models/ocr';
+import '@paddlejs/paddlejs-backend-webgl';
 
 const CLEAN_NUM_REGEX = /[.,]/g;
 const TOTAL_KEYWORDS = ['total', 'jumlah', 'bayar', 'amount', 'harga', 'subtotal', 'grand total', 'tagihan'];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const RESIZE_MAX_DIM = 1024;
+
+const resizeImage = async (img: HTMLImageElement): Promise<HTMLCanvasElement | HTMLImageElement> => {
+  if (img.width <= RESIZE_MAX_DIM && img.height <= RESIZE_MAX_DIM) return img;
+
+  const canvas = document.createElement('canvas');
+  let width = img.width;
+  let height = img.height;
+
+  if (width > height) {
+    if (width > RESIZE_MAX_DIM) {
+      height *= RESIZE_MAX_DIM / width;
+      width = RESIZE_MAX_DIM;
+    }
+  } else {
+    if (height > RESIZE_MAX_DIM) {
+      width *= RESIZE_MAX_DIM / height;
+      height = RESIZE_MAX_DIM;
+    }
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return img;
+
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas;
+};
 
 export interface LineItem {
   name: string;
@@ -177,17 +209,21 @@ export const useReceiptOCR = () => {
         }
       }
       
-      setProgress(50); // Engine is ready, scanning image...
+      setProgress(30);
 
       const imgUrl = URL.createObjectURL(imageBlob);
-      const img = new Image();
-      img.src = imgUrl;
+      const originalImg = new Image();
+      originalImg.src = imgUrl;
       await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
+        originalImg.onload = resolve;
+        originalImg.onerror = reject;
       });
       
-      const ocrResult = await ocr.recognize(img);
+      // Optimization: Resize image to prevent GPU context loss
+      setProgress(50);
+      const optimizedImg = await resizeImage(originalImg);
+      
+      const ocrResult = await ocr.recognize(optimizedImg);
       URL.revokeObjectURL(imgUrl);
       
       setProgress(100);

@@ -27,4 +27,10 @@ export default defineConfig({
       }
     })
   ],
+  optimizeDeps: {
+    exclude: ['@paddlejs-models/ocr', '@paddlejs/paddlejs-core', '@paddlejs/paddlejs-backend-webgl']
+  },
+  define: {
+    'process.env.NODE_ENV': '"development"',
+  }
 })
