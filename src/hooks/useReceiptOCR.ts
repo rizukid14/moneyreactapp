@@ -118,19 +118,43 @@ const detectDate = (text: string): string => {
   return new Date().toISOString().split('T')[0];
 };
 
-const parseLineItems = (text: string): LineItem[] => {
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
-  const items: LineItem[] = [];
-  const pricePattern = /^(.+?)\s+(?:rp\.?\s*)?(\d[\d.,]{2,})\s*$/i;
+const PRICE_ONLY_REGEX = /^(?:rp\.?\s*)?(\d[\d.,]{2,})$/i;
+const PRICE_INLINE_REGEX = /^(.+?)\s+(?:rp\.?\s*)?(\d[\d.,]{2,})\s*$/i;
+const AMOUNT_MIN = 100;
+const AMOUNT_MAX = 5_000_000;
 
-  for (const line of lines) {
+const parseLineItems = (text: string): LineItem[] => {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+  const items: LineItem[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (TOTAL_KEYWORDS.some(kw => line.toLowerCase().includes(kw))) continue;
-    const match = line.match(pricePattern);
-    if (match) {
-      const name = match[1].replace(/x\d+/i, '').trim();
-      const amount = cleanInt(match[2]);
-      if (amount >= 100 && amount <= 5_000_000 && name.length >= 2) {
+
+    // ── Format 1: "Item Name    12.000" on same line ──────────────────────────
+    const inlineMatch = line.match(PRICE_INLINE_REGEX);
+    if (inlineMatch) {
+      const name = inlineMatch[1].replace(/x\d+/i, '').trim();
+      const amount = cleanInt(inlineMatch[2]);
+      if (amount >= AMOUNT_MIN && amount <= AMOUNT_MAX && name.length >= 2) {
         items.push({ name, amount, selected: true });
+        continue;
+      }
+    }
+
+    // ── Format 2: PaddleOCR produces name on line N, price on line N+1 ───────
+    // Line looks like a name (not a price) + next line looks like a price
+    if (!line.match(PRICE_ONLY_REGEX)) {
+      const nextLine = lines[i + 1] || '';
+      const nextIsPrice = nextLine.match(PRICE_ONLY_REGEX);
+      if (nextIsPrice) {
+        const name = line.replace(/x\d+/i, '').trim();
+        const amount = cleanInt(nextIsPrice[1]);
+        if (amount >= AMOUNT_MIN && amount <= AMOUNT_MAX && name.length >= 2) {
+          items.push({ name, amount, selected: true });
+          i++; // skip the price line so we don't process it again
+          continue;
+        }
       }
     }
   }
@@ -224,17 +248,36 @@ export const useReceiptOCR = () => {
       const optimizedImg = await resizeImage(originalImg);
       
       const ocrResult = await ocr.recognize(optimizedImg);
+      console.log("OCR Raw Result:", ocrResult); // Helpful for debugging exact model output
       URL.revokeObjectURL(imgUrl);
       
       setProgress(100);
 
       let text = '';
-      if (Array.isArray(ocrResult)) {
-        // format used by paddlejs-models
-        text = ocrResult.map((res: any) => res.text || '').join('\n');
+      if (typeof ocrResult === 'string') {
+        text = ocrResult;
+      } else if (Array.isArray(ocrResult)) {
+        // format used by paddlejs-models: array of objects with .text property
+        text = ocrResult
+          .map((res: any) => {
+            if (typeof res === 'string') return res;
+            if (res && res.text) return String(res.text);
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n');
       } else if (ocrResult && typeof ocrResult === 'object') {
-        text = (ocrResult as any).text || '';
+        // format used by some other models/backends where { text: [...] }
+        const r = ocrResult as any;
+        if (Array.isArray(r.text)) {
+          text = r.text.join('\n');
+        } else {
+          text = String(r.text || r.data || '');
+        }
       }
+
+      // Final fallback to ensure it is ALWAYS a string
+      text = String(text || '');
 
       const parsed = parseReceiptText(text);
       
