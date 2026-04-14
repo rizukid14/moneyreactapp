@@ -11,6 +11,7 @@ export interface OCRResult {
   date: string;
   rawText: string;
   suggestedCategory: string;
+  suggestedAsset?: string; // New field for context matching
   lineItems: LineItem[];
   confidence: 'high' | 'medium' | 'low';
   debugLogs?: string[];
@@ -33,7 +34,17 @@ export const useReceiptOCR = () => {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const scanReceipt = useCallback(async (imageBlob: Blob): Promise<OCRResult | null> => {
+  /**
+   * Scans a receipt image using Cloud AI.
+   * @param imageBlob The receipt photo.
+   * @param categories Optional list of user's categories for matching.
+   * @param assets Optional list of user's assets (payment methods) for matching.
+   */
+  const scanReceipt = useCallback(async (
+    imageBlob: Blob, 
+    categories?: any[], 
+    assets?: any[]
+  ): Promise<OCRResult | null> => {
     const logs: string[] = [];
     const addLog = (m: string) => { 
       logs.push(`[${new Date().toLocaleTimeString()}] ${m}`); 
@@ -58,7 +69,11 @@ export const useReceiptOCR = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ image: base64 }),
+        body: JSON.stringify({ 
+          image: base64,
+          categories: categories?.map(c => ({ name: c.name })),
+          assets: assets?.map(a => ({ name: a.name })),
+        }),
       });
 
       if (!response.ok) {
@@ -83,6 +98,7 @@ export const useReceiptOCR = () => {
         date: result.date || new Date().toISOString().split('T')[0],
         rawText: result.rawText || "Parsed via Cloud AI",
         suggestedCategory: result.suggestedCategory || "",
+        suggestedAsset: result.suggestedAsset || "",
         lineItems: mappedLineItems,
         confidence: result.confidence || 'medium',
         debugLogs: logs

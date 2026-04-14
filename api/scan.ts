@@ -18,11 +18,15 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { image } = req.body; // Expecting base64 string
+    const { image, categories, assets } = req.body; 
 
     if (!image) {
       return res.status(400).json({ message: 'No image provided' });
     }
+
+    // Prepare lists for the prompt
+    const categoryList = categories?.length > 0 ? categories.map((c: any) => c.name).join(', ') : "None provided";
+    const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(', ') : "None provided";
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -36,7 +40,16 @@ export default async function handler(req: any, res: any) {
           content: [
             {
               type: "text",
-              text: `Analyze this receipt image and return a JSON object with the following fields: amount (number), date (string as YYYY-MM-DD), lineItems (array of {name: string, amount: number}), suggestedCategory (string), and confidence ('high', 'medium', or 'low' based on image quality). 
+              text: `Analyze this receipt image and return a JSON object with the following fields: 
+              - amount (number)
+              - date (string as YYYY-MM-DD)
+              - lineItems (array of {name: string, amount: number})
+              - suggestedCategory (string): Select a category from the list below that MOST CLOSELY matches the receipt content. If no list provided, suggest a general one.
+              - suggestedAsset (string): Select an asset/payment method from the list below that MOST CLOSELY matches the payment method on the receipt (e.g. "BCA", "Cash", "Tuna").
+              - confidence ('high', 'medium', or 'low' based on image quality)
+
+              USER'S CATEGORIES: [${categoryList}]
+              USER'S ASSETS: [${assetList}]
               
               IMPORTANT: 
               - Today's date is ${new Date().toISOString().split('T')[0]}. Use this as a reference.
@@ -55,13 +68,13 @@ export default async function handler(req: any, res: any) {
         },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 500,
+      max_tokens: 600,
     });
 
     const parsedData = JSON.parse(response.choices[0].message.content || '{}');
     
     // Add raw text for UI consistency
-    parsedData.rawText = "Processed via Cloud AI";
+    parsedData.rawText = "Processed via Cloud AI with context matching";
     
     return res.status(200).json(parsedData);
   } catch (error: any) {
