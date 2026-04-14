@@ -182,7 +182,7 @@ const ReceiptScanner: React.FC = () => {
 
     if (!blob) { setError('Gambar tidak valid'); setStage('crop'); return; }
 
-    const ocrResult = await scanReceipt(blob as Blob);
+    const ocrResult = await scanReceipt(blob as Blob, categories, assets);
 
     if (ocrResult) {
       if (ocrResult.amount === 0) {
@@ -194,18 +194,35 @@ const ReceiptScanner: React.FC = () => {
       }
       
       setResult(ocrResult);
-      setSelectedAssetId(assets[0]?.id || '');
+      
+      // 1. Asset/Payment Method Matching
+      if (ocrResult.suggestedAsset) {
+        const matchedAsset = assets.find(a => 
+          a.name.toLowerCase() === ocrResult.suggestedAsset?.toLowerCase()
+        );
+        if (matchedAsset) {
+          setSelectedAssetId(matchedAsset.id);
+        } else {
+          setSelectedAssetId(assets[0]?.id || '');
+        }
+      } else {
+        setSelectedAssetId(assets[0]?.id || '');
+      }
+
       setSelectedType('pengeluaran');
       setSelectedDate(ocrResult.date);
       setEditableAmount(ocrResult.amount > 0 ? ocrResult.amount.toString() : '');
       setLineItems(ocrResult.lineItems);
 
+      // 2. Category Matching
       if (ocrResult.suggestedCategory) {
-        const match = categories.find(c =>
-          c.name.toLowerCase().includes(ocrResult.suggestedCategory.toLowerCase()) &&
+        const matchedCat = categories.find(c =>
+          c.name.toLowerCase() === ocrResult.suggestedCategory.toLowerCase() &&
           c.type === 'pengeluaran'
         );
-        if (match) setSelectedCategory(match.name);
+        if (matchedCat) {
+          setSelectedCategory(matchedCat.name);
+        }
       }
       setStage('results');
     } else {
