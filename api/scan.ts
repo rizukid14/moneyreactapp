@@ -26,9 +26,9 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ message: 'GEMINI_API_KEY is not configured on the server.' });
     }
 
-    // Initialize Gemini 1.5 Flash
+    // Initialize Gemini 2.0 Flash (latest stable, free tier)
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       generationConfig: { 
         responseMimeType: "application/json" 
       }
