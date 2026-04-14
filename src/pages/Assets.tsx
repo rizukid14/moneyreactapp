@@ -31,7 +31,7 @@ const getColorForType = (type: AssetType) => {
 };
 
 const Assets: React.FC = () => {
-  const { assets, getAssetBalance, addAsset, deleteAsset, updateAsset, isPrivateMode, togglePrivateMode } = useMoney();
+  const { assets, getAssetBalance, addAsset, deleteAsset, updateAsset, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   
@@ -202,6 +202,8 @@ const Assets: React.FC = () => {
         addAsset={addAsset}
         updateAsset={updateAsset}
         editingAsset={editingAsset}
+        currentBalance={editingAsset ? balances[editingAsset.id] : undefined}
+        addTransaction={addTransaction}
       />
     </div>
   );
