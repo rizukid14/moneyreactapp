@@ -166,7 +166,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Assets ──────────────────────────────────────────────────────────────
   const addAsset = useCallback((assetReq: Omit<Asset, 'id'>) => {
-    const newAsset: Asset = { ...assetReq, id: Date.now().toString() };
+    const newAsset: Asset = { ...assetReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
     setAssets(prev => [...prev, newAsset]);
     dbPutAsset(newAsset);
   }, []);
@@ -191,7 +191,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Transactions ─────────────────────────────────────────────────────────
   const addTransaction = useCallback((txReq: Omit<Transaction, 'id'>) => {
-    const newTx: Transaction = { ...txReq, id: Date.now().toString() };
+    const newTx: Transaction = { ...txReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
     setTransactions(prev => [newTx, ...prev]);
     dbPutTransaction(newTx);
   }, []);
@@ -212,7 +212,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Categories ───────────────────────────────────────────────────────────
   const addCategory = useCallback((catReq: Omit<Category, 'id'>) => {
-    const newCat: Category = { ...catReq, id: Date.now().toString(), subcategories: [] };
+    const newCat: Category = { ...catReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9), subcategories: [] };
     setCategories(prev => [...prev, newCat]);
     dbPutCategory(newCat);
   }, []);
@@ -225,7 +225,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addSubCategory = useCallback((categoryId: string, name: string) => {
     setCategories(prev => prev.map(c => {
       if (c.id !== categoryId) return c;
-      const updated = { ...c, subcategories: [...(c.subcategories || []), { id: Date.now().toString(), name }] };
+      const updated = { ...c, subcategories: [...(c.subcategories || []), { id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9), name }] };
       dbPutCategory(updated);
       return updated;
     }));
