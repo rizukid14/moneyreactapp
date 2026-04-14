@@ -188,9 +188,16 @@ const ReceiptScanner: React.FC = () => {
     const ocrResult = await scanReceipt(blob as Blob);
 
     if (ocrResult) {
+      console.log("OCR Result Parsed:", ocrResult);
       if (ocrResult.amount === 0) {
-        setError('Tidak dapat menemukan nominal uang. Coba crop area angka lebih dekat.');
+        // More helpful message for zero amount
+        if (ocrResult.rawText.trim().length === 0) {
+          setError('AI tidak berhasil membaca teks apapun dari foto ini. Pastikan foto cukup terang dan teks terbaca jelas.');
+        } else {
+          setError('Teks terbaca, tapi tidak menemukan nominal uang. Coba tulis nominal secara manual atau arahkan kamera lebih dekat ke angka Total.');
+        }
       }
+      
       setResult(ocrResult);
       setSelectedAssetId(assets[0]?.id || '');
       setSelectedType('pengeluaran');
