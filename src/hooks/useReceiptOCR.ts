@@ -5,24 +5,24 @@ import * as ocr from '@paddlejs-models/ocr';
 const TOTAL_KEYWORDS = ['total', 'jumlah', 'bayar', 'amount', 'harga', 'subtotal', 'grand total', 'tagihan'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const RESIZE_MAX_DIM = 1024;
+const RESIZE_MAX_DIM = 800; // Reduced for mobile stability
 
-const resizeImage = async (img: HTMLImageElement): Promise<HTMLCanvasElement | HTMLImageElement> => {
-  if (img.width <= RESIZE_MAX_DIM && img.height <= RESIZE_MAX_DIM) return img;
+const resizeImage = async (img: HTMLImageElement, maxDim: number = RESIZE_MAX_DIM): Promise<HTMLCanvasElement | HTMLImageElement> => {
+  if (img.width <= maxDim && img.height <= maxDim) return img;
 
   const canvas = document.createElement('canvas');
   let width = img.width;
   let height = img.height;
 
   if (width > height) {
-    if (width > RESIZE_MAX_DIM) {
-      height *= RESIZE_MAX_DIM / width;
-      width = RESIZE_MAX_DIM;
+    if (width > maxDim) {
+      height *= maxDim / width;
+      width = maxDim;
     }
   } else {
-    if (height > RESIZE_MAX_DIM) {
-      width *= RESIZE_MAX_DIM / height;
-      height = RESIZE_MAX_DIM;
+    if (height > maxDim) {
+      width *= maxDim / height;
+      height = maxDim;
     }
   }
 
@@ -259,11 +259,19 @@ export const useReceiptOCR = () => {
       if (!(window as any).__PADDLE_OCR_INITIALIZED__) {
         setIsInitializing(true);
         try {
+          // Check for WebGL support first
+          const canvas = document.createElement('canvas');
+          const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+          if (!gl) {
+            console.warn("WebGL not supported, attempting default init.");
+          }
+          
           await ocr.init();
           (window as any).__PADDLE_OCR_INITIALIZED__ = true;
+          console.log("OCR Engine initialized successfully.");
         } catch (initErr) {
           console.error("OCR Init failed", initErr);
-          throw new Error("Gagal memuat mesin AI pemindai. Pastikan browser Anda mendukung WebGL.");
+          throw new Error("Gagal memuat mesin AI. Pastikan browser mendukung WebGL dan memori mencukupi.");
         } finally {
           setIsInitializing(false);
         }
@@ -281,10 +289,34 @@ export const useReceiptOCR = () => {
       
       // Optimization: Resize image to prevent GPU context loss
       setProgress(50);
-      const optimizedImg = await resizeImage(originalImg);
       
-      const ocrResult = await ocr.recognize(optimizedImg);
-      console.log("OCR Raw Result:", ocrResult); // Helpful for debugging exact model output
+      // Auto-detect mobile and use smaller dimensions if needed
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const targetDim = isMobile ? 640 : RESIZE_MAX_DIM;
+      
+      const optimizedImg = await resizeImage(originalImg, targetDim);
+      
+      let ocrResult;
+      try {
+        ocrResult = await ocr.recognize(optimizedImg);
+      } catch (recErr) {
+        console.error("OCR Recognize failed", recErr);
+        // Retry with even smaller dimension if it failed once
+        const smallerImg = await (async () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = (originalImg.height * 640) / originalImg.width;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(originalImg, 0, 0, canvas.width, canvas.height);
+            return canvas;
+          }
+          return optimizedImg;
+        })();
+        ocrResult = await ocr.recognize(smallerImg);
+      }
+      
+      console.log("OCR Raw Result:", ocrResult);
       URL.revokeObjectURL(imgUrl);
       
       setProgress(100);
