@@ -31,7 +31,7 @@ const Transactions: React.FC = () => {
         return true;
       }
       return false;
-    });
+    }).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
     return { filteredTransactions: filtered, monthlyIncome: inc, monthlyExpense: exp };
   }, [transactions, viewDate]);
