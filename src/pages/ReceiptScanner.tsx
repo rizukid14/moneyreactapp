@@ -15,7 +15,7 @@ const CONFIDENCE_BADGE = {
 
 const ReceiptScanner: React.FC = () => {
   const { addTransaction, assets, categories } = useMoney();
-  const { scanReceipt, progress, error, setError } = useReceiptOCR();
+  const { scanReceipt, isInitializing, progress, error, setError } = useReceiptOCR();
 
   // Stage management
   const [stage, setStage] = useState<Stage>('upload');
@@ -371,8 +371,10 @@ const ReceiptScanner: React.FC = () => {
               <div style={{ fontWeight: 800, fontSize: '24px', color: 'white', textShadow: '0 2px 10px rgba(0,0,0,0.5)', marginTop: '12px' }}>{progress}%</div>
             </div>
           </div>
-          <h3 className="subtitle">Menganalisa Struk...</h3>
-          <p className="text-muted" style={{ fontSize: '12px' }}>Struk diproses secara lokal dan aman</p>
+          <h3 className="subtitle">{isInitializing ? 'Memuat Mesin AI...' : 'Menganalisa Struk...'}</h3>
+          <p className="text-muted" style={{ fontSize: '12px' }}>
+            {isInitializing ? 'Pengunduhan model AI (15MB) pertama kali mungkin butuh waktu sedikit lebih lama.' : 'Struk diproses secara lokal dan aman'}
+          </p>
         </div>
       )}
 

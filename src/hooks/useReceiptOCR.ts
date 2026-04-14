@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { createWorker } from 'tesseract.js';
+import * as ocr from '@paddlejs-models/ocr';
 
 const CLEAN_NUM_REGEX = /[.,]/g;
 const TOTAL_KEYWORDS = ['total', 'jumlah', 'bayar', 'amount', 'harga', 'subtotal', 'grand total', 'tagihan'];
@@ -150,8 +150,11 @@ const parseReceiptText = (text: string) => {
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
+let paddleOcrInitialized = false;
+
 export const useReceiptOCR = () => {
   const [isScanning, setIsScanning] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -161,16 +164,41 @@ export const useReceiptOCR = () => {
     setProgress(0);
 
     try {
-      const worker = await createWorker('ind', 1, {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            setProgress(Math.round(m.progress * 100));
-          }
+      if (!paddleOcrInitialized) {
+        setIsInitializing(true);
+        try {
+          await ocr.init();
+          paddleOcrInitialized = true;
+        } catch (initErr) {
+          console.error("OCR Init failed", initErr);
+          throw new Error("Gagal memuat mesin AI pemindai. Pastikan browser Anda mendukung WebGL.");
+        } finally {
+          setIsInitializing(false);
         }
+      }
+      
+      setProgress(50); // Engine is ready, scanning image...
+
+      const imgUrl = URL.createObjectURL(imageBlob);
+      const img = new Image();
+      img.src = imgUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
       });
       
-      const { data: { text } } = await worker.recognize(imageBlob);
-      await worker.terminate();
+      const ocrResult = await ocr.recognize(img);
+      URL.revokeObjectURL(imgUrl);
+      
+      setProgress(100);
+
+      let text = '';
+      if (Array.isArray(ocrResult)) {
+        // format used by paddlejs-models
+        text = ocrResult.map((res: any) => res.text || '').join('\n');
+      } else if (ocrResult && typeof ocrResult === 'object') {
+        text = (ocrResult as any).text || '';
+      }
 
       const parsed = parseReceiptText(text);
       
@@ -180,12 +208,12 @@ export const useReceiptOCR = () => {
       };
     } catch (err) {
       console.error(err);
-      setError('Terjadi kesalahan saat memproses gambar.');
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses gambar.');
       return null;
     } finally {
       setIsScanning(false);
     }
   }, []);
 
-  return { scanReceipt, isScanning, progress, error, setError };
+  return { scanReceipt, isScanning, isInitializing, progress, error, setError };
 };
