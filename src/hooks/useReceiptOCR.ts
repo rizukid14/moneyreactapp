@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import * as ocr from '@paddlejs-models/ocr';
 import '@paddlejs/paddlejs-backend-webgl';
+import * as ocr from '@paddlejs-models/ocr';
 
 const CLEAN_NUM_REGEX = /[.,]/g;
 const TOTAL_KEYWORDS = ['total', 'jumlah', 'bayar', 'amount', 'harga', 'subtotal', 'grand total', 'tagihan'];

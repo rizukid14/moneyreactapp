@@ -28,9 +28,15 @@ export default defineConfig({
     })
   ],
   optimizeDeps: {
-    exclude: ['@paddlejs-models/ocr', '@paddlejs/paddlejs-core', '@paddlejs/paddlejs-backend-webgl']
+    include: [
+      '@paddlejs/paddlejs-core',
+      '@paddlejs/paddlejs-backend-webgl',
+      '@paddlejs-models/ocr',
+    ],
   },
-  define: {
-    'process.env.NODE_ENV': '"development"',
-  }
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+  },
 })
