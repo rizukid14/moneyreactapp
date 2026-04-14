@@ -35,6 +35,20 @@ export default defineConfig({
     ],
   },
   build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-recharts': ['recharts'],
+          'vendor-paddle': [
+            '@paddlejs/paddlejs-core', 
+            '@paddlejs/paddlejs-backend-webgl', 
+            '@paddlejs-models/ocr'
+          ],
+        }
+      }
+    },
     commonjsOptions: {
       transformMixedEsModules: true,
     },

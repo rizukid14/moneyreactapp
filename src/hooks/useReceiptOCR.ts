@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import '@paddlejs/paddlejs-backend-webgl';
 import * as ocr from '@paddlejs-models/ocr';
 
-const CLEAN_NUM_REGEX = /[.,]/g;
 const TOTAL_KEYWORDS = ['total', 'jumlah', 'bayar', 'amount', 'harga', 'subtotal', 'grand total', 'tagihan'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -29,10 +28,26 @@ const resizeImage = async (img: HTMLImageElement): Promise<HTMLCanvasElement | H
 
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return img;
 
+  // Draw white background (especially for PNGs with transparency)
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, width, height);
+
   ctx.drawImage(img, 0, 0, width, height);
+
+  // Apply subtle contrast/brightness boost to help OCR
+  // This is a browser-supported CSS filter on canvas context
+  try {
+    const originalFilter = ctx.filter;
+    ctx.filter = 'contrast(1.2) brightness(1.05) grayscale(0.2)';
+    ctx.drawImage(canvas, 0, 0);
+    ctx.filter = originalFilter || 'none';
+  } catch (e) {
+    console.warn("Canvas filter not supported", e);
+  }
+
   return canvas;
 };
 
@@ -80,7 +95,11 @@ const CATEGORY_MAP: Record<string, string[]> = {
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const cleanInt = (s: string) => parseInt(s.replace(CLEAN_NUM_REGEX, ''), 10);
+const cleanInt = (s: string) => {
+  // Extract only digits from the string
+  const digits = s.replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+};
 
 const detectCategory = (text: string): string => {
   const lower = text.toLowerCase();
@@ -170,14 +189,28 @@ const parseReceiptText = (text: string) => {
   // Try keyword-based detection first (high confidence)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    // Look for more specific total keywords to avoid false positives
     if (TOTAL_KEYWORDS.some(k => line.includes(k))) {
       let numbers = line.match(/\d+[\d.,]*/g);
-      if (!numbers && i + 1 < lines.length) {
-        numbers = lines[i + 1].match(/\d+[\d.,]*/g);
+      
+      // If no numbers on keyword line, check 2 lines below (sometimes it's a gap)
+      if (!numbers) {
+        for (let j = 1; j <= 2; j++) {
+           if (i + j < lines.length) {
+             const lookahead = lines[i + j];
+             // If we hit another keyword, stop
+             if (TOTAL_KEYWORDS.some(k => lookahead.includes(k))) break;
+             numbers = lookahead.match(/\d+[\d.,]*/g);
+             if (numbers) break;
+           }
+        }
       }
+
       if (numbers) {
-        const candidates = numbers.map(cleanInt).filter(n => n > 100);
+        const candidates = numbers.map(cleanInt).filter(n => n >= 100);
         if (candidates.length > 0) {
+          // If we found a candidate with keyword, it's high confidence
+          // We prefer the largest number found near the keyword
           detectedAmount = Math.max(detectedAmount, ...candidates);
           highConfidence = true;
         }
@@ -185,11 +218,12 @@ const parseReceiptText = (text: string) => {
     }
   }
 
-  // Fallback: find the largest number in the receipt
+  // Fallback: find the largest number in the receipt if no keyword success
   if (detectedAmount === 0) {
     const allNumbers = text.match(/\d+[\d.,]*/g);
     if (allNumbers) {
-      const candidates = allNumbers.map(cleanInt).filter(n => n > 500 && n < 10_000_000);
+      // Be more conservative in fallback: largest number between 1k and 10M
+      const candidates = allNumbers.map(cleanInt).filter(n => n >= 1000 && n <= 10_000_000);
       if (candidates.length > 0) {
         detectedAmount = Math.max(...candidates);
       }
