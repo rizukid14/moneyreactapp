@@ -41,6 +41,8 @@ export default async function handler(req: any, res: any) {
               IMPORTANT: 
               - Today's date is ${new Date().toISOString().split('T')[0]}. Use this as a reference.
               - If the receipt does not have a clear date, default to today's date.
+              - The receipt is from Indonesia. Amounts use '.' as a thousands separator and ',' as a decimal separator (e.g., 7.000 means seven thousand).
+              - Return all 'amount' values as plain numbers (integers where possible).
               - Be extremely careful to find the Total Amount (not just the subtotal).`
             },
             {

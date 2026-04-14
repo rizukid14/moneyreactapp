@@ -342,7 +342,9 @@ const Settings: React.FC = () => {
 
   return (
     <div className="page" style={{ paddingBottom: '80px' }}>
-      <h1 className="title">Lainnya</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h1 className="title" style={{ margin: 0 }}>Lainnya</h1>
+      </div>
 
       <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
         <div style={{ 

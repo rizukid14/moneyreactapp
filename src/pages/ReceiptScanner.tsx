@@ -301,7 +301,9 @@ const ReceiptScanner: React.FC = () => {
 
   return (
     <div className="page">
-      <h1 className="title">Scan Struk</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h1 className="title" style={{ margin: 0 }}>Scan Struk</h1>
+      </div>
       <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />
 
       {stage === 'upload' && (

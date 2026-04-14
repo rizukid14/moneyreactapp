@@ -93,7 +93,9 @@ const Assets: React.FC = () => {
 
   return (
     <div className="page">
-      <h1 className="title">Aset Saya</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h1 className="title" style={{ margin: 0 }}>Aset Saya</h1>
+      </div>
 
       <div className="card glass" style={{ 
         background: 'linear-gradient(135deg, var(--primary), #1e40af)', 
