@@ -224,38 +224,52 @@ const ReceiptScanner: React.FC = () => {
 
   const handleSaveMain = () => {
     if (!result) return;
-    const finalAmount = parseInt(editableAmount.replace(/\D/g, '')) || 0;
-    if (finalAmount <= 0 || !selectedAssetId) { alert('Lengkapi nominal dan rekening'); return; }
+    // editableAmount state is always raw digits — parse directly
+    const finalAmount = parseInt(editableAmount) || 0;
+    if (finalAmount <= 0) { alert('Isi nominal terlebih dahulu'); return; }
+    if (!selectedAssetId) { alert('Pilih rekening terlebih dahulu'); return; }
 
-    addTransaction({
-      type: selectedType,
-      amount: finalAmount,
-      category: selectedCategory || 'Belanja (OCR)',
-      subCategory: selectedSubCategory || undefined,
-      date: selectedDate,
-      note: 'Scan Otomatis',
-      assetId: selectedAssetId,
-    });
-    alert('Simpan berhasil!'); reset();
-  };
-
-  const handleSaveLineItems = () => {
-    if (!selectedAssetId) { alert('Pilih rekening'); return; }
-    const toSave = lineItems.filter(i => i.selected);
-    if (toSave.length === 0) { alert('Pilih minimal 1 item'); return; }
-
-    toSave.forEach(item => {
+    try {
       addTransaction({
-        type: 'pengeluaran',
-        amount: item.amount,
+        type: selectedType,
+        amount: finalAmount,
         category: selectedCategory || 'Belanja (OCR)',
         subCategory: selectedSubCategory || undefined,
         date: selectedDate,
-        note: item.name,
+        note: 'Scan Otomatis',
         assetId: selectedAssetId,
       });
-    });
-    alert('Simpan berhasil!'); reset();
+      alert('Transaksi berhasil disimpan!');
+      reset();
+    } catch (e) {
+      alert('Gagal menyimpan transaksi. Silakan coba lagi.');
+      console.error(e);
+    }
+  };
+
+  const handleSaveLineItems = () => {
+    if (!selectedAssetId) { alert('Pilih rekening terlebih dahulu'); return; }
+    const toSave = lineItems.filter(i => i.selected && i.amount > 0);
+    if (toSave.length === 0) { alert('Pilih minimal 1 item dengan nominal > 0'); return; }
+
+    try {
+      toSave.forEach(item => {
+        addTransaction({
+          type: selectedType,
+          amount: item.amount,
+          category: selectedCategory || 'Belanja (OCR)',
+          subCategory: selectedSubCategory || undefined,
+          date: selectedDate,
+          note: item.name,
+          assetId: selectedAssetId,
+        });
+      });
+      alert(`${toSave.length} transaksi berhasil disimpan!`);
+      reset();
+    } catch (e) {
+      alert('Gagal menyimpan transaksi. Silakan coba lagi.');
+      console.error(e);
+    }
   };
 
   const toggleItem = (idx: number) => {
@@ -376,23 +390,117 @@ const ReceiptScanner: React.FC = () => {
           </div>
 
           <div className="card glass">
-            <h3 style={{ margin: 0, fontSize: '14px', marginBottom: '14px' }}>Rincian Item</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
-              {lineItems.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: 'var(--bg-main)', borderRadius: '10px' }}>
-                  <input type="checkbox" checked={item.selected} onChange={() => toggleItem(idx)} />
-                  {editingItemIdx === idx && editingField === 'name' ? (
-                    <input autoFocus value={item.name} onChange={e => editItem(idx, 'name', e.target.value)} onBlur={() => setEditingItemIdx(null)} style={{ flex: 1, fontSize: '13px' }} />
-                  ) : (
-                    <span onClick={() => { setEditingItemIdx(idx); setEditingField('name'); }} style={{ flex: 1, fontSize: '13px' }}>{item.name}</span>
-                  )}
-                  <span style={{ fontWeight: 700 }} onClick={() => { setEditingItemIdx(idx); setEditingField('amount'); }}>Rp{item.amount.toLocaleString('id-ID')}</span>
-                  <button onClick={() => deleteItem(idx)} style={{ color: 'var(--danger)', background: 'none', border: 'none' }}><Trash2 size={13}/></button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>🧾 Rincian Item ({lineItems.length})</h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: true })))} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>Pilih Semua</button>
+                <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: false })))} style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Reset</button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto' }}>
+              {lineItems.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', padding: '12px 0' }}>Tidak ada item rincian terdeteksi.</p>
+              ) : lineItems.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 10px',
+                    background: item.selected ? 'var(--bg-income)' : 'var(--bg-main)',
+                    borderRadius: '10px',
+                    border: `1px solid ${item.selected ? 'var(--primary)40' : 'var(--border-color)'}`,
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={item.selected}
+                    onChange={() => toggleItem(idx)}
+                    style={{ width: '16px', height: '16px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer', marginBottom: 0 }}
+                  />
+
+                  {/* Item name — truncates if too long */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {editingItemIdx === idx && editingField === 'name' ? (
+                      <input
+                        autoFocus
+                        value={item.name}
+                        onChange={e => editItem(idx, 'name', e.target.value)}
+                        onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
+                        style={{ width: '100%', fontSize: '13px', padding: '2px 6px', borderRadius: '6px', marginBottom: 0 }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => { setEditingItemIdx(idx); setEditingField('name'); }}
+                        title={item.name}
+                        style={{
+                          fontSize: '13px', fontWeight: 500, cursor: 'text',
+                          display: 'block', whiteSpace: 'nowrap',
+                          overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {item.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Price — fixed width, right-aligned */}
+                  <div style={{ flexShrink: 0, minWidth: '80px', textAlign: 'right' }}>
+                    {editingItemIdx === idx && editingField === 'amount' ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        inputMode="numeric"
+                        value={item.amount === 0 ? '' : item.amount.toString()}
+                        onChange={e => editItem(idx, 'amount', e.target.value)}
+                        onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
+                        style={{ width: '80px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '2px 4px', borderRadius: '6px', marginBottom: 0 }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => { setEditingItemIdx(idx); setEditingField('amount'); }}
+                        style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'text' }}
+                        title="Tap untuk edit nominal"
+                      >
+                        Rp{item.amount.toLocaleString('id-ID')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Delete */}
+                  <button
+                    onClick={() => deleteItem(idx)}
+                    style={{ flexShrink: 0, color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', opacity: 0.7, padding: '2px', lineHeight: 1 }}
+                  >
+                    <Trash2 size={13}/>
+                  </button>
                 </div>
               ))}
             </div>
-            <button className="btn btn-secondary" style={{ width: '100%', marginTop: '10px' }} onClick={addItem}><Plus size={14}/> Tambah Item</button>
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: '8px' }} onClick={handleSaveLineItems}>Simpan Item Terpilih</button>
+
+            {/* Summary row */}
+            <div style={{ marginTop: '10px', padding: '8px 10px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
+              <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
+              <span style={{ color: 'var(--danger)' }}>
+                Rp{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              <button
+                onClick={addItem}
+                style={{ flex: 1, padding: '9px', background: 'none', border: '1.5px dashed var(--border-color)', borderRadius: '10px', cursor: 'pointer', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+              >
+                <Plus size={14}/> Tambah
+              </button>
+              <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSaveLineItems}>
+                Simpan Item Terpilih
+              </button>
+            </div>
           </div>
         </div>
       )}
