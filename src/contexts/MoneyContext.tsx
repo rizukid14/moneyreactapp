@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import {
-  dbGetAllAssets, dbPutAsset, dbDeleteAsset,
+  dbGetAllAssets, dbPutAsset,
   dbGetAllTransactions, dbPutTransaction, dbDeleteTransaction,
   dbGetAllCategories, dbPutCategory, dbDeleteCategory,
   dbGetSetting, dbPutSetting, dbDeleteSetting,
@@ -35,6 +35,7 @@ export interface Asset {
   type: AssetType;
   initialBalance: number;
   isHidden?: boolean;
+  isDeleted?: boolean;
 }
 
 export interface Transaction {
@@ -92,6 +93,8 @@ interface MoneyContextType {
   unlockApp: (enteredPin: string) => boolean;
   lockApp: () => void;
   toggleTheme: () => void;
+  isPrivateMode: boolean;
+  togglePrivateMode: () => void;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
 }
@@ -108,6 +111,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [pin,          setPin]          = useState<string | null>(null);
   const [isAppLocked,  setIsAppLocked]  = useState(false);
   const [theme,        setTheme]        = useState<'light' | 'dark'>('light');
+  const [isPrivateMode, setIsPrivateMode] = useState(false);
 
   // ── Bootstrap: migrate if needed, then load from IndexedDB ──────────────
   useEffect(() => {
@@ -143,10 +147,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const savedUser  = await dbGetSetting('user')  as UserProfile | undefined;
       const savedPin   = await dbGetSetting('pin')   as string | undefined;
       const savedTheme = await dbGetSetting('theme') as string | undefined;
+      const savedPrivacy = await dbGetSetting('isPrivateMode') as boolean | undefined;
 
       if (savedUser)  setUser(savedUser);
       if (savedPin)  { setPin(savedPin); setIsAppLocked(true); }
       if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
+      if (savedPrivacy !== undefined) setIsPrivateMode(savedPrivacy);
 
       setIsReady(true);
     };
@@ -166,8 +172,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const deleteAsset = useCallback((id: string) => {
-    setAssets(prev => prev.filter(a => a.id !== id));
-    dbDeleteAsset(id);
+    setAssets(prev => prev.map(a => {
+      if (a.id !== id) return a;
+      const updated = { ...a, isDeleted: true };
+      dbPutAsset(updated);
+      return updated;
+    }));
   }, []);
 
   const updateAsset = useCallback((id: string, updatedAsset: Partial<Asset>) => {
@@ -272,6 +282,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
+  const togglePrivateMode = useCallback(() => {
+    setIsPrivateMode(prev => {
+      const next = !prev;
+      dbPutSetting('isPrivateMode', next);
+      return next;
+    });
+  }, []);
+
   // ─── Export / Import ─────────────────────────────────────────────────────
   const exportData = useCallback(async () => {
     const data = await dbExportAll();
@@ -304,18 +322,18 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
-    isReady, assets, transactions, categories, user, pin, isAppLocked, theme,
+    isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
-    getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme,
+    getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData,
   }), [
-    isReady, assets, transactions, categories, user, pin, isAppLocked, theme,
+    isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
-    getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme,
+    getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData,
   ]);
 

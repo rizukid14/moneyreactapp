@@ -1,8 +1,40 @@
 import { useState, useCallback } from 'react';
-import { createWorker } from 'tesseract.js';
+import '@paddlejs/paddlejs-backend-webgl';
+import * as ocr from '@paddlejs-models/ocr';
 
 const CLEAN_NUM_REGEX = /[.,]/g;
 const TOTAL_KEYWORDS = ['total', 'jumlah', 'bayar', 'amount', 'harga', 'subtotal', 'grand total', 'tagihan'];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const RESIZE_MAX_DIM = 1024;
+
+const resizeImage = async (img: HTMLImageElement): Promise<HTMLCanvasElement | HTMLImageElement> => {
+  if (img.width <= RESIZE_MAX_DIM && img.height <= RESIZE_MAX_DIM) return img;
+
+  const canvas = document.createElement('canvas');
+  let width = img.width;
+  let height = img.height;
+
+  if (width > height) {
+    if (width > RESIZE_MAX_DIM) {
+      height *= RESIZE_MAX_DIM / width;
+      width = RESIZE_MAX_DIM;
+    }
+  } else {
+    if (height > RESIZE_MAX_DIM) {
+      width *= RESIZE_MAX_DIM / height;
+      height = RESIZE_MAX_DIM;
+    }
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return img;
+
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas;
+};
 
 export interface LineItem {
   name: string;
@@ -86,19 +118,43 @@ const detectDate = (text: string): string => {
   return new Date().toISOString().split('T')[0];
 };
 
-const parseLineItems = (text: string): LineItem[] => {
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
-  const items: LineItem[] = [];
-  const pricePattern = /^(.+?)\s+(?:rp\.?\s*)?(\d[\d.,]{2,})\s*$/i;
+const PRICE_ONLY_REGEX = /^(?:rp\.?\s*)?(\d[\d.,]{2,})$/i;
+const PRICE_INLINE_REGEX = /^(.+?)\s+(?:rp\.?\s*)?(\d[\d.,]{2,})\s*$/i;
+const AMOUNT_MIN = 100;
+const AMOUNT_MAX = 5_000_000;
 
-  for (const line of lines) {
+const parseLineItems = (text: string): LineItem[] => {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+  const items: LineItem[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (TOTAL_KEYWORDS.some(kw => line.toLowerCase().includes(kw))) continue;
-    const match = line.match(pricePattern);
-    if (match) {
-      const name = match[1].replace(/x\d+/i, '').trim();
-      const amount = cleanInt(match[2]);
-      if (amount >= 100 && amount <= 5_000_000 && name.length >= 2) {
+
+    // ── Format 1: "Item Name    12.000" on same line ──────────────────────────
+    const inlineMatch = line.match(PRICE_INLINE_REGEX);
+    if (inlineMatch) {
+      const name = inlineMatch[1].replace(/x\d+/i, '').trim();
+      const amount = cleanInt(inlineMatch[2]);
+      if (amount >= AMOUNT_MIN && amount <= AMOUNT_MAX && name.length >= 2) {
         items.push({ name, amount, selected: true });
+        continue;
+      }
+    }
+
+    // ── Format 2: PaddleOCR produces name on line N, price on line N+1 ───────
+    // Line looks like a name (not a price) + next line looks like a price
+    if (!line.match(PRICE_ONLY_REGEX)) {
+      const nextLine = lines[i + 1] || '';
+      const nextIsPrice = nextLine.match(PRICE_ONLY_REGEX);
+      if (nextIsPrice) {
+        const name = line.replace(/x\d+/i, '').trim();
+        const amount = cleanInt(nextIsPrice[1]);
+        if (amount >= AMOUNT_MIN && amount <= AMOUNT_MAX && name.length >= 2) {
+          items.push({ name, amount, selected: true });
+          i++; // skip the price line so we don't process it again
+          continue;
+        }
       }
     }
   }
@@ -150,8 +206,11 @@ const parseReceiptText = (text: string) => {
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
+let paddleOcrInitialized = false;
+
 export const useReceiptOCR = () => {
   const [isScanning, setIsScanning] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -161,16 +220,64 @@ export const useReceiptOCR = () => {
     setProgress(0);
 
     try {
-      const worker = await createWorker('ind', 1, {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            setProgress(Math.round(m.progress * 100));
-          }
+      if (!paddleOcrInitialized) {
+        setIsInitializing(true);
+        try {
+          await ocr.init();
+          paddleOcrInitialized = true;
+        } catch (initErr) {
+          console.error("OCR Init failed", initErr);
+          throw new Error("Gagal memuat mesin AI pemindai. Pastikan browser Anda mendukung WebGL.");
+        } finally {
+          setIsInitializing(false);
         }
+      }
+      
+      setProgress(30);
+
+      const imgUrl = URL.createObjectURL(imageBlob);
+      const originalImg = new Image();
+      originalImg.src = imgUrl;
+      await new Promise((resolve, reject) => {
+        originalImg.onload = resolve;
+        originalImg.onerror = reject;
       });
       
-      const { data: { text } } = await worker.recognize(imageBlob);
-      await worker.terminate();
+      // Optimization: Resize image to prevent GPU context loss
+      setProgress(50);
+      const optimizedImg = await resizeImage(originalImg);
+      
+      const ocrResult = await ocr.recognize(optimizedImg);
+      console.log("OCR Raw Result:", ocrResult); // Helpful for debugging exact model output
+      URL.revokeObjectURL(imgUrl);
+      
+      setProgress(100);
+
+      let text = '';
+      if (typeof ocrResult === 'string') {
+        text = ocrResult;
+      } else if (Array.isArray(ocrResult)) {
+        // format used by paddlejs-models: array of objects with .text property
+        text = ocrResult
+          .map((res: any) => {
+            if (typeof res === 'string') return res;
+            if (res && res.text) return String(res.text);
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n');
+      } else if (ocrResult && typeof ocrResult === 'object') {
+        // format used by some other models/backends where { text: [...] }
+        const r = ocrResult as any;
+        if (Array.isArray(r.text)) {
+          text = r.text.join('\n');
+        } else {
+          text = String(r.text || r.data || '');
+        }
+      }
+
+      // Final fallback to ensure it is ALWAYS a string
+      text = String(text || '');
 
       const parsed = parseReceiptText(text);
       
@@ -180,12 +287,12 @@ export const useReceiptOCR = () => {
       };
     } catch (err) {
       console.error(err);
-      setError('Terjadi kesalahan saat memproses gambar.');
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses gambar.');
       return null;
     } finally {
       setIsScanning(false);
     }
   }, []);
 
-  return { scanReceipt, isScanning, progress, error, setError };
+  return { scanReceipt, isScanning, isInitializing, progress, error, setError };
 };

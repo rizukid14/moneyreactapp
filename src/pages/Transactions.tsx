@@ -31,7 +31,7 @@ const Transactions: React.FC = () => {
         return true;
       }
       return false;
-    });
+    }).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
     return { filteredTransactions: filtered, monthlyIncome: inc, monthlyExpense: exp };
   }, [transactions, viewDate]);
@@ -44,7 +44,9 @@ const Transactions: React.FC = () => {
   const resetToToday = useCallback(() => setViewDate(new Date()), []);
 
   const getAssetName = useCallback((id?: string) => {
-    return assets.find(a => a.id === id)?.name || 'Unknown';
+    const asset = assets.find(a => a.id === id);
+    if (!asset) return 'Unknown';
+    return asset.isDeleted ? `${asset.name} (Dihapus)` : asset.name;
   }, [assets]);
 
   const handleEdit = useCallback((tx: Transaction) => {

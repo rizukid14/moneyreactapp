@@ -27,4 +27,16 @@ export default defineConfig({
       }
     })
   ],
+  optimizeDeps: {
+    include: [
+      '@paddlejs/paddlejs-core',
+      '@paddlejs/paddlejs-backend-webgl',
+      '@paddlejs-models/ocr',
+    ],
+  },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+  },
 })

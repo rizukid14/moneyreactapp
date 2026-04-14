@@ -31,10 +31,9 @@ const getColorForType = (type: AssetType) => {
 };
 
 const Assets: React.FC = () => {
-  const { assets, getAssetBalance, addAsset, deleteAsset, updateAsset } = useMoney();
+  const { assets, getAssetBalance, addAsset, deleteAsset, updateAsset, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
-  const [isTotalHidden, setIsTotalHidden] = useState(false);
   
   // Optimized derived state
   const { total, balances, assetGroups } = useMemo(() => {
@@ -51,6 +50,8 @@ const Assets: React.FC = () => {
     };
     
     assets.forEach(asset => {
+      if (asset.isDeleted) return;
+
       const bal = getAssetBalance(asset.id);
       b[asset.id] = bal;
       if (!asset.isHidden) {
@@ -104,14 +105,14 @@ const Assets: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <div style={{ opacity: 0.9, fontSize: '14px', fontWeight: 600 }}>Total Kekayaan Bersih</div>
           <button 
-            onClick={() => setIsTotalHidden(!isTotalHidden)} 
+            onClick={togglePrivateMode} 
             style={{ background: 'none', border: 'none', color: 'white', opacity: 0.8, cursor: 'pointer', display: 'flex' }}
           >
-            {isTotalHidden ? <EyeOff size={18} /> : <Eye size={18} />}
+            {isPrivateMode ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
         <div style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-1px' }}>
-          {isTotalHidden ? 'Rp ••••••••' : `Rp${total.toLocaleString('id-ID')}`}
+          {isPrivateMode ? 'Rp ••••••••' : `Rp${total.toLocaleString('id-ID')}`}
         </div>
       </div>
 
@@ -168,7 +169,7 @@ const Assets: React.FC = () => {
                           
                           <div style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)' }}>
                             {isLiability && <span style={{ fontSize: '12px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
-                            Rp{displayBalance.toLocaleString('id-ID')}
+                            {isPrivateMode ? 'Rp ••••••••' : `Rp${displayBalance.toLocaleString('id-ID')}`}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
@@ -201,6 +202,8 @@ const Assets: React.FC = () => {
         addAsset={addAsset}
         updateAsset={updateAsset}
         editingAsset={editingAsset}
+        currentBalance={editingAsset ? balances[editingAsset.id] : undefined}
+        addTransaction={addTransaction}
       />
     </div>
   );

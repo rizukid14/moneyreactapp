@@ -9,7 +9,7 @@ export interface MoneyAppDB {
   assets: { key: string; value: Asset };
   transactions: { key: string; value: Transaction };
   categories: { key: string; value: Category };
-  settings: { key: string; value: string | UserProfile | null };
+  settings: { key: string; value: string | number | boolean | UserProfile | null };
 }
 
 let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
@@ -48,7 +48,7 @@ export const dbClearCategories  = async () => (await getDB()).clear('categories'
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 export const dbGetSetting   = async (key: string) => (await getDB()).get('settings', key);
-export const dbPutSetting   = async (key: string, value: string | UserProfile | null) => (await getDB()).put('settings', value as any, key);
+export const dbPutSetting   = async (key: string, value: string | number | boolean | UserProfile | null) => (await getDB()).put('settings', value as any, key);
 export const dbDeleteSetting = async (key: string) => (await getDB()).delete('settings', key);
 
 // ─── Full Export (for JSON backup) ───────────────────────────────────────────

@@ -15,6 +15,7 @@ interface TransactionModalProps {
 const TransactionModal: React.FC<TransactionModalProps> = ({ 
   isOpen, onClose, assets, addTransaction, updateTransaction, editingTransaction 
 }) => {
+  const activeAssets = assets.filter(a => !a.isDeleted);
   const { categories } = useMoney();
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
@@ -22,9 +23,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [subCategory, setSubCategory] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
-  const [assetId, setAssetId] = useState(assets[0]?.id || '');
-  const [fromAssetId, setFromAssetId] = useState(assets[0]?.id || '');
-  const [toAssetId, setToAssetId] = useState(assets[1]?.id || assets[0]?.id || '');
+  const [assetId, setAssetId] = useState(activeAssets[0]?.id || '');
+  const [fromAssetId, setFromAssetId] = useState(activeAssets[0]?.id || '');
+  const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
 
   useEffect(() => {
     if (editingTransaction) {
@@ -34,9 +35,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setSubCategory(editingTransaction.subCategory || '');
       setDate(editingTransaction.date);
       setNote(editingTransaction.note);
-      setAssetId(editingTransaction.assetId || assets[0]?.id || '');
-      setFromAssetId(editingTransaction.fromAssetId || assets[0]?.id || '');
-      setToAssetId(editingTransaction.toAssetId || assets[1]?.id || assets[0]?.id || '');
+      setAssetId(editingTransaction.assetId || activeAssets[0]?.id || '');
+      setFromAssetId(editingTransaction.fromAssetId || activeAssets[0]?.id || '');
+      setToAssetId(editingTransaction.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
     } else {
       setType('pengeluaran');
       setAmount('');
@@ -44,9 +45,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setSubCategory('');
       setDate(new Date().toISOString().split('T')[0]);
       setNote('');
-      setAssetId(assets[0]?.id || '');
-      setFromAssetId(assets[0]?.id || '');
-      setToAssetId(assets[1]?.id || assets[0]?.id || '');
+      setAssetId(activeAssets[0]?.id || '');
+      setFromAssetId(activeAssets[0]?.id || '');
+      setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
     }
   }, [editingTransaction, isOpen, assets]);
 
@@ -161,17 +162,23 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
                 <select required value={assetId} onChange={e => setAssetId(e.target.value)}>
                   <option value="" disabled>-- Pilih Dompet/Rekening --</option>
-                  {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {assets.filter(a => !a.isDeleted || a.id === assetId).map(a => (
+                    <option key={a.id} value={a.id}>{a.name} {a.isDeleted ? '(Dihapus)' : ''}</option>
+                  ))}
                 </select>
               </>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <select style={{ marginBottom: 0 }} value={fromAssetId} onChange={e => setFromAssetId(e.target.value)}>
-                  {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {assets.filter(a => !a.isDeleted || a.id === fromAssetId).map(a => (
+                    <option key={a.id} value={a.id}>{a.name} {a.isDeleted ? '(Dihapus)' : ''}</option>
+                  ))}
                 </select>
                 <ArrowRightLeft color="var(--text-muted)" size={20} />
                 <select style={{ marginBottom: 0 }} value={toAssetId} onChange={e => setToAssetId(e.target.value)}>
-                  {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {assets.filter(a => !a.isDeleted || a.id === toAssetId).map(a => (
+                    <option key={a.id} value={a.id}>{a.name} {a.isDeleted ? '(Dihapus)' : ''}</option>
+                  ))}
                 </select>
               </div>
             )}
