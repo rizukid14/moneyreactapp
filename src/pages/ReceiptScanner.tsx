@@ -441,7 +441,20 @@ const ReceiptScanner: React.FC = () => {
 
             <div style={{ textAlign: 'left' }}>
               <div className="text-muted" style={{ fontSize: '12px', marginBottom: '4px', fontWeight: 600 }}>Nominal Total</div>
-              <input type="text" value={editableAmount} onChange={e => setEditableAmount(e.target.value.replace(/\D/g, ''))} style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)', textAlign: 'center', marginBottom: '12px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)', flexShrink: 0 }}>Rp</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={editableAmount ? parseInt(editableAmount).toLocaleString('id-ID') : ''}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    setEditableAmount(raw);
+                  }}
+                  placeholder="0"
+                  style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', textAlign: 'left', flex: 1 }}
+                />
+              </div>
 
               <div className="text-muted" style={{ fontSize: '12px', marginBottom: '4px', fontWeight: 600 }}>Kategori</div>
               <select value={selectedCategory} onChange={e => { setSelectedCategory(e.target.value); setSelectedSubCategory(''); }} style={{ marginBottom: '10px' }}>
