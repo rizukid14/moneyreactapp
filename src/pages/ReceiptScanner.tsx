@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Crop, Scissors, Info } from 'lucide-react';
+import { Camera, CheckCircle, AlertCircle, Loader2, X, Crop, Scissors, Info, Pencil, Trash2, Plus } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 
@@ -39,6 +39,8 @@ const ReceiptScanner: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [editingField, setEditingField] = useState<'name' | 'amount' | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -269,6 +271,28 @@ const ReceiptScanner: React.FC = () => {
     setLineItems(prev => prev.map((item, i) => i === idx ? { ...item, selected: !item.selected } : item));
   };
 
+  const editItem = (idx: number, field: 'name' | 'amount', value: string) => {
+    setLineItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      if (field === 'amount') {
+        const num = parseInt(value.replace(/\D/g, '')) || 0;
+        return { ...item, amount: num };
+      }
+      return { ...item, name: value };
+    }));
+  };
+
+  const deleteItem = (idx: number) => {
+    setLineItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const addItem = () => {
+    const newIdx = lineItems.length;
+    setLineItems(prev => [...prev, { name: 'Item Baru', amount: 0, selected: true }]);
+    setEditingItemIdx(newIdx);
+    setEditingField('name');
+  };
+
   const selCat = categories.find(c => c.name === selectedCategory && c.type === selectedType);
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -452,46 +476,130 @@ const ReceiptScanner: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Line Items checklist ────────────────────────────────────── */}
-          {lineItems.length > 0 && (
-            <div className="card glass">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>🧾 Rincian Item ({lineItems.length})</h3>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: true })))} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>Pilih Semua</button>
-                  <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: false })))} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Reset</button>
-                </div>
+          {/* ── Line Items checklist (editable) ──────────────────────────── */}
+          <div className="card glass">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>🧾 Rincian Item ({lineItems.length})</h3>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: true })))} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>Pilih Semua</button>
+                <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: false })))} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Reset</button>
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
-                {lineItems.map((item, idx) => (
-                  <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: item.selected ? 'var(--bg-income)' : 'var(--bg-main)', borderRadius: '10px', cursor: 'pointer', border: `1px solid ${item.selected ? 'var(--primary)40' : 'var(--border-color)'}` }}>
-                    <input
-                      type="checkbox"
-                      checked={item.selected}
-                      onChange={() => toggleItem(idx)}
-                      style={{ width: '16px', height: '16px', accentColor: 'var(--primary)', flexShrink: 0 }}
-                    />
-                    <span style={{ flex: 1, fontSize: '13px', fontWeight: 500 }}>{item.name}</span>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--danger)', flexShrink: 0 }}>
-                      Rp{item.amount.toLocaleString('id-ID')}
-                    </span>
-                  </label>
-                ))}
-              </div>
-
-              <div style={{ marginTop: '14px', padding: '10px 12px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, marginBottom: '12px' }}>
-                <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
-                <span style={{ color: 'var(--danger)' }}>
-                  Rp{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
-                </span>
-              </div>
-
-              <button className="btn btn-secondary" style={{ width: '100%' }} onClick={handleSaveLineItems}>
-                Simpan Item Terpilih sebagai Transaksi Terpisah
-              </button>
             </div>
-          )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>
+              {lineItems.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 10px',
+                    background: item.selected ? 'var(--bg-income)' : 'var(--bg-main)',
+                    borderRadius: '10px',
+                    border: `1px solid ${item.selected ? 'var(--primary)40' : 'var(--border-color)'}`,
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={item.selected}
+                    onChange={() => toggleItem(idx)}
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--primary)', flexShrink: 0, cursor: 'pointer' }}
+                  />
+
+                  {/* Item Name (editable) */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {editingItemIdx === idx && editingField === 'name' ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={item.name}
+                        onChange={e => editItem(idx, 'name', e.target.value)}
+                        onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); setEditingField('amount'); } }}
+                        style={{ width: '100%', fontSize: '13px', fontWeight: 600, padding: '2px 6px', borderRadius: '6px', border: '1px solid var(--primary)', background: 'var(--bg-main)', color: 'var(--text-main)' }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => { setEditingItemIdx(idx); setEditingField('name'); }}
+                        style={{ fontSize: '13px', fontWeight: 500, cursor: 'text', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        title="Tap untuk edit nama"
+                      >
+                        {item.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Amount (editable) */}
+                  <div style={{ flexShrink: 0 }}>
+                    {editingItemIdx === idx && editingField === 'amount' ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        inputMode="numeric"
+                        value={item.amount === 0 ? '' : item.amount.toString()}
+                        onChange={e => editItem(idx, 'amount', e.target.value)}
+                        onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
+                        style={{ width: '90px', fontSize: '13px', fontWeight: 700, textAlign: 'right', padding: '2px 6px', borderRadius: '6px', border: '1px solid var(--danger)', background: 'var(--bg-main)', color: 'var(--danger)' }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => { setEditingItemIdx(idx); setEditingField('amount'); }}
+                        style={{ fontWeight: 700, fontSize: '13px', color: 'var(--danger)', cursor: 'text', display: 'block', textAlign: 'right' }}
+                        title="Tap untuk edit nominal"
+                      >
+                        Rp{item.amount.toLocaleString('id-ID')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Edit icon shortcut */}
+                  <button
+                    onClick={() => { setEditingItemIdx(idx); setEditingField('name'); }}
+                    title="Edit item"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', flexShrink: 0, lineHeight: 1 }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+
+                  {/* Delete button */}
+                  <button
+                    onClick={() => deleteItem(idx)}
+                    title="Hapus item"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '2px', flexShrink: 0, lineHeight: 1, opacity: 0.7 }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add new item button */}
+            <button
+              onClick={addItem}
+              style={{
+                width: '100%', marginTop: '10px', padding: '8px 12px',
+                background: 'none', border: '1.5px dashed var(--border-color)',
+                borderRadius: '10px', cursor: 'pointer', color: 'var(--primary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                fontSize: '12px', fontWeight: 700,
+              }}
+            >
+              <Plus size={14} /> Tambah Item Manual
+            </button>
+
+            <div style={{ marginTop: '12px', padding: '10px 12px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, marginBottom: '12px' }}>
+              <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
+              <span style={{ color: 'var(--danger)' }}>
+                Rp{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
+              </span>
+            </div>
+
+            <button className="btn btn-secondary" style={{ width: '100%' }} onClick={handleSaveLineItems}>
+              Simpan Item Terpilih sebagai Transaksi Terpisah
+            </button>
+          </div>
 
           {/* Raw text collapsible */}
           <details className="card" style={{ padding: '12px 16px' }}>
