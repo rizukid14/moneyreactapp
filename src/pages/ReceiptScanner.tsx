@@ -335,9 +335,14 @@ const ReceiptScanner: React.FC = () => {
           <div className="card" style={{ textAlign: 'center', padding: '16px' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', textAlign: 'left' }}>
               <Info size={16} color="var(--primary)" style={{ flexShrink: 0, marginTop: 2 }} />
-              <p className="text-muted" style={{ fontSize: '13px', lineHeight: 1.6, margin: 0 }}>
-                Setelah upload, kamu bisa <strong>crop</strong> area struk agar AI lebih akurat. Sistem akan otomatis memdeteksi nominal, tanggal, kategori, dan rincian item.
-              </p>
+              <div className="text-muted" style={{ fontSize: '13px', lineHeight: 1.6, margin: 0 }}>
+                <p style={{ margin: 0, marginBottom: '8px' }}>
+                  Setelah upload, kamu bisa <strong>crop</strong> area struk agar AI lebih akurat. Sistem akan otomatis memdeteksi nominal, tanggal, kategori, dan rincian item.
+                </p>
+                <div style={{ padding: '8px', background: 'var(--bg-main)', borderRadius: '8px', fontSize: '11px', border: '1px solid var(--border-color)' }}>
+                  <strong>💡 Tips Mobile:</strong> Jika AI lambat atau gagal, pastikan Anda menggunakan browser terbaru dan memiliki koneksi internet stabil untuk pengunduhan model awal.
+                </div>
+              </div>
             </div>
           </div>
         </div>
