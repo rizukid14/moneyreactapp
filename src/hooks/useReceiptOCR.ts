@@ -17,6 +17,37 @@ export interface OCRResult {
   debugLogs?: string[];
 }
 
+const resizeImage = (blob: Blob, maxWidth: number = 1024): Promise<Blob> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(blob);
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxWidth) {
+          width *= maxWidth / height;
+          height = maxWidth;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8);
+    };
+  });
+};
+
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -58,8 +89,9 @@ export const useReceiptOCR = () => {
 
     try {
       setProgress(20);
-      const base64 = await blobToBase64(imageBlob);
-      addLog("Gambar dikonversi ke Base64.");
+      const resizedBlob = await resizeImage(imageBlob);
+      const base64 = await blobToBase64(resizedBlob);
+      addLog(`Gambar dioptimalkan (max 1024px) & dikonversi.`);
       
       setProgress(40);
       addLog("Mengirim data ke AI Server (OpenAI)...");
