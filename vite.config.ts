@@ -27,13 +27,6 @@ export default defineConfig({
       }
     })
   ],
-  optimizeDeps: {
-    include: [
-      '@paddlejs/paddlejs-core',
-      '@paddlejs/paddlejs-backend-webgl',
-      '@paddlejs-models/ocr',
-    ],
-  },
   build: {
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
@@ -41,11 +34,7 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-recharts': ['recharts'],
-          'vendor-paddle': [
-            '@paddlejs/paddlejs-core', 
-            '@paddlejs/paddlejs-backend-webgl', 
-            '@paddlejs-models/ocr'
-          ],
+          // Removed @paddlejs chunks to optimize cloud-based AI architecture
         }
       }
     },
