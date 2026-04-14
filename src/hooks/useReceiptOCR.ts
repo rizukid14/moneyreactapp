@@ -168,9 +168,13 @@ const parseReceiptText = (text: string) => {
   let highConfidence = false;
 
   // Try keyword-based detection first (high confidence)
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (TOTAL_KEYWORDS.some(k => line.includes(k))) {
-      const numbers = line.match(/\d+[\d.,]*/g);
+      let numbers = line.match(/\d+[\d.,]*/g);
+      if (!numbers && i + 1 < lines.length) {
+        numbers = lines[i + 1].match(/\d+[\d.,]*/g);
+      }
       if (numbers) {
         const candidates = numbers.map(cleanInt).filter(n => n > 100);
         if (candidates.length > 0) {
@@ -183,7 +187,7 @@ const parseReceiptText = (text: string) => {
 
   // Fallback: find the largest number in the receipt
   if (detectedAmount === 0) {
-    const allNumbers = text.match(/\b\d+[\d.,]*\b/g);
+    const allNumbers = text.match(/\d+[\d.,]*/g);
     if (allNumbers) {
       const candidates = allNumbers.map(cleanInt).filter(n => n > 500 && n < 10_000_000);
       if (candidates.length > 0) {
@@ -206,8 +210,6 @@ const parseReceiptText = (text: string) => {
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
-let paddleOcrInitialized = false;
-
 export const useReceiptOCR = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -220,11 +222,11 @@ export const useReceiptOCR = () => {
     setProgress(0);
 
     try {
-      if (!paddleOcrInitialized) {
+      if (!(window as any).__PADDLE_OCR_INITIALIZED__) {
         setIsInitializing(true);
         try {
           await ocr.init();
-          paddleOcrInitialized = true;
+          (window as any).__PADDLE_OCR_INITIALIZED__ = true;
         } catch (initErr) {
           console.error("OCR Init failed", initErr);
           throw new Error("Gagal memuat mesin AI pemindai. Pastikan browser Anda mendukung WebGL.");
