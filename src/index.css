@@ -9,28 +9,34 @@
   --n-h: 220;
   /* Neutral Hue (Gray) */
 
-  --primary: hsl(var(--p-h), 90%, 55%);
-  --primary-glow: hsla(var(--p-h), 90%, 55%, 0.4);
-  --secondary: hsl(var(--s-h), 95%, 55%);
-  --secondary-glow: hsla(var(--s-h), 95%, 55%, 0.4);
-  --success: hsl(160, 75%, 45%);
-  --danger: hsl(350, 85%, 60%);
+  --primary: hsl(var(--p-h), 85%, 58%);
+  --primary-glow: hsla(var(--p-h), 85%, 58%, 0.2);
+  --secondary: hsl(var(--s-h), 90%, 52%);
+  --secondary-glow: hsla(var(--s-h), 90%, 52%, 0.2);
+  --success: hsl(152, 70%, 42%);
+  --danger: hsl(350, 80%, 58%);
 
-  --bg-main: hsl(var(--n-h), 25%, 98%);
-  --bg-card: hsla(0, 0%, 100%, 0.85);
+  --bg-main: hsl(var(--n-h), 15%, 97%);
+  --bg-card: hsl(0, 0%, 100%);
   --bg-card-solid: hsl(0, 0%, 100%);
 
-  --text-main: hsl(var(--n-h), 45%, 15%);
-  --text-muted: hsl(var(--n-h), 15%, 45%);
+  --text-main: hsl(var(--n-h), 30%, 15%);
+  --text-muted: hsl(var(--n-h), 12%, 55%);
 
-  --border-color: hsla(var(--n-h), 20%, 90%, 0.9);
-  --glass-bg: hsla(0, 0%, 100%, 0.75);
-  --glass-border: hsla(0, 0%, 100%, 0.5);
+  --border-color: hsl(var(--n-h), 15%, 92%);
+  --glass-bg: hsla(0, 0%, 100%, 0.8);
+  --glass-border: hsl(var(--n-h), 15%, 92%);
 
-  --radius-sm: 10px;
-  --radius-md: 18px;
-  --radius-lg: 26px;
-  --nav-height: 72px;
+  --bg-expense: hsla(350, 80%, 58%, 0.08);
+  --bg-income: hsla(var(--p-h), 85%, 58%, 0.08);
+  --bg-neutral: hsla(var(--n-h), 10%, 50%, 0.06);
+
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --nav-height: 64px;
+  --sidebar-width: 260px;
+  --max-content-width: 1200px;
 
   --font-family: 'Outfit', 'Inter', system-ui, sans-serif;
 
@@ -42,17 +48,17 @@
 }
 
 .dark {
-  --bg-main: hsl(var(--n-h), 35%, 6%);
-  --bg-card: hsla(var(--n-h), 35%, 14%, 0.85);
-  --bg-card-solid: hsl(var(--n-h), 35%, 14%);
-  --text-main: hsl(var(--n-h), 25%, 95%);
-  --text-muted: hsl(var(--n-h), 20%, 70%);
-  --border-color: hsla(var(--n-h), 25%, 22%, 0.9);
-  --glass-bg: hsla(var(--n-h), 35%, 10%, 0.75);
-  --glass-border: hsla(var(--n-h), 25%, 30%, 0.5);
+  --bg-main: hsl(var(--n-h), 30%, 5%);
+  --bg-card: hsl(var(--n-h), 25%, 10%);
+  --bg-card-solid: hsl(var(--n-h), 25%, 10%);
+  --text-main: hsl(var(--n-h), 10%, 95%);
+  --text-muted: hsl(var(--n-h), 10%, 55%);
+  --border-color: hsl(var(--n-h), 20%, 18%);
+  --glass-bg: hsla(var(--n-h), 25%, 10%, 0.9);
+  --glass-border: hsl(var(--n-h), 20%, 18%);
 
-  --bg-expense: hsla(350, 85%, 60%, 0.15);
-  --bg-income: hsla(var(--p-h), 90%, 55%, 0.15);
+  --bg-expense: hsla(350, 80%, 58%, 0.12);
+  --bg-income: hsla(var(--p-h), 85%, 58%, 0.12);
   --bg-neutral: hsla(0, 0%, 100%, 0.05);
 }
 
@@ -75,26 +81,133 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Layout Container */
 .app-container {
   max-width: 540px;
   margin: 0 auto;
   width: 100%;
-  height: 100dvh; /* Dynamic viewport height — accounts for mobile browser chrome */
-  background-color: var(--bg-main);
+  height: 100dvh;
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 12px 12px calc(var(--nav-height) + 12px) 12px;
+  padding: 16px 16px calc(var(--nav-height) + 20px) 16px;
   display: flex;
   flex-direction: column;
 }
 
-/* Glassmorphism Classes */
+/* Responsive Desktop Overrides */
+@media (min-width: 768px) {
+  .app-container {
+    max-width: none;
+    margin: 0;
+    height: 100vh;
+    flex-direction: row;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .main-content {
+    flex: 1;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 40px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .page-wrapper {
+    width: 100%;
+    max-width: var(--max-content-width);
+  }
+
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .sidebar-nav {
+    width: var(--sidebar-width);
+    height: 100vh;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 32px 16px;
+    z-index: 110;
+  }
+
+  .sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 40px;
+    padding-left: 12px;
+  }
+
+  .sidebar-logo span {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.5px;
+  }
+
+  .nav-item {
+    flex: none;
+    flex-direction: row;
+    gap: 14px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    justify-content: flex-start;
+    margin-bottom: 4px;
+    width: 100%;
+    color: var(--text-muted);
+  }
+
+  .nav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .nav-item.active {
+    background: var(--bg-main);
+    color: var(--primary);
+    font-weight: 700;
+    transform: none;
+  }
+
+  .nav-item:hover:not(.active) {
+    background: var(--bg-main);
+    color: var(--text-main);
+  }
+
+  .fab {
+    bottom: 32px;
+    right: 32px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    z-index: 1000;
+  }
+}
+
+@media (min-width: 1520px) { /* sidebar(280) + content(1200) + padding */
+  .fab {
+    right: calc(50% - 740px + 60px);
+  }
+}
+
+@media (min-width: 1200px) {
+  .main-content {
+    padding: 40px 80px;
+  }
+}
+
+/* Glass & Card Classes */
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
 }
 
@@ -104,24 +217,43 @@ body {
   padding: 16px;
   margin-bottom: 8px;
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 20px hsla(var(--p-h), 20%, 10%, 0.03);
+}
+
+.transaction-card {
+  transition: background 0.15s ease;
+  border-color: transparent !important;
+}
+
+@media (min-width: 768px) {
+  .transaction-card:hover {
+    background: var(--bg-main);
+  }
+
+  .transaction-actions {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .transaction-card:hover .transaction-actions {
+    opacity: 1;
+  }
 }
 
 /* Navigation */
 .bottom-nav {
   position: fixed;
-  bottom: 12px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 24px);
-  max-width: 508px;
-  height: calc(var(--nav-height) - 8px);
-  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 540px;
+  height: var(--nav-height);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 100;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
 .nav-item {
@@ -129,12 +261,12 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   color: var(--text-muted);
   text-decoration: none;
   font-size: 10px;
   font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.15s ease;
 }
 
 .nav-item svg {
@@ -144,14 +276,15 @@ body {
 
 .nav-item.active {
   color: var(--primary);
-  transform: translateY(-1px);
+  font-weight: 700;
 }
 
 /* Typography Utility */
 .title {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 800;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.6px;
+  color: var(--text-main);
 }
 
 .subtitle {
@@ -162,6 +295,14 @@ body {
 .text-muted {
   color: var(--text-muted);
   font-size: 13px;
+}
+
+@media (max-width: 767px) {
+  .desktop-only { display: none !important; }
+}
+
+@media (min-width: 768px) {
+  .mobile-only { display: none !important; }
 }
 
 /* Flex Utility */
@@ -185,23 +326,28 @@ body {
 /* Interactive Elements */
 .fab {
   position: fixed;
-  bottom: calc(var(--nav-height) + 32px);
+  bottom: calc(var(--nav-height) + 16px);
   right: 20px;
   width: 52px;
   height: 52px;
-  border-radius: 26px;
-  background: linear-gradient(135deg, var(--secondary), hsl(var(--s-h), 95%, 45%));
+  border-radius: 50%;
+  background: var(--primary);
   color: white;
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 8px 25px var(--secondary-glow);
+  box-shadow: 0 4px 16px var(--primary-glow);
   cursor: pointer;
   border: none;
-  z-index: 90;
+  z-index: 1000;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-@media (min-width: 541px) {
+.fab:active {
+  transform: scale(0.92);
+}
+
+@media (min-width: 541px) and (max-width: 767px) {
   .fab {
     right: calc(50% - 270px + 20px);
   }

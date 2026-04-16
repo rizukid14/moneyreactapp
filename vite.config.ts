@@ -24,6 +24,9 @@ export default defineConfig({
         ],
         display: 'standalone',
         background_color: '#ffffff',
+      },
+      workbox: {
+        importScripts: ['/firebase-messaging-sw.js']
       }
     })
   ],

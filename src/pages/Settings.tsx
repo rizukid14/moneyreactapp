@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
+import { setupPushNotifications } from '../lib/notifications';
 
 const Settings: React.FC = () => {
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData } = useMoney();
@@ -138,7 +139,7 @@ const Settings: React.FC = () => {
                 style={{ 
                   flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
                   background: catTab === 'pengeluaran' ? 'var(--bg-card)' : 'transparent',
-                  color: catTab === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)',
+                  color: catTab === 'pengeluaran' ? 'var(--danger)' : 'var(--text-muted)',
                   boxShadow: catTab === 'pengeluaran' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                 }}
               >
@@ -160,16 +161,16 @@ const Settings: React.FC = () => {
 
             <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
               {filteredCats.map(c => (
-                <div key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <div key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                   <div 
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', cursor: 'pointer' }}
                     onClick={() => setExpandedCat(expandedCat === c.id ? null : c.id)}
                   >
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                       <ChevronRight size={18} style={{ transform: expandedCat === c.id ? 'rotate(90deg)' : 'none', transition: 'all 0.2s', marginRight: '8px', color: 'var(--text-muted)' }} />
-                      <span style={{ fontWeight: 500 }}>{c.name}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</span>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); }} style={{ background: 'none', border: 'none', color: 'var(--danger-red)', cursor: 'pointer', padding: '4px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -178,8 +179,8 @@ const Settings: React.FC = () => {
                     <div style={{ padding: '0 12px 12px 36px', background: 'var(--bg-main)', borderRadius: '0 0 8px 8px' }}>
                       {(c.subcategories || []).map(sub => (
                         <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed var(--border-color)', fontSize: '13px' }}>
-                          <span>{sub.name}</span>
-                          <button onClick={() => deleteSubCategory(c.id, sub.id)} style={{ background: 'none', border: 'none', color: 'var(--danger-red)', cursor: 'pointer' }}>
+                          <span style={{ color: 'var(--text-main)' }}>{sub.name}</span>
+                          <button onClick={() => deleteSubCategory(c.id, sub.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
                             <X size={14} />
                           </button>
                         </div>
@@ -199,7 +200,7 @@ const Settings: React.FC = () => {
                               setNewSubCatName('');
                             }
                           }}
-                          className="btn btn-blue" style={{ padding: '0 12px', margin: 0, fontSize: '13px' }}>
+                          className="btn btn-primary" style={{ padding: '0 12px', margin: 0, fontSize: '13px' }}>
                           Tambah
                         </button>
                       </div>
@@ -221,7 +222,7 @@ const Settings: React.FC = () => {
                 style={{ flex: 1, marginBottom: 0 }}
                 required 
               />
-              <button type="submit" className="btn btn-blue" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
+              <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
                 <Plus size={20} />
               </button>
             </form>
@@ -239,10 +240,10 @@ const Settings: React.FC = () => {
               <div style={{ position: 'relative' }}>
                 <div style={{ 
                   width: 80, height: 80, borderRadius: '40px', 
-                  backgroundColor: 'var(--secondary-blue)', 
+                  backgroundColor: 'var(--primary)', 
                   display: 'flex', justifyContent: 'center', alignItems: 'center', 
                   color: 'white', fontSize: '32px', fontWeight: 700,
-                  overflow: 'hidden', border: '3px solid var(--border-color)'
+                  overflow: 'hidden', border: '3px solid var(--bg-card)'
                 }}>
                   {tempAvatar ? (
                     <img src={tempAvatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -252,7 +253,7 @@ const Settings: React.FC = () => {
                 </div>
                 <label style={{
                   position: 'absolute', bottom: 0, right: -5,
-                  backgroundColor: 'var(--primary-orange)', padding: '6px', borderRadius: '50%',
+                  backgroundColor: 'var(--secondary)', padding: '6px', borderRadius: '50%',
                   color: 'white', cursor: 'pointer', border: '2px solid var(--bg-card)'
                 }}>
                   <Camera size={14} />
@@ -266,7 +267,7 @@ const Settings: React.FC = () => {
             <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} required />
             <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Email</label>
             <input type="email" value={tempEmail} onChange={e => setTempEmail(e.target.value)} required />
-            <button type="submit" className="btn btn-blue">Simpan Perubahan</button>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Simpan Perubahan</button>
           </form>
         );
       case 'notif':
@@ -276,19 +277,67 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Notifikasi</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-              <span>Pengingat Harian</span>
-              <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--secondary-blue)', position: 'relative' }}>
-                <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', right: 2, top: 2 }} />
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderBottom: '1px solid var(--border-color)', marginBottom: 0 }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Pengingat Harian</span>
+              <div 
+                onClick={async () => {
+                  const nextState = !user.dailyReminder;
+                  if (nextState && 'Notification' in window) {
+                    const success = await setupPushNotifications();
+                    if (success) {
+                      new Notification('Pengingat Harian Aktif', { body: 'Money Manager akan mengirimkan pengingat melalui server Firebase Cloud.' });
+                    } else {
+                      alert('Browser menolak izin notifikasi atau Cloud Messaging tidak dikonfigurasi dengan benar.');
+                    }
+                  }
+                  updateUser({ ...user, dailyReminder: nextState });
+                }}
+                style={{ 
+                  width: '44px', height: '24px', borderRadius: '12px', 
+                  backgroundColor: user.dailyReminder ? 'var(--primary)' : 'var(--border-color)',
+                  display: 'flex', alignItems: 'center', padding: '0 2px',
+                  cursor: 'pointer', transition: 'all 0.3s'
+                }}>
+                <div style={{ 
+                  width: '20px', height: '20px', borderRadius: '10px', 
+                  backgroundColor: 'white',
+                  transform: user.dailyReminder ? 'translateX(20px)' : 'translateX(0)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
               </div>
             </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0' }}>
-              <span>Laporan Mingguan</span>
-              <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--bg-neutral)', position: 'relative' }}>
-                <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', left: 2, top: 2 }} />
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Laporan Mingguan</span>
+              <div 
+                onClick={async () => {
+                  const nextState = !user.weeklyReport;
+                  if (nextState && 'Notification' in window) {
+                    const success = await setupPushNotifications();
+                    if (success) {
+                      new Notification('Laporan Mingguan Aktif', { body: 'FCM Token berhasil di-generate!' });
+                    } else {
+                      alert('Browser menolak izin notifikasi atau FCM belum dikonfigurasi.');
+                    }
+                  }
+                  updateUser({ ...user, weeklyReport: nextState });
+                }}
+                style={{ 
+                  width: '44px', height: '24px', borderRadius: '12px', 
+                  backgroundColor: user.weeklyReport ? 'var(--primary)' : 'var(--border-color)',
+                  display: 'flex', alignItems: 'center', padding: '0 2px',
+                  cursor: 'pointer', transition: 'all 0.3s'
+                }}>
+                <div style={{ 
+                  width: '20px', height: '20px', borderRadius: '10px', 
+                  backgroundColor: 'white',
+                  transform: user.weeklyReport ? 'translateX(20px)' : 'translateX(0)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
               </div>
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '10px' }}>Fitur push notification sedang dikembangkan.</p>
+            <p style={{ fontSize: '12px', color: 'var(--success)', textAlign: 'center', marginTop: '10px' }}>Notifikasi kini terhubung ke API browser Anda!</p>
           </>
         );
       case 'security':
@@ -301,16 +350,16 @@ const Settings: React.FC = () => {
             
             {pin ? (
               <div style={{ textAlign: 'center' }}>
-                <ShieldCheck size={48} color="var(--success-green)" style={{ margin: '0 auto 16px auto' }} />
-                <p style={{ marginBottom: '20px' }}>Keamanan PIN Aktif</p>
-                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-danger-subtle)', color: 'var(--danger-red)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
-                <button onClick={lockApp} className="btn btn-blue">Kunci Sekarang</button>
+                <ShieldCheck size={48} color="var(--success)" style={{ margin: '0 auto 16px auto' }} />
+                <p style={{ marginBottom: '20px', color: 'var(--text-main)', fontWeight: 600 }}>Keamanan PIN Aktif</p>
+                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-expense)', color: 'var(--danger)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
+                <button onClick={lockApp} className="btn btn-primary" style={{ width: '100%' }}>Kunci Sekarang</button>
               </div>
             ) : (
               <form onSubmit={handleSetPin}>
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                  <Lock size={48} color="var(--primary-orange)" style={{ margin: '0 auto 16px auto' }} />
-                  <p>Setel PIN untuk mengamankan data Anda.</p>
+                  <Lock size={48} color="var(--secondary)" style={{ margin: '0 auto 16px auto' }} />
+                  <p style={{ color: 'var(--text-muted)' }}>Setel PIN untuk mengamankan data Anda.</p>
                 </div>
                 <input 
                   type="password" 
@@ -346,13 +395,13 @@ const Settings: React.FC = () => {
         <h1 className="title" style={{ margin: 0 }}>Lainnya</h1>
       </div>
 
-      <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
         <div style={{ 
-          width: 60, height: 60, borderRadius: '30px', 
-          backgroundColor: 'var(--secondary-blue)', 
+          width: 56, height: 56, borderRadius: '28px', 
+          backgroundColor: 'var(--primary)', 
           display: 'flex', justifyContent: 'center', alignItems: 'center', 
           color: 'white', marginRight: '16px',
-          fontSize: '24px', fontWeight: 700,
+          fontSize: '20px', fontWeight: 700,
           overflow: 'hidden'
         }}>
           {user.avatar ? (
@@ -377,15 +426,15 @@ const Settings: React.FC = () => {
                 justifyContent: 'space-between', 
                 alignItems: 'center',
                 padding: '16px 0',
-                borderBottom: '1px solid var(--border-subtle)',
+                borderBottom: '1px solid var(--border-color)',
                 cursor: 'pointer'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success-green)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
-                  <span style={{ fontWeight: 500 }}>{item.label}</span>
+                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success-green)', fontWeight: 600 }}>AKTIF</span>}
+                  {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
                   <ChevronRight size={20} color="var(--text-muted)" />
                 </div>
               </div>
@@ -407,7 +456,7 @@ const Settings: React.FC = () => {
                     onClick={toggleTheme}
                     style={{ 
                       width: '44px', height: '24px', borderRadius: '12px', 
-                      backgroundColor: theme === 'dark' ? 'var(--secondary-blue)' : 'var(--border-color)',
+                      backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
                       display: 'flex', alignItems: 'center', padding: '0 2px',
                       cursor: 'pointer', transition: 'all 0.3s'
                     }}>
@@ -427,14 +476,14 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="card" style={{ 
-        marginTop: '24px', 
+        marginTop: '16px', 
         textAlign: 'center', 
-        backgroundColor: 'var(--bg-info-subtle)', 
-        borderColor: 'var(--secondary-blue)', 
+        backgroundColor: 'var(--bg-main)', 
+        borderColor: 'var(--border-color)', 
         borderStyle: 'solid', 
         borderWidth: '1px' 
       }}>
-         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--secondary-blue)', fontWeight: 700 }}>
+         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 700 }}>
             <Mail size={18} />
             Hubungi Dukungan
          </div>
@@ -443,7 +492,7 @@ const Settings: React.FC = () => {
 
 
       {/* ── Data Backup Section ───────────────────────────────────────── */}
-      <div className="card glass" style={{ marginTop: '24px' }}>
+      <div className="card" style={{ marginTop: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
           <DatabaseBackup size={20} color="var(--primary)" />
           <span style={{ fontWeight: 700, fontSize: '15px' }}>Backup & Restore Data</span>
