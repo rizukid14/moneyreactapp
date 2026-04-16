@@ -1,5 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db as firestore, isFirebaseConfigured } from './firebase';
 import type { Asset, Transaction, Category, UserProfile } from '../contexts/MoneyContext';
 
@@ -160,4 +160,4 @@ export const migrateFromLocalStorage = async () => false;
 export const dbExportAll = async () => {
     return { assets: [], transactions: [], categories: [], user: null, pin: null, theme: null, exportedAt: new Date().toISOString() };
 };
-export const dbImportAll = async (data: any) => {};
+export const dbImportAll = async (_data: any) => {};

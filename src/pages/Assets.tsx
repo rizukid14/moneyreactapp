@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Wallet, CreditCard, Landmark, Plus, Trash2, Smartphone, Pencil, EyeOff, Eye, TrendingUp, PiggyBank, HandCoins } from 'lucide-react';
+import { Wallet, CreditCard, Landmark, Plus, Smartphone, Pencil, EyeOff, Eye, TrendingUp, PiggyBank, HandCoins } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
@@ -31,7 +31,7 @@ const getColorForType = (type: AssetType) => {
 };
 
 const Assets: React.FC = () => {
-  const { assets, getAssetBalance, addAsset, deleteAsset, updateAsset, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
+  const { assets, getAssetBalance, addAsset, updateAsset, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   
@@ -140,7 +140,7 @@ const Assets: React.FC = () => {
                   {TYPE_LABELS[typeKey]} ({groupAssets.length})
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {groupAssets.map(asset => {
+                  {groupAssets.map((asset: Asset) => {
                     const Icon = getIconForType(asset.type);
                     const color = getColorForType(asset.type);
                     const balance = balances[asset.id] || 0;
