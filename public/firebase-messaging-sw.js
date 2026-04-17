@@ -17,19 +17,17 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase App
-if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "REPLACE_ME") {
-  firebase.initializeApp(firebaseConfig);
-  const messaging = firebase.messaging();
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
 
-  // Background message handler
-  messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Received background message ', payload);
-    const notificationTitle = payload.notification.title || 'MoneyApp Notification';
-    const notificationOptions = {
-      body: payload.notification.body || '',
-      icon: '/favicon.svg'
-    };
+// Background message handler
+messaging.onBackgroundMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  const notificationTitle = payload.notification.title || 'MoneyApp Notification';
+  const notificationOptions = {
+    body: payload.notification.body || '',
+    icon: '/favicon.svg'
+  };
 
-    self.registration.showNotification(notificationTitle, notificationOptions);
-  });
-}
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
