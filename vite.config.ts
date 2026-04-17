@@ -9,7 +9,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Money Tracker PWA',
+        name: 'MoneyApp',
         short_name: 'MoneyApp',
         description: 'Track your expenses and incomes easily',
         theme_color: '#f97316',
