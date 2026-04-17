@@ -7,11 +7,7 @@ import {
   dbGetSetting, dbPutSetting, dbDeleteSetting,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage,
-  migrateFromIndexedDBToFirebase
 } from '../lib/db';
-import { auth, isFirebaseConfigured } from '../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { AuthScreen } from '../components/AuthScreen';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 
@@ -19,8 +15,6 @@ export interface UserProfile {
   name: string;
   email: string;
   avatar?: string;
-  dailyReminder?: boolean;
-  weeklyReport?: boolean;
 }
 
 export interface SubCategory {
@@ -118,29 +112,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isAppLocked,  setIsAppLocked]  = useState(false);
   const [theme,        setTheme]        = useState<'light' | 'dark'>('light');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
-  const [authUser, setAuthUser] = useState<any>(null);
 
-  // ── Auth Listener ───────────────────────────────────────────────────────────
+  // ── Bootstrap: migrate if needed, then load from IndexedDB ──────────────
   useEffect(() => {
-    if (!isFirebaseConfigured) {
-      setAuthUser({}); // Mock user if not using firebase
-      return;
-    }
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        setAuthUser(u);
-        await migrateFromIndexedDBToFirebase();
-      } else {
-        setAuthUser(null);
-        setIsReady(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // ── Bootstrap: migrate if needed, then load from DB ──────────────
-  useEffect(() => {
-    if (!authUser) return; // Block loading until authenticated
     const bootstrap = async () => {
       // One-time migration from localStorage
       await migrateFromLocalStorage();
@@ -183,7 +157,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setIsReady(true);
     };
     bootstrap();
-  }, [authUser]);
+  }, []);
 
   // ─── Apply theme ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -363,17 +337,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     exportData, importData,
   ]);
 
-  if (isFirebaseConfigured && !authUser) {
-    return <AuthScreen />;
-  }
-
   return (
     <MoneyContext.Provider value={value}>
-      {isReady ? children : (
-        <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)' }}>
-          Memuat aplikasi...
-        </div>
-      )}
+      {children}
     </MoneyContext.Provider>
   );
 };

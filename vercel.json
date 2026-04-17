@@ -4,15 +4,5 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/daily-cron",
-      "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/weekly-cron",
-      "schedule": "0 1 * * 0"
-    }
   ]
 }

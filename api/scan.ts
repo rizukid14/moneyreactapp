@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { image, categories, assets } = req.body; 
+    const { image, categories, assets } = req.body;
 
     if (!image) {
       return res.status(400).json({ message: 'No image provided' });
@@ -28,18 +28,12 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ message: 'OPENAI_API_KEY is not configured on the server.' });
     }
 
-    const categoryList = categories?.length > 0 ? categories.map((c: any) => c.name).join(',') : "None";
-    const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
-
-    const prompt = `Extract receipt data to JSON:
-    - amount: total (number)
-    - date: YYYY-MM-DD
-    - lineItems: array of {name, amount}
-    - suggestedCategory: from [${categoryList}]
-    - suggestedAsset: from [${assetList}]
-    - confidence: high/medium/low
-    
-    Ref context: Today is ${new Date().toISOString().split('T')[0]}, Indonesia currency.`;
+    const categoryList = categories?.length > 0
+      ? categories.map((c: any) => c.name).join(',')
+      : "General";
+    const assetList = assets?.length > 0
+      ? assets.map((a: any) => a.name).join(',')
+      : "Cash";
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -47,7 +41,13 @@ export default async function handler(req: any, res: any) {
         {
           role: "user",
           content: [
-            { type: "text", text: prompt },
+            {
+              type: "text",
+              text: `Parse this Indonesian receipt. Return JSON only:
+{"amount":number,"date":"YYYY-MM-DD","lineItems":[{"name":"str","amount":number}],"suggestedCategory":"str","suggestedAsset":"str","confidence":"high|medium|low"}
+Rules: today=${new Date().toISOString().split('T')[0]}, dot=thousands(7.000=7000), amounts=integers, use GRAND TOTAL not subtotal.
+Categories:[${categoryList}] Assets:[${assetList}]`
+            },
             {
               type: "image_url",
               image_url: {
@@ -59,18 +59,19 @@ export default async function handler(req: any, res: any) {
         },
       ],
       response_format: { type: "json_object" },
+      max_tokens: 400,
     });
 
-    const text = response.choices[0].message.content;
-    const parsedData = JSON.parse(text || '{}');
-    parsedData.rawText = "Optimized via OpenAI (Low Detail/65 tokens)";
-    
+    const parsedData = JSON.parse(response.choices[0].message.content || '{}');
+    parsedData.rawText = "Processed via OpenAI GPT-4o Mini";
+
     return res.status(200).json(parsedData);
+
   } catch (error: any) {
     console.error('OCR API Error:', error);
-    return res.status(500).json({ 
-      message: 'OCR Failed', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Failed to process receipt',
+      error: error.message,
     });
   }
 }

@@ -173,15 +173,15 @@ const Statistics: React.FC = () => {
         </div>
       </div>
       
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-        <div className="card" style={{ flex: 1, marginBottom: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Pendapatan</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>{formatRupiah(currentMonthIncome)}</div>
+      <div className="card glass">
+        <h2 className="subtitle" style={{ marginBottom: '16px' }}>Ringkasan {MONTH_NAMES_FULL[viewDate.getMonth()]}</h2>
+        <div className="flex-between" style={{ marginBottom: '12px' }}>
+          <span className="text-muted">Total Pendapatan</span>
+          <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '18px' }}>{formatRupiah(currentMonthIncome)}</span>
         </div>
-
-        <div className="card" style={{ flex: 1, marginBottom: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Pengeluaran</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--danger)' }}>{formatRupiah(currentMonthExpense)}</div>
+        <div className="flex-between">
+          <span className="text-muted">Total Pengeluaran</span>
+          <span style={{ color: 'var(--secondary)', fontWeight: '800', fontSize: '18px' }}>{formatRupiah(currentMonthExpense)}</span>
         </div>
       </div>
 
