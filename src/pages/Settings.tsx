@@ -6,6 +6,9 @@ import { setupPushNotifications } from '../lib/notifications';
 const Settings: React.FC = () => {
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    'Notification' in window ? Notification.permission : 'denied'
+  );
   const importInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
 
@@ -28,7 +31,6 @@ const Settings: React.FC = () => {
   const menuItems = [
     { id: 'profile', icon: User, label: 'Profil Saya' },
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
-    { id: 'notif', icon: Bell, label: 'Notifikasi' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
   ];
@@ -270,80 +272,6 @@ const Settings: React.FC = () => {
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Simpan Perubahan</button>
           </form>
         );
-      case 'notif':
-        return (
-          <>
-            <div className="modal-header">
-              <h2 className="subtitle">Notifikasi</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
-            </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderBottom: '1px solid var(--border-color)', marginBottom: 0 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Pengingat Harian</span>
-              <div 
-                onClick={async () => {
-                  const nextState = !user.dailyReminder;
-                  if (nextState && 'Notification' in window) {
-                    const success = await setupPushNotifications();
-                    if (success) {
-                      new Notification('Pengingat Harian Aktif', { body: 'Money Manager akan mengirimkan pengingat melalui server Firebase Cloud.' });
-                      updateUser({ ...user, dailyReminder: true });
-                    } else {
-                      alert('Gagal mengaktifkan notifikasi: Browser menukar izin (harus di-install sbg PWA) atau VAPID key belum disetup.');
-                    }
-                  } else {
-                    updateUser({ ...user, dailyReminder: nextState });
-                  }
-                }}
-                style={{ 
-                  width: '44px', height: '24px', borderRadius: '12px', 
-                  backgroundColor: user.dailyReminder ? 'var(--primary)' : 'var(--border-color)',
-                  display: 'flex', alignItems: 'center', padding: '0 2px',
-                  cursor: 'pointer', transition: 'all 0.3s'
-                }}>
-                <div style={{ 
-                  width: '20px', height: '20px', borderRadius: '10px', 
-                  backgroundColor: 'white',
-                  transform: user.dailyReminder ? 'translateX(20px)' : 'translateX(0)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                }} />
-              </div>
-            </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Laporan Mingguan</span>
-              <div 
-                onClick={async () => {
-                  const nextState = !user.weeklyReport;
-                  if (nextState && 'Notification' in window) {
-                    const success = await setupPushNotifications();
-                    if (success) {
-                      new Notification('Laporan Mingguan Aktif', { body: 'FCM Token berhasil di-generate!' });
-                      updateUser({ ...user, weeklyReport: true });
-                    } else {
-                      alert('Gagal mengaktifkan: Izin ditolak atau Web Push Certificate (VAPID) belum ditambahkan.');
-                    }
-                  } else {
-                    updateUser({ ...user, weeklyReport: nextState });
-                  }
-                }}
-                style={{ 
-                  width: '44px', height: '24px', borderRadius: '12px', 
-                  backgroundColor: user.weeklyReport ? 'var(--primary)' : 'var(--border-color)',
-                  display: 'flex', alignItems: 'center', padding: '0 2px',
-                  cursor: 'pointer', transition: 'all 0.3s'
-                }}>
-                <div style={{ 
-                  width: '20px', height: '20px', borderRadius: '10px', 
-                  backgroundColor: 'white',
-                  transform: user.weeklyReport ? 'translateX(20px)' : 'translateX(0)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                }} />
-              </div>
-            </div>
-            <p style={{ fontSize: '12px', color: 'var(--success)', textAlign: 'center', marginTop: '10px' }}>Notifikasi kini terhubung ke API browser Anda!</p>
-          </>
-        );
       case 'security':
         return (
           <>
@@ -478,6 +406,40 @@ const Settings: React.FC = () => {
             </React.Fragment>
           );
         })}
+      </div>
+
+      <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Bell size={18} color="var(--text-muted)" style={{ marginRight: '12px' }} />
+            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Notifikasi Otomatis</span>
+          </div>
+          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 700, 
+            backgroundColor: notifPermission === 'granted' ? 'var(--success-glow)' : 'var(--danger-glow)',
+            color: notifPermission === 'granted' ? 'var(--success)' : 'var(--danger)' 
+          }}>
+            {notifPermission === 'granted' ? 'AKTIF' : 'NONAKTIF'}
+          </span>
+        </div>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+          Pengingat harian dan laporan mingguan dikirimkan otomatis ke perangkat ini. 
+          {notifPermission !== 'granted' && " Klik untuk mengaktifkan izin notifikasi."}
+        </p>
+        {notifPermission !== 'granted' && (
+          <button 
+            onClick={async () => {
+              const res = await Notification.requestPermission();
+              setNotifPermission(res);
+              if (res === 'granted') {
+                import('../lib/notifications').then(m => m.setupPushNotifications());
+              }
+            }}
+            className="btn btn-primary" 
+            style={{ width: '100%', marginTop: '12px', padding: '8px', fontSize: '12px' }}
+          >
+            Aktifkan Izin Notifikasi
+          </button>
+        )}
       </div>
 
       <div className="card" style={{ 

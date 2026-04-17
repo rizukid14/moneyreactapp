@@ -39,6 +39,15 @@ const AppContent: React.FC = () => {
     }
   }, [theme]);
 
+  // Request notification permission and setup FCM on mount
+  useEffect(() => {
+    if (isReady) {
+      import('./lib/notifications').then(({ setupPushNotifications }) => {
+        setupPushNotifications();
+      });
+    }
+  }, [isReady]);
+
   // Wait for IndexedDB to load before rendering app
   if (!isReady) return <LoadingFallback />;
 
