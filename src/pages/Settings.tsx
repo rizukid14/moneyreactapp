@@ -431,7 +431,7 @@ const Settings: React.FC = () => {
               const res = await Notification.requestPermission();
               setNotifPermission(res);
               if (res === 'granted') {
-                import('../lib/notifications').then(m => m.setupPushNotifications());
+                setupPushNotifications();
               }
             }}
             className="btn btn-primary" 
