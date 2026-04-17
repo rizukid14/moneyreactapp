@@ -48,21 +48,19 @@ const AppContent: React.FC = () => {
 
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
-      <div className="app-container">
-        <BrowserRouter>
-          <Suspense fallback={<LoadingFallback />}>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Transactions />} />
-                <Route path="stats" element={<Statistics />} />
-                <Route path="scan" element={<ReceiptScanner />} />
-                <Route path="assets" element={<Assets />} />
-                <Route path="settings" element={<Settings />} />
-              </Route>
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </div>
+      <BrowserRouter>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Transactions />} />
+              <Route path="stats" element={<Statistics />} />
+              <Route path="scan" element={<ReceiptScanner />} />
+              <Route path="assets" element={<Assets />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
     </div>
   );
 };

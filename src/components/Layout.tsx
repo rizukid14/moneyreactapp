@@ -47,7 +47,7 @@ const Layout: React.FC = () => {
       </main>
       
       {/* Bottom Nav for Mobile */}
-      <nav className="bottom-nav glass mobile-only">
+      <nav className="bottom-nav mobile-only">
         <NavItems />
       </nav>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Wallet, CreditCard, Landmark, Plus, Trash2, Smartphone, Pencil, EyeOff, Eye, TrendingUp, PiggyBank, HandCoins } from 'lucide-react';
+import { Wallet, CreditCard, Landmark, Plus, Smartphone, Pencil, EyeOff, Eye, TrendingUp, PiggyBank, HandCoins } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
@@ -31,7 +31,7 @@ const getColorForType = (type: AssetType) => {
 };
 
 const Assets: React.FC = () => {
-  const { assets, getAssetBalance, addAsset, deleteAsset, updateAsset, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
+  const { assets, getAssetBalance, addAsset, updateAsset, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   
@@ -97,44 +97,36 @@ const Assets: React.FC = () => {
         <h1 className="title" style={{ margin: 0 }}>Aset Saya</h1>
       </div>
 
-      <div className="card glass" style={{ 
-        background: total <= 1000000 ? 'linear-gradient(135deg, #10b981, #059669)' :
-                    total <= 10000000 ? 'linear-gradient(135deg, #3b82f6, #1e40af)' :
-                    total <= 100000000 ? 'linear-gradient(135deg, #8b5cf6, #5b21b6)' :
-                    'linear-gradient(135deg, #fbbf24, #b45309)', 
-        color: 'white', 
-        border: 'none',
+      <div className="card" style={{ 
         padding: '24px',
-        boxShadow: total <= 1000000 ? '0 10px 25px rgba(16, 185, 129, 0.4)' :
-                   total <= 10000000 ? '0 10px 25px rgba(59, 130, 246, 0.4)' :
-                   total <= 100000000 ? '0 10px 25px rgba(139, 92, 246, 0.4)' :
-                   '0 10px 25px rgba(251, 191, 36, 0.4)'
+        marginBottom: '32px'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ opacity: 0.9, fontSize: '14px', fontWeight: 600 }}>Total Kekayaan Bersih</div>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Total Kekayaan Bersih</div>
           <button 
             onClick={togglePrivateMode} 
-            style={{ background: 'none', border: 'none', color: 'white', opacity: 0.8, cursor: 'pointer', display: 'flex' }}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
           >
             {isPrivateMode ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
-        <div style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-1px' }}>
+        <div style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '-1px', color: 'var(--text-main)' }}>
           {isPrivateMode ? 'Rp ••••••••' : `Rp${total.toLocaleString('id-ID')}`}
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 className="subtitle" style={{ margin: 0 }}>Daftar Rekening</h2>
         <button onClick={handleAdd} className="btn-text" style={{ 
           background: 'none', border: 'none', color: 'var(--primary)', 
-          display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, cursor: 'pointer' 
+          display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, cursor: 'pointer',
+          fontSize: '14px'
         }}>
           <Plus size={20} /> Tambah
         </button>
       </div>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {assets.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada aset.</div>
         ) : (
@@ -144,11 +136,11 @@ const Assets: React.FC = () => {
 
             return (
               <div key={typeKey}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', marginLeft: '4px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '12px', marginLeft: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
                   {TYPE_LABELS[typeKey]} ({groupAssets.length})
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {groupAssets.map(asset => {
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {groupAssets.map((asset: Asset) => {
                     const Icon = getIconForType(asset.type);
                     const color = getColorForType(asset.type);
                     const balance = balances[asset.id] || 0;
@@ -157,41 +149,35 @@ const Assets: React.FC = () => {
                     const displayBalance = isLiability ? Math.abs(balance) : balance;
                     
                     return (
-                      <div className="card" key={asset.id} style={{ display: 'flex', alignItems: 'center', marginBottom: 0, opacity: asset.isHidden ? 0.6 : 1 }}>
+                      <div className="card" key={asset.id} style={{ display: 'flex', alignItems: 'center', marginBottom: 0, opacity: asset.isHidden ? 0.6 : 1, border: 'none', background: 'var(--bg-card)' }}>
                         <div style={{ 
-                          width: 52, height: 52, 
-                          borderRadius: '14px', 
-                          backgroundColor: `${color}15`, 
+                          width: 48, height: 48, 
+                          borderRadius: '16px', 
+                          backgroundColor: 'var(--bg-main)', 
                           color: color,
                           display: 'flex', justifyContent: 'center', alignItems: 'center',
                           marginRight: '16px',
-                          border: `1px solid ${color}30`
+                          flexShrink: 0
                         }}>
-                          <Icon size={26} />
+                          <Icon size={24} />
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>{asset.name}</div>
+                            <div style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{asset.name}</div>
                             {asset.isHidden && <EyeOff size={14} color="var(--text-muted)" />}
                           </div>
                           
-                          <div style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)' }}>
-                            {isLiability && <span style={{ fontSize: '12px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
+                          <div style={{ fontSize: '20px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                            {isLiability && <span style={{ fontSize: '13px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
                             {isPrivateMode ? 'Rp ••••••••' : `Rp${displayBalance.toLocaleString('id-ID')}`}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                        <div style={{ display: 'flex', gap: '2px' }}>
                           <button 
                             onClick={() => handleEdit(asset)} 
-                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.6 }}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.5 }}
                           >
                             <Pencil size={18} />
-                          </button>
-                          <button 
-                            onClick={() => confirm(`Hapus aset ${asset.name}?`) && deleteAsset(asset.id)} 
-                            style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: '10px', cursor: 'pointer', opacity: 0.6 }}
-                          >
-                            <Trash2 size={18} />
                           </button>
                         </div>
                       </div>

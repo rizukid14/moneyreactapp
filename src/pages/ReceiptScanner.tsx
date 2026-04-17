@@ -337,9 +337,6 @@ const ReceiptScanner: React.FC = () => {
             <Camera size={64} style={{ marginBottom: 16 }} />
             <div style={{ fontWeight: 800, fontSize: '20px' }}>Ambil Foto Struk</div>
           </button>
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
-            💡 Tips: Pastikan foto struk terlihat jelas, terang, dan tidak terpotong.
-          </div>
         </div>
       )}
 

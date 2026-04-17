@@ -1,14 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut } from 'lucide-react';
+import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
-
-
-import { auth, isFirebaseConfigured } from '../lib/firebase';
-import { signOut } from 'firebase/auth';
+import { setupPushNotifications } from '../lib/notifications';
 
 const Settings: React.FC = () => {
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData } = useMoney();
-  const handleLogout = async () => { if (isFirebaseConfigured) await signOut(auth); };
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -79,7 +75,7 @@ const Settings: React.FC = () => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-
+        
         // Compress to low quality JPEG to save storage space
         const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         setTempAvatar(dataUrl);
@@ -135,24 +131,24 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Kategori</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-
+            
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
-              <button
+              <button 
                 type="button"
                 onClick={() => setCatTab('pengeluaran')}
-                style={{
+                style={{ 
                   flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
                   background: catTab === 'pengeluaran' ? 'var(--bg-card)' : 'transparent',
-                  color: catTab === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)',
+                  color: catTab === 'pengeluaran' ? 'var(--danger)' : 'var(--text-muted)',
                   boxShadow: catTab === 'pengeluaran' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                 }}
               >
                 Pengeluaran
               </button>
-              <button
+              <button 
                 type="button"
                 onClick={() => setCatTab('pendapatan')}
-                style={{
+                style={{ 
                   flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
                   background: catTab === 'pendapatan' ? 'var(--bg-card)' : 'transparent',
                   color: catTab === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
@@ -165,46 +161,46 @@ const Settings: React.FC = () => {
 
             <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
               {filteredCats.map(c => (
-                <div key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div
+                <div key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <div 
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', cursor: 'pointer' }}
                     onClick={() => setExpandedCat(expandedCat === c.id ? null : c.id)}
                   >
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                       <ChevronRight size={18} style={{ transform: expandedCat === c.id ? 'rotate(90deg)' : 'none', transition: 'all 0.2s', marginRight: '8px', color: 'var(--text-muted)' }} />
-                      <span style={{ fontWeight: 500 }}>{c.name}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</span>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); }} style={{ background: 'none', border: 'none', color: 'var(--danger-red)', cursor: 'pointer', padding: '4px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
                       <Trash2 size={16} />
                     </button>
                   </div>
-
+                  
                   {expandedCat === c.id && (
                     <div style={{ padding: '0 12px 12px 36px', background: 'var(--bg-main)', borderRadius: '0 0 8px 8px' }}>
                       {(c.subcategories || []).map(sub => (
                         <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed var(--border-color)', fontSize: '13px' }}>
-                          <span>{sub.name}</span>
-                          <button onClick={() => deleteSubCategory(c.id, sub.id)} style={{ background: 'none', border: 'none', color: 'var(--danger-red)', cursor: 'pointer' }}>
+                          <span style={{ color: 'var(--text-main)' }}>{sub.name}</span>
+                          <button onClick={() => deleteSubCategory(c.id, sub.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
                             <X size={14} />
                           </button>
                         </div>
                       ))}
                       <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <input
-                          type="text"
-                          value={newSubCatName}
-                          onChange={e => setNewSubCatName(e.target.value)}
-                          placeholder="Sub-kategori..."
+                        <input 
+                          type="text" 
+                          value={newSubCatName} 
+                          onChange={e => setNewSubCatName(e.target.value)} 
+                          placeholder="Sub-kategori..." 
                           style={{ flex: 1, marginBottom: 0, padding: '6px 10px', fontSize: '13px' }}
                         />
-                        <button
+                        <button 
                           onClick={() => {
                             if (newSubCatName.trim()) {
                               addSubCategory(c.id, newSubCatName.trim());
                               setNewSubCatName('');
                             }
                           }}
-                          className="btn btn-blue" style={{ padding: '0 12px', margin: 0, fontSize: '13px' }}>
+                          className="btn btn-primary" style={{ padding: '0 12px', margin: 0, fontSize: '13px' }}>
                           Tambah
                         </button>
                       </div>
@@ -218,15 +214,15 @@ const Settings: React.FC = () => {
             </div>
 
             <form onSubmit={handleAddCat} style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={newCatName}
-                onChange={e => setNewCatName(e.target.value)}
-                placeholder="Nama kategori baru..."
+              <input 
+                type="text" 
+                value={newCatName} 
+                onChange={e => setNewCatName(e.target.value)} 
+                placeholder="Nama kategori baru..." 
                 style={{ flex: 1, marginBottom: 0 }}
-                required
+                required 
               />
-              <button type="submit" className="btn btn-blue" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
+              <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
                 <Plus size={20} />
               </button>
             </form>
@@ -239,15 +235,15 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Edit Profil</h2>
               <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-
+            
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
               <div style={{ position: 'relative' }}>
-                <div style={{
-                  width: 80, height: 80, borderRadius: '40px',
-                  backgroundColor: 'var(--secondary-blue)',
-                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                <div style={{ 
+                  width: 80, height: 80, borderRadius: '40px', 
+                  backgroundColor: 'var(--primary)', 
+                  display: 'flex', justifyContent: 'center', alignItems: 'center', 
                   color: 'white', fontSize: '32px', fontWeight: 700,
-                  overflow: 'hidden', border: '3px solid var(--border-color)'
+                  overflow: 'hidden', border: '3px solid var(--bg-card)'
                 }}>
                   {tempAvatar ? (
                     <img src={tempAvatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -257,7 +253,7 @@ const Settings: React.FC = () => {
                 </div>
                 <label style={{
                   position: 'absolute', bottom: 0, right: -5,
-                  backgroundColor: 'var(--primary-orange)', padding: '6px', borderRadius: '50%',
+                  backgroundColor: 'var(--secondary)', padding: '6px', borderRadius: '50%',
                   color: 'white', cursor: 'pointer', border: '2px solid var(--bg-card)'
                 }}>
                   <Camera size={14} />
@@ -271,7 +267,7 @@ const Settings: React.FC = () => {
             <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} required />
             <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Email</label>
             <input type="email" value={tempEmail} onChange={e => setTempEmail(e.target.value)} required />
-            <button type="submit" className="btn btn-blue">Simpan Perubahan</button>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Simpan Perubahan</button>
           </form>
         );
       case 'notif':
@@ -281,19 +277,71 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Notifikasi</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--border-color)' }}>
-              <span>Pengingat Harian</span>
-              <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--secondary-blue)', position: 'relative' }}>
-                <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', right: 2, top: 2 }} />
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderBottom: '1px solid var(--border-color)', marginBottom: 0 }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Pengingat Harian</span>
+              <div 
+                onClick={async () => {
+                  const nextState = !user.dailyReminder;
+                  if (nextState && 'Notification' in window) {
+                    const success = await setupPushNotifications();
+                    if (success) {
+                      new Notification('Pengingat Harian Aktif', { body: 'Money Manager akan mengirimkan pengingat melalui server Firebase Cloud.' });
+                      updateUser({ ...user, dailyReminder: true });
+                    } else {
+                      alert('Gagal mengaktifkan notifikasi: Browser menukar izin (harus di-install sbg PWA) atau VAPID key belum disetup.');
+                    }
+                  } else {
+                    updateUser({ ...user, dailyReminder: nextState });
+                  }
+                }}
+                style={{ 
+                  width: '44px', height: '24px', borderRadius: '12px', 
+                  backgroundColor: user.dailyReminder ? 'var(--primary)' : 'var(--border-color)',
+                  display: 'flex', alignItems: 'center', padding: '0 2px',
+                  cursor: 'pointer', transition: 'all 0.3s'
+                }}>
+                <div style={{ 
+                  width: '20px', height: '20px', borderRadius: '10px', 
+                  backgroundColor: 'white',
+                  transform: user.dailyReminder ? 'translateX(20px)' : 'translateX(0)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
               </div>
             </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0' }}>
-              <span>Laporan Mingguan</span>
-              <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--bg-neutral)', position: 'relative' }}>
-                <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', left: 2, top: 2 }} />
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Laporan Mingguan</span>
+              <div 
+                onClick={async () => {
+                  const nextState = !user.weeklyReport;
+                  if (nextState && 'Notification' in window) {
+                    const success = await setupPushNotifications();
+                    if (success) {
+                      new Notification('Laporan Mingguan Aktif', { body: 'FCM Token berhasil di-generate!' });
+                      updateUser({ ...user, weeklyReport: true });
+                    } else {
+                      alert('Gagal mengaktifkan: Izin ditolak atau Web Push Certificate (VAPID) belum ditambahkan.');
+                    }
+                  } else {
+                    updateUser({ ...user, weeklyReport: nextState });
+                  }
+                }}
+                style={{ 
+                  width: '44px', height: '24px', borderRadius: '12px', 
+                  backgroundColor: user.weeklyReport ? 'var(--primary)' : 'var(--border-color)',
+                  display: 'flex', alignItems: 'center', padding: '0 2px',
+                  cursor: 'pointer', transition: 'all 0.3s'
+                }}>
+                <div style={{ 
+                  width: '20px', height: '20px', borderRadius: '10px', 
+                  backgroundColor: 'white',
+                  transform: user.weeklyReport ? 'translateX(20px)' : 'translateX(0)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
               </div>
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '10px' }}>Fitur push notification sedang dikembangkan.</p>
+            <p style={{ fontSize: '12px', color: 'var(--success)', textAlign: 'center', marginTop: '10px' }}>Notifikasi kini terhubung ke API browser Anda!</p>
           </>
         );
       case 'security':
@@ -303,35 +351,35 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Keamanan</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-
+            
             {pin ? (
               <div style={{ textAlign: 'center' }}>
-                <ShieldCheck size={48} color="var(--success-green)" style={{ margin: '0 auto 16px auto' }} />
-                <p style={{ marginBottom: '20px' }}>Keamanan PIN Aktif</p>
-                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-danger-subtle)', color: 'var(--danger-red)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
-                <button onClick={lockApp} className="btn btn-blue">Kunci Sekarang</button>
+                <ShieldCheck size={48} color="var(--success)" style={{ margin: '0 auto 16px auto' }} />
+                <p style={{ marginBottom: '20px', color: 'var(--text-main)', fontWeight: 600 }}>Keamanan PIN Aktif</p>
+                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-expense)', color: 'var(--danger)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
+                <button onClick={lockApp} className="btn btn-primary" style={{ width: '100%' }}>Kunci Sekarang</button>
               </div>
             ) : (
               <form onSubmit={handleSetPin}>
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                  <Lock size={48} color="var(--primary-orange)" style={{ margin: '0 auto 16px auto' }} />
-                  <p>Setel PIN untuk mengamankan data Anda.</p>
+                  <Lock size={48} color="var(--secondary)" style={{ margin: '0 auto 16px auto' }} />
+                  <p style={{ color: 'var(--text-muted)' }}>Setel PIN untuk mengamankan data Anda.</p>
                 </div>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="Masukkan PIN Baru (6 digit)"
-                  value={newPin}
-                  onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))}
+                <input 
+                  type="password" 
+                  inputMode="numeric" 
+                  maxLength={6} 
+                  placeholder="Masukkan PIN Baru (6 digit)" 
+                  value={newPin} 
+                  onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} 
                 />
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="Konfirmasi PIN"
-                  value={confirmPin}
-                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                <input 
+                  type="password" 
+                  inputMode="numeric" 
+                  maxLength={6} 
+                  placeholder="Konfirmasi PIN" 
+                  value={confirmPin} 
+                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))} 
                 />
                 {pinError && <p style={{ color: 'var(--danger-red)', fontSize: '12px', marginBottom: '10px' }}>{pinError}</p>}
                 <button type="submit" className="btn btn-orange">Aktifkan Keamanan</button>
@@ -351,13 +399,13 @@ const Settings: React.FC = () => {
         <h1 className="title" style={{ margin: 0 }}>Lainnya</h1>
       </div>
 
-      <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-        <div style={{
-          width: 60, height: 60, borderRadius: '30px',
-          backgroundColor: 'var(--secondary-blue)',
-          display: 'flex', justifyContent: 'center', alignItems: 'center',
+      <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ 
+          width: 56, height: 56, borderRadius: '28px', 
+          backgroundColor: 'var(--primary)', 
+          display: 'flex', justifyContent: 'center', alignItems: 'center', 
           color: 'white', marginRight: '16px',
-          fontSize: '24px', fontWeight: 700,
+          fontSize: '20px', fontWeight: 700,
           overflow: 'hidden'
         }}>
           {user.avatar ? (
@@ -373,52 +421,51 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="card" style={{ padding: '8px 16px' }}>
-        {menuItems.map((item, index) => {
+        {menuItems.map((item) => {
           const Icon = item.icon;
-          const isLastItem = index === menuItems.length - 1;
           return (
             <React.Fragment key={item.id}>
-              <div onClick={() => handleMenuClick(item.id)} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
+              <div onClick={() => handleMenuClick(item.id)} style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
                 alignItems: 'center',
                 padding: '16px 0',
-                borderBottom: isLastItem ? 'none' : '1px solid var(--border-color)',
+                borderBottom: '1px solid var(--border-color)',
                 cursor: 'pointer'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success-green)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
-                  <span style={{ fontWeight: 500 }}>{item.label}</span>
+                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success-green)', fontWeight: 600 }}>AKTIF</span>}
+                  {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
                   <ChevronRight size={20} color="var(--text-muted)" />
                 </div>
               </div>
 
               {/* Tema Row - Inserted after Security */}
               {item.id === 'security' && (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
                   alignItems: 'center',
                   padding: '16px 0',
-                  borderBottom: '1px solid var(--border-color)',
+                  borderBottom: '1px solid var(--border-subtle)',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />
                     <span style={{ fontWeight: 500 }}>Tema Gelap</span>
                   </div>
-                  <div
+                  <div 
                     onClick={toggleTheme}
-                    style={{
-                      width: '44px', height: '24px', borderRadius: '12px',
-                      backgroundColor: theme === 'dark' ? 'var(--secondary-blue)' : 'var(--border-color)',
+                    style={{ 
+                      width: '44px', height: '24px', borderRadius: '12px', 
+                      backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
                       display: 'flex', alignItems: 'center', padding: '0 2px',
                       cursor: 'pointer', transition: 'all 0.3s'
                     }}>
-                    <div style={{
-                      width: '20px', height: '20px', borderRadius: '10px',
+                    <div style={{ 
+                      width: '20px', height: '20px', borderRadius: '10px', 
                       backgroundColor: 'white',
                       transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -432,24 +479,24 @@ const Settings: React.FC = () => {
         })}
       </div>
 
-      <div className="card" style={{
-        marginTop: '24px',
-        textAlign: 'center',
-        backgroundColor: 'var(--bg-info-subtle)',
-        borderColor: 'var(--secondary-blue)',
-        borderStyle: 'solid',
-        borderWidth: '1px'
+      <div className="card" style={{ 
+        marginTop: '16px', 
+        textAlign: 'center', 
+        backgroundColor: 'var(--bg-main)', 
+        borderColor: 'var(--border-color)', 
+        borderStyle: 'solid', 
+        borderWidth: '1px' 
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--secondary-blue)', fontWeight: 700 }}>
-          <Mail size={18} />
-          Hubungi Dukungan
-        </div>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
+         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 700 }}>
+            <Mail size={18} />
+            Hubungi Dukungan
+         </div>
+         <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
       </div>
 
 
       {/* ── Data Backup Section ───────────────────────────────────────── */}
-      <div className="card glass" style={{ marginTop: '24px' }}>
+      <div className="card" style={{ marginTop: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
           <DatabaseBackup size={20} color="var(--primary)" />
           <span style={{ fontWeight: 700, fontSize: '15px' }}>Backup & Restore Data</span>
@@ -496,26 +543,6 @@ const Settings: React.FC = () => {
             }
           }}
         />
-      </div>
-
-      {/* ── Logout Section ───────────────────────────────────────── */}
-      <div style={{ marginTop: '32px', marginBottom: '24px' }}>
-        <button
-          className="btn"
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            background: 'var(--danger)',
-            color: 'white',
-            fontWeight: 700
-          }}
-          onClick={handleLogout}
-        >
-          <LogOut size={18} /> Keluar (Logout)
-        </button>
       </div>
 
       {activeModal && (
