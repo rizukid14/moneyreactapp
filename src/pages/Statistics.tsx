@@ -179,21 +179,21 @@ const Statistics: React.FC = () => {
       
       <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
         <div className="card" style={{ 
-          flex: 1, marginBottom: 0, background: 'var(--primary-gradient)', 
-          color: 'white', border: 'none', padding: '20px',
+          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)', 
+          color: 'white', border: 'none', padding: '16px',
           boxShadow: '0 10px 25px var(--primary-glow)' 
         }}>
           <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pendapatan</div>
-          <div style={{ fontSize: '22px', fontWeight: 800 }}>{formatRupiah(currentMonthIncome)}</div>
+          <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatRupiah(currentMonthIncome)}</div>
         </div>
 
         <div className="card" style={{ 
-          flex: 1, marginBottom: 0, background: 'var(--secondary-gradient)', 
-          color: 'white', border: 'none', padding: '20px',
+          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)', 
+          color: 'white', border: 'none', padding: '16px',
           boxShadow: '0 10px 25px var(--secondary-glow)'
         }}>
           <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</div>
-          <div style={{ fontSize: '22px', fontWeight: 800 }}>{formatRupiah(currentMonthExpense)}</div>
+          <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatRupiah(currentMonthExpense)}</div>
         </div>
       </div>
 

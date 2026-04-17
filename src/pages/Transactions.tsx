@@ -165,20 +165,20 @@ const Transactions: React.FC = () => {
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
         <div className="card" style={{ 
-          flex: 1, marginBottom: 0, background: 'var(--primary-gradient)', 
-          color: 'white', border: 'none', padding: '20px',
+          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)', 
+          color: 'white', border: 'none', padding: '16px',
           boxShadow: '0 10px 25px var(--primary-glow)' 
         }}>
           <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pemasukan</span>
-          <span style={{ display: 'block', fontSize: '22px', fontWeight: 800 }}>{formatCurrency(monthlyIncome)}</span>
+          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyIncome)}</span>
         </div>
         <div className="card" style={{ 
-          flex: 1, marginBottom: 0, background: 'var(--secondary-gradient)', 
-          color: 'white', border: 'none', padding: '20px',
+          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)', 
+          color: 'white', border: 'none', padding: '16px',
           boxShadow: '0 10px 25px var(--secondary-glow)'
         }}>
           <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</span>
-          <span style={{ display: 'block', fontSize: '22px', fontWeight: 800 }}>{formatCurrency(monthlyExpense)}</span>
+          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyExpense)}</span>
         </div>
       </div>
 
