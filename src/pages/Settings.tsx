@@ -286,11 +286,13 @@ const Settings: React.FC = () => {
                     const success = await setupPushNotifications();
                     if (success) {
                       new Notification('Pengingat Harian Aktif', { body: 'Money Manager akan mengirimkan pengingat melalui server Firebase Cloud.' });
+                      updateUser({ ...user, dailyReminder: true });
                     } else {
-                      alert('Browser menolak izin notifikasi atau Cloud Messaging tidak dikonfigurasi dengan benar.');
+                      alert('Gagal mengaktifkan notifikasi: Browser menukar izin (harus di-install sbg PWA) atau VAPID key belum disetup.');
                     }
+                  } else {
+                    updateUser({ ...user, dailyReminder: nextState });
                   }
-                  updateUser({ ...user, dailyReminder: nextState });
                 }}
                 style={{ 
                   width: '44px', height: '24px', borderRadius: '12px', 
@@ -316,11 +318,13 @@ const Settings: React.FC = () => {
                     const success = await setupPushNotifications();
                     if (success) {
                       new Notification('Laporan Mingguan Aktif', { body: 'FCM Token berhasil di-generate!' });
+                      updateUser({ ...user, weeklyReport: true });
                     } else {
-                      alert('Browser menolak izin notifikasi atau FCM belum dikonfigurasi.');
+                      alert('Gagal mengaktifkan: Izin ditolak atau Web Push Certificate (VAPID) belum ditambahkan.');
                     }
+                  } else {
+                    updateUser({ ...user, weeklyReport: nextState });
                   }
-                  updateUser({ ...user, weeklyReport: nextState });
                 }}
                 style={{ 
                   width: '44px', height: '24px', borderRadius: '12px', 

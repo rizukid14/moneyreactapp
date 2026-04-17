@@ -14,8 +14,10 @@ export const setupPushNotifications = async (): Promise<boolean> => {
     if (permission === 'granted') {
       console.log('[MoneyApp] Notification permission granted.');
       
-      // Get the unique FCM device token
-      const currentToken = await getToken(messaging);
+      // Get the unique FCM device token, requiring VAPID key for strict PWA environments
+      const currentToken = await getToken(messaging, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+      });
       
       if (currentToken) {
         // Save token to Firestore so the backend knows where to push messages
