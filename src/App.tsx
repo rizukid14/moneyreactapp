@@ -1,5 +1,6 @@
 import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { MoneyProvider, useMoney } from './contexts/MoneyContext';
 import Layout from './components/Layout';
 import LockScreen from './components/LockScreen';
@@ -78,6 +79,7 @@ function App() {
   return (
     <MoneyProvider>
       <AppContent />
+      <Analytics />
     </MoneyProvider>
   );
 }
