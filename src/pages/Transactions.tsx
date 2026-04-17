@@ -78,7 +78,7 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* Month Switcher Header */}
-      <div className="card glass" style={{ padding: '4px', marginBottom: '24px' }}>
+      <div className="card" style={{ padding: '8px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', padding: '12px', cursor: 'pointer', color: 'var(--text-muted)' }}>
             <ChevronLeft size={24} />

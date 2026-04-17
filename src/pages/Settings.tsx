@@ -276,7 +276,7 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Notifikasi</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--border-color)' }}>
               <span>Pengingat Harian</span>
               <div style={{ width: 40, height: 20, borderRadius: 10, backgroundColor: 'var(--secondary-blue)', position: 'relative' }}>
                 <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', position: 'absolute', right: 2, top: 2 }} />
@@ -368,8 +368,9 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="card" style={{ padding: '8px 16px' }}>
-        {menuItems.map((item) => {
+        {menuItems.map((item, index) => {
           const Icon = item.icon;
+          const isLastItem = index === menuItems.length - 1;
           return (
             <React.Fragment key={item.id}>
               <div onClick={() => handleMenuClick(item.id)} style={{ 
@@ -377,7 +378,7 @@ const Settings: React.FC = () => {
                 justifyContent: 'space-between', 
                 alignItems: 'center',
                 padding: '16px 0',
-                borderBottom: '1px solid var(--border-subtle)',
+                borderBottom: isLastItem ? 'none' : '1px solid var(--border-color)',
                 cursor: 'pointer'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -397,7 +398,7 @@ const Settings: React.FC = () => {
                   justifyContent: 'space-between', 
                   alignItems: 'center',
                   padding: '16px 0',
-                  borderBottom: '1px solid var(--border-subtle)',
+                  borderBottom: '1px solid var(--border-color)',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />

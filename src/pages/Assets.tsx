@@ -98,11 +98,17 @@ const Assets: React.FC = () => {
       </div>
 
       <div className="card glass" style={{ 
-        background: 'linear-gradient(135deg, var(--primary), #1e40af)', 
+        background: total <= 1000000 ? 'linear-gradient(135deg, #10b981, #059669)' :
+                    total <= 10000000 ? 'linear-gradient(135deg, #3b82f6, #1e40af)' :
+                    total <= 100000000 ? 'linear-gradient(135deg, #8b5cf6, #5b21b6)' :
+                    'linear-gradient(135deg, #fbbf24, #b45309)', 
         color: 'white', 
         border: 'none',
         padding: '24px',
-        boxShadow: '0 10px 25px var(--primary-glow)'
+        boxShadow: total <= 1000000 ? '0 10px 25px rgba(16, 185, 129, 0.4)' :
+                   total <= 10000000 ? '0 10px 25px rgba(59, 130, 246, 0.4)' :
+                   total <= 100000000 ? '0 10px 25px rgba(139, 92, 246, 0.4)' :
+                   '0 10px 25px rgba(251, 191, 36, 0.4)'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <div style={{ opacity: 0.9, fontSize: '14px', fontWeight: 600 }}>Total Kekayaan Bersih</div>
