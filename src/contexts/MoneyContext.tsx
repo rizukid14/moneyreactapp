@@ -9,7 +9,7 @@ import {
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { AuthScreen } from '../components/AuthScreen';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
@@ -18,6 +18,8 @@ export interface UserProfile {
   name: string;
   email: string;
   avatar?: string;
+  dailyReminder?: boolean;
+  weeklyReport?: boolean;
 }
 
 export interface SubCategory {
@@ -100,7 +102,6 @@ interface MoneyContextType {
   togglePrivateMode: () => void;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
-  logout: () => Promise<void>;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -181,7 +182,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setIsReady(true);
     };
     bootstrap();
-  }, []);
+  }, [authUser]);
 
   // ─── Apply theme ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -344,12 +345,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
   }, []);
 
-  const logout = useCallback(async () => {
-    if (isFirebaseConfigured) {
-      await signOut(auth);
-    }
-  }, []);
-
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
@@ -357,14 +352,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData, logout,
+    exportData, importData,
   }), [
     isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData, logout,
+    exportData, importData,
   ]);
 
   if (isFirebaseConfigured && !authUser) {
@@ -373,7 +368,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   return (
     <MoneyContext.Provider value={value}>
-      {children}
+      {isReady ? children : (
+        <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)' }}>
+          Memuat aplikasi...
+        </div>
+      )}
     </MoneyContext.Provider>
   );
 };

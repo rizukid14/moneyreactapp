@@ -2,8 +2,13 @@ import React, { useState, useRef } from 'react';
 import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 
+
+import { auth, isFirebaseConfigured } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
+
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, logout } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData } = useMoney();
+  const handleLogout = async () => { if (isFirebaseConfigured) await signOut(auth); };
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -74,7 +79,7 @@ const Settings: React.FC = () => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        
+
         // Compress to low quality JPEG to save storage space
         const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         setTempAvatar(dataUrl);
@@ -130,12 +135,12 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Kategori</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
-              <button 
+              <button
                 type="button"
                 onClick={() => setCatTab('pengeluaran')}
-                style={{ 
+                style={{
                   flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
                   background: catTab === 'pengeluaran' ? 'var(--bg-card)' : 'transparent',
                   color: catTab === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)',
@@ -144,10 +149,10 @@ const Settings: React.FC = () => {
               >
                 Pengeluaran
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setCatTab('pendapatan')}
-                style={{ 
+                style={{
                   flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
                   background: catTab === 'pendapatan' ? 'var(--bg-card)' : 'transparent',
                   color: catTab === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
@@ -161,7 +166,7 @@ const Settings: React.FC = () => {
             <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
               {filteredCats.map(c => (
                 <div key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div 
+                  <div
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', cursor: 'pointer' }}
                     onClick={() => setExpandedCat(expandedCat === c.id ? null : c.id)}
                   >
@@ -173,7 +178,7 @@ const Settings: React.FC = () => {
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  
+
                   {expandedCat === c.id && (
                     <div style={{ padding: '0 12px 12px 36px', background: 'var(--bg-main)', borderRadius: '0 0 8px 8px' }}>
                       {(c.subcategories || []).map(sub => (
@@ -185,14 +190,14 @@ const Settings: React.FC = () => {
                         </div>
                       ))}
                       <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <input 
-                          type="text" 
-                          value={newSubCatName} 
-                          onChange={e => setNewSubCatName(e.target.value)} 
-                          placeholder="Sub-kategori..." 
+                        <input
+                          type="text"
+                          value={newSubCatName}
+                          onChange={e => setNewSubCatName(e.target.value)}
+                          placeholder="Sub-kategori..."
                           style={{ flex: 1, marginBottom: 0, padding: '6px 10px', fontSize: '13px' }}
                         />
-                        <button 
+                        <button
                           onClick={() => {
                             if (newSubCatName.trim()) {
                               addSubCategory(c.id, newSubCatName.trim());
@@ -213,13 +218,13 @@ const Settings: React.FC = () => {
             </div>
 
             <form onSubmit={handleAddCat} style={{ display: 'flex', gap: '8px' }}>
-              <input 
-                type="text" 
-                value={newCatName} 
-                onChange={e => setNewCatName(e.target.value)} 
-                placeholder="Nama kategori baru..." 
+              <input
+                type="text"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="Nama kategori baru..."
                 style={{ flex: 1, marginBottom: 0 }}
-                required 
+                required
               />
               <button type="submit" className="btn btn-blue" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
                 <Plus size={20} />
@@ -234,13 +239,13 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Edit Profil</h2>
               <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
               <div style={{ position: 'relative' }}>
-                <div style={{ 
-                  width: 80, height: 80, borderRadius: '40px', 
-                  backgroundColor: 'var(--secondary-blue)', 
-                  display: 'flex', justifyContent: 'center', alignItems: 'center', 
+                <div style={{
+                  width: 80, height: 80, borderRadius: '40px',
+                  backgroundColor: 'var(--secondary-blue)',
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
                   color: 'white', fontSize: '32px', fontWeight: 700,
                   overflow: 'hidden', border: '3px solid var(--border-color)'
                 }}>
@@ -298,7 +303,7 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Keamanan</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            
+
             {pin ? (
               <div style={{ textAlign: 'center' }}>
                 <ShieldCheck size={48} color="var(--success-green)" style={{ margin: '0 auto 16px auto' }} />
@@ -312,21 +317,21 @@ const Settings: React.FC = () => {
                   <Lock size={48} color="var(--primary-orange)" style={{ margin: '0 auto 16px auto' }} />
                   <p>Setel PIN untuk mengamankan data Anda.</p>
                 </div>
-                <input 
-                  type="password" 
-                  inputMode="numeric" 
-                  maxLength={6} 
-                  placeholder="Masukkan PIN Baru (6 digit)" 
-                  value={newPin} 
-                  onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} 
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Masukkan PIN Baru (6 digit)"
+                  value={newPin}
+                  onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))}
                 />
-                <input 
-                  type="password" 
-                  inputMode="numeric" 
-                  maxLength={6} 
-                  placeholder="Konfirmasi PIN" 
-                  value={confirmPin} 
-                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))} 
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Konfirmasi PIN"
+                  value={confirmPin}
+                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))}
                 />
                 {pinError && <p style={{ color: 'var(--danger-red)', fontSize: '12px', marginBottom: '10px' }}>{pinError}</p>}
                 <button type="submit" className="btn btn-orange">Aktifkan Keamanan</button>
@@ -347,10 +352,10 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-        <div style={{ 
-          width: 60, height: 60, borderRadius: '30px', 
-          backgroundColor: 'var(--secondary-blue)', 
-          display: 'flex', justifyContent: 'center', alignItems: 'center', 
+        <div style={{
+          width: 60, height: 60, borderRadius: '30px',
+          backgroundColor: 'var(--secondary-blue)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
           color: 'white', marginRight: '16px',
           fontSize: '24px', fontWeight: 700,
           overflow: 'hidden'
@@ -373,9 +378,9 @@ const Settings: React.FC = () => {
           const isLastItem = index === menuItems.length - 1;
           return (
             <React.Fragment key={item.id}>
-              <div onClick={() => handleMenuClick(item.id)} style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <div onClick={() => handleMenuClick(item.id)} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '16px 0',
                 borderBottom: isLastItem ? 'none' : '1px solid var(--border-color)',
@@ -393,9 +398,9 @@ const Settings: React.FC = () => {
 
               {/* Tema Row - Inserted after Security */}
               {item.id === 'security' && (
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '16px 0',
                   borderBottom: '1px solid var(--border-color)',
@@ -404,16 +409,16 @@ const Settings: React.FC = () => {
                     <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />
                     <span style={{ fontWeight: 500 }}>Tema Gelap</span>
                   </div>
-                  <div 
+                  <div
                     onClick={toggleTheme}
-                    style={{ 
-                      width: '44px', height: '24px', borderRadius: '12px', 
+                    style={{
+                      width: '44px', height: '24px', borderRadius: '12px',
                       backgroundColor: theme === 'dark' ? 'var(--secondary-blue)' : 'var(--border-color)',
                       display: 'flex', alignItems: 'center', padding: '0 2px',
                       cursor: 'pointer', transition: 'all 0.3s'
                     }}>
-                    <div style={{ 
-                      width: '20px', height: '20px', borderRadius: '10px', 
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '10px',
                       backgroundColor: 'white',
                       transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -427,19 +432,19 @@ const Settings: React.FC = () => {
         })}
       </div>
 
-      <div className="card" style={{ 
-        marginTop: '24px', 
-        textAlign: 'center', 
-        backgroundColor: 'var(--bg-info-subtle)', 
-        borderColor: 'var(--secondary-blue)', 
-        borderStyle: 'solid', 
-        borderWidth: '1px' 
+      <div className="card" style={{
+        marginTop: '24px',
+        textAlign: 'center',
+        backgroundColor: 'var(--bg-info-subtle)',
+        borderColor: 'var(--secondary-blue)',
+        borderStyle: 'solid',
+        borderWidth: '1px'
       }}>
-         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--secondary-blue)', fontWeight: 700 }}>
-            <Mail size={18} />
-            Hubungi Dukungan
-         </div>
-         <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--secondary-blue)', fontWeight: 700 }}>
+          <Mail size={18} />
+          Hubungi Dukungan
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
       </div>
 
 
@@ -497,17 +502,17 @@ const Settings: React.FC = () => {
       <div style={{ marginTop: '32px', marginBottom: '24px' }}>
         <button
           className="btn"
-          style={{ 
-            width: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            gap: '8px', 
-            background: 'var(--danger)', 
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            background: 'var(--danger)',
             color: 'white',
             fontWeight: 700
           }}
-          onClick={logout}
+          onClick={handleLogout}
         >
           <LogOut size={18} /> Keluar (Logout)
         </button>
