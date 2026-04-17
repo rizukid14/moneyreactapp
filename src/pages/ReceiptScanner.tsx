@@ -333,13 +333,25 @@ const ReceiptScanner: React.FC = () => {
             </div>
           )}
 
-          <button onClick={() => fileInputRef.current?.click()} className="glass" style={{ width: '100%', padding: '50px 24px', borderRadius: '24px', border: '4px dashed var(--primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'var(--primary)' }}>
-            <Camera size={64} style={{ marginBottom: 16 }} />
-            <div style={{ fontWeight: 800, fontSize: '20px' }}>Ambil Foto Struk</div>
+          <button onClick={() => fileInputRef.current?.click()} className="glass" style={{ 
+            width: '100%', padding: '60px 24px', borderRadius: '28px', 
+            border: '3px dashed var(--primary)', cursor: 'pointer', 
+            display: 'flex', flexDirection: 'column', alignItems: 'center', 
+            color: 'var(--primary)', background: 'var(--bg-income)',
+            transition: 'all 0.3s'
+          }}>
+            <div style={{ 
+              width: 80, height: 80, borderRadius: '50%', background: 'var(--primary-gradient)', 
+              display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white',
+              marginBottom: 20, boxShadow: '0 8px 16px var(--primary-glow)'
+            }}>
+              <Camera size={40} />
+            </div>
+            <div style={{ fontWeight: 800, fontSize: '22px' }}>Ambil Foto Struk</div>
+            <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
+              💡 Tips: Pastikan foto struk terlihat jelas dan terang
+            </div>
           </button>
-          <div style={{ textAlign: 'center', marginTop: '-8px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
-            💡 Tips: Pastikan foto struk terlihat jelas, terang, dan tidak terpotong
-          </div>
         </div>
       )}
 

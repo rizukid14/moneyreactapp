@@ -122,31 +122,35 @@ const Statistics: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Statistik</h1>
         <button onClick={resetToToday} style={{ 
-          display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', 
-          borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-card)',
-          fontSize: '12px', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer'
+          display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', 
+          borderRadius: '24px', border: 'none', background: 'var(--primary-glow)',
+          fontSize: '13px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer',
+          boxShadow: '0 2px 10px var(--primary-glow)'
         }}>
-          <CalendarDays size={14} /> Hari Ini
+          <CalendarDays size={16} /> Hari Ini
         </button>
       </div>
 
       {/* Month Switcher Header */}
-      <div className="card" style={{ padding: '8px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+      <div className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={() => changeMonth(-1)} className="btn-icon">
             <ChevronLeft size={24} />
           </button>
           
           <div 
             onClick={() => setIsDatePickerOpen(true)}
-            style={{ textAlign: 'center', cursor: 'pointer', padding: '4px 12px', borderRadius: '8px' }}>
-            <div style={{ fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+            style={{ 
+              textAlign: 'center', cursor: 'pointer', padding: '10px 20px', borderRadius: '14px',
+              background: 'var(--bg-main)', flex: 1, margin: '0 8px'
+            }}>
+            <div style={{ fontWeight: 800, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
               {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
-              <ChevronDown size={16} color="var(--text-muted)" />
+              <ChevronDown size={18} color="var(--primary)" />
             </div>
           </div>
 
-          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+          <button onClick={() => changeMonth(1)} className="btn-icon">
             <ChevronRight size={24} />
           </button>
         </div>
@@ -173,15 +177,23 @@ const Statistics: React.FC = () => {
         </div>
       </div>
       
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-        <div className="card" style={{ flex: 1, marginBottom: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Pendapatan</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>{formatRupiah(currentMonthIncome)}</div>
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
+        <div className="card" style={{ 
+          flex: 1, marginBottom: 0, background: 'var(--primary-gradient)', 
+          color: 'white', border: 'none', padding: '20px',
+          boxShadow: '0 10px 25px var(--primary-glow)' 
+        }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pendapatan</div>
+          <div style={{ fontSize: '22px', fontWeight: 800 }}>{formatRupiah(currentMonthIncome)}</div>
         </div>
 
-        <div className="card" style={{ flex: 1, marginBottom: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Pengeluaran</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--danger)' }}>{formatRupiah(currentMonthExpense)}</div>
+        <div className="card" style={{ 
+          flex: 1, marginBottom: 0, background: 'var(--secondary-gradient)', 
+          color: 'white', border: 'none', padding: '20px',
+          boxShadow: '0 10px 25px var(--secondary-glow)'
+        }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</div>
+          <div style={{ fontSize: '22px', fontWeight: 800 }}>{formatRupiah(currentMonthExpense)}</div>
         </div>
       </div>
 

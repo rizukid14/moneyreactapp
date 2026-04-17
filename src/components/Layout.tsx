@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Home, LineChart, Camera, Wallet, Settings } from 'lucide-react';
+import { Home, LineChart, Camera, Wallet, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 const Layout: React.FC = () => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const NavItems = () => (
     <>
       <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
@@ -31,9 +33,17 @@ const Layout: React.FC = () => {
   return (
     <div className="app-container">
       {/* Sidebar for Desktop */}
-      <aside className="sidebar-nav desktop-only">
+      <aside className={`sidebar-nav desktop-only ${isCollapsed ? 'collapsed' : ''}`}>
+        <button 
+          className="sidebar-toggle desktop-only" 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+        </button>
+
         <div className="sidebar-logo">
-          <Wallet size={32} strokeWidth={2.5} />
+          <Wallet size={36} strokeWidth={2.5} color="var(--primary)" />
           <span>MoneyApp</span>
         </div>
         <NavItems />
