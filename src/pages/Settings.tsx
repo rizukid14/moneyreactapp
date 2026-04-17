@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup } from 'lucide-react';
+import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, logOut } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -506,6 +506,35 @@ const Settings: React.FC = () => {
             }
           }}
         />
+      </div>
+
+      <div style={{ marginTop: '24px', paddingBottom: '20px' }}>
+        <button
+          onClick={() => {
+            if (confirm('Apakah Anda yakin ingin keluar?')) {
+              logOut();
+            }
+          }}
+          className="btn"
+          style={{ 
+            width: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '8px', 
+            background: 'var(--bg-expense)', 
+            color: 'var(--danger)',
+            padding: '12px',
+            borderRadius: '12px',
+            fontWeight: 700,
+            border: '1px solid var(--danger-glow)'
+          }}
+        >
+          <LogOut size={20} /> Logout dari Akun
+        </button>
+        <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
+          MoneyApp v1.0.8 • Dibuat dengan ❤️ by Dappal
+        </p>
       </div>
 
       {activeModal && (

@@ -9,7 +9,7 @@ import {
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { AuthScreen } from '../components/AuthScreen';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
@@ -102,6 +102,7 @@ interface MoneyContextType {
   togglePrivateMode: () => void;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
+  logOut: () => Promise<void>;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -345,6 +346,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
   }, []);
 
+  const logOut = useCallback(async () => {
+    if (isFirebaseConfigured) {
+      await signOut(auth);
+    }
+  }, []);
+
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
@@ -352,14 +359,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData,
+    exportData, importData, logOut,
   }), [
     isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData,
+    exportData, importData, logOut,
   ]);
 
   if (isFirebaseConfigured && !authUser) {
