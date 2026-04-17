@@ -455,7 +455,7 @@ const Settings: React.FC = () => {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />
-                    <span style={{ fontWeight: 500 }}>Tema Gelap</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Tema Gelap</span>
                   </div>
                   <div 
                     onClick={toggleTheme}
