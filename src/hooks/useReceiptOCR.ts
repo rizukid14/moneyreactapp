@@ -17,7 +17,7 @@ export interface OCRResult {
   debugLogs?: string[];
 }
 
-const resizeImage = (blob: Blob, maxWidth: number = 1024): Promise<Blob> => {
+const resizeImage = (blob: Blob, maxWidth: number = 768): Promise<Blob> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = URL.createObjectURL(blob);
@@ -43,7 +43,7 @@ const resizeImage = (blob: Blob, maxWidth: number = 1024): Promise<Blob> => {
       canvas.height = height;
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8);
+      canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.6);
     };
   });
 };
