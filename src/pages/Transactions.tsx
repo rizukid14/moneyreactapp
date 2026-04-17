@@ -54,10 +54,10 @@ const Transactions: React.FC = () => {
     }).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
     if (groupBy === 'none') {
-      return { 
-        groups: [{ id: 'all', title: '', transactions: filtered, income: inc, expense: exp }], 
-        monthlyIncome: inc, 
-        monthlyExpense: exp 
+      return {
+        groups: [{ id: 'all', title: '', transactions: filtered, income: inc, expense: exp }],
+        monthlyIncome: inc,
+        monthlyExpense: exp
       };
     }
 
@@ -137,37 +137,36 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* Month Switcher */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
-            <ChevronLeft size={20} />
+      {/* Month Switcher Header */}
+      <div className="card" style={{ padding: '8px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <ChevronLeft size={24} />
           </button>
+
           <div
             onClick={() => setIsDatePickerOpen(true)}
-            style={{ 
-              textAlign: 'center', cursor: 'pointer', padding: '6px 20px', 
-              borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)',
-              background: 'var(--bg-card)'
-            }}>
-            <div style={{ fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
+            style={{ textAlign: 'center', cursor: 'pointer', padding: '4px 12px', borderRadius: '8px' }}>
+            <div style={{ fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center', color: 'var(--text-main)' }}>
               {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
               <ChevronDown size={16} color="var(--text-muted)" />
             </div>
           </div>
-          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
-            <ChevronRight size={20} />
+
+          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <ChevronRight size={24} />
           </button>
         </div>
-        
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <div className="card" style={{ flex: 1, marginBottom: 0 }}>
-             <span style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Pemasukan</span>
-             <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>{formatCurrency(monthlyIncome)}</span>
-          </div>
-          <div className="card" style={{ flex: 1, marginBottom: 0 }}>
-             <span style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Pengeluaran</span>
-             <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, color: 'var(--danger)' }}>{formatCurrency(monthlyExpense)}</span>
-          </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="card" style={{ flex: 1, marginBottom: 0 }}>
+          <span style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Pemasukan</span>
+          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>{formatCurrency(monthlyIncome)}</span>
+        </div>
+        <div className="card" style={{ flex: 1, marginBottom: 0 }}>
+          <span style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Pengeluaran</span>
+          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, color: 'var(--danger)' }}>{formatCurrency(monthlyExpense)}</span>
         </div>
       </div>
 
@@ -184,7 +183,7 @@ const Transactions: React.FC = () => {
             onClick={() => setGroupBy(item.id as GroupBy)}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px',
-              borderRadius: '14px', border: 'none', 
+              borderRadius: '14px', border: 'none',
               background: groupBy === item.id ? 'var(--primary-glow)' : 'transparent',
               color: groupBy === item.id ? 'var(--primary)' : 'var(--text-muted)',
               fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -206,8 +205,8 @@ const Transactions: React.FC = () => {
           groups.map(group => (
             <div key={group.id} style={{ marginBottom: '8px' }}>
               {groupBy !== 'none' && (
-                <div style={{ 
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '8px 4px', marginBottom: '8px',
                   position: 'sticky', top: '0', zIndex: 10,
                   background: 'var(--bg-main)',
@@ -233,10 +232,10 @@ const Transactions: React.FC = () => {
                   </div>
                 </div>
               )}
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {group.transactions.map(tx => (
-                  <TransactionItem 
+                  <TransactionItem
                     key={tx.id}
                     transaction={tx}
                     assetName={getAssetName(tx.assetId)}
@@ -253,7 +252,7 @@ const Transactions: React.FC = () => {
         )}
       </div>
 
-      <DatePickerModal 
+      <DatePickerModal
         isOpen={isDatePickerOpen}
         onClose={() => setIsDatePickerOpen(false)}
         viewDate={viewDate}
@@ -264,7 +263,7 @@ const Transactions: React.FC = () => {
         <Plus size={32} strokeWidth={3} />
       </button>
 
-      <TransactionModal 
+      <TransactionModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         assets={assets}
