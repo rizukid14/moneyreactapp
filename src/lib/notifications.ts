@@ -14,9 +14,13 @@ export const setupPushNotifications = async (): Promise<boolean> => {
     if (permission === 'granted') {
       console.log('[MoneyApp] Notification permission granted.');
       
-      // Get the unique FCM device token, requiring VAPID key for strict PWA environments
+      // Get the existing Workbox/Vite PWA service worker registration
+      const swRegistration = await navigator.serviceWorker.ready;
+      
+      // Get the unique FCM device token, explicitly passing the registration
       const currentToken = await getToken(messaging, {
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration: swRegistration
       });
       
       if (currentToken) {
