@@ -380,6 +380,13 @@ body {
 }
 
 /* Form Elements */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 input,
 select {
   width: 100%;

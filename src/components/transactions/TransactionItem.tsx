@@ -43,14 +43,14 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
           {tx.type === 'transfer' ? (
             <span style={{ fontSize: '13px' }}>{fromAssetName} <ArrowRightLeft size={12} style={{ margin: '0 2px' }} /> {toAssetName}</span>
           ) : (
-            <>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span>{tx.category}</span>
               {tx.subCategory && (
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600, background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '6px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '1px' }}>
                   {tx.subCategory}
                 </span>
               )}
-            </>
+            </div>
           )}
         </div>
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>

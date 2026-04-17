@@ -144,7 +144,11 @@ const Transactions: React.FC = () => {
           </button>
           <div
             onClick={() => setIsDatePickerOpen(true)}
-            style={{ textAlign: 'center', cursor: 'pointer', padding: '6px 20px', borderRadius: 'var(--radius-sm)' }}>
+            style={{ 
+              textAlign: 'center', cursor: 'pointer', padding: '6px 20px', 
+              borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)',
+              background: 'var(--bg-card)'
+            }}>
             <div style={{ fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
               {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
               <ChevronDown size={16} color="var(--text-muted)" />

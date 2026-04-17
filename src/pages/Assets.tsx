@@ -91,6 +91,15 @@ const Assets: React.FC = () => {
     setEditingAsset(null);
   }, []);
 
+  const getTierStyles = (amount: number) => {
+    if (amount < 1000000) return { bg: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)', text: '#064e3b' }; // Hijau Muda
+    if (amount < 10000000) return { bg: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)', text: '#1e3a8a' }; // Biru
+    if (amount < 100000000) return { bg: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)', text: '#4c1d95' }; // Ungu
+    return { bg: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)', text: '#78350f' }; // Emas
+  };
+
+  const tier = getTierStyles(total);
+
   return (
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -99,18 +108,22 @@ const Assets: React.FC = () => {
 
       <div className="card" style={{ 
         padding: '24px',
-        marginBottom: '32px'
+        marginBottom: '32px',
+        background: tier.bg,
+        border: 'none',
+        color: 'white',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Total Kekayaan Bersih</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, opacity: 0.9 }}>Total Kekayaan Bersih</div>
           <button 
             onClick={togglePrivateMode} 
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', opacity: 0.8 }}
           >
             {isPrivateMode ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
-        <div style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '-1px', color: 'var(--text-main)' }}>
+        <div style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '-1px' }}>
           {isPrivateMode ? 'Rp ••••••••' : `Rp${total.toLocaleString('id-ID')}`}
         </div>
       </div>
