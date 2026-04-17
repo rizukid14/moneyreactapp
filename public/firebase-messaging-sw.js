@@ -8,16 +8,16 @@ const firebaseConfig = {
   // The SDK recommends standard string injection or fetch.
   // For the sake of this migration tool, we will let the user paste them here manually later,
   // or we can use a vite build plugin.
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME"
+  apiKey: "AIzaSyAZPrhER1evS8tiU1aoayPLe_SguprQrQ0",
+  authDomain: "moneyapp-7016a.firebaseapp.com",
+  projectId: "moneyapp-7016a",
+  storageBucket: "moneyapp-7016a.firebasestorage.app",
+  messagingSenderId: "742064429346",
+  appId: "1:742064429346:web:971994f09a8468a0e4ad7b"
 };
 
 // Initialize Firebase App
-if (firebaseConfig.apiKey !== "REPLACE_ME") {
+if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "REPLACE_ME") {
   firebase.initializeApp(firebaseConfig);
   const messaging = firebase.messaging();
 
@@ -26,8 +26,8 @@ if (firebaseConfig.apiKey !== "REPLACE_ME") {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
     const notificationTitle = payload.notification.title || 'MoneyApp Notification';
     const notificationOptions = {
-        body: payload.notification.body || '',
-        icon: '/favicon.svg'
+      body: payload.notification.body || '',
+      icon: '/favicon.svg'
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
