@@ -3,7 +3,7 @@ import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldChec
 import { useMoney } from '../contexts/MoneyContext';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, logout } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -493,7 +493,7 @@ const Settings: React.FC = () => {
         />
       </div>
 
-      {/* ── Logout Section (Production Placeholder) ───────────────────────────────────────── */}
+      {/* ── Logout Section ───────────────────────────────────────── */}
       <div style={{ marginTop: '32px', marginBottom: '24px' }}>
         <button
           className="btn"
@@ -507,9 +507,7 @@ const Settings: React.FC = () => {
             color: 'white',
             fontWeight: 700
           }}
-          onClick={() => {
-            alert('Fitur Logout (Sign Out) sedang dalam pengembangan untuk versi Production yang akan datang.');
-          }}
+          onClick={logout}
         >
           <LogOut size={18} /> Keluar (Logout)
         </button>

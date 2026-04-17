@@ -6,8 +6,11 @@ import {
   dbGetAllCategories, dbPutCategory, dbDeleteCategory,
   dbGetSetting, dbPutSetting, dbDeleteSetting,
   dbExportAll, dbImportAll,
-  migrateFromLocalStorage,
+  migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
 } from '../lib/db';
+import { auth, isFirebaseConfigured } from '../lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { AuthScreen } from '../components/AuthScreen';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 
@@ -97,6 +100,7 @@ interface MoneyContextType {
   togglePrivateMode: () => void;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -112,9 +116,29 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isAppLocked,  setIsAppLocked]  = useState(false);
   const [theme,        setTheme]        = useState<'light' | 'dark'>('light');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
+  const [authUser, setAuthUser] = useState<any>(null);
+
+  // ─── Auth Listener ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isFirebaseConfigured) {
+      setAuthUser({}); // Mock user if not using firebase
+      return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        setAuthUser(u);
+        await migrateFromIndexedDBToFirebase();
+      } else {
+        setAuthUser(null);
+        setIsReady(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // ── Bootstrap: migrate if needed, then load from IndexedDB ──────────────
   useEffect(() => {
+    if (!authUser) return; // Block loading until authenticated
     const bootstrap = async () => {
       // One-time migration from localStorage
       await migrateFromLocalStorage();
@@ -320,6 +344,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
   }, []);
 
+  const logout = useCallback(async () => {
+    if (isFirebaseConfigured) {
+      await signOut(auth);
+    }
+  }, []);
+
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
@@ -327,15 +357,19 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData,
+    exportData, importData, logout,
   }), [
     isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData,
+    exportData, importData, logout,
   ]);
+
+  if (isFirebaseConfigured && !authUser) {
+    return <AuthScreen />;
+  }
 
   return (
     <MoneyContext.Provider value={value}>
