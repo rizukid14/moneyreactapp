@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
@@ -27,6 +27,8 @@ const Transactions: React.FC = () => {
   const { transactions, assets, addTransaction, deleteTransaction, updateTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [initialType, setInitialType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
+  const [isFabOpen, setIsFabOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   const [groupBy, setGroupBy] = useState<GroupBy>('date');
@@ -110,12 +112,15 @@ const Transactions: React.FC = () => {
 
   const handleEdit = useCallback((tx: Transaction) => {
     setEditingTransaction(tx);
+    setInitialType(tx.type);
     setIsModalOpen(true);
   }, []);
 
-  const handleAdd = () => {
+  const handleAdd = (type: 'pengeluaran' | 'pendapatan' | 'transfer' = 'pengeluaran') => {
     setEditingTransaction(null);
+    setInitialType(type);
     setIsModalOpen(true);
+    setIsFabOpen(false);
   };
 
   const handleCloseModal = useCallback(() => {
@@ -130,14 +135,6 @@ const Transactions: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => navigate('/bulk-input')} style={{
-            display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
-            borderRadius: '24px', border: 'none', background: 'var(--bg-card-solid)',
-            fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', cursor: 'pointer',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
-          }}>
-            <Sparkles size={16} color="var(--primary)" /> Input Banyak
-          </button>
           <button onClick={resetToToday} style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
             borderRadius: '24px', border: 'none', background: 'var(--primary-glow)',
@@ -283,7 +280,42 @@ const Transactions: React.FC = () => {
         onSelectDate={setViewDate}
       />
 
-      <button className="fab" onClick={handleAdd}>
+      {isFabOpen && (
+         <div onClick={() => setIsFabOpen(false)} style={{position: 'fixed', inset: 0, background: 'hsla(var(--n-h), 20%, 10%, 0.4)', backdropFilter: 'blur(2px)', zIndex: 998}} />
+      )}
+
+      <div className={`fab-menu ${isFabOpen ? 'open' : ''}`}>
+        <button 
+          className="fab-mini" 
+          onClick={() => navigate('/bulk-input')}
+          style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <Sparkles size={20} />
+        </button>
+        <button 
+          className="fab-mini" 
+          onClick={() => handleAdd('transfer')}
+          style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <RefreshCw size={20} />
+        </button>
+        <button 
+          className="fab-mini" 
+          onClick={() => handleAdd('pendapatan')}
+          style={{ background: 'var(--success)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+        >
+          <ArrowDownCircle size={20} />
+        </button>
+        <button 
+          className="fab-mini" 
+          onClick={() => handleAdd('pengeluaran')}
+          style={{ background: 'var(--danger)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+        >
+          <ArrowUpCircle size={20} />
+        </button>
+      </div>
+
+      <button className="fab" onClick={() => setIsFabOpen(!isFabOpen)} style={{ transform: isFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s', zIndex: 1000 }}>
         <Plus size={32} strokeWidth={3} />
       </button>
 
@@ -294,6 +326,7 @@ const Transactions: React.FC = () => {
         addTransaction={addTransaction}
         updateTransaction={updateTransaction}
         editingTransaction={editingTransaction}
+        initialType={initialType}
       />
     </div>
   );

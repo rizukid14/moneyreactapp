@@ -276,7 +276,7 @@ const BulkInput: React.FC = () => {
           </div>
 
           {/* Bottom Floating Action Bar */}
-          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '16px', background: 'var(--bg-main)', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px', zIndex: 100 }}>
+          <div className="fixed-bottom-bar">
             <button className="btn" onClick={reset} style={{ flex: 1 }}>Batal</button>
             <button className="btn btn-primary" onClick={handleSaveSelected} style={{ flex: 2 }}>
               Simpan Terpilih ({results.filter(r => r.selected).length})

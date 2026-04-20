@@ -243,11 +243,18 @@ body {
     border-radius: 50%;
     z-index: 1000;
   }
+  .fab-menu {
+    bottom: 100px;
+    right: 38px;
+  }
 }
 
 @media (min-width: 1520px) { /* sidebar(280) + content(1200) + padding */
   .fab {
     right: calc(50% - 740px + 60px);
+  }
+  .fab-menu {
+    right: calc(50% - 740px + 64px);
   }
 }
 
@@ -406,9 +413,83 @@ body {
   transform: scale(0.92);
 }
 
+.fab-menu {
+  position: fixed;
+  bottom: calc(var(--nav-height) + 84px);
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 999;
+  align-items: center;
+  pointer-events: none;
+}
+
+.fab-menu.open {
+  pointer-events: auto;
+}
+
+.fab-menu .fab-mini {
+  opacity: 0;
+  transform: scale(0.5) translateY(20px);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fab-menu.open .fab-mini {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* Delay for staggered animation */
+.fab-menu.open .fab-mini:nth-child(1) { transition-delay: 0.15s; }
+.fab-menu.open .fab-mini:nth-child(2) { transition-delay: 0.10s; }
+.fab-menu.open .fab-mini:nth-child(3) { transition-delay: 0.05s; }
+.fab-menu.open .fab-mini:nth-child(4) { transition-delay: 0s; }
+
+
 @media (min-width: 541px) and (max-width: 767px) {
   .fab {
     right: calc(50% - 270px + 20px);
+  }
+  .fab-menu {
+    right: calc(50% - 270px + 24px);
+  }
+}
+
+.fab-mini {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fab-mini:active {
+  transform: scale(0.92);
+}
+
+.fixed-bottom-bar {
+  position: fixed;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 540px;
+  padding: 16px;
+  background: var(--bg-main);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 12px;
+  z-index: 100;
+}
+
+@media (min-width: 768px) {
+  .fixed-bottom-bar {
+    bottom: 0;
+    max-width: var(--max-content-width);
   }
 }
 

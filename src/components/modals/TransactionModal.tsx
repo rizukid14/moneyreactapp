@@ -10,10 +10,11 @@ interface TransactionModalProps {
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
   updateTransaction?: (id: string, tx: Partial<Transaction>) => void;
   editingTransaction?: Transaction | null;
+  initialType?: 'pengeluaran' | 'pendapatan' | 'transfer';
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({ 
-  isOpen, onClose, assets, addTransaction, updateTransaction, editingTransaction 
+  isOpen, onClose, assets, addTransaction, updateTransaction, editingTransaction, initialType 
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
   const { categories } = useMoney();
@@ -39,7 +40,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setFromAssetId(editingTransaction.fromAssetId || activeAssets[0]?.id || '');
       setToAssetId(editingTransaction.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
     } else {
-      setType('pengeluaran');
+      setType(initialType || 'pengeluaran');
       setAmount('');
       setCategory('');
       setSubCategory('');
@@ -49,7 +50,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setFromAssetId(activeAssets[0]?.id || '');
       setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
     }
-  }, [editingTransaction, isOpen, assets]);
+  }, [editingTransaction, isOpen, assets, initialType]);
 
   if (!isOpen) return null;
 
