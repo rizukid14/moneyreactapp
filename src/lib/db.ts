@@ -5,12 +5,14 @@ import type { Asset, Transaction, Category, UserProfile } from '../contexts/Mone
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface MoneyAppDB {
   assets: { key: string; value: Asset };
   transactions: { key: string; value: Transaction };
   categories: { key: string; value: Category };
+  budgets: { key: string; value: any };
+  debts: { key: string; value: any };
   settings: { key: string; value: string | number | boolean | UserProfile | null };
 }
 
@@ -23,6 +25,8 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('assets'))       db.createObjectStore('assets',       { keyPath: 'id' });
         if (!db.objectStoreNames.contains('transactions')) db.createObjectStore('transactions', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('categories'))   db.createObjectStore('categories',   { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('budgets'))      db.createObjectStore('budgets',      { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('debts'))        db.createObjectStore('debts',        { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings'))     db.createObjectStore('settings');
       },
     });
@@ -33,6 +37,7 @@ const getDB = () => {
 export const localDbGetAllAssets = async (): Promise<Asset[]> => (await getDB()).getAll('assets');
 export const localDbGetAllTransactions = async (): Promise<Transaction[]> => (await getDB()).getAll('transactions');
 export const localDbGetAllCategories = async (): Promise<Category[]> => (await getDB()).getAll('categories');
+export const localDbGetAllBudgets = async (): Promise<any[]> => (await getDB()).getAll('budgets');
 export const localDbGetSetting = async (key: string) => (await getDB()).get('settings', key);
 
 // ─── FIRESTORE (Cloud Sync) ──────────────────────────────────────────────────
@@ -102,6 +107,37 @@ export const dbDeleteCategory = async (id: string) => {
 };
 export const dbClearCategories = async () => { if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).clear('categories'); };
 
+// ─── Budgets ──────────────────────────────────────────────────────────────────
+export const dbGetAllBudgets = async (): Promise<any[]> => {
+  if (!isFirebaseConfigured || !auth.currentUser) return localDbGetAllBudgets();
+  const snapshot = await getDocs(collection(firestore, 'users', getUid(), 'budgets'));
+  return snapshot.docs.map(doc => doc.data());
+};
+export const dbPutBudget = async (b: any) => {
+  if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).put('budgets', b);
+  await setDoc(doc(firestore, 'users', getUid(), 'budgets', b.id), sanitizeForFirestore(b));
+};
+export const dbDeleteBudget = async (id: string) => {
+  if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).delete('budgets', id);
+  await deleteDoc(doc(firestore, 'users', getUid(), 'budgets', id));
+};
+
+// ─── Debts ────────────────────────────────────────────────────────────
+export const localDbGetAllDebts = async (): Promise<any[]> => (await getDB()).getAll('debts');
+export const dbGetAllDebts = async (): Promise<any[]> => {
+  if (!isFirebaseConfigured || !auth.currentUser) return localDbGetAllDebts();
+  const snapshot = await getDocs(collection(firestore, 'users', getUid(), 'debts'));
+  return snapshot.docs.map(d => d.data());
+};
+export const dbPutDebt = async (d: any) => {
+  if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).put('debts', d);
+  await setDoc(doc(firestore, 'users', getUid(), 'debts', d.id), sanitizeForFirestore(d));
+};
+export const dbDeleteDebt = async (id: string) => {
+  if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).delete('debts', id);
+  await deleteDoc(doc(firestore, 'users', getUid(), 'debts', id));
+};
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 export const dbGetSetting = async (key: string) => {
   if (!isFirebaseConfigured || !auth.currentUser) return localDbGetSetting(key);
@@ -122,15 +158,16 @@ export const dbDeleteSetting = async (key: string) => {
 
 // ─── Full Export (for JSON backup) ───────────────────────────────────────────
 export const dbExportAll = async () => {
-  const [assets, transactions, categories] = await Promise.all([
+  const [assets, transactions, categories, budgets] = await Promise.all([
     dbGetAllAssets(),
     dbGetAllTransactions(),
     dbGetAllCategories(),
+    dbGetAllBudgets(),
   ]);
   const user    = await dbGetSetting('user');
   const pin     = await dbGetSetting('pin');
   const theme   = await dbGetSetting('theme');
-  return { assets, transactions, categories, user, pin, theme, exportedAt: new Date().toISOString() };
+  return { assets, transactions, categories, budgets, user, pin, theme, exportedAt: new Date().toISOString() };
 };
 
 // ─── Full Import (from JSON backup) ──────────────────────────────────────────
@@ -145,6 +182,9 @@ export const dbImportAll = async (data: ReturnType<typeof dbExportAll> extends P
     for (const a of data.assets)       await tx1.objectStore('assets').put(a);
     for (const t of data.transactions) await tx1.objectStore('transactions').put(t);
     for (const c of data.categories)   await tx1.objectStore('categories').put(c);
+    if (data.budgets) {
+        for (const b of data.budgets)  await tx1.objectStore('budgets').put(b);
+    }
     if (data.user)  await tx1.objectStore('settings').put(data.user as any,  'user');
     if (data.pin)   await tx1.objectStore('settings').put(data.pin  as any,  'pin');
     if (data.theme) await tx1.objectStore('settings').put(data.theme as any, 'theme');
@@ -153,6 +193,9 @@ export const dbImportAll = async (data: ReturnType<typeof dbExportAll> extends P
     for (const a of data.assets)       await dbPutAsset(a);
     for (const t of data.transactions) await dbPutTransaction(t);
     for (const c of data.categories)   await dbPutCategory(c);
+    if (data.budgets) {
+        for (const b of data.budgets)  await dbPutBudget(b);
+    }
     if (data.user)  await dbPutSetting('user', data.user);
     if (data.pin)   await dbPutSetting('pin', data.pin);
     if (data.theme) await dbPutSetting('theme', data.theme);
@@ -170,11 +213,13 @@ export const migrateFromIndexedDBToFirebase = async (): Promise<boolean> => {
     const localAssets = await localDbGetAllAssets();
     const localTxs = await localDbGetAllTransactions();
     const localCats = await localDbGetAllCategories();
+    const localBudgets = await localDbGetAllBudgets();
     
     const promises = [];
     localAssets.forEach(a => promises.push(dbPutAsset(a)));
     localTxs.forEach(t => promises.push(dbPutTransaction(t)));
     localCats.forEach(c => promises.push(dbPutCategory(c)));
+    localBudgets.forEach(b => promises.push(dbPutBudget(b)));
     
     const u = await localDbGetSetting('user');   if (u) promises.push(dbPutSetting('user', u));
     const p = await localDbGetSetting('pin');    if (p) promises.push(dbPutSetting('pin', p));

@@ -10,7 +10,9 @@ const Transactions = lazy(() => import('./pages/Transactions'));
 const Statistics = lazy(() => import('./pages/Statistics'));
 const ReceiptScanner = lazy(() => import('./pages/ReceiptScanner'));
 const BulkInput = lazy(() => import('./pages/BulkInput'));
+const Budgets = lazy(() => import('./pages/Budgets'));
 const Assets = lazy(() => import('./pages/Assets'));
+const Debts = lazy(() => import('./pages/Debts'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 const LoadingFallback = () => (
@@ -66,7 +68,9 @@ const AppContent: React.FC = () => {
               <Route path="stats" element={<Statistics />} />
               <Route path="scan" element={<ReceiptScanner />} />
               <Route path="bulk-input" element={<BulkInput />} />
+              <Route path="budgets" element={<Budgets />} />
               <Route path="assets" element={<Assets />} />
+              <Route path="debts" element={<Debts />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>

@@ -1,16 +1,20 @@
 import React, { useState, useRef } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut } from 'lucide-react';
+import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
+import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/excelImport';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, logOut } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
   );
   const importInputRef = useRef<HTMLInputElement>(null);
+  const excelImportRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isImportingExcel, setIsImportingExcel] = useState(false);
+  const [excelResult, setExcelResult] = useState<ImportResult | null>(null);
 
   // Profile Form State
   const [tempName, setTempName] = useState(user.name);
@@ -32,6 +36,7 @@ const Settings: React.FC = () => {
     { id: 'profile', icon: User, label: 'Profil Saya' },
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
+    { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
   ];
 
@@ -316,6 +321,146 @@ const Settings: React.FC = () => {
           </>
         );
 
+      case 'backup':
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Backup & Restore</h2>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setExcelResult(null); }}><X /></button>
+            </div>
+
+            {/* ── Section 1: JSON Backup ── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <DatabaseBackup size={15} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 13 }}>Backup JSON (Full Data)</span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Ekspor semua data (transaksi, aset, kategori, pengaturan) ke file .json untuk restore penuh.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  onClick={exportData}
+                >
+                  <Download size={15} /> Ekspor Backup (.json)
+                </button>
+                <button
+                  className="btn"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--border-color)', color: 'var(--text-main)' }}
+                  onClick={() => importInputRef.current?.click()}
+                  disabled={isImporting}
+                >
+                  <Upload size={15} /> {isImporting ? 'Mengimpor...' : 'Restore Backup (.json)'}
+                </button>
+              </div>
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '4px 0 20px' }} />
+
+            {/* ── Section 2: Excel Import ── */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <FileSpreadsheet size={15} color="hsl(152,70%,42%)" />
+                <span style={{ fontWeight: 700, fontSize: 13 }}>Import dari Excel</span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Tambahkan transaksi dari file Excel (.xlsx/.xls). Download dulu contoh format-nya agar sesuai.
+              </p>
+
+              {/* Excel result feedback */}
+              {excelResult && (
+                <div style={{
+                  padding: '12px 14px', borderRadius: 12, marginBottom: 14,
+                  background: excelResult.errors.length > 0 ? 'hsla(350,80%,58%,0.08)' : 'hsla(152,70%,42%,0.08)',
+                  border: `1.5px solid ${excelResult.errors.length > 0 ? 'hsla(350,80%,58%,0.25)' : 'hsla(152,70%,42%,0.25)'}`
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    {excelResult.imported > 0
+                      ? <CheckCircle2 size={15} color="var(--success)" />
+                      : <AlertCircle size={15} color="var(--danger)" />}
+                    <span style={{ fontWeight: 700, fontSize: 13, color: excelResult.imported > 0 ? 'var(--success)' : 'var(--danger)' }}>
+                      {excelResult.imported > 0
+                        ? `${excelResult.imported} transaksi berhasil diimpor`
+                        : 'Import gagal'}
+                      {excelResult.skipped > 0 ? `, ${excelResult.skipped} baris dilewati` : ''}
+                    </span>
+                  </div>
+                  {excelResult.errors.slice(0, 5).map((e, i) => (
+                    <div key={i} style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>• {e}</div>
+                  ))}
+                  {excelResult.errors.length > 5 && (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>...dan {excelResult.errors.length - 5} error lainnya.</div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  className="btn"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'hsla(152,70%,42%,0.1)', color: 'hsl(152,70%,35%)', border: '1px solid hsla(152,70%,42%,0.25)', fontWeight: 700 }}
+                  onClick={() => excelImportRef.current?.click()}
+                  disabled={isImportingExcel}
+                >
+                  <FileSpreadsheet size={15} /> {isImportingExcel ? 'Memproses...' : 'Import Excel (.xlsx / .xls)'}
+                </button>
+                <button
+                  className="btn"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--bg-neutral)', color: 'var(--text-muted)', border: '1px dashed var(--border-color)' }}
+                  onClick={downloadSampleExcel}
+                >
+                  <Download size={15} /> Download Contoh Format Excel
+                </button>
+              </div>
+            </div>
+
+            {/* Hidden inputs */}
+            <input
+              ref={importInputRef}
+              type="file" accept=".json" style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!confirm('Ini akan MENGGANTI semua data saat ini. Lanjutkan?')) return;
+                try {
+                  setIsImporting(true);
+                  await importData(file);
+                  alert('Data berhasil diimpor! Halaman akan dimuat ulang.');
+                  window.location.reload();
+                } catch {
+                  alert('File backup tidak valid atau rusak.');
+                } finally {
+                  setIsImporting(false);
+                  e.target.value = '';
+                }
+              }}
+            />
+            <input
+              ref={excelImportRef}
+              type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setExcelResult(null);
+                setIsImportingExcel(true);
+                try {
+                  const { rows, result } = await parseExcelFile(file, categories, assets);
+                  if (rows.length > 0) {
+                    for (const tx of rows) addTransaction(tx);
+                  }
+                  setExcelResult(result);
+                } catch (err) {
+                  setExcelResult({ imported: 0, skipped: 0, errors: [`Gagal membaca file: ${String(err)}`] });
+                } finally {
+                  setIsImportingExcel(false);
+                  e.target.value = '';
+                }
+              }}
+            />
+          </>
+        );
+
       default:
         return null;
     }
@@ -458,55 +603,7 @@ const Settings: React.FC = () => {
       </div>
 
 
-      {/* ── Data Backup Section ───────────────────────────────────────── */}
-      <div className="card" style={{ marginTop: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <DatabaseBackup size={20} color="var(--primary)" />
-          <span style={{ fontWeight: 700, fontSize: '15px' }}>Backup & Restore Data</span>
-        </div>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.6 }}>
-          Data tersimpan di <strong>IndexedDB</strong> browser. Ekspor secara berkala sebagai file backup .json agar tidak kehilangan data jika browser di-reset.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-            onClick={exportData}
-          >
-            <Download size={16} /> Ekspor Data (Download Backup)
-          </button>
-          <button
-            className="btn"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--border-color)', color: 'var(--text-main)' }}
-            onClick={() => importInputRef.current?.click()}
-            disabled={isImporting}
-          >
-            <Upload size={16} /> {isImporting ? 'Mengimpor...' : 'Impor Data (Restore Backup)'}
-          </button>
-        </div>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".json"
-          style={{ display: 'none' }}
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            if (!confirm('Ini akan MENGGANTI semua data saat ini. Lanjutkan?')) return;
-            try {
-              setIsImporting(true);
-              await importData(file);
-              alert('Data berhasil diimpor! Halaman akan dimuat ulang.');
-              window.location.reload();
-            } catch {
-              alert('File backup tidak valid atau rusak.');
-            } finally {
-              setIsImporting(false);
-              e.target.value = '';
-            }
-          }}
-        />
-      </div>
+
 
       <div style={{ marginTop: '24px', paddingBottom: '20px' }}>
         <button

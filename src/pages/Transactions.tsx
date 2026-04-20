@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
@@ -287,7 +287,16 @@ const Transactions: React.FC = () => {
       <div className={`fab-menu ${isFabOpen ? 'open' : ''}`}>
         <button 
           className="fab-mini" 
+          onClick={() => navigate('/scan')}
+          title="Scan Struk (OCR)"
+          style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <Camera size={20} />
+        </button>
+        <button 
+          className="fab-mini" 
           onClick={() => navigate('/bulk-input')}
+          title="Bulk Input (AI)"
           style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
         >
           <Sparkles size={20} />

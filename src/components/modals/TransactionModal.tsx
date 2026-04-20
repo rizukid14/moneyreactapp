@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, ArrowRightLeft } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Asset, Transaction } from '../../contexts/MoneyContext';
 
@@ -17,7 +17,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, updateTransaction, editingTransaction, initialType 
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories } = useMoney();
+  const { categories, budgets, transactions } = useMoney();
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -52,14 +52,70 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   }, [editingTransaction, isOpen, assets, initialType]);
 
+  // ── Budget Alert Logic ──────────────────────────────────────
+  const budgetAlerts = useMemo(() => {
+    if (type !== 'pengeluaran' || !amount) return [];
+    const txDate = new Date(date || new Date());
+    const txMonth = txDate.getMonth();
+    const txYear = txDate.getFullYear();
+    const txAmount = Number(amount.replace(/\./g, ''));
+    if (!txAmount) return [];
+
+    // Current month spending (excluding editing transaction itself)
+    const existingSpend = transactions.reduce((acc, tx) => {
+      if (tx.id === editingTransaction?.id) return acc;
+      const d = new Date(tx.date);
+      if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return acc;
+      return { ...acc, total: acc.total + tx.amount };
+    }, { total: 0 } as Record<string, number>);
+
+    // Also track by category
+    transactions.forEach(tx => {
+      if (tx.id === editingTransaction?.id) return;
+      const d = new Date(tx.date);
+      if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return;
+      const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+      if (cat) existingSpend[cat.id] = (existingSpend[cat.id] || 0) + tx.amount;
+    });
+
+    const alerts: { label: string; over: number }[] = [];
+    const monthBudgets = budgets.filter(b => b.month === txMonth && b.year === txYear);
+
+    // Global budget check
+    const global = monthBudgets.find(b => b.categoryId === null);
+    if (global) {
+      const newTotal = (existingSpend.total || 0) + txAmount;
+      if (newTotal > global.limit) {
+        alerts.push({
+          label: 'Total Anggaran Bulanan',
+          over: newTotal - global.limit
+        });
+      }
+    }
+
+    // Category budget check
+    const selCat = categories.find(c => c.name === category && c.type === 'pengeluaran');
+    if (selCat) {
+      const catBudget = monthBudgets.find(b => b.categoryId === selCat.id);
+      if (catBudget) {
+        const newCatTotal = (existingSpend[selCat.id] || 0) + txAmount;
+        if (newCatTotal > catBudget.limit) {
+          alerts.push({
+            label: `Anggaran: ${selCat.name}`,
+            over: newCatTotal - catBudget.limit
+          });
+        }
+      }
+    }
+
+    return alerts;
+  }, [type, amount, date, category, budgets, transactions, categories, editingTransaction]);
+
   if (!isOpen) return null;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const numericValue = e.target.value.replace(/\D/g, '');
-    if (!numericValue) {
-      setAmount('');
-      return;
-    }
+    if (!numericValue) { setAmount(''); return; }
     setAmount(Number(numericValue).toLocaleString('id-ID'));
   };
 
@@ -186,6 +242,25 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
             <input type="date" required value={date} onChange={e => setDate(e.target.value)} />
             <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} />
+
+            {/* Budget Alert Banner */}
+            {budgetAlerts.length > 0 && (
+              <div className="budget-alert-banner">
+                <AlertTriangle size={16} className="ba-icon" />
+                <div>
+                  <div className="ba-title">Peringatan Anggaran</div>
+                  {budgetAlerts.map((alert, i) => (
+                    <div key={i} className="ba-body">
+                      <strong>{alert.label}</strong> akan melebihi batas sebesar{' '}
+                      <strong style={{ color: 'var(--danger)' }}>
+                        Rp{alert.over.toLocaleString('id-ID')}
+                      </strong>
+                    </div>
+                  ))}
+                  <div className="ba-body" style={{ marginTop: 4 }}>Transaksi tetap bisa disimpan.</div>
+                </div>
+              </div>
+            )}
 
             <button 
               type="submit" 

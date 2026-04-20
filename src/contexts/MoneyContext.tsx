@@ -4,6 +4,8 @@ import {
   dbGetAllAssets, dbPutAsset,
   dbGetAllTransactions, dbPutTransaction, dbDeleteTransaction,
   dbGetAllCategories, dbPutCategory, dbDeleteCategory,
+  dbGetAllBudgets, dbPutBudget, dbDeleteBudget,
+  dbGetAllDebts, dbPutDebt, dbDeleteDebt,
   dbGetSetting, dbPutSetting, dbDeleteSetting,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
@@ -43,6 +45,36 @@ export interface Asset {
   isDeleted?: boolean;
 }
 
+export interface Budget {
+  id: string;
+  categoryId: string | null;
+  limit: number;
+  period: 'monthly';
+  month: number;
+  year: number;
+}
+
+export interface Debt {
+  id: string;
+  type: 'hutang' | 'piutang';   // hutang=I owe, piutang=they owe me
+  contact: string;               // person or institution name
+  description: string;
+  totalAmount: number;           // original loan amount
+  dueDate?: string;              // YYYY-MM-DD
+  isPaid: boolean;
+  createdAt: string;
+  // Installment fields
+  isInstallment: boolean;
+  installmentAmount?: number;    // monthly payment amount
+  installmentDay?: number;       // day of month e.g. 25
+  totalInstallments?: number;    // total number of monthly payments
+  paidInstallments: number;      // how many paid so far
+  // Asset fields — two-asset model for proper balance tracking
+  liabilityAssetId?: string;     // HUTANG: asset where debt lives (e.g. ShopeePay Later)
+  paymentAssetId?: string;       // HUTANG: asset to pay FROM (e.g. BCA)
+  receiveAssetId?: string;       // PIUTANG: asset to receive payment INTO (e.g. BCA)
+}
+
 export interface Transaction {
   id: string;
   type: 'pengeluaran' | 'pendapatan' | 'transfer';
@@ -78,6 +110,8 @@ interface MoneyContextType {
   assets: Asset[];
   transactions: Transaction[];
   categories: Category[];
+  budgets: Budget[];
+  debts: Debt[];
   user: UserProfile;
   pin: string | null;
   isAppLocked: boolean;
@@ -92,6 +126,14 @@ interface MoneyContextType {
   deleteCategory: (id: string) => void;
   addSubCategory: (categoryId: string, name: string) => void;
   deleteSubCategory: (categoryId: string, subId: string) => void;
+  addBudget: (budget: Omit<Budget, 'id'>) => void;
+  updateBudget: (id: string, budget: Partial<Budget>) => void;
+  deleteBudget: (id: string) => void;
+  addDebt: (debt: Omit<Debt, 'id'>) => void;
+  updateDebt: (id: string, debt: Partial<Debt>) => void;
+  deleteDebt: (id: string) => void;
+  payInstallment: (debtId: string) => void;
+  settleDebt: (debtId: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
@@ -107,12 +149,18 @@ interface MoneyContextType {
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
 
+// Module-level dedup guard: prevents React StrictMode double-invoking the
+// setDebts updater from generating 2 transactions for the same installment payment.
+const _paidInstallmentKeys = new Set<string>();
+
 // ─── Provider ────────────────────────────────────────────────────────────────
 export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isReady, setIsReady] = useState(false);
   const [assets,       setAssets]       = useState<Asset[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories,   setCategories]   = useState<Category[]>([]);
+  const [budgets,      setBudgets]      = useState<Budget[]>([]);
+  const [debts,        setDebts]        = useState<Debt[]>([]);
   const [user,         setUser]         = useState<UserProfile>(DEFAULT_USER);
   const [pin,          setPin]          = useState<string | null>(null);
   const [isAppLocked,  setIsAppLocked]  = useState(false);
@@ -146,10 +194,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await migrateFromLocalStorage();
 
       // Load all data from IndexedDB
-      const [dbAssets, dbTxs, dbCats] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts] = await Promise.all([
         dbGetAllAssets(),
         dbGetAllTransactions(),
         dbGetAllCategories(),
+        dbGetAllBudgets(),
+        dbGetAllDebts(),
       ]);
 
       // Seed defaults if DB is empty
@@ -167,6 +217,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setCategories(dbCats);
       }
 
+      setBudgets(dbBudgets);
+      setDebts(dbDebts as Debt[]);
       setTransactions(dbTxs);
 
       // Load settings
@@ -266,6 +318,155 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }));
   }, []);
 
+  // ─── Budgets ──────────────────────────────────────────────────────────────
+  const addBudget = useCallback((budgetReq: Omit<Budget, 'id'>) => {
+    const newBudget: Budget = { ...budgetReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    setBudgets(prev => [...prev, newBudget]);
+    dbPutBudget(newBudget);
+  }, []);
+
+  const updateBudget = useCallback((id: string, updatedBudget: Partial<Budget>) => {
+    setBudgets(prev => prev.map(b => {
+      if (b.id !== id) return b;
+      const updated = { ...b, ...updatedBudget } as Budget;
+      dbPutBudget(updated);
+      return updated;
+    }));
+  }, []);
+
+  const deleteBudget = useCallback((id: string) => {
+    setBudgets(prev => prev.filter(b => b.id !== id));
+    dbDeleteBudget(id);
+  }, []);
+
+  // ─── Debts ──────────────────────────────────────────────────────────────
+  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>) => {
+    const newDebt: Debt = { ...debtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    setDebts(prev => [...prev, newDebt]);
+    dbPutDebt(newDebt);
+  }, []);
+
+  const updateDebt = useCallback((id: string, updatedDebt: Partial<Debt>) => {
+    setDebts(prev => prev.map(d => {
+      if (d.id !== id) return d;
+      const updated = { ...d, ...updatedDebt } as Debt;
+      dbPutDebt(updated);
+      return updated;
+    }));
+  }, []);
+
+  const deleteDebt = useCallback((id: string) => {
+    setDebts(prev => prev.filter(d => d.id !== id));
+    dbDeleteDebt(id);
+  }, []);
+
+  /** Create a transaction record and push it to state + DB */
+  const _createTx = (tx: Omit<Transaction, 'id'>) => {
+    const newTx: Transaction = { ...tx, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    setTransactions(prev => [newTx, ...prev]);
+    dbPutTransaction(newTx);
+  };
+
+  /**
+   * Pay one installment. Generates the correct transaction type:
+   * - HUTANG: Transfer from paymentAssetId (BCA) → liabilityAssetId (ShopeePay Later)
+   * - PIUTANG: Pendapatan into receiveAssetId (BCA)
+   */
+  const payInstallment = useCallback((debtId: string) => {
+    setDebts(prev => {
+      const debt = prev.find(d => d.id === debtId);
+      if (!debt || !debt.isInstallment) return prev;
+
+      const nextPaid = (debt.paidInstallments || 0) + 1;
+      const isPaid = debt.totalInstallments ? nextPaid >= debt.totalInstallments : false;
+      const updated: Debt = { ...debt, paidInstallments: nextPaid, isPaid };
+      dbPutDebt(updated);
+
+      const txKey = `${debtId}-${nextPaid}`;
+      if (!_paidInstallmentKeys.has(txKey)) {
+        _paidInstallmentKeys.add(txKey);
+        const today = new Date().toISOString().split('T')[0];
+        const amt = debt.installmentAmount || 0;
+        const note = `Cicilan ${debt.contact} (${nextPaid}/${debt.totalInstallments || '?'})`;
+
+        if (debt.type === 'hutang') {
+          // Bayar hutang: Transfer dari paymentAssetId → liabilityAssetId
+          _createTx({
+            type: 'transfer',
+            amount: amt,
+            category: 'Transfer',
+            date: today,
+            note,
+            fromAssetId: debt.paymentAssetId,
+            toAssetId: debt.liabilityAssetId,
+          });
+        } else {
+          // Terima pembayaran piutang: Pendapatan masuk ke receiveAssetId
+          _createTx({
+            type: 'pendapatan',
+            amount: amt,
+            category: 'Pendapatan Lain',
+            date: today,
+            note,
+            assetId: debt.receiveAssetId,
+          });
+        }
+      }
+
+      return prev.map(d => d.id === debtId ? updated : d);
+    });
+  }, []);
+
+  /**
+   * Settle a debt in full (non-cicilan or remaining balance).
+   * - HUTANG: Transfer from paymentAssetId → liabilityAssetId  
+   * - PIUTANG: Pendapatan into receiveAssetId
+   * Then marks debt as isPaid.
+   */
+  const settleDebt = useCallback((debtId: string) => {
+    setDebts(prev => {
+      const debt = prev.find(d => d.id === debtId);
+      if (!debt || debt.isPaid) return prev;
+
+      const txKey = `settle-${debtId}`;
+      if (!_paidInstallmentKeys.has(txKey)) {
+        _paidInstallmentKeys.add(txKey);
+        const today = new Date().toISOString().split('T')[0];
+        const paidSoFar = debt.isInstallment ? (debt.paidInstallments * (debt.installmentAmount || 0)) : 0;
+        const remaining = Math.max(0, debt.totalAmount - paidSoFar);
+        const note = `Pelunasan ${debt.type === 'hutang' ? 'hutang' : 'piutang'} - ${debt.contact}`;
+
+        if (remaining > 0) {
+          if (debt.type === 'hutang') {
+            _createTx({
+              type: 'transfer',
+              amount: remaining,
+              category: 'Transfer',
+              date: today,
+              note,
+              fromAssetId: debt.paymentAssetId,
+              toAssetId: debt.liabilityAssetId,
+            });
+          } else {
+            _createTx({
+              type: 'pendapatan',
+              amount: remaining,
+              category: 'Pendapatan Lain',
+              date: today,
+              note,
+              assetId: debt.receiveAssetId,
+            });
+          }
+        }
+      }
+
+      const updated: Debt = { ...debt, isPaid: true };
+      dbPutDebt(updated);
+      return prev.map(d => d.id === debtId ? updated : d);
+    });
+  }, []);
+
+
   // ─── Balance ──────────────────────────────────────────────────────────────
   const getAssetBalance = useCallback((assetId: string) => {
     const asset = assets.find(a => a.id === assetId);
@@ -334,12 +535,13 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const data = JSON.parse(text);
     await dbImportAll(data);
     // Reload all state from DB
-    const [dbAssets, dbTxs, dbCats] = await Promise.all([
-      dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(),
+    const [dbAssets, dbTxs, dbCats, dbBudgets] = await Promise.all([
+      dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(), dbGetAllBudgets(),
     ]);
     setAssets(dbAssets);
     setTransactions(dbTxs);
     setCategories(dbCats);
+    setBudgets(dbBudgets);
     const savedUser  = await dbGetSetting('user')  as UserProfile | undefined;
     const savedTheme = await dbGetSetting('theme') as string | undefined;
     if (savedUser)  setUser(savedUser);
@@ -354,17 +556,21 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
-    isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
+    isReady, assets, transactions, categories, budgets, debts, user, pin, isAppLocked, theme, isPrivateMode,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
+    addBudget, updateBudget, deleteBudget,
+    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut,
   }), [
-    isReady, assets, transactions, categories, user, pin, isAppLocked, theme, isPrivateMode,
+    isReady, assets, transactions, categories, budgets, debts, user, pin, isAppLocked, theme, isPrivateMode,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
+    addBudget, updateBudget, deleteBudget,
+    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut,
   ]);
