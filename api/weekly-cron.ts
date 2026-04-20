@@ -10,8 +10,9 @@ const initializeAdmin = () => {
         }
         
         try {
+            // Sanitizing string for JSON format (Vercel ENV often adds literal newlines)
             const serviceAccount = serviceAccountStr.startsWith('{') 
-                ? JSON.parse(serviceAccountStr) 
+                ? JSON.parse(serviceAccountStr.replace(/\r?\n|\r/g, '')) 
                 : JSON.parse(Buffer.from(serviceAccountStr, 'base64').toString('ascii'));
                 
             admin.initializeApp({
