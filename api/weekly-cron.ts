@@ -4,22 +4,42 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Initialize Firebase Admin securely inside the serverless function
 const initializeAdmin = () => {
     if (!admin.apps.length) {
-        const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        const serviceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
         if (!serviceAccountStr) {
             throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable');
         }
         
+        let serviceAccount;
         try {
-            // Sanitizing string for JSON format (Vercel ENV often adds literal newlines)
-            const serviceAccount = serviceAccountStr.startsWith('{') 
-                ? JSON.parse(serviceAccountStr.replace(/\r?\n|\r/g, '')) 
-                : JSON.parse(Buffer.from(serviceAccountStr, 'base64').toString('ascii'));
-                
+            // Attempt 1: Direct parse (handles standard JSON and valid multi-line tokens)
+            serviceAccount = JSON.parse(serviceAccountStr);
+        } catch (e1: any) {
+            try {
+                // Attempt 2: Handle literal newlines often added by Vercel UI or copy-pasting
+                serviceAccount = JSON.parse(serviceAccountStr.replace(/\r?\n|\r/g, ' '));
+            } catch (e2: any) {
+                try {
+                    // Attempt 3: Base64 fallback
+                    serviceAccount = JSON.parse(Buffer.from(serviceAccountStr, 'base64').toString('utf8'));
+                } catch (e3: any) {
+                    console.error('[Firebase Init] All parsing attempts failed.', {
+                        directError: e1.message,
+                        newlineError: e2.message,
+                        base64Error: e3.message,
+                        inputLength: serviceAccountStr.length,
+                        startsWith: serviceAccountStr.substring(0, 10)
+                    });
+                    throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY: ${e1.message}`);
+                }
+            }
+        }
+
+        try {
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount)
             });
-        } catch (e) {
-            console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY', e);
+        } catch (e: any) {
+            console.error('Failed to initialize Firebase Admin', e);
             throw e;
         }
     }
