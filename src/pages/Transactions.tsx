@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
 import TransactionItem from '../components/transactions/TransactionItem';
@@ -22,6 +23,7 @@ interface TransactionGroup {
 }
 
 const Transactions: React.FC = () => {
+  const navigate = useNavigate();
   const { transactions, assets, addTransaction, deleteTransaction, updateTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -127,14 +129,24 @@ const Transactions: React.FC = () => {
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
-        <button onClick={resetToToday} style={{
-          display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
-          borderRadius: '24px', border: 'none', background: 'var(--primary-glow)',
-          fontSize: '13px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer',
-          boxShadow: '0 2px 10px var(--primary-glow)'
-        }}>
-          <CalendarDays size={16} /> Hari Ini
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => navigate('/bulk-input')} style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
+            borderRadius: '24px', border: 'none', background: 'var(--bg-card-solid)',
+            fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', cursor: 'pointer',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
+          }}>
+            <Sparkles size={16} color="var(--primary)" /> Input Banyak
+          </button>
+          <button onClick={resetToToday} style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
+            borderRadius: '24px', border: 'none', background: 'var(--primary-glow)',
+            fontSize: '13px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer',
+            boxShadow: '0 2px 10px var(--primary-glow)'
+          }}>
+            <CalendarDays size={16} /> Hari Ini
+          </button>
+        </div>
       </div>
 
       {/* Month Switcher */}

@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 const Transactions = lazy(() => import('./pages/Transactions'));
 const Statistics = lazy(() => import('./pages/Statistics'));
 const ReceiptScanner = lazy(() => import('./pages/ReceiptScanner'));
+const BulkInput = lazy(() => import('./pages/BulkInput'));
 const Assets = lazy(() => import('./pages/Assets'));
 const Settings = lazy(() => import('./pages/Settings'));
 
@@ -64,6 +65,7 @@ const AppContent: React.FC = () => {
               <Route index element={<Transactions />} />
               <Route path="stats" element={<Statistics />} />
               <Route path="scan" element={<ReceiptScanner />} />
+              <Route path="bulk-input" element={<BulkInput />} />
               <Route path="assets" element={<Assets />} />
               <Route path="settings" element={<Settings />} />
             </Route>
