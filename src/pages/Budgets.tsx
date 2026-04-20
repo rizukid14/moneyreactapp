@@ -39,7 +39,6 @@ const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
 };
 
 const BudgetCard: React.FC<{
-  id: string;
   label: string;
   icon?: React.ReactNode;
   spent: number;
@@ -49,7 +48,7 @@ const BudgetCard: React.FC<{
   onDelete: () => void;
   isMenuOpen: boolean;
   onMenuToggle: () => void;
-}> = ({ id, label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle }) => {
+}> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle }) => {
   const percent = limit > 0 ? (spent / limit) * 100 : 0;
   const remaining = limit - spent;
   const barColor = percent >= 100 ? 'var(--danger)' : percent >= 80 ? '#f59e0b' : 'var(--primary)';
@@ -309,7 +308,6 @@ const Budgets: React.FC = () => {
             return (
               <div key={b.id} onClick={e => e.stopPropagation()}>
                 <BudgetCard
-                  id={b.id}
                   label={cat?.name || 'Kategori Terhapus'}
                   icon={<Wallet size={16} />}
                   spent={spent}

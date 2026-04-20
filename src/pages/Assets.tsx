@@ -52,9 +52,8 @@ const AssetDetailDrawer: React.FC<{
   isPrivateMode: boolean;
   onClose: () => void;
   onEditAsset: (a: Asset) => void;
-  onDeleteTx: (id: string) => void;
   onEditTx: (tx: Transaction) => void;
-}> = ({ asset, balance, transactions, allAssets, isPrivateMode, onClose, onEditAsset, onDeleteTx, onEditTx }) => {
+}> = ({ asset, balance, transactions, allAssets, isPrivateMode, onClose, onEditAsset, onEditTx }) => {
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
 
@@ -166,7 +165,6 @@ const AssetDetailDrawer: React.FC<{
             <div style={{ padding: '8px 0 24px' }}>
               {assetTxs.map(tx => {
                 const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
-                const isOutgoing = tx.type === 'pengeluaran' || tx.fromAssetId === asset.id;
                 const amtColor = tx.type === 'transfer'
                   ? 'var(--text-muted)'
                   : isIncoming ? 'var(--primary)' : 'var(--danger)';
@@ -238,7 +236,7 @@ const AssetDetailDrawer: React.FC<{
 
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
-  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteTransaction, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
+  const { assets, transactions, getAssetBalance, addAsset, updateAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -420,7 +418,6 @@ const Assets: React.FC = () => {
           isPrivateMode={isPrivateMode}
           onClose={() => setSelectedAsset(null)}
           onEditAsset={a => { handleEdit(a); }}
-          onDeleteTx={id => { deleteTransaction(id); }}
           onEditTx={tx => {
             setEditingTx(tx);
             setSelectedAsset(null);

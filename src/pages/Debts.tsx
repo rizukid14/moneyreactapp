@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, AlertTriangle, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
+import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
 import { useMoney, type Debt } from '../contexts/MoneyContext';
 import DebtModal from '../components/modals/DebtModal';
 
@@ -237,8 +237,6 @@ const Debts: React.FC = () => {
       return aDue - bDue;
     });
   }, [debts, filter]);
-
-  const getAssetName = (id?: string) => assets.find(a => a.id === id)?.name;
 
   return (
     <div className="page">

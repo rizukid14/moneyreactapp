@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Target } from 'lucide-react';
-import { useMoney, type Category, type Budget } from '../../contexts/MoneyContext';
+import { type Category, type Budget } from '../../contexts/MoneyContext';
 
 interface BudgetModalProps {
   isOpen: boolean;
