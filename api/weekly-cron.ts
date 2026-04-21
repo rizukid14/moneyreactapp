@@ -4,30 +4,46 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Initialize Firebase Admin securely inside the serverless function
 const initializeAdmin = () => {
     if (!admin.apps.length) {
-        const serviceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
+        let serviceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
         if (!serviceAccountStr) {
             throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable');
+        }
+
+        // Remove wrapping quotes if they exist (common in some .env/Vercel environments)
+        if ((serviceAccountStr.startsWith("'") && serviceAccountStr.endsWith("'")) || 
+            (serviceAccountStr.startsWith('"') && serviceAccountStr.endsWith('"'))) {
+                serviceAccountStr = serviceAccountStr.substring(1, serviceAccountStr.length - 1).trim();
         }
         
         let serviceAccount;
         try {
-            // Attempt 1: Direct parse (handles standard JSON and valid multi-line tokens)
+            // Attempt 1: Direct parse
             serviceAccount = JSON.parse(serviceAccountStr);
         } catch (e1: any) {
             try {
-                // Attempt 2: Handle literal newlines often added by Vercel UI or copy-pasting
-                serviceAccount = JSON.parse(serviceAccountStr.replace(/\r?\n|\r/g, ' '));
+                // Attempt 2: Clean up literal newlines and handle potential escaped newlines
+                const cleaned = serviceAccountStr
+                    .replace(/\r?\n|\r/g, ' ')
+                    .replace(/\\n/g, '\n');
+                serviceAccount = JSON.parse(cleaned);
             } catch (e2: any) {
                 try {
                     // Attempt 3: Base64 fallback
                     serviceAccount = JSON.parse(Buffer.from(serviceAccountStr, 'base64').toString('utf8'));
                 } catch (e3: any) {
+                    // Extract error position if possible (standard Node SyntaxError format)
+                    const posMatch = e1.message.match(/at position (\d+)/);
+                    const pos = posMatch ? parseInt(posMatch[1], 10) : 0;
+                    
+                    const start = Math.max(0, pos - 40);
+                    const end = Math.min(serviceAccountStr.length, pos + 40);
+                    
                     console.error('[Firebase Init] All parsing attempts failed.', {
                         directError: e1.message,
-                        newlineError: e2.message,
-                        base64Error: e3.message,
                         inputLength: serviceAccountStr.length,
-                        startsWith: serviceAccountStr.substring(0, 10)
+                        errorPosition: pos,
+                        context: JSON.stringify(serviceAccountStr.substring(start, end)),
+                        charCodesNearError: serviceAccountStr.substring(Math.max(0, pos-2), Math.min(serviceAccountStr.length, pos+2)).split('').map(c => c.charCodeAt(0))
                     });
                     throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY: ${e1.message}`);
                 }
