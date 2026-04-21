@@ -13,7 +13,7 @@ interface AssetModalProps {
   onDelete?: (id: string) => void;
 }
 
-const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, updateAsset, editingAsset, currentBalance, addTransaction }) => {
+const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, updateAsset, editingAsset, currentBalance, addTransaction, onDelete }) => {
   const [name, setName] = useState('');
   const [type, setType] = useState<AssetType>('Cash');
   const [initialBalance, setInitialBalance] = useState('');
