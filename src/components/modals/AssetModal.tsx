@@ -10,6 +10,7 @@ interface AssetModalProps {
   editingAsset?: Asset | null;
   currentBalance?: number;
   addTransaction?: (tx: Omit<Transaction, 'id'>) => void;
+  onDelete?: (id: string) => void;
 }
 
 const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, updateAsset, editingAsset, currentBalance, addTransaction }) => {
@@ -159,6 +160,24 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
           <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
             {editingAsset ? 'Simpan Perubahan' : 'Simpan Aset'}
           </button>
+
+          {editingAsset && onDelete && (
+            <button 
+              type="button" 
+              onClick={() => {
+                if (confirm(`Hapus aset "${name}"?\nSisa saldo akan tetap tercatat di histori histori, namun rekening tidak akan muncul lagi.`)) {
+                  onDelete(editingAsset.id);
+                  onClose();
+                }
+              }}
+              style={{ 
+                width: '100%', marginTop: '12px', background: 'none', border: '1px solid var(--danger)', 
+                color: 'var(--danger)', borderRadius: '12px', padding: '12px', fontWeight: 600, cursor: 'pointer' 
+              }}
+            >
+              Hapus Aset
+            </button>
+          )}
         </form>
       </div>
     </div>

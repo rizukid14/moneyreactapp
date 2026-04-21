@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Wallet, CreditCard, Landmark, Plus, Smartphone, Pencil, EyeOff, Eye, TrendingUp, PiggyBank, HandCoins, X, ArrowUpRight, ArrowDownRight, ArrowRightLeft, ChevronRight } from 'lucide-react';
+import { Wallet, CreditCard, Landmark, Plus, Smartphone, Pencil, EyeOff, Eye, TrendingUp, PiggyBank, HandCoins, X, ArrowUpRight, ArrowDownRight, ArrowRightLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
@@ -52,8 +52,9 @@ const AssetDetailDrawer: React.FC<{
   isPrivateMode: boolean;
   onClose: () => void;
   onEditAsset: (a: Asset) => void;
+  onDeleteAsset: (id: string) => void;
   onEditTx: (tx: Transaction) => void;
-}> = ({ asset, balance, transactions, allAssets, isPrivateMode, onClose, onEditAsset, onEditTx }) => {
+}> = ({ asset, balance, transactions, allAssets, isPrivateMode, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
 
@@ -112,6 +113,17 @@ const AssetDetailDrawer: React.FC<{
               style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 8, cursor: 'pointer' }}
             >
               <Pencil size={16} />
+            </button>
+            <button
+              onClick={() => {
+                if (confirm(`Hapus aset "${asset.name}"?\nSisa saldo akan tetap tercatat di total histori, namun aset tidak akan muncul lagi.`)) {
+                  onDeleteAsset(asset.id);
+                  onClose();
+                }
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 8, cursor: 'pointer', opacity: 0.8 }}
+            >
+              <Trash2 size={16} />
             </button>
             <button className="close-btn" onClick={onClose}><X size={18} /></button>
           </div>
@@ -236,7 +248,7 @@ const AssetDetailDrawer: React.FC<{
 
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
-  const { assets, transactions, getAssetBalance, addAsset, updateAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
+  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -406,6 +418,7 @@ const Assets: React.FC = () => {
         editingAsset={editingAsset}
         currentBalance={editingAsset ? balances[editingAsset.id] : undefined}
         addTransaction={addTransaction}
+        onDelete={deleteAsset}
       />
 
       {/* Asset detail drawer */}
@@ -418,6 +431,7 @@ const Assets: React.FC = () => {
           isPrivateMode={isPrivateMode}
           onClose={() => setSelectedAsset(null)}
           onEditAsset={a => { handleEdit(a); }}
+          onDeleteAsset={deleteAsset}
           onEditTx={tx => {
             setEditingTx(tx);
             setSelectedAsset(null);
