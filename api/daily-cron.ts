@@ -9,18 +9,18 @@ const initializeAdmin = () => {
             throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable');
         }
 
-        const sanitize = (str: string) => {
-            let s = str.trim();
-            // 1. Remove wrapping quotes if they exist
+        const sanitize = (val: string) => {
+            let s = val.trim();
+            // 1. Handle wrapping quotes
             if ((s.startsWith("'") && s.endsWith("'")) || (s.startsWith('"') && s.endsWith('"'))) {
                 s = s.substring(1, s.length - 1).trim();
             }
-            // 2. Handle URL-encoded characters (like %22)
+            // 2. Handle URL-encoding (%22)
             try {
                 if (s.includes('%')) s = decodeURIComponent(s);
-            } catch (e) { /* ignore encoding errors and try raw */ }
-            // 3. Handle double-escaping (e.g. \" -> " and \\n -> \n)
-            return s.replace(/\\"/g, '"').replace(/\\n/g, '\n');
+            } catch (e) {}
+            // 3. Unescape quotes (if they were mangled to \")
+            return s.replace(/\\"/g, '"');
         };
 
         const serviceAccountStr = sanitize(rawServiceAccountStr);
@@ -31,28 +31,40 @@ const initializeAdmin = () => {
             serviceAccount = JSON.parse(serviceAccountStr);
         } catch (e1: any) {
             try {
-                // Attempt 2: Fallback for mixed literal newlines
+                // Attempt 2: Handle literal newlines that break JSON.parse
+                // We replace them with spaces to make it technically valid JSON, 
+                // but we MUST restore the newlines in the private_key later.
                 serviceAccount = JSON.parse(serviceAccountStr.replace(/\r?\n|\r/g, ' '));
             } catch (e2: any) {
                 try {
-                    // Attempt 3: Base64 fallback (on the original raw string)
+                    // Attempt 3: Base64 fallback
                     serviceAccount = JSON.parse(Buffer.from(rawServiceAccountStr, 'base64').toString('utf8'));
                 } catch (e3: any) {
                     const posMatch = e1.message.match(/at position (\d+)/);
                     const pos = posMatch ? parseInt(posMatch[1], 10) : 0;
-                    const start = Math.max(0, pos - 40);
-                    const end = Math.min(serviceAccountStr.length, pos + 40);
-                    
                     console.error('[Firebase Init] All parsing attempts failed.', {
                         directError: e1.message,
                         inputLength: serviceAccountStr.length,
-                        errorPosition: pos,
-                        contextSnippet: JSON.stringify(serviceAccountStr.substring(start, end)),
-                        charCodes: serviceAccountStr.substring(Math.max(0, pos-2), Math.min(serviceAccountStr.length, pos+2)).split('').map(c => c.charCodeAt(0))
+                        contextSnippet: JSON.stringify(serviceAccountStr.substring(Math.max(0, pos-40), Math.min(serviceAccountStr.length, pos+40)))
                     });
-                    throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY after sanitization: ${e1.message}`);
+                    throw new Error(`Critical: Failed to parse Firebase Key: ${e1.message}`);
                 }
             }
+        }
+
+        // CRITICAL: Restore PEM format for private_key (essential to avoid DECODER routines error)
+        if (serviceAccount && typeof serviceAccount.private_key === 'string') {
+            let key = serviceAccount.private_key;
+            // 1. Convert literal \\n sequences to real newlines
+            key = key.replace(/\\n/g, '\n');
+            // 2. If the key has no newlines but has spaces (common after Attempt 2), 
+            // we must restore the PEM structure.
+            if (key.includes('-----BEGIN PRIVATE KEY-----') && !key.includes('\n')) {
+                key = key.replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n')
+                         .replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+                         .replace(/([^-]) (?!-)/g, '$1\n'); // Replace internal spaces with \n
+            }
+            serviceAccount.private_key = key;
         }
 
         try {
