@@ -1,29 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import type { Debt, Asset } from '../../contexts/MoneyContext';
+import type { Debt, Asset, Category } from '../../contexts/MoneyContext';
 
 interface DebtModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (debt: Omit<Debt, 'id'>) => void;
+  onSave: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string) => void;
   editingDebt: Debt | null;
   assets: Asset[];
+  categories: Category[]; // expense categories for credit mode
 }
 
-const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingDebt, assets }) => {
-  const [type, setType]                         = useState<'hutang' | 'piutang'>('hutang');
-  const [contact, setContact]                   = useState('');
-  const [description, setDescription]           = useState('');
-  const [totalAmount, setTotalAmount]           = useState('');
-  const [dueDate, setDueDate]                   = useState('');
-  const [isInstallment, setIsInstallment]       = useState(false);
+const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingDebt, assets, categories }) => {
+  const [type, setType]                           = useState<'hutang' | 'piutang'>('hutang');
+  const [contact, setContact]                     = useState('');
+  const [description, setDescription]             = useState('');
+  const [totalAmount, setTotalAmount]             = useState('');
+  const [dueDate, setDueDate]                     = useState('');
+  const [isInstallment, setIsInstallment]         = useState(false);
   const [installmentAmount, setInstallmentAmount] = useState('');
-  const [installmentDay, setInstallmentDay]     = useState('25');
+  const [installmentDay, setInstallmentDay]       = useState('25');
   const [totalInstallments, setTotalInstallments] = useState('');
   // Asset fields
-  const [liabilityAssetId, setLiabilityAssetId] = useState(''); // HUTANG: tempat hutang (ShopeePay Later)
-  const [paymentAssetId, setPaymentAssetId]     = useState(''); // HUTANG: bayar dari (BCA)
-  const [receiveAssetId, setReceiveAssetId]     = useState(''); // PIUTANG: terima ke (BCA)
+  const [liabilityAssetId, setLiabilityAssetId]  = useState('');
+  const [paymentAssetId, setPaymentAssetId]       = useState('');
+  const [receiveAssetId, setReceiveAssetId]       = useState('');
+  // Hutang recording mode (new)
+  const [hutangMode, setHutangMode]               = useState<'none' | 'cash' | 'credit'>('none');
+  const [creditCategoryId, setCreditCategoryId]   = useState('');
 
   const activeAssets = assets.filter(a => !a.isDeleted);
 
@@ -42,6 +46,8 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setLiabilityAssetId(editingDebt.liabilityAssetId || '');
       setPaymentAssetId(editingDebt.paymentAssetId || activeAssets[0]?.id || '');
       setReceiveAssetId(editingDebt.receiveAssetId || activeAssets[0]?.id || '');
+      setHutangMode('none'); // don't re-trigger tx on edit
+      setCreditCategoryId(categories[0]?.id || '');
     } else {
       setType('hutang');
       setContact('');
@@ -55,8 +61,22 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setLiabilityAssetId('');
       setPaymentAssetId(activeAssets[0]?.id || '');
       setReceiveAssetId(activeAssets[0]?.id || '');
+      setHutangMode('none');
+      setCreditCategoryId(categories[0]?.id || '');
     }
   }, [isOpen, editingDebt]);
+
+  // Auto-calculate installment amount
+  useEffect(() => {
+    if (isInstallment && totalAmount && totalInstallments && !editingDebt) {
+      const total = parseNum(totalAmount);
+      const months = Number(totalInstallments);
+      if (total > 0 && months > 0) {
+        const calculated = Math.round(total / months);
+        setInstallmentAmount(calculated.toLocaleString('id-ID'));
+      }
+    }
+  }, [totalAmount, totalInstallments, isInstallment, editingDebt]);
 
   if (!isOpen) return null;
 
@@ -68,27 +88,39 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      type,
-      contact: contact.trim(),
-      description: description.trim(),
-      totalAmount: parseNum(totalAmount),
-      dueDate: dueDate || undefined,
-      isPaid: editingDebt?.isPaid || false,
-      createdAt: editingDebt?.createdAt || new Date().toISOString(),
-      isInstallment,
-      installmentAmount: isInstallment ? parseNum(installmentAmount) : undefined,
-      installmentDay: isInstallment ? Number(installmentDay) : undefined,
-      totalInstallments: isInstallment && totalInstallments ? Number(totalInstallments) : undefined,
-      paidInstallments: editingDebt?.paidInstallments || 0,
-      liabilityAssetId: type === 'hutang' ? (liabilityAssetId || undefined) : undefined,
-      paymentAssetId: type === 'hutang' ? (paymentAssetId || undefined) : undefined,
-      receiveAssetId: type === 'piutang' ? (receiveAssetId || undefined) : undefined,
-    });
+    const categoryName = categories.find(c => c.id === creditCategoryId)?.name;
+    onSave(
+      {
+        type,
+        contact:      contact.trim(),
+        description:  description.trim(),
+        totalAmount:  parseNum(totalAmount),
+        dueDate:      dueDate || undefined,
+        isPaid:       editingDebt?.isPaid || false,
+        createdAt:    editingDebt?.createdAt || new Date().toISOString(),
+        isInstallment,
+        installmentAmount:  isInstallment ? parseNum(installmentAmount) : undefined,
+        installmentDay:     isInstallment ? Number(installmentDay) : undefined,
+        totalInstallments:  isInstallment && totalInstallments ? Number(totalInstallments) : undefined,
+        paidInstallments:   editingDebt?.paidInstallments || 0,
+        liabilityAssetId:   type === 'hutang' ? (liabilityAssetId || undefined) : undefined,
+        paymentAssetId:     paymentAssetId || undefined,
+        receiveAssetId:     type === 'piutang' ? (receiveAssetId || undefined) : undefined,
+      },
+      type === 'hutang' ? hutangMode : undefined,
+      type === 'hutang' && hutangMode === 'credit' ? categoryName : undefined,
+    );
     onClose();
   };
 
   const typeColor = type === 'hutang' ? 'var(--danger)' : 'var(--primary)';
+
+  // ── Mode options for Hutang ─────────────────────────────────────────────
+  const modeOptions: { key: 'none' | 'cash' | 'credit'; emoji: string; title: string; desc: string }[] = [
+    { key: 'none',   emoji: '📝', title: 'Hanya Catatan',    desc: 'Tidak buat transaksi (hutang lama / sudah tercatat)' },
+    { key: 'cash',   emoji: '💵', title: 'Pinjaman Tunai',   desc: 'Uang masuk ke rekening → buat pendapatan otomatis' },
+    { key: 'credit', emoji: '💳', title: 'Kredit / Paylater', desc: 'Belanja pakai kredit → buat pengeluaran otomatis' },
+  ];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -133,35 +165,112 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
           <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Jatuh Tempo (opsional)</label>
           <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
 
-          {/* ── Asset fields berdasarkan tipe ── */}
-          {type === 'hutang' ? (
+          {/* ── Hutang: mode selector ── */}
+          {type === 'hutang' && !editingDebt && (
+            <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--danger)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Metode Pencatatan
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {modeOptions.map(opt => (
+                  <div
+                    key={opt.key}
+                    onClick={() => setHutangMode(opt.key)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                      borderRadius: 10, cursor: 'pointer',
+                      border: hutangMode === opt.key ? '2px solid var(--danger)' : '1.5px solid var(--border-color)',
+                      background: hutangMode === opt.key ? 'var(--bg-expense)' : 'var(--bg-card)',
+                    }}
+                  >
+                    <span style={{ fontSize: 22 }}>{opt.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: hutangMode === opt.key ? 'var(--danger)' : 'var(--text-main)' }}>{opt.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{opt.desc}</div>
+                    </div>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: 9, flexShrink: 0,
+                      border: hutangMode === opt.key ? '5px solid var(--danger)' : '2px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Hutang: Asset fields depending on mode ── */}
+          {type === 'hutang' && (
             <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--danger)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Rekening / Akun Hutang
               </div>
+
+              {/* Credit mode: pick expense category */}
+              {hutangMode === 'credit' && !editingDebt && (
+                <>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+                    🏷️ Kategori Pengeluaran
+                  </label>
+                  <select value={creditCategoryId} onChange={e => setCreditCategoryId(e.target.value)} style={{ marginBottom: 10 }}>
+                    <option value="">-- Pilih Kategori --</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </>
+              )}
+
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                💳 Tempat hutangnya (misal: ShopeePay Later, Kartu Kredit)
+                💳 {hutangMode === 'credit' ? 'Bayar pakai (Kartu Kredit / Paylater)' : 'Tempat hutangnya (misal: ShopeePay Later)'}
               </label>
-              <select value={liabilityAssetId} onChange={e => setLiabilityAssetId(e.target.value)} style={{ marginBottom: 10 }}>
+              <select value={liabilityAssetId} onChange={e => setLiabilityAssetId(e.target.value)} style={{ marginBottom: hutangMode === 'cash' ? 10 : 0 }}>
                 <option value="">-- Tidak ada / Tunai --</option>
                 {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
 
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                🏦 Bayar dari rekening (misal: BCA, Dompet Tunai)
-              </label>
-              <select value={paymentAssetId} onChange={e => setPaymentAssetId(e.target.value)} style={{ marginBottom: 0 }}>
-                <option value="">-- Tidak ada --</option>
-                {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              {/* Cash mode: where the cash arrived */}
+              {hutangMode === 'cash' && !editingDebt && (
+                <>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+                    🏦 Uang masuk ke rekening mana
+                  </label>
+                  <select value={paymentAssetId} onChange={e => setPaymentAssetId(e.target.value)} style={{ marginBottom: 0 }}>
+                    <option value="">-- Tidak ada --</option>
+                    {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </>
+              )}
+
+              {/* Editing: always show payment asset */}
+              {editingDebt && (
+                <>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginTop: 10, display: 'block' }}>
+                    🏦 Bayar dari rekening (misal: BCA)
+                  </label>
+                  <select value={paymentAssetId} onChange={e => setPaymentAssetId(e.target.value)} style={{ marginBottom: 0 }}>
+                    <option value="">-- Tidak ada --</option>
+                    {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </>
+              )}
             </div>
-          ) : (
+          )}
+
+          {/* ── Piutang: asset fields ── */}
+          {type === 'piutang' && (
             <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Rekening Penerima
+                Pengaturan Rekening
               </div>
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                🏦 Terima pembayaran ke rekening mana
+                💰 Pinjamkan dari rekening (Dana keluar)
+              </label>
+              <select value={paymentAssetId} onChange={e => setPaymentAssetId(e.target.value)} style={{ marginBottom: 10 }}>
+                <option value="">-- Tidak ada (Hanya catatan) --</option>
+                {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+
+              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+                🏦 Terima cicilan ke rekening mana (Dana masuk)
               </label>
               <select value={receiveAssetId} onChange={e => setReceiveAssetId(e.target.value)} style={{ marginBottom: 0 }}>
                 <option value="">-- Tidak ada --</option>
@@ -199,7 +308,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
           {isInstallment && (
             <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: 14, marginBottom: 8 }}>
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Nominal Per Cicilan (Rp)</label>
+              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Nominal Per Cicilan (Rp) - <span style={{ color: 'var(--primary)', fontStyle: 'italic' }}>Otomatis Terisi</span></label>
               <input type="text" inputMode="numeric" required={isInstallment} placeholder="0" value={installmentAmount} onChange={e => formatNum(e, setInstallmentAmount)} />
 
               <div style={{ display: 'flex', gap: 10 }}>

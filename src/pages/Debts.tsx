@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
-import { useMoney, type Debt } from '../contexts/MoneyContext';
+import { useMoney, type Debt, type Category } from '../contexts/MoneyContext';
 import DebtModal from '../components/modals/DebtModal';
+import SettleDebtModal from '../components/modals/SettleDebtModal';
 
 const fmt = (n: number) => `Rp${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -197,16 +198,18 @@ const DebtCard: React.FC<{
 };
 
 const Debts: React.FC = () => {
-  const { debts, assets, addDebt, updateDebt, deleteDebt, payInstallment, settleDebt } = useMoney();
+  const { debts, assets, categories, addDebt, updateDebt, deleteDebt, payInstallment, settleDebt } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+  const [settlingDebt, setSettlingDebt] = useState<Debt | null>(null);
   const [filter, setFilter] = useState<'all' | 'hutang' | 'piutang' | 'lunas'>('all');
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
-  const handleSave = (data: Omit<Debt, 'id'>) => {
+  const handleSave = (data: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string) => {
     if (editingDebt) updateDebt(editingDebt.id, data);
-    else addDebt(data);
+    else addDebt(data, initialMode ?? 'none', categoryName);
   };
 
   const getAssetName = (id?: string) => assets.find(a => a.id === id)?.name;
@@ -345,13 +348,8 @@ const Debts: React.FC = () => {
                 }
               }}
               onSettle={() => {
-                const remaining = d.isInstallment
-                  ? Math.max(0, d.totalAmount - (d.paidInstallments * (d.installmentAmount || 0)))
-                  : d.totalAmount;
-                const msg = remaining > 0
-                  ? `Tandai lunas dan buat transaksi ${d.type === 'hutang' ? 'transfer' : 'pendapatan'} sebesar ${fmt(remaining)}?`
-                  : `Tandai ${d.contact} sebagai lunas?`;
-                if (confirm(msg)) settleDebt(d.id);
+                setSettlingDebt(d);
+                setIsSettleModalOpen(true);
               }}
               onUnpay={() => updateDebt(d.id, { isPaid: false })}
             />
@@ -365,7 +363,21 @@ const Debts: React.FC = () => {
         onSave={handleSave}
         editingDebt={editingDebt}
         assets={assets}
+        categories={categories.filter(c => c.type === 'pengeluaran')}
       />
+
+      {settlingDebt && (
+        <SettleDebtModal
+          isOpen={isSettleModalOpen}
+          onClose={() => setIsSettleModalOpen(false)}
+          onConfirm={(assetId) => {
+            settleDebt(settlingDebt.id, assetId);
+            setIsSettleModalOpen(false);
+          }}
+          debt={settlingDebt}
+          assets={assets}
+        />
+      )}
     </div>
   );
 };

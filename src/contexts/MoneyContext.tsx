@@ -73,8 +73,9 @@ export interface Debt {
   paidInstallments: number;      // how many paid so far
   // Asset fields — two-asset model for proper balance tracking
   liabilityAssetId?: string;     // HUTANG: asset where debt lives (e.g. ShopeePay Later)
-  paymentAssetId?: string;       // HUTANG: asset to pay FROM (e.g. BCA)
+  paymentAssetId?: string;       // HUTANG: asset to pay FROM (e.g. BCA) | PIUTANG: asset used to LEND FROM (e.g. Cash)
   receiveAssetId?: string;       // PIUTANG: asset to receive payment INTO (e.g. BCA)
+  sourceAssetId?: string;        // DEPRECATED - prefer paymentAssetId for simplicity; added for schema compatibility if needed
 }
 
 export interface Transaction {
@@ -131,11 +132,11 @@ interface MoneyContextType {
   addBudget: (budget: Omit<Budget, 'id'>) => void;
   updateBudget: (id: string, budget: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  addDebt: (debt: Omit<Debt, 'id'>) => void;
+  addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string) => void;
   updateDebt: (id: string, debt: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
   payInstallment: (debtId: string) => void;
-  settleDebt: (debtId: string) => void;
+  settleDebt: (debtId: string, assetId?: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
@@ -361,8 +362,49 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   // ─── Debts ──────────────────────────────────────────────────────────────
-  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>) => {
+  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryName?: string) => {
     const newDebt: Debt = { ...debtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    
+    // Generate initial transaction for the principal
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (newDebt.type === 'piutang') {
+      // Give loan: Account balance decreases (Expense)
+      if (newDebt.paymentAssetId) {
+        _createTx({
+          type: 'pengeluaran',
+          amount: newDebt.totalAmount,
+          category: 'Pinjaman & Piutang',
+          date: today,
+          note: `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
+          assetId: newDebt.paymentAssetId,
+        });
+      }
+    } else {
+      // Hutang (Saya Berhutang)
+      if (initialMode === 'cash' && newDebt.liabilityAssetId) {
+        // Receive loan principal: Account balance increases (Income)
+        _createTx({
+          type: 'pendapatan',
+          amount: newDebt.totalAmount,
+          category: 'Hutang / Pinjaman',
+          date: today,
+          note: `Penerimaan dana pinjaman dari ${newDebt.contact}`,
+          assetId: newDebt.liabilityAssetId,
+        });
+      } else if (initialMode === 'credit' && newDebt.liabilityAssetId) {
+        // Credit/Paylater purchase: Account balance decreases (Expense)
+        _createTx({
+          type: 'pengeluaran',
+          amount: newDebt.totalAmount,
+          category: categoryName || 'Lainnya',
+          date: today,
+          note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
+          assetId: newDebt.liabilityAssetId,
+        });
+      }
+    }
+
     setDebts(prev => [...prev, newDebt]);
     dbPutDebt(newDebt);
   }, []);
@@ -444,7 +486,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
    * - PIUTANG: Pendapatan into receiveAssetId
    * Then marks debt as isPaid.
    */
-  const settleDebt = useCallback((debtId: string) => {
+  const settleDebt = useCallback((debtId: string, overrideAssetId?: string) => {
     setDebts(prev => {
       const debt = prev.find(d => d.id === debtId);
       if (!debt || debt.isPaid) return prev;
@@ -465,7 +507,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               category: 'Transfer',
               date: today,
               note,
-              fromAssetId: debt.paymentAssetId,
+              fromAssetId: overrideAssetId || debt.paymentAssetId,
               toAssetId: debt.liabilityAssetId,
             });
           } else {
@@ -475,7 +517,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               category: 'Pendapatan Lain',
               date: today,
               note,
-              assetId: debt.receiveAssetId,
+              assetId: overrideAssetId || debt.receiveAssetId,
             });
           }
         }

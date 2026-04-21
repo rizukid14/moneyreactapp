@@ -82,20 +82,29 @@ const Statistics: React.FC = () => {
       ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] })).sort((a,b) => b.value - a.value)
       : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a,b) => b.value - a.value);
     
-    // Total by categories
-    const allCategoriesSrcExpense = drillDownCategory?.type === 'pengeluaran' 
-      ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })) 
-      : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] }));
+    // Prepare the list for the bottom section
+    let allCategories: { id: string, category: string, amount: number, type: 'pengeluaran' | 'pendapatan' }[] = [];
+    
+    if (drillDownCategory) {
+      // In drill-down mode, only show sub-categories for the selected category/type
+      if (drillDownCategory.type === 'pengeluaran') {
+        allCategories = Object.keys(expBySubCategory).map(key => ({
+          id: `exp-sub-${key}`, category: key, amount: expBySubCategory[key], type: 'pengeluaran' as const
+        }));
+      } else {
+        allCategories = Object.keys(incBySubCategory).map(key => ({
+          id: `inc-sub-${key}`, category: key, amount: incBySubCategory[key], type: 'pendapatan' as const
+        }));
+      }
+    } else {
+      // In summary mode, show all top-level categories
+      allCategories = [
+        ...Object.keys(expByCategory).map(key => ({ id: `exp-${key}`, category: key, amount: expByCategory[key], type: 'pengeluaran' as const })),
+        ...Object.keys(incByCategory).map(key => ({ id: `inc-${key}`, category: key, amount: incByCategory[key], type: 'pendapatan' as const }))
+      ];
+    }
 
-    const allCategoriesSrcIncome = drillDownCategory?.type === 'pendapatan'
-      ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] }))
-      : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] }));
-
-    const allCategories = [
-      ...allCategoriesSrcExpense.map(d => ({ id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const })),
-      ...allCategoriesSrcIncome.map(d => ({ id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const }))
-    ];
-    const topCats = allCategories.sort((a, b) => b.amount - a.amount).slice(0, 5);
+    const topCats = allCategories.sort((a, b) => b.amount - a.amount).slice(0, 10);
 
     return { 
       chartData: last5Months, 
@@ -274,7 +283,9 @@ const Statistics: React.FC = () => {
 
       {topCategories.length > 0 && (
         <div className="card glass" style={{ marginBottom: '80px' }}>
-          <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>Total Terbesar {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
+          <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>
+            {drillDownCategory ? `Rincian Sub-kategori: ${drillDownCategory.name}` : 'Total Terbesar per Kategori'}
+          </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {topCategories.map(cat => (
               <div 
@@ -298,7 +309,9 @@ const Statistics: React.FC = () => {
                   </div>
                   <div>
                     <div style={{ fontWeight: 600 }}>{cat.category}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{cat.type === 'pendapatan' ? 'Total Pendapatan' : 'Total Pengeluaran'}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      {drillDownCategory ? 'Sub-kategori' : (cat.type === 'pendapatan' ? 'Total Pendapatan' : 'Total Pengeluaran')}
+                    </div>
                   </div>
                 </div>
                 <div style={{ fontWeight: 700, color: cat.type === 'pendapatan' ? 'var(--primary)' : 'var(--secondary)' }}>
