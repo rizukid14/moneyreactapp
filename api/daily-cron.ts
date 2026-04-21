@@ -86,53 +86,153 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         initializeAdmin();
         const db = admin.firestore();
         const messaging = admin.messaging();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
 
-        console.log('[Cron] Starting Daily Reminder Push Broadcast...');
+        console.log(`[Cron] Starting Routine Processing for ${todayStr}...`);
 
-        // 1. Find all users who have an fcmToken registered
-        // We query the collection group 'settings' and filter for docs named 'fcmToken' in-memory
-        // to avoid the need for custom Firestore indices.
+        let totalGenerated = 0;
+        const messagesToSend: any[] = [];
+
+        // 1. Fetch all users from the 'users' collection
+        const usersSnapshot = await db.collection('users').get();
+        
+        for (const userDoc of usersSnapshot.docs) {
+            const uid = userDoc.id;
+            const recurringRef = db.collection('users').doc(uid).collection('recurring_transactions');
+            const activeRecurring = await recurringRef.where('isActive', '==', true).get();
+
+            if (activeRecurring.empty) continue;
+
+            const userGeneratedDetails: string[] = [];
+
+            for (const rtDoc of activeRecurring.docs) {
+                const rt = rtDoc.data();
+                
+                const startDate = new Date(rt.startDate);
+                startDate.setHours(0, 0, 0, 0);
+
+                const lastDate = rt.lastProcessedDate ? new Date(rt.lastProcessedDate) : new Date(startDate);
+                lastDate.setHours(0, 0, 0, 0);
+
+                // If already processed today or in future, skip
+                if (lastDate >= today && rt.lastProcessedDate) continue;
+
+                const endDate = rt.endDate ? new Date(rt.endDate) : null;
+                if (endDate) endDate.setHours(23, 59, 59, 999);
+
+                let currentCheck = new Date(lastDate);
+                if (rt.lastProcessedDate) {
+                    // Move to the next instance based on frequency
+                    currentCheck = getNextDate(currentCheck, rt.frequency);
+                }
+
+                const batch = db.batch();
+                let hasChanges = false;
+                let latestProcessed = rt.lastProcessedDate || null;
+
+                while (currentCheck <= today) {
+                    if (endDate && currentCheck > endDate) break;
+
+                    const txDate = currentCheck.toISOString().split('T')[0];
+                    const txId = `auto-${rt.id}-${txDate}`;
+                    
+                    // Simple check if already exists to prevent duplicates
+                    const existingTx = await db.collection('users').doc(uid).collection('transactions').doc(txId).get();
+                    
+                    if (!existingTx.exists) {
+                        const newTx = {
+                            id: txId,
+                            type: rt.type,
+                            amount: rt.amount,
+                            category: rt.category,
+                            subCategory: rt.subCategory || null,
+                            assetId: rt.assetId || null,
+                            fromAssetId: rt.fromAssetId || null,
+                            toAssetId: rt.toAssetId || null,
+                            date: txDate,
+                            note: `${rt.note} [Auto:${rt.id}]`,
+                        };
+                        
+                        batch.set(db.collection('users').doc(uid).collection('transactions').doc(txId), newTx);
+                        hasChanges = true;
+                        totalGenerated++;
+                        userGeneratedDetails.push(`${rt.note || rt.category}: Rp${rt.amount.toLocaleString('id-ID')}`);
+                    }
+
+                    latestProcessed = txDate;
+                    currentCheck = getNextDate(currentCheck, rt.frequency);
+                }
+
+                if (hasChanges) {
+                    batch.update(rtDoc.ref, { lastProcessedDate: latestProcessed });
+                    await batch.commit();
+                }
+            }
+
+            // 2. If user had transactions generated, queue a notification
+            if (userGeneratedDetails.length > 0) {
+                const tokenDoc = await db.collection('users').doc(uid).collection('settings').doc('fcmToken').get();
+                const token = tokenDoc.data()?.value;
+
+                if (token) {
+                    messagesToSend.push({
+                        token,
+                        notification: {
+                            title: 'Transaksi Rutin Tercatat 💸',
+                            body: userGeneratedDetails.length === 1 
+                                ? `Berhasil mencatat: ${userGeneratedDetails[0]}`
+                                : `Berhasil mencatat ${userGeneratedDetails.length} transaksi rutin hari ini.`
+                        }
+                    });
+                }
+            }
+        }
+
+        // 3. Send out reminders to everyone else who didn't get a transaction update
         const settingsDocs = await db.collectionGroup('settings').get();
-            
-        const tokensToPing: string[] = [];
+        const pingedTokens = new Set(messagesToSend.map(m => m.token));
+        
         settingsDocs.forEach(docSnap => {
             if (docSnap.id === 'fcmToken') {
                 const token = docSnap.data()?.value;
-                if (typeof token === 'string') {
-                    tokensToPing.push(token);
+                if (token && !pingedTokens.has(token)) {
+                    messagesToSend.push({
+                        token,
+                        notification: {
+                            title: 'Pengingat Keuangan 💰',
+                            body: 'Jangan lupa luangkan 1 menit untuk mencatat pengeluaran Anda hari ini!'
+                        }
+                    });
                 }
             }
         });
 
-        console.log(`[Cron] Found ${tokensToPing.length} active FCM tokens.`);
+        console.log(`[Cron] Generated ${totalGenerated} transactions. Sending ${messagesToSend.length} notifications.`);
 
-        if (tokensToPing.length === 0) {
-            return res.status(200).json({ success: true, message: 'No active valid tokens found.' });
+        if (messagesToSend.length > 0) {
+            // Note: messaging.sendEach is generally preferred for multiple messages
+            await messaging.sendEach(messagesToSend);
         }
-
-
-
-        // 3. Blast the Multicast Message securely from the cloud!
-        const messagePayload = {
-            notification: {
-                title: 'Pengingat Keuangan 💰',
-                body: 'Jangan lupa luangkan 1 menit untuk mencatat pengeluaran Anda hari ini!'
-            },
-            tokens: tokensToPing,
-        };
-
-        const batchResponse = await messaging.sendEachForMulticast(messagePayload);
-        
-        console.log(`[Cron] Broadcast complete. Success: ${batchResponse.successCount}, Failures: ${batchResponse.failureCount}`);
 
         return res.status(200).json({
             success: true,
-            broadcasted: batchResponse.successCount,
-            failures: batchResponse.failureCount
+            generated: totalGenerated,
+            notifications: messagesToSend.length
         });
 
     } catch (error: any) {
         console.error('[Cron] Fatal Error: ', error);
         return res.status(500).json({ success: false, error: error.message });
     }
+}
+
+function getNextDate(date: Date, freq: string): Date {
+    const next = new Date(date);
+    if (freq === 'daily')   next.setDate(next.getDate() + 1);
+    else if (freq === 'weekly')  next.setDate(next.getDate() + 7);
+    else if (freq === 'monthly') next.setMonth(next.getMonth() + 1);
+    else if (freq === 'yearly')  next.setFullYear(next.getFullYear() + 1);
+    return next;
 }

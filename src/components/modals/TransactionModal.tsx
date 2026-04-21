@@ -8,13 +8,14 @@ interface TransactionModalProps {
   onClose: () => void;
   assets: Asset[];
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
+  addRecurringTransaction?: (rt: Omit<RecurringTransaction, 'id'>) => void;
   updateTransaction?: (id: string, tx: Partial<Transaction>) => void;
   editingTransaction?: Transaction | null;
   initialType?: 'pengeluaran' | 'pendapatan' | 'transfer';
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({ 
-  isOpen, onClose, assets, addTransaction, updateTransaction, editingTransaction, initialType 
+  isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, editingTransaction, initialType 
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
   const { categories, budgets, transactions } = useMoney();
@@ -27,6 +28,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [assetId, setAssetId] = useState(activeAssets[0]?.id || '');
   const [fromAssetId, setFromAssetId] = useState(activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
+  
+  // Recurring state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [recurringEndDate, setRecurringEndDate] = useState('');
 
   useEffect(() => {
     if (editingTransaction) {
@@ -49,6 +55,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setAssetId(activeAssets[0]?.id || '');
       setFromAssetId(activeAssets[0]?.id || '');
       setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
+      setIsRecurring(false);
+      setRecurringEndDate('');
     }
   }, [editingTransaction, isOpen, assets, initialType]);
 
@@ -137,6 +145,18 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       updateTransaction(editingTransaction.id, txData);
     } else {
       addTransaction(txData);
+      
+      // Handle creating recurring transaction if toggled
+      if (isRecurring && addRecurringTransaction) {
+        addRecurringTransaction({
+          ...txData,
+          frequency,
+          startDate: date,
+          lastProcessedDate: date, // Treat today's transaction as already processed
+          endDate: recurringEndDate || undefined,
+          isActive: true
+        });
+      }
     }
     onClose();
   };
@@ -242,6 +262,55 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
             <input type="date" required value={date} onChange={e => setDate(e.target.value)} />
             <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} />
+
+            {!editingTransaction && (
+              <div style={{ 
+                margin: '12px 0', padding: '12px', borderRadius: '12px', 
+                background: isRecurring ? 'hsla(152,70%,42%,0.08)' : 'var(--bg-main)',
+                border: `1px solid ${isRecurring ? 'var(--primary)' : 'var(--border-color)'}`,
+                transition: 'all 0.2s'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ArrowRightLeft size={16} color={isRecurring ? 'var(--primary)' : 'var(--text-muted)'} />
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Jadikan Transaksi Rutin</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={isRecurring} 
+                    onChange={e => setIsRecurring(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
+                  />
+                </label>
+
+                {isRecurring && (
+                  <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Frekuensi</label>
+                      <select 
+                        value={frequency} 
+                        onChange={e => setFrequency(e.target.value as any)}
+                        style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
+                      >
+                        <option value="daily">Harian</option>
+                        <option value="weekly">Mingguan</option>
+                        <option value="monthly">Bulanan</option>
+                        <option value="yearly">Tahunan</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Sampai Tanggal (Opsional)</label>
+                      <input 
+                        type="date" 
+                        value={recurringEndDate} 
+                        onChange={e => setRecurringEndDate(e.target.value)}
+                        style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Budget Alert Banner */}
             {budgetAlerts.length > 0 && (

@@ -38,6 +38,7 @@ const Settings: React.FC = () => {
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
     { id: 'budgets', icon: Target, label: 'Anggaran & Target' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
+    { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
     { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
   ];
@@ -129,6 +130,8 @@ const Settings: React.FC = () => {
     addCategory({ name: newCatName.trim(), type: catTab });
     setNewCatName('');
   };
+
+  const { recurringTransactions, deleteRecurringTransaction, updateRecurringTransaction } = useMoney();
 
   const renderModalContent = () => {
     switch (activeModal) {
@@ -460,6 +463,81 @@ const Settings: React.FC = () => {
                 }
               }}
             />
+          </>
+        );
+
+      case 'recurring':
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Transaksi Rutin</h2>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+            </div>
+            
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Daftar transaksi yang akan tercatat otomatis sesuai jadwal.
+            </p>
+
+            <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {recurringTransactions.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                  Belum ada transaksi rutin. Tambahkan dari menu Transaksi!
+                </div>
+              ) : (
+                recurringTransactions.map(rt => {
+                  const freqLabel = { daily: 'Harian', weekly: 'Mingguan', monthly: 'Bulanan', yearly: 'Tahunan' }[rt.frequency];
+                  return (
+                    <div key={rt.id} className="card" style={{ 
+                      padding: '12px', background: 'var(--bg-main)', 
+                      opacity: rt.isActive ? 1 : 0.6,
+                      border: rt.isActive ? '1px solid var(--border-color)' : '1px dashed var(--border-color)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{rt.note || rt.category}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {freqLabel} • Mulai {new Date(rt.startDate).toLocaleDateString('id-ID')}
+                            {rt.endDate && ` • Sampai ${new Date(rt.endDate).toLocaleDateString('id-ID')}`}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                           <button 
+                            onClick={() => updateRecurringTransaction(rt.id, { isActive: !rt.isActive })}
+                            style={{ 
+                              padding: '4px 8px', borderRadius: '6px', border: 'none', 
+                              backgroundColor: rt.isActive ? 'var(--bg-expense)' : 'var(--bg-income)',
+                              color: rt.isActive ? 'var(--danger)' : 'var(--primary)',
+                              fontSize: '11px', fontWeight: 700, cursor: 'pointer'
+                            }}
+                          >
+                            {rt.isActive ? 'Matikan' : 'Aktifkan'}
+                          </button>
+                          <button 
+                            onClick={() => { if(confirm('Hapus jadwal ini?')) deleteRecurringTransaction(rt.id); }}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ 
+                          fontSize: '12px', fontWeight: 600, 
+                          color: rt.type === 'pengeluaran' ? 'var(--danger)' : rt.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-main)'
+                        }}>
+                          {rt.type === 'pengeluaran' ? '-' : rt.type === 'pendapatan' ? '+' : ''}
+                          Rp{rt.amount.toLocaleString('id-ID')}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          Terakhir: {rt.lastProcessedDate ? new Date(rt.lastProcessedDate).toLocaleDateString('id-ID') : 'Belum pernah'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </>
         );
 

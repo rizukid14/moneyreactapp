@@ -91,6 +91,23 @@ export interface Transaction {
   toAssetId?: string;
 }
 
+export interface RecurringTransaction {
+  id: string;
+  type: 'pengeluaran' | 'pendapatan' | 'transfer';
+  amount: number;
+  category: string;
+  subCategory?: string;
+  assetId?: string;
+  fromAssetId?: string;
+  toAssetId?: string;
+  note: string;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  startDate: string;        // YYYY-MM-DD
+  lastProcessedDate?: string; // YYYY-MM-DD
+  endDate?: string;          // YYYY-MM-DD (Optional stop date)
+  isActive: boolean;
+}
+
 // ─── Default seed data ───────────────────────────────────────────────────────
 const DEFAULT_ASSET: Asset = { id: 'default-1', name: 'Dompet Tunai', type: 'Cash', initialBalance: 0 };
 
@@ -115,6 +132,7 @@ interface MoneyContextType {
   categories: Category[];
   budgets: Budget[];
   debts: Debt[];
+  recurringTransactions: RecurringTransaction[];
   user: UserProfile;
   pin: string | null;
   isAppLocked: boolean;
@@ -135,6 +153,9 @@ interface MoneyContextType {
   addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string) => void;
   updateDebt: (id: string, debt: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
+  addRecurringTransaction: (rt: Omit<RecurringTransaction, 'id'>) => void;
+  updateRecurringTransaction: (id: string, rt: Partial<RecurringTransaction>) => void;
+  deleteRecurringTransaction: (id: string) => void;
   payInstallment: (debtId: string) => void;
   settleDebt: (debtId: string, assetId?: string) => void;
   getAssetBalance: (assetId: string) => number;
@@ -164,6 +185,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [categories,   setCategories]   = useState<Category[]>([]);
   const [budgets,      setBudgets]      = useState<Budget[]>([]);
   const [debts,        setDebts]        = useState<Debt[]>([]);
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [user,         setUser]         = useState<UserProfile>(DEFAULT_USER);
   const [pin,          setPin]          = useState<string | null>(null);
   const [isAppLocked,  setIsAppLocked]  = useState(false);
@@ -197,13 +219,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await migrateFromLocalStorage();
 
       // Load all data from IndexedDB
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRecurring] = await Promise.all([
         dbGetAllAssets(),
         dbGetAllTransactions(),
         dbGetAllCategories(),
         dbGetAllBudgets(),
         dbGetAllDebts(),
+        import('../lib/db').then(m => m.dbGetAllRecurringTransactions())
       ]);
+      setRecurringTransactions(dbRecurring);
 
       // Seed defaults if DB is empty
       if (dbAssets.length === 0) {
@@ -255,6 +279,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       setIsReady(true);
+      // After loading, check for routine transactions that need generating
+      _processRecurring(dbRecurring, dbTxs);
     };
     bootstrap();
   }, [authUser]);
@@ -428,6 +454,111 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newTx: Transaction = { ...tx, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
     setTransactions(prev => [newTx, ...prev]);
     dbPutTransaction(newTx);
+  };
+
+  // ─── Recurring Transactions ───────────────────────────────────────────────
+  const addRecurringTransaction = useCallback((rtReq: Omit<RecurringTransaction, 'id'>) => {
+    import('../lib/db').then(m => {
+      const newRT: RecurringTransaction = { ...rtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+      setRecurringTransactions(prev => [...prev, newRT]);
+      m.dbPutRecurringTransaction(newRT);
+    });
+  }, []);
+
+  const updateRecurringTransaction = useCallback((id: string, updated: Partial<RecurringTransaction>) => {
+    import('../lib/db').then(m => {
+      setRecurringTransactions(prev => prev.map(rt => {
+        if (rt.id !== id) return rt;
+        const next = { ...rt, ...updated };
+        m.dbPutRecurringTransaction(next);
+        return next;
+      }));
+    });
+  }, []);
+
+  const deleteRecurringTransaction = useCallback((id: string) => {
+    import('../lib/db').then(m => {
+      setRecurringTransactions(prev => prev.filter(rt => rt.id !== id));
+      m.dbDeleteRecurringTransaction(id);
+    });
+  }, []);
+
+  const _processRecurring = useCallback((rts: RecurringTransaction[], existingTxs: Transaction[]) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    rts.forEach(rt => {
+      if (!rt.isActive) return;
+
+      const startDate = new Date(rt.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const lastDate = rt.lastProcessedDate ? new Date(rt.lastProcessedDate) : new Date(startDate);
+      lastDate.setHours(0, 0, 0, 0);
+
+      // If last processed is today or in the future, skip
+      if (lastDate >= today && rt.lastProcessedDate) return;
+
+      const endDate = rt.endDate ? new Date(rt.endDate) : null;
+      if (endDate) endDate.setHours(23, 59, 59, 999);
+
+      let currentCheck = new Date(lastDate);
+      if (rt.lastProcessedDate) {
+        // Move to the next instance
+        currentCheck = _getNextDate(currentCheck, rt.frequency);
+      }
+
+      const newTxs: Transaction[] = [];
+      let latestProcessed = rt.lastProcessedDate || null;
+
+      while (currentCheck <= today) {
+        // Stop if passed end date
+        if (endDate && currentCheck > endDate) break;
+
+        // Generate transaction
+        const txDate = currentCheck.toISOString().split('T')[0];
+        
+        // Simple duplicate prevention: check if this recurring ID + date already exists
+        // Note: we might want a more formal field for this later
+        const isDup = existingTxs.some(t => t.note.includes(`[Auto:${rt.id}]`) && t.date === txDate);
+        
+        if (!isDup) {
+          const newTx: Transaction = {
+            id: `auto-${rt.id}-${txDate}`,
+            type: rt.type,
+            amount: rt.amount,
+            category: rt.category,
+            subCategory: rt.subCategory,
+            assetId: rt.assetId,
+            fromAssetId: rt.fromAssetId,
+            toAssetId: rt.toAssetId,
+            date: txDate,
+            note: `${rt.note} [Auto:${rt.id}]`,
+          };
+          newTxs.push(newTx);
+        }
+
+        latestProcessed = txDate;
+        currentCheck = _getNextDate(currentCheck, rt.frequency);
+      }
+
+      if (newTxs.length > 0) {
+        newTxs.forEach(t => {
+          setTransactions(prev => [t, ...prev]);
+          import('../lib/db').then(m => m.dbPutTransaction(t));
+        });
+        updateRecurringTransaction(rt.id, { lastProcessedDate: latestProcessed! });
+      }
+    });
+  }, []);
+
+  const _getNextDate = (date: Date, freq: RecurringTransaction['frequency']): Date => {
+    const next = new Date(date);
+    if (freq === 'daily')   next.setDate(next.getDate() + 1);
+    if (freq === 'weekly')  next.setDate(next.getDate() + 7);
+    if (freq === 'monthly') next.setMonth(next.getMonth() + 1);
+    if (freq === 'yearly')  next.setFullYear(next.getFullYear() + 1);
+    return next;
   };
 
   /**

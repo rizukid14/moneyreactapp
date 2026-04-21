@@ -24,7 +24,7 @@ interface TransactionGroup {
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, addTransaction, deleteTransaction, updateTransaction } = useMoney();
+  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [initialType, setInitialType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
@@ -333,6 +333,7 @@ const Transactions: React.FC = () => {
         onClose={handleCloseModal}
         assets={assets}
         addTransaction={addTransaction}
+        addRecurringTransaction={addRecurringTransaction}
         updateTransaction={updateTransaction}
         editingTransaction={editingTransaction}
         initialType={initialType}

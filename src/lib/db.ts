@@ -5,7 +5,7 @@ import type { Asset, Transaction, Category, UserProfile } from '../contexts/Mone
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export interface MoneyAppDB {
   assets: { key: string; value: Asset };
@@ -13,6 +13,7 @@ export interface MoneyAppDB {
   categories: { key: string; value: Category };
   budgets: { key: string; value: any };
   debts: { key: string; value: any };
+  recurring_transactions: { key: string; value: any };
   settings: { key: string; value: string | number | boolean | UserProfile | null };
 }
 
@@ -27,6 +28,7 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('categories'))   db.createObjectStore('categories',   { keyPath: 'id' });
         if (!db.objectStoreNames.contains('budgets'))      db.createObjectStore('budgets',      { keyPath: 'id' });
         if (!db.objectStoreNames.contains('debts'))        db.createObjectStore('debts',        { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('recurring_transactions')) db.createObjectStore('recurring_transactions', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings'))     db.createObjectStore('settings');
       },
     });
@@ -144,6 +146,21 @@ export const dbDeleteDebt = async (id: string) => {
   await deleteDoc(doc(firestore, 'users', getUid(), 'debts', id));
 };
 
+// ─── Recurring Transactions ──────────────────────────────────────────
+export const dbGetAllRecurringTransactions = async (): Promise<any[]> => {
+  if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).getAll('recurring_transactions');
+  const snapshot = await getDocs(collection(firestore, 'users', getUid(), 'recurring_transactions'));
+  return snapshot.docs.map(d => d.data());
+};
+export const dbPutRecurringTransaction = async (rt: any) => {
+  if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).put('recurring_transactions', rt);
+  await setDoc(doc(firestore, 'users', getUid(), 'recurring_transactions', rt.id), sanitizeForFirestore(rt));
+};
+export const dbDeleteRecurringTransaction = async (id: string) => {
+  if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).delete('recurring_transactions', id);
+  await deleteDoc(doc(firestore, 'users', getUid(), 'recurring_transactions', id));
+};
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 export const dbGetSetting = async (key: string) => {
   if (!isFirebaseConfigured || !auth.currentUser) return localDbGetSetting(key);
@@ -164,16 +181,17 @@ export const dbDeleteSetting = async (key: string) => {
 
 // ─── Full Export (for JSON backup) ───────────────────────────────────────────
 export const dbExportAll = async () => {
-  const [assets, transactions, categories, budgets] = await Promise.all([
+  const [assets, transactions, categories, budgets, recurring] = await Promise.all([
     dbGetAllAssets(),
     dbGetAllTransactions(),
     dbGetAllCategories(),
     dbGetAllBudgets(),
+    dbGetAllRecurringTransactions(),
   ]);
   const user    = await dbGetSetting('user');
   const pin     = await dbGetSetting('pin');
   const theme   = await dbGetSetting('theme');
-  return { assets, transactions, categories, budgets, user, pin, theme, exportedAt: new Date().toISOString() };
+  return { assets, transactions, categories, budgets, recurring, user, pin, theme, exportedAt: new Date().toISOString() };
 };
 
 // ─── Full Import (from JSON backup) ──────────────────────────────────────────
@@ -188,6 +206,9 @@ export const dbImportAll = async (data: ReturnType<typeof dbExportAll> extends P
     for (const a of data.assets)       await tx1.objectStore('assets').put(a);
     for (const t of data.transactions) await tx1.objectStore('transactions').put(t);
     for (const c of data.categories)   await tx1.objectStore('categories').put(c);
+    if (data.recurring) {
+        for (const r of data.recurring) await tx1.objectStore('recurring_transactions').put(r);
+    }
     if (data.budgets) {
         for (const b of data.budgets)  await tx1.objectStore('budgets').put(b);
     }
@@ -199,6 +220,9 @@ export const dbImportAll = async (data: ReturnType<typeof dbExportAll> extends P
     for (const a of data.assets)       await dbPutAsset(a);
     for (const t of data.transactions) await dbPutTransaction(t);
     for (const c of data.categories)   await dbPutCategory(c);
+    if (data.recurring) {
+        for (const r of data.recurring) await dbPutRecurringTransaction(r);
+    }
     if (data.budgets) {
         for (const b of data.budgets)  await dbPutBudget(b);
     }
