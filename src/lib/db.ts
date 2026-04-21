@@ -107,19 +107,25 @@ export const dbDeleteCategory = async (id: string) => {
 };
 export const dbClearCategories = async () => { if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).clear('categories'); };
 
-// ─── Budgets ──────────────────────────────────────────────────────────────────
+// ─── Budgets (Moved to Settings) ─────────────────────────────────────────────
 export const dbGetAllBudgets = async (): Promise<any[]> => {
-  if (!isFirebaseConfigured || !auth.currentUser) return localDbGetAllBudgets();
-  const snapshot = await getDocs(collection(firestore, 'users', getUid(), 'budgets'));
-  return snapshot.docs.map(doc => doc.data());
+  if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).getAll('budgets');
+  const budgets = await dbGetSetting('budgets');
+  return Array.isArray(budgets) ? budgets : [];
 };
 export const dbPutBudget = async (b: any) => {
   if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).put('budgets', b);
-  await setDoc(doc(firestore, 'users', getUid(), 'budgets', b.id), sanitizeForFirestore(b));
+  const budgets = await dbGetAllBudgets();
+  const idx = budgets.findIndex((item: any) => item.id === b.id);
+  if (idx > -1) budgets[idx] = b;
+  else budgets.push(b);
+  await dbPutSetting('budgets', budgets);
 };
 export const dbDeleteBudget = async (id: string) => {
   if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).delete('budgets', id);
-  await deleteDoc(doc(firestore, 'users', getUid(), 'budgets', id));
+  const budgets = await dbGetAllBudgets();
+  const filtered = budgets.filter((item: any) => item.id !== id);
+  await dbPutSetting('budgets', filtered);
 };
 
 // ─── Debts ────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
 import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/excelImport';
+import { BudgetManagement } from '../components/BudgetManagement';
 
 const Settings: React.FC = () => {
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut } = useMoney();
@@ -35,6 +35,7 @@ const Settings: React.FC = () => {
   const menuItems = [
     { id: 'profile', icon: User, label: 'Profil Saya' },
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
+    { id: 'budgets', icon: Target, label: 'Anggaran & Target' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
     { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
@@ -458,6 +459,17 @@ const Settings: React.FC = () => {
                 }
               }}
             />
+          </>
+        );
+
+      case 'budgets':
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Anggaran & Target</h2>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+            </div>
+            <BudgetManagement />
           </>
         );
 

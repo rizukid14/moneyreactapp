@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Target, TrendingDown, Wallet } from 'lucide-react';
 import { useMoney, type Budget } from '../contexts/MoneyContext';
-import BudgetModal from '../components/modals/BudgetModal';
+import BudgetModal from './modals/BudgetModal';
 
 const MONTH_NAMES = [
   'Januari','Februari','Maret','April','Mei','Juni',
@@ -55,7 +55,6 @@ const BudgetCard: React.FC<{
 
   return (
     <div className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative' }}>
-      {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {icon && (
@@ -78,11 +77,11 @@ const BudgetCard: React.FC<{
           </div>
         </div>
         <div style={{ position: 'relative' }}>
-          <button onClick={onMenuToggle} className="btn-icon" style={{ padding: 4 }}>
+          <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
             <MoreVertical size={16} />
           </button>
           {isMenuOpen && (
-            <div className="budget-dropdown">
+            <div className="budget-dropdown" style={{ right: 0, top: 28 }}>
               <button className="budget-dropdown-item" onClick={onEdit}><Edit2 size={13} /> Edit</button>
               <button className="budget-dropdown-item danger" onClick={onDelete}><Trash2 size={13} /> Hapus</button>
             </div>
@@ -90,7 +89,6 @@ const BudgetCard: React.FC<{
         </div>
       </div>
 
-      {/* Progress bar */}
       <div style={{ height: 7, background: 'var(--bg-neutral)', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
         <div style={{
           height: '100%', borderRadius: 4,
@@ -100,7 +98,6 @@ const BudgetCard: React.FC<{
         }} />
       </div>
 
-      {/* Meta row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
         <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
           {fmt(spent)} <span style={{ opacity: 0.5 }}>/ {fmt(limit)}</span>
@@ -116,7 +113,7 @@ const BudgetCard: React.FC<{
   );
 };
 
-const Budgets: React.FC = () => {
+export const BudgetManagement: React.FC = () => {
   const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -154,94 +151,48 @@ const Budgets: React.FC = () => {
 
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
   const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
-
   const globalPercent = globalBudget ? (spendingMap.total / globalBudget.limit) * 100 : 0;
   const totalOverBudgets = categoryBudgets.filter(b => (spendingMap[b.categoryId!] || 0) > b.limit).length;
 
   return (
-    <div className="page" onClick={() => setActiveMenu(null)}>
-      {/* Page header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 className="title" style={{ margin: 0, fontSize: 24 }}>Anggaran</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Kontrol pengeluaran bulananmu</p>
-        </div>
-        <button
-          onClick={e => { e.stopPropagation(); openAdd(); }}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--primary-gradient)', color: '#fff',
-            border: 'none', borderRadius: 14, padding: '10px 16px',
-            fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            boxShadow: '0 4px 16px var(--primary-glow)'
-          }}
-        >
-          <PlusCircle size={16} /> Tambah
-        </button>
-      </div>
-
+    <div className="budget-management-embedded" onClick={() => setActiveMenu(null)}>
       {/* Month Switcher */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: 'var(--bg-card)', borderRadius: 16, padding: '6px 8px', marginBottom: 24,
-        border: '1px solid var(--border-color)'
+        background: 'var(--bg-main)', borderRadius: 14, padding: '4px 6px', marginBottom: 16,
       }}>
-        <button onClick={() => changeMonth(-1)} className="btn-icon"><ChevronLeft size={20} /></button>
-        <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>
+        <button onClick={() => changeMonth(-1)} className="btn-icon"><ChevronLeft size={18} /></button>
+        <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>
           {MONTH_NAMES[selectedMonth]} {selectedYear}
         </span>
-        <button onClick={() => changeMonth(1)} className="btn-icon"><ChevronRight size={20} /></button>
+        <button onClick={() => changeMonth(1)} className="btn-icon"><ChevronRight size={18} /></button>
       </div>
 
-      {/* Global Budget Hero Card */}
+      {/* Hero Card */}
       {globalBudget ? (
-        <div className={`budget-hero-card ${globalPercent >= 100 ? 'danger' : globalPercent >= 80 ? 'warning' : ''}`} style={{ marginBottom: 24, position: 'relative' }}>
+        <div className={`budget-hero-card ${globalPercent >= 100 ? 'danger' : globalPercent >= 80 ? 'warning' : ''}`} style={{ marginBottom: 16, position: 'relative', padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
-                Total Anggaran Bulanan
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>
+                Total Anggaran
               </div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.1 }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>
                 {fmt(globalBudget.limit)}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                 Terpakai <strong style={{ color: globalPercent >= 100 ? 'var(--danger)' : 'var(--text-main)' }}>{fmt(spendingMap.total)}</strong>
               </div>
-              {globalPercent >= 100 ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 10, padding: '6px 10px', background: 'hsla(350,80%,58%,0.12)', borderRadius: 8, width: 'fit-content' }}>
-                  <AlertTriangle size={13} color="var(--danger)" />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>
-                    Melebihi {fmt(spendingMap.total - globalBudget.limit)}
-                  </span>
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
-                  Sisa <strong style={{ color: 'var(--success)' }}>{fmt(globalBudget.limit - spendingMap.total)}</strong>
-                </div>
-              )}
             </div>
-            <div style={{ flexShrink: 0, marginLeft: 12 }}>
+            <div style={{ transform: 'scale(0.8)', marginLeft: -10 }}>
               <CircleProgress percent={globalPercent} />
             </div>
           </div>
-
-          {/* Overbudget category alerts */}
-          {totalOverBudgets > 0 && (
-            <div style={{ marginTop: 12, padding: '8px 12px', background: 'hsla(350,80%,58%,0.08)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <AlertTriangle size={14} color="var(--danger)" />
-              <span style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 700 }}>
-                {totalOverBudgets} kategori melebihi batas anggaran
-              </span>
-            </div>
-          )}
-
-          {/* 3-dot menu */}
-          <div style={{ position: 'absolute', top: 12, right: 12 }} onClick={e => e.stopPropagation()}>
+          <div style={{ position: 'absolute', top: 10, right: 10 }} onClick={e => e.stopPropagation()}>
             <button onClick={() => setActiveMenu(activeMenu === globalBudget.id ? null : globalBudget.id)} className="btn-icon" style={{ padding: 4 }}>
-              <MoreVertical size={18} />
+              <MoreVertical size={16} />
             </button>
             {activeMenu === globalBudget.id && (
-              <div className="budget-dropdown" style={{ right: 0, top: 32 }}>
+              <div className="budget-dropdown" style={{ right: 0, top: 28 }}>
                 <button className="budget-dropdown-item" onClick={() => handleEdit(globalBudget)}><Edit2 size={13} /> Edit</button>
                 <button className="budget-dropdown-item danger" onClick={() => handleDelete(globalBudget.id)}><Trash2 size={13} /> Hapus</button>
               </div>
@@ -249,78 +200,42 @@ const Budgets: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="budget-empty-hero" style={{ marginBottom: 24 }}>
-          <div style={{ marginBottom: 12 }}>
-            <Target size={40} strokeWidth={1.5} color="var(--primary)" />
-          </div>
-          <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Belum ada anggaran total</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 18 }}>Tetapkan batas belanja bulanan agar keuanganmu terkontrol.</p>
-          <button
-            onClick={openAdd}
-            style={{
-              background: 'var(--primary-gradient)', color: '#fff', border: 'none',
-              borderRadius: 12, padding: '10px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-              boxShadow: '0 4px 14px var(--primary-glow)'
-            }}
-          >
-            Set Anggaran Global
-          </button>
+        <div className="budget-empty-hero" style={{ padding: 16, borderRadius: 16, border: '2px dashed var(--border-color)', textAlign: 'center', marginBottom: 16 }}>
+          <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Belum ada anggaran total</p>
+          <button onClick={openAdd} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 12 }}>Set Anggaran Global</button>
         </div>
       )}
 
-      {/* Category budgets section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Anggaran Kategori</h2>
-        {categoryBudgets.length > 0 && (
-          <button onClick={e => { e.stopPropagation(); openAdd(); }} style={{
-            display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none',
-            color: 'var(--primary)', fontWeight: 700, fontSize: 13, cursor: 'pointer'
-          }}>
-            <PlusCircle size={14} /> Tambah
-          </button>
-        )}
+      {/* Categories */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0 }}>Anggaran Kategori</h3>
+        <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <PlusCircle size={14} /> Tambah
+        </button>
       </div>
 
-      <div className="budget-grid" style={{ marginBottom: 100 }}>
-        {categoryBudgets.length === 0 ? (
-          <div className="budget-empty-cat" onClick={e => e.stopPropagation()}>
-            <TrendingDown size={32} strokeWidth={1.5} color="var(--text-muted)" style={{ marginBottom: 8 }} />
-            <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)', marginBottom: 4 }}>
-              Belum ada anggaran kategori
-            </p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: globalBudget ? 16 : 0 }}>
-              Pantau pengeluaran per kategori lebih detail.
-            </p>
-            {globalBudget && (
-              <button onClick={openAdd} style={{
-                background: 'var(--bg-neutral)', border: '1.5px dashed var(--border-color)',
-                borderRadius: 10, padding: '9px 18px', color: 'var(--primary)',
-                fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
-              }}>
-                <PlusCircle size={14} /> Tambah kategori
-              </button>
-            )}
-          </div>
-        ) : (
-          categoryBudgets.map(b => {
-            const cat = categories.find(c => c.id === b.categoryId);
-            const spent = spendingMap[b.categoryId!] || 0;
-            return (
-              <div key={b.id} onClick={e => e.stopPropagation()}>
-                <BudgetCard
-                  label={cat?.name || 'Kategori Terhapus'}
-                  icon={<Wallet size={16} />}
-                  spent={spent}
-                  limit={b.limit}
-                  isOver={spent > b.limit}
-                  onEdit={() => handleEdit(b)}
-                  onDelete={() => handleDelete(b.id)}
-                  isMenuOpen={activeMenu === b.id}
-                  onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
-                />
-              </div>
-            );
-          })
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, maxHeight: '300px', overflowY: 'auto', paddingRight: 4 }}>
+        {categoryBudgets.map(b => {
+          const cat = categories.find(c => c.id === b.categoryId);
+          const spent = spendingMap[b.categoryId!] || 0;
+          return (
+            <div key={b.id} onClick={e => e.stopPropagation()}>
+              <BudgetCard
+                label={cat?.name || 'Kategori Terhapus'}
+                icon={<Wallet size={14} />}
+                spent={spent}
+                limit={b.limit}
+                isOver={spent > b.limit}
+                onEdit={() => handleEdit(b)}
+                onDelete={() => handleDelete(b.id)}
+                isMenuOpen={activeMenu === b.id}
+                onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
+              />
+            </div>
+          );
+        })}
+        {categoryBudgets.length === 0 && (
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: '20px 0' }}>Belum ada anggaran kategori.</div>
         )}
       </div>
 
@@ -338,5 +253,3 @@ const Budgets: React.FC = () => {
     </div>
   );
 };
-
-export default Budgets;

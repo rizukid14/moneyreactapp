@@ -12,6 +12,8 @@ import {
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
@@ -231,6 +233,25 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedPin)  { setPin(savedPin); setIsAppLocked(true); }
       if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
       if (savedPrivacy !== undefined) setIsPrivateMode(savedPrivacy);
+
+      // --- Migration: budgets collection -> settings/budgets ---
+      if (isFirebaseConfigured && auth.currentUser) {
+        const isMigrated = await dbGetSetting('budgets_migrated_to_settings');
+        if (!isMigrated) {
+          try {
+            const oldCollection = collection(firestore, 'users', auth.currentUser.uid, 'budgets');
+            const snapshot = await getDocs(oldCollection);
+            if (!snapshot.empty) {
+              const oldBudgets = snapshot.docs.map(d => d.data());
+              await dbPutSetting('budgets', oldBudgets);
+              // Clean up old collection
+              const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+              await Promise.all(deletePromises);
+            }
+            await dbPutSetting('budgets_migrated_to_settings', true);
+          } catch (e) { console.error('[Migration] Budgets failed:', e); }
+        }
+      }
 
       setIsReady(true);
     };

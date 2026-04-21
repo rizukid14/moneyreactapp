@@ -15,10 +15,6 @@ const Layout: React.FC = () => {
         <LineChart size={24} />
         <span>Statistik</span>
       </NavLink>
-      <NavLink to="/budgets" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <Target size={24} />
-        <span>Anggaran</span>
-      </NavLink>
       <NavLink to="/assets" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <Wallet size={24} />
         <span>Aset</span>
