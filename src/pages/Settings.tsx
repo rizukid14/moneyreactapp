@@ -1,3 +1,4 @@
+import React, { useState, useRef } from 'react';
 import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
