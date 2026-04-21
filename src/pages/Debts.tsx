@@ -259,7 +259,7 @@ const DebtCard: React.FC<{
 };
 
 const Debts: React.FC = () => {
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
