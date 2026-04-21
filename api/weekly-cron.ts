@@ -82,23 +82,26 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
         console.log('[Cron] Starting Weekly Report Push Broadcast...');
 
-        // 1. Find all users who have weeklyReport == true
-        const weeklyReportDocs = await db.collectionGroup('settings')
-            .where('value', '==', true)
-            .get();
+        // 1. Find all users who have an fcmToken registered
+        // We query the collection group 'settings' and filter for docs named 'fcmToken' in-memory
+        // to avoid the need for custom Firestore indices.
+        const settingsDocs = await db.collectionGroup('settings').get();
             
-        const targetUserUids: string[] = [];
-        weeklyReportDocs.forEach(docSnap => {
-            if (docSnap.id === 'weeklyReport') {
+        const targets: { uid: string, token: string }[] = [];
+        settingsDocs.forEach(docSnap => {
+            if (docSnap.id === 'fcmToken') {
+                const token = docSnap.data()?.value;
                 const uid = docSnap.ref.parent.parent?.id;
-                if (uid) targetUserUids.push(uid);
+                if (typeof token === 'string' && uid) {
+                    targets.push({ uid, token });
+                }
             }
         });
 
-        console.log(`[Cron] Found ${targetUserUids.length} users with Weekly Reports enabled.`);
+        console.log(`[Cron] Found ${targets.length} users with active FCM tokens.`);
 
-        if (targetUserUids.length === 0) {
-            return res.status(200).json({ success: true, message: 'No users targeting weekly report.' });
+        if (targets.length === 0) {
+            return res.status(200).json({ success: true, message: 'No users with active tokens found.' });
         }
 
         // Calculate time window (Last 7 days)
@@ -111,13 +114,8 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         let failureCount = 0;
 
         // 2. Process each user individually (for customized metrics)
-        await Promise.all(targetUserUids.map(async (uid) => {
+        await Promise.all(targets.map(async ({ uid, token: fcmToken }) => {
             try {
-                // Fetch Token
-                const tokenDoc = await db.doc(`users/${uid}/settings/fcmToken`).get();
-                if (!tokenDoc.exists || !tokenDoc.data()?.value) return;
-                const fcmToken = tokenDoc.data()?.value as string;
-
                 // Fetch recent transactions (Filter securely server-side)
                 const txSnapshot = await db.collection(`users/${uid}/transactions`)
                     .where('date', '>=', sevenDaysAgoStr)

@@ -77,51 +77,28 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
         console.log('[Cron] Starting Daily Reminder Push Broadcast...');
 
-        // 1. Find all users who have dailyReminder == true
-        // In our Firestore schema, this is stored as /users/{uid}/settings/dailyReminder { value: true }
-        const dailyReminderDocs = await db.collectionGroup('settings')
-            .where('value', '==', true)
-            .get();
+        // 1. Find all users who have an fcmToken registered
+        // We query the collection group 'settings' and filter for docs named 'fcmToken' in-memory
+        // to avoid the need for custom Firestore indices.
+        const settingsDocs = await db.collectionGroup('settings').get();
             
-        // Filter out those strictly named "dailyReminder" since FieldPath documentId query on collectionGroups is restricted
-        const targetUserUids: string[] = [];
-        dailyReminderDocs.forEach(docSnap => {
-            if (docSnap.id === 'dailyReminder') {
-                // The parent path is /users/{uid}/settings
-                const uid = docSnap.ref.parent.parent?.id;
-                if (uid) targetUserUids.push(uid);
+        const tokensToPing: string[] = [];
+        settingsDocs.forEach(docSnap => {
+            if (docSnap.id === 'fcmToken') {
+                const token = docSnap.data()?.value;
+                if (typeof token === 'string') {
+                    tokensToPing.push(token);
+                }
             }
         });
-
-        console.log(`[Cron] Found ${targetUserUids.length} users with Daily Reminders enabled.`);
-
-        if (targetUserUids.length === 0) {
-            return res.status(200).json({ success: true, message: 'No users targeting daily reminder.' });
-        }
-
-        // 2. Fetch the FCM Tokens for those specific users
-        const tokensToPing: string[] = [];
-        
-        // Fetch tokens concurrently in small batches
-        await Promise.all(targetUserUids.map(async (uid) => {
-            try {
-                const tokenDoc = await db.doc(`users/${uid}/settings/fcmToken`).get();
-                if (tokenDoc.exists) {
-                    const tokenData = tokenDoc.data();
-                    if (tokenData && typeof tokenData.value === 'string') {
-                        tokensToPing.push(tokenData.value);
-                    }
-                }
-            } catch (err) {
-                console.warn(`[Cron] Could not fetch token for user ${uid}`);
-            }
-        }));
 
         console.log(`[Cron] Found ${tokensToPing.length} active FCM tokens.`);
 
         if (tokensToPing.length === 0) {
-            return res.status(200).json({ success: true, message: 'No active valid tokens found for the targeted users.' });
+            return res.status(200).json({ success: true, message: 'No active valid tokens found.' });
         }
+
+
 
         // 3. Blast the Multicast Message securely from the cloud!
         const messagePayload = {
