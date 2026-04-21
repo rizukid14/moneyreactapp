@@ -89,6 +89,7 @@ export interface Transaction {
   assetId?: string;
   fromAssetId?: string;
   toAssetId?: string;
+  relatedId?: string; // Links to Debt.id, etc.
 }
 
 export interface RecurringTransaction {
@@ -158,6 +159,7 @@ interface MoneyContextType {
   deleteRecurringTransaction: (id: string) => void;
   payInstallment: (debtId: string) => void;
   settleDebt: (debtId: string, assetId?: string) => void;
+  addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, note: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
@@ -404,6 +406,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           date: today,
           note: `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
           assetId: newDebt.paymentAssetId,
+          relatedId: newDebt.id,
         });
       }
     } else {
@@ -417,6 +420,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           date: today,
           note: `Penerimaan dana pinjaman dari ${newDebt.contact}`,
           assetId: newDebt.liabilityAssetId,
+          relatedId: newDebt.id,
         });
       } else if (initialMode === 'credit' && newDebt.liabilityAssetId) {
         // Credit/Paylater purchase: Account balance decreases (Expense)
@@ -427,6 +431,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           date: today,
           note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
           assetId: newDebt.liabilityAssetId,
+          relatedId: newDebt.id,
         });
       }
     }
@@ -593,16 +598,18 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             note,
             fromAssetId: debt.paymentAssetId,
             toAssetId: debt.liabilityAssetId,
+            relatedId: debtId,
           });
         } else {
           // Terima pembayaran piutang: Pendapatan masuk ke receiveAssetId
           _createTx({
             type: 'pendapatan',
             amount: amt,
-            category: 'Pendapatan Lain',
+            category: 'Pelunasan Piutang',
             date: today,
             note,
             assetId: debt.receiveAssetId,
+            relatedId: debtId,
           });
         }
       }
@@ -640,15 +647,17 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               note,
               fromAssetId: overrideAssetId || debt.paymentAssetId,
               toAssetId: debt.liabilityAssetId,
+              relatedId: debtId,
             });
           } else {
             _createTx({
               type: 'pendapatan',
               amount: remaining,
-              category: 'Pendapatan Lain',
+              category: 'Pelunasan Piutang',
               date: today,
               note,
               assetId: overrideAssetId || debt.receiveAssetId,
+              relatedId: debtId,
             });
           }
         }
@@ -659,6 +668,34 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return prev.map(d => d.id === debtId ? updated : d);
     });
   }, []);
+
+  const addDebtPayment = useCallback((debtId: string, amount: number, assetId: string, date: string, note: string) => {
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) return;
+
+    if (debt.type === 'hutang') {
+      _createTx({
+        type: 'transfer',
+        amount,
+        category: 'Transfer',
+        date,
+        note,
+        fromAssetId: assetId,
+        toAssetId: debt.liabilityAssetId,
+        relatedId: debtId,
+      });
+    } else {
+      _createTx({
+        type: 'pendapatan',
+        amount,
+        category: 'Pelunasan Piutang',
+        date,
+        note,
+        assetId,
+        relatedId: debtId,
+      });
+    }
+  }, [debts]);
 
 
   // ─── Balance ──────────────────────────────────────────────────────────────
@@ -757,7 +794,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, 
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    payInstallment, settleDebt,
+    payInstallment, settleDebt, addDebtPayment,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut,
   }), [
@@ -768,7 +805,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     addBudget, updateBudget, deleteBudget,
-    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt,
+    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut,
   ]);

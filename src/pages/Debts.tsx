@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
-import { useMoney, type Debt } from '../contexts/MoneyContext';
+import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
 import DebtModal from '../components/modals/DebtModal';
-import SettleDebtModal from '../components/modals/SettleDebtModal';
+import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 
 const fmt = (n: number) => `Rp${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -22,7 +22,13 @@ const DebtCard: React.FC<{
   liabilityName?: string;
   paymentName?: string;
   receiveName?: string;
-}> = ({ debt, onEdit, onDelete, onPay, onSettle, onUnpay, liabilityName, paymentName, receiveName }) => {
+  history: Transaction[];
+  onToggleExpand: () => void;
+  isExpanded: boolean;
+}> = ({ 
+  debt, onEdit, onDelete, onPay, onSettle, onUnpay, 
+  liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded 
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const isHutang = debt.type === 'hutang';
   const daysLeft = getDaysUntilDue(debt.dueDate);
@@ -33,9 +39,19 @@ const DebtCard: React.FC<{
     ? Math.round((debt.paidInstallments / debt.totalInstallments) * 100)
     : null;
 
-  const paidAmount = debt.isInstallment && debt.installmentAmount
-    ? debt.paidInstallments * debt.installmentAmount
-    : 0;
+  const paidAmount = history.reduce((sum, tx) => {
+    // Only count transactions that move money IN for piutang or OUT for hutang
+    // Actually, for linkedId, we treat all as payments/installments vs the principal
+    // Except the principal itself (which might be in history too)
+    
+    // Check if it's the principal transaction (the one created during addDebt)
+    const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') || 
+                         tx.note.includes('Pemberian pinjaman') || 
+                         tx.note.includes('Belanja via'));
+    
+    if (isPrincipal) return sum;
+    return sum + tx.amount;
+  }, 0);
 
   const remainingAmount = debt.totalAmount - paidAmount;
 
@@ -48,7 +64,9 @@ const DebtCard: React.FC<{
       boxShadow: debt.isPaid ? 'none' : isOverdue ? '0 4px 16px rgba(239,68,68,0.1)' : '0 2px 8px rgba(0,0,0,0.04)',
       opacity: debt.isPaid ? 0.7 : 1,
       position: 'relative',
-    }}>
+      cursor: 'pointer',
+      transition: 'all 0.2s ease'
+    }} onClick={onToggleExpand}>
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
         {/* Icon */}
@@ -180,30 +198,74 @@ const DebtCard: React.FC<{
         </div>
 
         {/* Pay installment button */}
-        {debt.isInstallment && !debt.isPaid && (
-          <button
-            onClick={onPay}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 10,
-              background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-              boxShadow: '0 3px 10px var(--primary-glow)',
+        <div style={{ display: 'flex', gap: 8 }}>
+          {!debt.isPaid && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onPay(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 10,
+                background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                boxShadow: '0 3px 10px var(--primary-glow)',
+              }}
+            >
+              <PlayCircle size={14} /> Cicil / Lunas
+            </button>
+          )}
+          <button 
+            onClick={(e) => { e.stopPropagation(); onToggleExpand(); }} 
+            className="btn-icon" 
+            style={{ 
+              padding: 4, transform: isExpanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.3s'
             }}
           >
-            <PlayCircle size={14} /> Bayar Cicilan
+            <ChevronRight size={18} />
           </button>
-        )}
+        </div>
       </div>
+
+      {/* History section */}
+      {isExpanded && (
+        <div style={{ 
+          marginTop: 16, paddingTop: 16, borderTop: '1px dashed var(--border-color)',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10 }}>
+            Riwayat Transaksi
+          </div>
+          {history.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', padding: '10px 0' }}>
+              Belum ada riwayat pembayaran.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {history.map(tx => (
+                <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{tx.note}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{tx.date}</div>
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-main)' }}>
+                    {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}{fmt(tx.amount)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
 const Debts: React.FC = () => {
-  const { debts, assets, categories, addDebt, updateDebt, deleteDebt, payInstallment, settleDebt } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
-  const [settlingDebt, setSettlingDebt] = useState<Debt | null>(null);
+  const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
   const [filter, setFilter] = useState<'all' | 'hutang' | 'piutang' | 'lunas'>('all');
+  const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
@@ -218,14 +280,20 @@ const Debts: React.FC = () => {
     let totalHutang = 0, totalPiutang = 0;
     debts.forEach(d => {
       if (d.isPaid) return;
-      const remaining = d.isInstallment
-        ? Math.max(0, d.totalAmount - (d.paidInstallments * (d.installmentAmount || 0)))
-        : d.totalAmount;
+      const history = transactions.filter(t => t.relatedId === d.id);
+      const paidAmt = history.reduce((sum, tx) => {
+        const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') || 
+                             tx.note.includes('Pemberian pinjaman') || 
+                             tx.note.includes('Belanja via'));
+        return isPrincipal ? sum : sum + tx.amount;
+      }, 0);
+      
+      const remaining = Math.max(0, d.totalAmount - paidAmt);
       if (d.type === 'hutang') totalHutang += remaining;
       else totalPiutang += remaining;
     });
     return { totalHutang, totalPiutang, net: totalPiutang - totalHutang };
-  }, [debts]);
+  }, [debts, transactions]);
 
   const filtered = useMemo(() => {
     return debts.filter(d => {
@@ -343,15 +411,17 @@ const Debts: React.FC = () => {
               onEdit={() => openEdit(d)}
               onDelete={() => { if (confirm('Hapus catatan ini?')) deleteDebt(d.id); }}
               onPay={() => {
-                if (confirm(`Bayar cicilan ${d.contact} sebesar ${fmt(d.installmentAmount || 0)}?\n\nIni akan membuat transaksi baru dan mengurangi saldo rekening pembayaran.`)) {
-                  payInstallment(d.id);
-                }
+                setPayingDebt(d);
+                setIsPaymentModalOpen(true);
               }}
               onSettle={() => {
-                setSettlingDebt(d);
-                setIsSettleModalOpen(true);
+                setPayingDebt(d);
+                setIsPaymentModalOpen(true);
               }}
               onUnpay={() => updateDebt(d.id, { isPaid: false })}
+              history={transactions.filter(t => t.relatedId === d.id).sort((a, b) => b.date.localeCompare(a.date))}
+              onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
+              isExpanded={expandedDebtId === d.id}
             />
           ))
         )}
@@ -366,16 +436,26 @@ const Debts: React.FC = () => {
         categories={categories.filter(c => c.type === 'pengeluaran')}
       />
 
-      {settlingDebt && (
-        <SettleDebtModal
-          isOpen={isSettleModalOpen}
-          onClose={() => setIsSettleModalOpen(false)}
-          onConfirm={(assetId) => {
-            settleDebt(settlingDebt.id, assetId);
-            setIsSettleModalOpen(false);
-          }}
-          debt={settlingDebt}
+      {payingDebt && (
+        <DebtPaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          debt={payingDebt}
           assets={assets}
+          paidAmountFromTxs={transactions.filter(t => t.relatedId === payingDebt.id).reduce((sum, tx) => {
+             const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') || 
+                                  tx.note.includes('Pemberian pinjaman') || 
+                                  tx.note.includes('Belanja via'));
+             return isPrincipal ? sum : sum + tx.amount;
+          }, 0)}
+          onConfirm={(amt, assetId, date, note, isFull) => {
+            if (isFull) {
+              settleDebt(payingDebt.id, assetId);
+            } else {
+              addDebtPayment(payingDebt.id, amt, assetId, date, note);
+            }
+            setIsPaymentModalOpen(false);
+          }}
         />
       )}
     </div>
