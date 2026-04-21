@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
@@ -32,6 +32,7 @@ const Transactions: React.FC = () => {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   const [groupBy, setGroupBy] = useState<GroupBy>('date');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const getAssetName = useCallback((id?: string) => {
     const asset = assets.find(a => a.id === id);
@@ -48,6 +49,24 @@ const Transactions: React.FC = () => {
     let exp = 0;
 
     const filtered = transactions.filter(tx => {
+      // 1. Search Query logic (Global)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matches = (
+          tx.note.toLowerCase().includes(q) ||
+          tx.category.toLowerCase().includes(q) ||
+          (tx.subCategory && tx.subCategory.toLowerCase().includes(q)) ||
+          tx.amount.toString().includes(q)
+        );
+        if (!matches) return false;
+        
+        // If matches search, sum up for the visible context
+        if (tx.type === 'pendapatan') inc += tx.amount;
+        if (tx.type === 'pengeluaran') exp += tx.amount;
+        return true;
+      }
+
+      // 2. Default Month/Year filter
       const txD = new Date(tx.date);
       if (txD.getMonth() === vM && txD.getFullYear() === vY) {
         if (tx.type === 'pendapatan') inc += tx.amount;
@@ -102,7 +121,7 @@ const Transactions: React.FC = () => {
     });
 
     return { groups: sortedGroups, monthlyIncome: inc, monthlyExpense: exp };
-  }, [transactions, viewDate, groupBy, getAssetName]);
+  }, [transactions, viewDate, groupBy, searchQuery, getAssetName]);
 
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -146,32 +165,59 @@ const Transactions: React.FC = () => {
         </div>
       </div>
 
-      {/* Month Switcher */}
-      {/* Month Switcher Header */}
-      <div className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button onClick={() => changeMonth(-1)} className="btn-icon">
-            <ChevronLeft size={24} />
+      {/* Search Bar */}
+      <div className="card glass shadow-soft" style={{ 
+        display: 'flex', alignItems: 'center', gap: '10px', 
+        padding: '8px 16px', marginBottom: '16px', border: 'none',
+        background: 'var(--bg-card-solid)'
+      }}>
+        <Search size={20} color="var(--text-muted)" />
+        <input 
+          type="text" 
+          placeholder="Cari catatan, kategori, atau jumlah..." 
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{ 
+            background: 'none', border: 'none', padding: '8px 0', 
+            fontSize: '14px', flex: 1, color: 'var(--text-main)',
+            outline: 'none', marginBottom: 0
+          }}
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
+            <X size={18} />
           </button>
-
-          <div
-            onClick={() => setIsDatePickerOpen(true)}
-            style={{ 
-              textAlign: 'center', cursor: 'pointer', padding: '10px 20px', borderRadius: '14px',
-              background: 'var(--bg-main)', flex: 1, margin: '0 8px'
-            }}>
-            <div style={{ fontWeight: 800, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
-              {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
-              <ChevronDown size={18} color="var(--primary)" />
-            </div>
-          </div>
-
-          <button onClick={() => changeMonth(1)} className="btn-icon">
-            <ChevronRight size={24} />
-          </button>
-        </div>
+        )}
       </div>
 
+      {/* Month Switcher */}
+      {!searchQuery && (
+        <div className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <button onClick={() => changeMonth(-1)} className="btn-icon">
+              <ChevronLeft size={24} />
+            </button>
+
+            <div
+              onClick={() => setIsDatePickerOpen(true)}
+              style={{ 
+                textAlign: 'center', cursor: 'pointer', padding: '10px 20px', borderRadius: '14px',
+                background: 'var(--bg-main)', flex: 1, margin: '0 8px'
+              }}>
+              <div style={{ fontWeight: 800, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
+                {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
+                <ChevronDown size={18} color="var(--primary)" />
+              </div>
+            </div>
+
+            <button onClick={() => changeMonth(1)} className="btn-icon">
+              <ChevronRight size={24} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Cards */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
         <div className="card" style={{ 
           flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)', 
@@ -219,8 +265,15 @@ const Transactions: React.FC = () => {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '80px' }}>
         {groups.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '20px' }}>
-            Tidak ada transaksi di bulan ini.
+          <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '20px', padding: '40px' }}>
+            {searchQuery ? (
+              <>
+                <Search size={40} style={{ opacity: 0.1, marginBottom: '16px' }} />
+                <div>Tidak menemukan aktivitas untuk "{searchQuery}"</div>
+              </>
+            ) : (
+              'Tidak ada transaksi di bulan ini.'
+            )}
           </div>
         ) : (
           groups.map(group => (
