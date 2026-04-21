@@ -4,16 +4,26 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Initialize Firebase Admin securely inside the serverless function
 const initializeAdmin = () => {
     if (!admin.apps.length) {
-        let serviceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
-        if (!serviceAccountStr) {
+        let rawServiceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
+        if (!rawServiceAccountStr) {
             throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable');
         }
 
-        // Remove wrapping quotes if they exist (common in some .env/Vercel environments)
-        if ((serviceAccountStr.startsWith("'") && serviceAccountStr.endsWith("'")) || 
-            (serviceAccountStr.startsWith('"') && serviceAccountStr.endsWith('"'))) {
-                serviceAccountStr = serviceAccountStr.substring(1, serviceAccountStr.length - 1).trim();
-        }
+        const sanitize = (str: string) => {
+            let s = str.trim();
+            // 1. Remove wrapping quotes if they exist
+            if ((s.startsWith("'") && s.endsWith("'")) || (s.startsWith('"') && s.endsWith('"'))) {
+                s = s.substring(1, s.length - 1).trim();
+            }
+            // 2. Handle URL-encoded characters (like %22)
+            try {
+                if (s.includes('%')) s = decodeURIComponent(s);
+            } catch (e) { /* ignore encoding errors and try raw */ }
+            // 3. Handle double-escaping (e.g. \" -> " and \\n -> \n)
+            return s.replace(/\\"/g, '"').replace(/\\n/g, '\n');
+        };
+
+        const serviceAccountStr = sanitize(rawServiceAccountStr);
         
         let serviceAccount;
         try {
@@ -21,20 +31,15 @@ const initializeAdmin = () => {
             serviceAccount = JSON.parse(serviceAccountStr);
         } catch (e1: any) {
             try {
-                // Attempt 2: Clean up literal newlines and handle potential escaped newlines
-                const cleaned = serviceAccountStr
-                    .replace(/\r?\n|\r/g, ' ')
-                    .replace(/\\n/g, '\n');
-                serviceAccount = JSON.parse(cleaned);
+                // Attempt 2: Fallback for mixed literal newlines
+                serviceAccount = JSON.parse(serviceAccountStr.replace(/\r?\n|\r/g, ' '));
             } catch (e2: any) {
                 try {
-                    // Attempt 3: Base64 fallback
-                    serviceAccount = JSON.parse(Buffer.from(serviceAccountStr, 'base64').toString('utf8'));
+                    // Attempt 3: Base64 fallback (on the original raw string)
+                    serviceAccount = JSON.parse(Buffer.from(rawServiceAccountStr, 'base64').toString('utf8'));
                 } catch (e3: any) {
-                    // Extract error position if possible (standard Node SyntaxError format)
                     const posMatch = e1.message.match(/at position (\d+)/);
                     const pos = posMatch ? parseInt(posMatch[1], 10) : 0;
-                    
                     const start = Math.max(0, pos - 40);
                     const end = Math.min(serviceAccountStr.length, pos + 40);
                     
@@ -42,10 +47,10 @@ const initializeAdmin = () => {
                         directError: e1.message,
                         inputLength: serviceAccountStr.length,
                         errorPosition: pos,
-                        context: JSON.stringify(serviceAccountStr.substring(start, end)),
-                        charCodesNearError: serviceAccountStr.substring(Math.max(0, pos-2), Math.min(serviceAccountStr.length, pos+2)).split('').map(c => c.charCodeAt(0))
+                        contextSnippet: JSON.stringify(serviceAccountStr.substring(start, end)),
+                        charCodes: serviceAccountStr.substring(Math.max(0, pos-2), Math.min(serviceAccountStr.length, pos+2)).split('').map(c => c.charCodeAt(0))
                     });
-                    throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY: ${e1.message}`);
+                    throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY after sanitization: ${e1.message}`);
                 }
             }
         }
