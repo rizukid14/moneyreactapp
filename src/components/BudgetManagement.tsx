@@ -182,6 +182,18 @@ export const BudgetManagement: React.FC = () => {
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                 Terpakai <strong style={{ color: globalPercent >= 100 ? 'var(--danger)' : 'var(--text-main)' }}>{fmt(spendingMap.total)}</strong>
               </div>
+              {globalPercent >= 100 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 10, padding: '6px 10px', background: 'hsla(350,80%,58%,0.12)', borderRadius: 8, width: 'fit-content' }}>
+                  <AlertTriangle size={13} color="var(--danger)" />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>
+                    Melebihi {fmt(spendingMap.total - globalBudget.limit)}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
+                  Sisa <strong style={{ color: 'var(--success)' }}>{fmt(globalBudget.limit - spendingMap.total)}</strong>
+                </div>
+              )}
             </div>
             <div style={{ transform: 'scale(0.8)', marginLeft: -10 }}>
               <CircleProgress percent={globalPercent} />
