@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Target, TrendingDown, Wallet } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Wallet } from 'lucide-react';
 import { useMoney, type Budget } from '../contexts/MoneyContext';
 import BudgetModal from './modals/BudgetModal';
 
@@ -152,7 +152,6 @@ export const BudgetManagement: React.FC = () => {
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
   const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
   const globalPercent = globalBudget ? (spendingMap.total / globalBudget.limit) * 100 : 0;
-  const totalOverBudgets = categoryBudgets.filter(b => (spendingMap[b.categoryId!] || 0) > b.limit).length;
 
   return (
     <div className="budget-management-embedded" onClick={() => setActiveMenu(null)}>

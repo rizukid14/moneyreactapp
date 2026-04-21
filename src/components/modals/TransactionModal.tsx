@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { useMoney } from '../../contexts/MoneyContext';
-import type { Asset, Transaction } from '../../contexts/MoneyContext';
+import type { Asset, RecurringTransaction, Transaction } from '../../contexts/MoneyContext';
 
 interface TransactionModalProps {
   isOpen: boolean;

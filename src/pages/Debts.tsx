@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
-import { useMoney, type Debt, type Category } from '../contexts/MoneyContext';
+import { useMoney, type Debt } from '../contexts/MoneyContext';
 import DebtModal from '../components/modals/DebtModal';
 import SettleDebtModal from '../components/modals/SettleDebtModal';
 
