@@ -746,3 +746,100 @@ textarea:focus {
 .budget-alert-banner .ba-icon { color: var(--danger); flex-shrink: 0; margin-top: 1px; }
 .budget-alert-banner .ba-title { font-size: 13px; font-weight: 700; color: var(--danger); margin-bottom: 2px; }
 .budget-alert-banner .ba-body  { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+/* ── Quota Banner ── */
+.quota-banner {
+  position: sticky;
+  top: 10px;
+  z-index: 1000;
+  margin-bottom: 20px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.quota-banner.success {
+  background: hsla(152, 70%, 42%, 0.1);
+  border-color: hsla(152, 70%, 42%, 0.3);
+}
+
+.quota-banner-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 12px;
+}
+
+.quota-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.warn-icon {
+  color: var(--secondary);
+}
+
+.quota-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.quota-text strong {
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.quota-text p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sync-button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.sync-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.sync-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sync-button.loading svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes quotaPulse {
+  0% { box-shadow: 0 0 0 0 hsla(var(--s-h), 90%, 52%, 0.4); }
+  70% { box-shadow: 0 0 0 10px hsla(var(--s-h), 90%, 52%, 0); }
+  100% { box-shadow: 0 0 0 0 hsla(var(--s-h), 90%, 52%, 0); }
+}
+
+.pulse {
+  animation: quotaPulse 2s infinite;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

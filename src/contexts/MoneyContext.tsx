@@ -9,6 +9,7 @@ import {
   dbGetSetting, dbPutSetting, dbDeleteSetting,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
+  dbGetPendingSyncCount, dbSyncPendingItems,
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -171,6 +172,8 @@ interface MoneyContextType {
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
   logOut: () => Promise<void>;
+  pendingSyncCount: number;
+  syncData: () => Promise<void>;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -194,6 +197,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [theme,        setTheme]        = useState<'light' | 'dark'>('light');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [authUser, setAuthUser] = useState<any>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -292,18 +296,46 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // ─── Sync Status ────────────────────────────────────────────────────────
+  const refreshSyncCount = useCallback(async () => {
+    const count = await dbGetPendingSyncCount();
+    console.log('[MoneyContext] Updating pending sync count:', count);
+    setPendingSyncCount(count);
+  }, []);
+
+  useEffect(() => {
+    if (isReady) refreshSyncCount();
+  }, [isReady, transactions, assets, debts, refreshSyncCount]);
+
+  const syncData = useCallback(async () => {
+    const results = await dbSyncPendingItems();
+    if (results.success > 0) {
+        // Reload data if anything was synced
+        const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts] = await Promise.all([
+          dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(), dbGetAllBudgets(), dbGetAllDebts(),
+        ]);
+        setAssets(dbAssets);
+        setTransactions(dbTxs);
+        setCategories(dbCats);
+        setBudgets(dbBudgets);
+        setDebts(dbDebts as Debt[]);
+    }
+    await refreshSyncCount();
+    return results;
+  }, [refreshSyncCount]);
+
   // ─── Assets ──────────────────────────────────────────────────────────────
   const addAsset = useCallback((assetReq: Omit<Asset, 'id'>) => {
     const newAsset: Asset = { ...assetReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
     setAssets(prev => [...prev, newAsset]);
-    dbPutAsset(newAsset);
-  }, []);
+    dbPutAsset(newAsset).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   const deleteAsset = useCallback((id: string) => {
     setAssets(prev => prev.map(a => {
       if (a.id !== id) return a;
       const updated = { ...a, isDeleted: true };
-      dbPutAsset(updated);
+      dbPutAsset(updated).then(refreshSyncCount);
       return updated;
     }));
   }, []);
@@ -312,7 +344,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setAssets(prev => prev.map(a => {
       if (a.id !== id) return a;
       const updated = { ...a, ...updatedAsset };
-      dbPutAsset(updated);
+      dbPutAsset(updated).then(refreshSyncCount);
       return updated;
     }));
   }, []);
@@ -321,19 +353,19 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addTransaction = useCallback((txReq: Omit<Transaction, 'id'>) => {
     const newTx: Transaction = { ...txReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
     setTransactions(prev => [newTx, ...prev]);
-    dbPutTransaction(newTx);
-  }, []);
+    dbPutTransaction(newTx).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   const deleteTransaction = useCallback((id: string) => {
     setTransactions(prev => prev.filter(tx => tx.id !== id));
-    dbDeleteTransaction(id);
-  }, []);
+    dbDeleteTransaction(id).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   const updateTransaction = useCallback((id: string, updatedTx: Partial<Transaction>) => {
     setTransactions(prev => prev.map(tx => {
       if (tx.id !== id) return tx;
       const updated = { ...tx, ...updatedTx } as Transaction;
-      dbPutTransaction(updated);
+      dbPutTransaction(updated).then(refreshSyncCount);
       return updated;
     }));
   }, []);
@@ -342,13 +374,13 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addCategory = useCallback((catReq: Omit<Category, 'id'>) => {
     const newCat: Category = { ...catReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9), subcategories: [] };
     setCategories(prev => [...prev, newCat]);
-    dbPutCategory(newCat);
-  }, []);
+    dbPutCategory(newCat).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   const deleteCategory = useCallback((id: string) => {
     setCategories(prev => prev.filter(c => c.id !== id));
-    dbDeleteCategory(id);
-  }, []);
+    dbDeleteCategory(id).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   const addSubCategory = useCallback((categoryId: string, name: string) => {
     setCategories(prev => prev.map(c => {
@@ -372,8 +404,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addBudget = useCallback((budgetReq: Omit<Budget, 'id'>) => {
     const newBudget: Budget = { ...budgetReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
     setBudgets(prev => [...prev, newBudget]);
-    dbPutBudget(newBudget);
-  }, []);
+    dbPutBudget(newBudget).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   const updateBudget = useCallback((id: string, updatedBudget: Partial<Budget>) => {
     setBudgets(prev => prev.map(b => {
@@ -437,8 +469,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     setDebts(prev => [...prev, newDebt]);
-    dbPutDebt(newDebt);
-  }, []);
+    dbPutDebt(newDebt).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   const updateDebt = useCallback((id: string, updatedDebt: Partial<Debt>) => {
     setDebts(prev => prev.map(d => {
@@ -451,8 +483,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const deleteDebt = useCallback((id: string) => {
     setDebts(prev => prev.filter(d => d.id !== id));
-    dbDeleteDebt(id);
-  }, []);
+    dbDeleteDebt(id).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   /** Create a transaction record and push it to state + DB */
   const _createTx = (tx: Omit<Transaction, 'id'>) => {
@@ -715,8 +747,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ─── User & Settings ─────────────────────────────────────────────────────
   const updateUser = useCallback((newUser: UserProfile) => {
     setUser(newUser);
-    dbPutSetting('user', newUser);
-  }, []);
+    dbPutSetting('user', newUser).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   const setAppPin = useCallback((newPin: string | null) => {
     setPin(newPin);
@@ -787,16 +819,16 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
-    isReady, assets, transactions, categories, budgets, debts, user, pin, isAppLocked, theme, isPrivateMode,
+    isReady, assets, transactions, categories, budgets, debts, 
+    recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
+    user, pin, isAppLocked, theme, isPrivateMode,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     addBudget, updateBudget, deleteBudget,
-    addDebt, updateDebt, deleteDebt, 
-    recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    payInstallment, settleDebt, addDebtPayment,
+    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData, logOut,
+    exportData, importData, logOut, pendingSyncCount, syncData,
   }), [
     isReady, assets, transactions, categories, budgets, debts, 
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
@@ -807,7 +839,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData, logOut,
+    exportData, importData, logOut, pendingSyncCount, syncData,
   ]);
 
   if (isFirebaseConfigured && !authUser) {

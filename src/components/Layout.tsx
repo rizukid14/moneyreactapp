@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { Home, LineChart, Wallet, Settings, PanelLeftClose, PanelLeftOpen, BadgeDollarSign } from 'lucide-react';
+import { QuotaBanner } from './QuotaBanner';
 
 const Layout: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -54,6 +55,7 @@ const Layout: React.FC = () => {
       {/* Main Content Area */}
       <main className="main-content">
         <div className="page-wrapper">
+          <QuotaBanner />
           <Outlet />
         </div>
       </main>
