@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
-  const { addTransaction, assets, categories } = useMoney();
+  const { addTransaction, assets, categories, currencySymbol } = useMoney();
   const { parseText, isParsing, error, setError } = useBulkParseAI();
 
   const [stage, setStage] = useState<'input' | 'results'>('input');
@@ -207,7 +207,7 @@ const BulkInput: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
-                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Nominal (Rp)</label>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Nominal ({currencySymbol})</label>
                     <input
                       type="text"
                       inputMode="numeric"

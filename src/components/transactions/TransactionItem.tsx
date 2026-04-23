@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2, Pencil } from 'lucide-react';
+import { useMoney } from '../../contexts/MoneyContext';
 import type { Transaction } from '../../contexts/MoneyContext';
 import ConfirmDialog from '../common/ConfirmDialog';
 
@@ -22,6 +23,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   onEdit,
   showDate = true
 }) => {
+  const { currencySymbol } = useMoney();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   return (
@@ -72,7 +74,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
           marginLeft: '12px',
           textAlign: 'right'
         }}>
-          {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}Rp{tx.amount.toLocaleString('id-ID')}
+          {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}{currencySymbol}{tx.amount.toLocaleString('id-ID')}
         </div>
 
         <div className="transaction-actions" style={{ display: 'flex', gap: '4px', marginLeft: '16px' }}>

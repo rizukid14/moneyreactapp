@@ -24,14 +24,14 @@ interface TransactionGroup {
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction } = useMoney();
+  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [initialType, setInitialType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
-  const [groupBy, setGroupBy] = useState<GroupBy>('date');
+  const [groupBy, setGroupBy] = useState<GroupBy>(defaultTransactionGrouping || 'date');
   const [searchQuery, setSearchQuery] = useState('');
 
   const getAssetName = useCallback((id?: string) => {
@@ -44,6 +44,10 @@ const Transactions: React.FC = () => {
   const { groups, monthlyIncome, monthlyExpense } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
+
+    // Calculate period start and end based on startOfMonthDay
+    const periodStart = new Date(vY, vM - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
+    const periodEnd = new Date(vY, vM + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
 
     let inc = 0;
     let exp = 0;
@@ -60,15 +64,17 @@ const Transactions: React.FC = () => {
         );
         if (!matches) return false;
         
-        // If matches search, sum up for the visible context
+        // If matches search, sum up for the visible context (we don't filter by month if searching)
         if (tx.type === 'pendapatan') inc += tx.amount;
         if (tx.type === 'pengeluaran') exp += tx.amount;
         return true;
       }
 
-      // 2. Default Month/Year filter
+      // 2. Default Period filter
       const txD = new Date(tx.date);
-      if (txD.getMonth() === vM && txD.getFullYear() === vY) {
+      // Normalized to strip time for pure date comparison if needed, 
+      // but new Date(tx.date) is already 00:00:00
+      if (txD >= periodStart && txD < periodEnd) {
         if (tx.type === 'pendapatan') inc += tx.amount;
         if (tx.type === 'pengeluaran') exp += tx.amount;
         return true;
@@ -147,7 +153,7 @@ const Transactions: React.FC = () => {
     setEditingTransaction(null);
   }, []);
 
-  const formatCurrency = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
+  const formatCurrency = (val: number) => `${currencySymbol}${val.toLocaleString('id-ID')}`;
 
   return (
     <div className="page">

@@ -43,7 +43,7 @@ const TYPE_LABELS: Record<AssetType, string> = {
   'Loan': 'Pinjaman / Hutang',
 };
 
-const fmt = (n: number) => `Rp${n.toLocaleString('id-ID')}`;
+const fmt = (n: number, sym: string) => `${sym}${n.toLocaleString('id-ID')}`;
 
 // ── Asset Detail Drawer ─────────────────────────────────────────────────────
 const AssetDetailDrawer: React.FC<{
@@ -52,11 +52,12 @@ const AssetDetailDrawer: React.FC<{
   transactions: Transaction[];
   allAssets: Asset[];
   isPrivateMode: boolean;
+  currencySymbol: string;
   onClose: () => void;
   onEditAsset: (a: Asset) => void;
   onDeleteAsset: (id: string) => void;
   onEditTx: (tx: Transaction) => void;
-}> = ({ asset, balance, transactions, allAssets, isPrivateMode, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
+}> = ({ asset, balance, transactions, allAssets, isPrivateMode, currencySymbol, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
@@ -142,7 +143,7 @@ const AssetDetailDrawer: React.FC<{
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Saldo Saat Ini</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: balance < 0 ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-1px' }}>
-              {isPrivateMode ? 'Rp ••••••••' : fmt(Math.abs(balance))}
+              {isPrivateMode ? `${currencySymbol} ••••••••` : fmt(Math.abs(balance), currencySymbol)}
               {balance < 0 && <span style={{ fontSize: 13, marginLeft: 6, color: 'var(--danger)' }}>(minus)</span>}
             </div>
 
@@ -154,7 +155,7 @@ const AssetDetailDrawer: React.FC<{
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Masuk</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--primary)' }}>
-                  {isPrivateMode ? '••••' : fmt(stats.income)}
+                  {isPrivateMode ? '••••' : fmt(stats.income, currencySymbol)}
                 </div>
               </div>
               <div style={{ flex: 1, background: 'var(--bg-expense)', borderRadius: 12, padding: '10px 12px' }}>
@@ -163,7 +164,7 @@ const AssetDetailDrawer: React.FC<{
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase' }}>Keluar</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--danger)' }}>
-                  {isPrivateMode ? '••••' : fmt(stats.expense)}
+                  {isPrivateMode ? '••••' : fmt(stats.expense, currencySymbol)}
                 </div>
               </div>
               <div style={{ flex: 1, background: 'var(--bg-neutral)', borderRadius: 12, padding: '10px 12px' }}>
@@ -232,7 +233,7 @@ const AssetDetailDrawer: React.FC<{
 
                       {/* Amount */}
                       <div style={{ fontWeight: 800, fontSize: 14, color: amtColor, marginLeft: 10, textAlign: 'right', flexShrink: 0 }}>
-                        {prefix}{isPrivateMode ? '••••' : fmt(tx.amount)}
+                        {prefix}{isPrivateMode ? '••••' : fmt(tx.amount, currencySymbol)}
                       </div>
 
                       {/* Actions on hover */}
@@ -258,7 +259,7 @@ const AssetDetailDrawer: React.FC<{
 
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
-  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
+  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -429,6 +430,7 @@ const Assets: React.FC = () => {
         currentBalance={editingAsset ? balances[editingAsset.id] : undefined}
         addTransaction={addTransaction}
         onDelete={deleteAsset}
+        currencySymbol={currencySymbol}
       />
 
       {/* Asset detail drawer */}
@@ -439,6 +441,7 @@ const Assets: React.FC = () => {
           transactions={transactions}
           allAssets={assets}
           isPrivateMode={isPrivateMode}
+          currencySymbol={currencySymbol}
           onClose={() => setSelectedAsset(null)}
           onEditAsset={a => { handleEdit(a); }}
           onDeleteAsset={deleteAsset}

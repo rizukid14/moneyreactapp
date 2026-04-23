@@ -13,9 +13,10 @@ interface AssetModalProps {
   currentBalance?: number;
   addTransaction?: (tx: Omit<Transaction, 'id'>) => void;
   onDelete?: (id: string) => void;
+  currencySymbol: string;
 }
 
-const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, updateAsset, editingAsset, currentBalance, addTransaction, onDelete }) => {
+const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, updateAsset, editingAsset, currentBalance, addTransaction, onDelete, currencySymbol }) => {
   const [name, setName] = useState('');
   const [type, setType] = useState<AssetType>('Cash');
   const [initialBalance, setInitialBalance] = useState('');
@@ -159,7 +160,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
                   <input 
                     type="text" 
                     inputMode="numeric" 
-                    placeholder="Saldo Awal (Rp)" 
+                    placeholder={`Saldo Awal (${currencySymbol})`} 
                     value={initialBalance} 
                     onChange={handleAmountChange} 
                     style={{ marginBottom: '12px' }}
@@ -177,7 +178,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
                         style={{ marginBottom: '8px', fontWeight: 800, color: 'var(--primary)', border: '2px solid var(--primary)', fontSize: '16px' }}
                       />
                       <div style={{ fontSize: '11px', color: 'var(--primary)', opacity: 0.8, lineHeight: 1.4 }}>
-                        Sistem akan membuat transaksi <strong>Koreksi Saldo</strong> otomatis untuk selisih dari <strong>Rp{currentBalance.toLocaleString('id-ID')}</strong>.
+                        Sistem akan membuat transaksi <strong>Koreksi Saldo</strong> otomatis untuk selisih dari <strong>{currencySymbol}{currentBalance.toLocaleString('id-ID')}</strong>.
                       </div>
                     </div>
                   )}

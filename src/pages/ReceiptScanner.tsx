@@ -14,7 +14,7 @@ const CONFIDENCE_BADGE = {
 };
 
 const ReceiptScanner: React.FC = () => {
-  const { addTransaction, assets, categories } = useMoney();
+  const { addTransaction, assets, categories, currencySymbol } = useMoney();
   const { scanReceipt, isInitializing, progress, error, setError } = useReceiptOCR();
 
   // Stage management
@@ -520,7 +520,7 @@ const ReceiptScanner: React.FC = () => {
             <div style={{ marginTop: '10px', padding: '8px 10px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
               <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
               <span style={{ color: 'var(--danger)' }}>
-                Rp{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
+                {currencySymbol}{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
               </span>
             </div>
 

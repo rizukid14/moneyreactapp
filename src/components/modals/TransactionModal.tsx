@@ -19,7 +19,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, editingTransaction, initialType 
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories, budgets, transactions, defaultAssetId } = useMoney();
+  const { categories, budgets, transactions, defaultAssetId, currencySymbol } = useMoney();
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -309,7 +309,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.15, ease: "easeOut" }}
                 >
-                  <input type="text" inputMode="numeric" required placeholder="Nominal (Rp)" value={amount} onChange={handleAmountChange} />
+                  <input type="text" inputMode="numeric" required placeholder={`Nominal (${currencySymbol})`} value={amount} onChange={handleAmountChange} />
 
                   {type !== 'transfer' ? (
                     <>

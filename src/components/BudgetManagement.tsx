@@ -8,7 +8,7 @@ const MONTH_NAMES = [
   'Juli','Agustus','September','Oktober','November','Desember'
 ];
 
-const fmt = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
+const fmt = (val: number, sym: string = 'Rp') => `${sym}${val.toLocaleString('id-ID')}`;
 
 const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   const r = 44;
@@ -48,7 +48,8 @@ const BudgetCard: React.FC<{
   onDelete: () => void;
   isMenuOpen: boolean;
   onMenuToggle: () => void;
-}> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle }) => {
+  currencySymbol: string;
+}> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol }) => {
   const percent = limit > 0 ? (spent / limit) * 100 : 0;
   const remaining = limit - spent;
   const barColor = percent >= 100 ? 'var(--danger)' : percent >= 80 ? '#f59e0b' : 'var(--primary)';
@@ -100,13 +101,13 @@ const BudgetCard: React.FC<{
 
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
         <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-          {fmt(spent)} <span style={{ opacity: 0.5 }}>/ {fmt(limit)}</span>
+          {fmt(spent, currencySymbol)} <span style={{ opacity: 0.5 }}>/ {fmt(limit, currencySymbol)}</span>
         </span>
         <span style={{
           fontWeight: 700,
           color: isOver ? 'var(--danger)' : remaining < limit * 0.2 ? '#f59e0b' : 'var(--success)'
         }}>
-          {isOver ? `-${fmt(spent - limit)}` : `Sisa ${fmt(remaining)}`}
+          {isOver ? `-${fmt(spent - limit, currencySymbol)}` : `Sisa ${fmt(remaining, currencySymbol)}`}
         </span>
       </div>
     </div>
@@ -114,7 +115,7 @@ const BudgetCard: React.FC<{
 };
 
 export const BudgetManagement: React.FC = () => {
-  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget } = useMoney();
+  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
@@ -176,21 +177,21 @@ export const BudgetManagement: React.FC = () => {
                 Total Anggaran
               </div>
               <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>
-                {fmt(globalBudget.limit)}
+                {fmt(globalBudget.limit, currencySymbol)}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                Terpakai <strong style={{ color: globalPercent >= 100 ? 'var(--danger)' : 'var(--text-main)' }}>{fmt(spendingMap.total)}</strong>
+                Terpakai <strong style={{ color: globalPercent >= 100 ? 'var(--danger)' : 'var(--text-main)' }}>{fmt(spendingMap.total, currencySymbol)}</strong>
               </div>
               {globalPercent >= 100 ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 10, padding: '6px 10px', background: 'hsla(350,80%,58%,0.12)', borderRadius: 8, width: 'fit-content' }}>
                   <AlertTriangle size={13} color="var(--danger)" />
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>
-                    Melebihi {fmt(spendingMap.total - globalBudget.limit)}
+                    Melebihi {fmt(spendingMap.total - globalBudget.limit, currencySymbol)}
                   </span>
                 </div>
               ) : (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
-                  Sisa <strong style={{ color: 'var(--success)' }}>{fmt(globalBudget.limit - spendingMap.total)}</strong>
+                  Sisa <strong style={{ color: 'var(--success)' }}>{fmt(globalBudget.limit - spendingMap.total, currencySymbol)}</strong>
                 </div>
               )}
             </div>
@@ -241,6 +242,7 @@ export const BudgetManagement: React.FC = () => {
                 onDelete={() => handleDelete(b.id)}
                 isMenuOpen={activeMenu === b.id}
                 onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
+                currencySymbol={currencySymbol}
               />
             </div>
           );
@@ -260,6 +262,7 @@ export const BudgetManagement: React.FC = () => {
         editingBudget={editingBudget}
         selectedMonth={selectedMonth}
         selectedYear={selectedYear}
+        currencySymbol={currencySymbol}
       />
     </div>
   );

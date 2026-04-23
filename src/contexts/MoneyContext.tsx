@@ -172,6 +172,12 @@ interface MoneyContextType {
   togglePrivateMode: () => void;
   defaultAssetId: string | null;
   setDefaultAssetId: (id: string | null) => void;
+  startOfMonthDay: number;
+  setStartOfMonthDay: (day: number) => void;
+  currencySymbol: string;
+  setCurrencySymbol: (symbol: string) => void;
+  defaultTransactionGrouping: 'date' | 'category';
+  setDefaultTransactionGrouping: (grouping: 'date' | 'category') => void;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
   logOut: () => Promise<void>;
@@ -200,6 +206,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [theme,        setTheme]        = useState<'light' | 'dark'>('light');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [defaultAssetId, setDefaultAssetIdState] = useState<string | null>(null);
+  const [startOfMonthDay, setStartOfMonthDayState] = useState<number>(1);
+  const [currencySymbol, setCurrencySymbolState] = useState<string>('Rp');
+  const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'category'>('date');
   const [authUser, setAuthUser] = useState<any>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
@@ -264,6 +273,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const savedTheme = await dbGetSetting('theme') as string | undefined;
       const savedPrivacy = await dbGetSetting('isPrivateMode') as boolean | undefined;
       const savedDefaultAssetId = await dbGetSetting('defaultAssetId') as string | undefined;
+      const savedStartMonth = await dbGetSetting('startOfMonthDay') as number | undefined;
+      const savedCurrency = await dbGetSetting('currencySymbol') as string | undefined;
+      const savedGrouping = await dbGetSetting('defaultTransactionGrouping') as 'date' | 'category' | undefined;
 
       // Auto-fill profile from Firebase Auth if empty or default
       if (isFirebaseConfigured && auth.currentUser) {
@@ -283,6 +295,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
       if (savedPrivacy !== undefined) setIsPrivateMode(savedPrivacy);
       if (savedDefaultAssetId) setDefaultAssetIdState(savedDefaultAssetId);
+      if (savedStartMonth) setStartOfMonthDayState(savedStartMonth);
+      if (savedCurrency) setCurrencySymbolState(savedCurrency);
+      if (savedGrouping) setDefaultTransactionGroupingState(savedGrouping);
 
       // --- Migration: budgets collection -> settings/budgets ---
       if (isFirebaseConfigured && auth.currentUser) {
@@ -818,6 +833,21 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbPutSetting('defaultAssetId', id);
   }, []);
 
+  const setStartOfMonthDay = useCallback((day: number) => {
+    setStartOfMonthDayState(day);
+    dbPutSetting('startOfMonthDay', day);
+  }, []);
+
+  const setCurrencySymbol = useCallback((symbol: string) => {
+    setCurrencySymbolState(symbol);
+    dbPutSetting('currencySymbol', symbol);
+  }, []);
+
+  const setDefaultTransactionGrouping = useCallback((grouping: 'date' | 'category') => {
+    setDefaultTransactionGroupingState(grouping);
+    dbPutSetting('defaultTransactionGrouping', grouping);
+  }, []);
+
   // ─── Export / Import ─────────────────────────────────────────────────────
   const exportData = useCallback(async () => {
     const data = await dbExportAll();
@@ -860,6 +890,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     isReady, assets, transactions, categories, budgets, debts, 
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
     user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
+    startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
@@ -871,6 +902,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     isReady, assets, transactions, categories, budgets, debts, 
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
     user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
+    startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,

@@ -13,7 +13,7 @@ import { QuotaBanner } from '../components/QuotaBanner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -318,6 +318,61 @@ const Settings: React.FC = () => {
                 {assets.filter(a => !a.isDeleted).map(a => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <RefreshCw size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Siklus Finansial</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Atur tanggal awal bulan finansial Anda (misalnya tanggal gajian).
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>Tanggal:</span>
+                <input 
+                  type="number" 
+                  min="1" max="31"
+                  value={startOfMonthDay} 
+                  onChange={(e) => setStartOfMonthDay(parseInt(e.target.value) || 1)}
+                  style={{ width: '80px', padding: '8px', borderRadius: '10px', marginBottom: 0, textAlign: 'center' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Wallet size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Mata Uang & Simbol</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Ubah simbol mata uang yang ditampilkan (Contoh: Rp, $, RM).
+              </p>
+              <input 
+                type="text" 
+                value={currencySymbol} 
+                onChange={(e) => setCurrencySymbol(e.target.value)}
+                placeholder="Simbol Mata Uang..."
+                style={{ width: '100%', padding: '12px', borderRadius: '12px', marginBottom: 0 }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Tags size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Grouping Transaksi Default</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Cara default daftar transaksi dikelompokkan saat pertama kali dibuka.
+              </p>
+              <select 
+                value={defaultTransactionGrouping} 
+                onChange={(e) => setDefaultTransactionGrouping(e.target.value as 'date' | 'category')}
+                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
+              >
+                <option value="date">Kelompokkan per Tanggal</option>
+                <option value="category">Kelompokkan per Kategori</option>
               </select>
             </div>
 

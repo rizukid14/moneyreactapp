@@ -9,10 +9,11 @@ interface DebtPaymentModalProps {
   debt: Debt;
   assets: Asset[];
   paidAmountFromTxs: number;
+  currencySymbol: string;
 }
 
 const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({ 
-  isOpen, onClose, onConfirm, debt, assets, paidAmountFromTxs 
+  isOpen, onClose, onConfirm, debt, assets, paidAmountFromTxs, currencySymbol 
 }) => {
   const isHutang = debt.type === 'hutang';
   const activeAssets = assets.filter(a => !a.isDeleted);
@@ -48,7 +49,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
     onConfirm(numAmount, selectedAssetId, date, time, finalNote, isFullSettle);
   };
 
-  const formatCurrency = (n: number) => `Rp${n.toLocaleString('id-ID')}`;
+  const formatCurrency = (n: number) => `${currencySymbol}${n.toLocaleString('id-ID')}`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -78,7 +79,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               Jumlah Pembayaran:
             </label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>Rp</span>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
               <input 
                 type="text" 
                 inputMode="numeric"
