@@ -454,11 +454,11 @@ const Debts: React.FC = () => {
                                   tx.note.includes('Belanja via'));
              return isPrincipal ? sum : sum + tx.amount;
           }, 0)}
-          onConfirm={(amt, assetId, date, note, isFull) => {
+          onConfirm={(amt, assetId, date, time, note, isFull) => {
             if (isFull) {
-              settleDebt(payingDebt.id, assetId);
+              settleDebt(payingDebt.id, assetId, date, time);
             } else {
-              addDebtPayment(payingDebt.id, amt, assetId, date, note);
+              addDebtPayment(payingDebt.id, amt, assetId, date, time, note);
             }
             setIsPaymentModalOpen(false);
           }}

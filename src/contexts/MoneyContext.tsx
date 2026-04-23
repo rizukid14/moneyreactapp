@@ -85,7 +85,8 @@ export interface Transaction {
   amount: number;
   category: string;
   subCategory?: string;
-  date: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:mm
   note: string;
   assetId?: string;
   fromAssetId?: string;
@@ -159,8 +160,8 @@ interface MoneyContextType {
   updateRecurringTransaction: (id: string, rt: Partial<RecurringTransaction>) => void;
   deleteRecurringTransaction: (id: string) => void;
   payInstallment: (debtId: string) => void;
-  settleDebt: (debtId: string, assetId?: string) => void;
-  addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, note: string) => void;
+  settleDebt: (debtId: string, assetId?: string, date?: string, time?: string) => void;
+  addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
@@ -444,7 +445,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newDebt: Debt = { ...debtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
     
     // Generate initial transaction for the principal
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const time = now.toTimeString().split(' ')[0].slice(0, 5);
     
     if (newDebt.type === 'piutang') {
       // Give loan: Account balance decreases (Expense)
@@ -454,6 +457,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           amount: newDebt.totalAmount,
           category: 'Pinjaman & Piutang',
           date: today,
+          time,
           note: `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
           assetId: newDebt.paymentAssetId,
           relatedId: newDebt.id,
@@ -468,6 +472,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           amount: newDebt.totalAmount,
           category: 'Hutang / Pinjaman',
           date: today,
+          time,
           note: `Penerimaan dana pinjaman dari ${newDebt.contact}`,
           assetId: newDebt.liabilityAssetId,
           relatedId: newDebt.id,
@@ -479,6 +484,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           amount: newDebt.totalAmount,
           category: categoryName || 'Lainnya',
           date: today,
+          time,
           note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
           assetId: newDebt.liabilityAssetId,
           relatedId: newDebt.id,
@@ -634,7 +640,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const txKey = `${debtId}-${nextPaid}`;
       if (!_paidInstallmentKeys.has(txKey)) {
         _paidInstallmentKeys.add(txKey);
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const time = now.toTimeString().split(' ')[0].slice(0, 5);
         const amt = debt.installmentAmount || 0;
         const note = `Cicilan ${debt.contact} (${nextPaid}/${debt.totalInstallments || '?'})`;
 
@@ -645,6 +653,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             amount: amt,
             category: 'Transfer',
             date: today,
+            time,
             note,
             fromAssetId: debt.paymentAssetId,
             toAssetId: debt.liabilityAssetId,
@@ -657,6 +666,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             amount: amt,
             category: 'Pelunasan Piutang',
             date: today,
+            time,
             note,
             assetId: debt.receiveAssetId,
             relatedId: debtId,
@@ -668,13 +678,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
-  /**
-   * Settle a debt in full (non-cicilan or remaining balance).
-   * - HUTANG: Transfer from paymentAssetId → liabilityAssetId  
-   * - PIUTANG: Pendapatan into receiveAssetId
-   * Then marks debt as isPaid.
-   */
-  const settleDebt = useCallback((debtId: string, overrideAssetId?: string) => {
+  const settleDebt = useCallback((debtId: string, overrideAssetId?: string, overrideDate?: string, overrideTime?: string) => {
     setDebts(prev => {
       const debt = prev.find(d => d.id === debtId);
       if (!debt || debt.isPaid) return prev;
@@ -682,7 +686,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const txKey = `settle-${debtId}`;
       if (!_paidInstallmentKeys.has(txKey)) {
         _paidInstallmentKeys.add(txKey);
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = overrideDate || now.toISOString().split('T')[0];
+        const time = overrideTime || now.toTimeString().split(' ')[0].slice(0, 5);
         const paidSoFar = debt.isInstallment ? (debt.paidInstallments * (debt.installmentAmount || 0)) : 0;
         const remaining = Math.max(0, debt.totalAmount - paidSoFar);
         const note = `Pelunasan ${debt.type === 'hutang' ? 'hutang' : 'piutang'} - ${debt.contact}`;
@@ -694,6 +700,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               amount: remaining,
               category: 'Transfer',
               date: today,
+              time,
               note,
               fromAssetId: overrideAssetId || debt.paymentAssetId,
               toAssetId: debt.liabilityAssetId,
@@ -705,6 +712,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               amount: remaining,
               category: 'Pelunasan Piutang',
               date: today,
+              time,
               note,
               assetId: overrideAssetId || debt.receiveAssetId,
               relatedId: debtId,
@@ -719,7 +727,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
-  const addDebtPayment = useCallback((debtId: string, amount: number, assetId: string, date: string, note: string) => {
+  const addDebtPayment = useCallback((debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => {
     const debt = debts.find(d => d.id === debtId);
     if (!debt) return;
 
@@ -729,6 +737,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         amount,
         category: 'Transfer',
         date,
+        time,
         note,
         fromAssetId: assetId,
         toAssetId: debt.liabilityAssetId,
@@ -740,6 +749,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         amount,
         category: 'Pelunasan Piutang',
         date,
+        time,
         note,
         assetId,
         relatedId: debtId,

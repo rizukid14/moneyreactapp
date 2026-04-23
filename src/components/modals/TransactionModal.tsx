@@ -25,6 +25,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [category, setCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
   const [note, setNote] = useState('');
   const [assetId, setAssetId] = useState(activeAssets[0]?.id || '');
   const [fromAssetId, setFromAssetId] = useState(activeAssets[0]?.id || '');
@@ -51,6 +52,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setCategory(editingTransaction.category);
       setSubCategory(editingTransaction.subCategory || '');
       setDate(editingTransaction.date);
+      setTime(editingTransaction.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
       setNote(editingTransaction.note);
       setAssetId(editingTransaction.assetId || activeAssets[0]?.id || '');
       setFromAssetId(editingTransaction.fromAssetId || activeAssets[0]?.id || '');
@@ -65,6 +67,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setCategory(draft.category || '');
         setSubCategory(draft.subCategory || '');
         setDate(draft.date || new Date().toISOString().split('T')[0]);
+        setTime(draft.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
         setNote(draft.note || '');
         setAssetId(draft.assetId || activeAssets[0]?.id || '');
         setFromAssetId(draft.fromAssetId || activeAssets[0]?.id || '');
@@ -78,6 +81,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setCategory('');
         setSubCategory('');
         setDate(new Date().toISOString().split('T')[0]);
+        setTime(new Date().toTimeString().split(' ')[0].slice(0, 5));
         setNote('');
         setAssetId(activeAssets[0]?.id || '');
         setFromAssetId(activeAssets[0]?.id || '');
@@ -92,11 +96,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   // Handle Internal Type Switching inside the modal
   useEffect(() => {
     if (isOpen && !editingTransaction && type !== prevType.current) {
+      // Load draft for NEW type
       const draft = allDrafts[type];
       if (draft) {
         setAmount(draft.amount || '');
         setCategory(draft.category || '');
         setSubCategory(draft.subCategory || '');
+        setDate(draft.date || new Date().toISOString().split('T')[0]);
+        setTime(draft.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
         setNote(draft.note || '');
         setAssetId(draft.assetId || activeAssets[0]?.id || '');
         setFromAssetId(draft.fromAssetId || activeAssets[0]?.id || '');
@@ -106,9 +113,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setCategory('');
         setSubCategory('');
         setNote('');
-        setAssetId(activeAssets[0]?.id || '');
-        setFromAssetId(activeAssets[0]?.id || '');
-        setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
+        // We keep date/time consistent when switching types unless there's a draft
       }
       prevType.current = type;
     }
@@ -118,7 +123,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   useEffect(() => {
     if (isOpen && !editingTransaction) {
       const currentDraft = { 
-        type, amount, category, subCategory, date, note, 
+        type, amount, category, subCategory, date, time, note, 
         assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate 
       };
       setAllDrafts(prev => {
@@ -127,7 +132,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         return next;
       });
     }
-  }, [type, amount, category, subCategory, date, note, assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate, isOpen, editingTransaction]);
+  }, [type, amount, category, subCategory, date, time, note, assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate, isOpen, editingTransaction]);
 
   // ── Budget Alert Logic ──────────────────────────────────────
   const budgetAlerts = useMemo(() => {
@@ -356,7 +361,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     </div>
                   )}
 
-                  <input type="date" required value={date} onChange={e => setDate(e.target.value)} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                    <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0 }} />
+                    <input type="time" required value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
+                  </div>
                   <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} />
 
                   {!editingTransaction && (

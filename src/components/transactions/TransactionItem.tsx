@@ -59,6 +59,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
             {showDate && <span style={{ marginRight: '6px' }}>{tx.date}</span>}
+            {tx.time && <span style={{ marginRight: '6px', color: 'var(--primary)', fontWeight: 700 }}>{tx.time}</span>}
             <span>{tx.type !== 'transfer' ? assetName : 'Transfer'}</span>
             {tx.note && <span style={{ marginLeft: '6px', opacity: 0.8 }}>• {tx.note}</span>}
           </div>

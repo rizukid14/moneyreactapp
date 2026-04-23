@@ -74,7 +74,7 @@ const Transactions: React.FC = () => {
         return true;
       }
       return false;
-    }).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    }).sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || '') || b.id.localeCompare(a.id));
 
     if (groupBy === 'none') {
       return {
