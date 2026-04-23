@@ -337,49 +337,53 @@ const Transactions: React.FC = () => {
          <div onClick={() => setIsFabOpen(false)} style={{position: 'fixed', inset: 0, background: 'hsla(var(--n-h), 20%, 10%, 0.4)', backdropFilter: 'blur(2px)', zIndex: 998}} />
       )}
 
-      <div className={`fab-menu ${isFabOpen ? 'open' : ''}`}>
-        <button 
-          className="fab-mini" 
-          onClick={() => navigate('/scan')}
-          title="Scan Struk (OCR)"
-          style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-        >
-          <Camera size={20} />
-        </button>
-        <button 
-          className="fab-mini" 
-          onClick={() => navigate('/bulk-input')}
-          title="Bulk Input (AI)"
-          style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-        >
-          <Sparkles size={20} />
-        </button>
-        <button 
-          className="fab-mini" 
-          onClick={() => handleAdd('transfer')}
-          style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-        >
-          <RefreshCw size={20} />
-        </button>
-        <button 
-          className="fab-mini" 
-          onClick={() => handleAdd('pendapatan')}
-          style={{ background: 'var(--success)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          <ArrowDownCircle size={20} />
-        </button>
-        <button 
-          className="fab-mini" 
-          onClick={() => handleAdd('pengeluaran')}
-          style={{ background: 'var(--danger)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          <ArrowUpCircle size={20} />
-        </button>
-      </div>
+      {!isModalOpen && (
+        <>
+          <div className={`fab-menu ${isFabOpen ? 'open' : ''}`}>
+            <button 
+              className="fab-mini" 
+              onClick={() => navigate('/scan')}
+              title="Scan Struk (OCR)"
+              style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            >
+              <Camera size={20} />
+            </button>
+            <button 
+              className="fab-mini" 
+              onClick={() => navigate('/bulk-input')}
+              title="Bulk Input (AI)"
+              style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            >
+              <Sparkles size={20} />
+            </button>
+            <button 
+              className="fab-mini" 
+              onClick={() => handleAdd('transfer')}
+              style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            >
+              <RefreshCw size={20} />
+            </button>
+            <button 
+              className="fab-mini" 
+              onClick={() => handleAdd('pendapatan')}
+              style={{ background: 'var(--success)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+            >
+              <ArrowDownCircle size={20} />
+            </button>
+            <button 
+              className="fab-mini" 
+              onClick={() => handleAdd('pengeluaran')}
+              style={{ background: 'var(--danger)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+            >
+              <ArrowUpCircle size={20} />
+            </button>
+          </div>
 
-      <button className="fab" onClick={() => setIsFabOpen(!isFabOpen)} style={{ transform: isFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s', zIndex: 1000 }}>
-        <Plus size={32} strokeWidth={3} />
-      </button>
+          <button className="fab" onClick={() => setIsFabOpen(!isFabOpen)} style={{ transform: isFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s', zIndex: 1000 }}>
+            <Plus size={32} strokeWidth={3} />
+          </button>
+        </>
+      )}
 
       <TransactionModal
         isOpen={isModalOpen}

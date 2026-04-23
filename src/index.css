@@ -603,7 +603,7 @@ textarea:focus {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  z-index: 200;
+  z-index: 2000;
 }
 
 .modal-content {
@@ -735,17 +735,46 @@ textarea:focus {
 .budget-alert-banner {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  background: hsla(350, 80%, 58%, 0.10);
+  gap: 14px;
+  background: linear-gradient(135deg, hsla(350, 80%, 58%, 0.12), hsla(350, 80%, 58%, 0.05));
   border: 1.5px solid hsla(350, 80%, 58%, 0.25);
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin-bottom: 14px;
-  animation: fadeIn 0.3s ease;
+  backdrop-filter: blur(8px);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 20px;
+  animation: slideInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.08);
 }
-.budget-alert-banner .ba-icon { color: var(--danger); flex-shrink: 0; margin-top: 1px; }
-.budget-alert-banner .ba-title { font-size: 13px; font-weight: 700; color: var(--danger); margin-bottom: 2px; }
-.budget-alert-banner .ba-body  { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+.budget-alert-banner .ba-icon { 
+  color: var(--danger); 
+  flex-shrink: 0; 
+  margin-top: 2px;
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
+.budget-alert-banner .ba-title { 
+  font-size: 14px; 
+  font-weight: 800; 
+  color: var(--danger); 
+  margin-bottom: 4px; 
+  letter-spacing: -0.2px;
+}
+.budget-alert-banner .ba-body  { 
+  font-size: 12.5px; 
+  color: var(--text-main); 
+  line-height: 1.5;
+  opacity: 0.9;
+}
+
+@keyframes slideInDown {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse-subtle {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 /* ── Quota Banner ── */
 .quota-banner {

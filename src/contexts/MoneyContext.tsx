@@ -173,7 +173,7 @@ interface MoneyContextType {
   importData: (file: File) => Promise<void>;
   logOut: () => Promise<void>;
   pendingSyncCount: number;
-  syncData: () => Promise<void>;
+  syncData: () => Promise<{ success: number; failed: number }>;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -255,13 +255,26 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setTransactions(dbTxs);
 
       // Load settings
-      const savedUser  = await dbGetSetting('user')  as UserProfile | undefined;
+      let profile = await dbGetSetting('user') as UserProfile | undefined;
       const savedPin   = await dbGetSetting('pin')   as string | undefined;
       const savedTheme = await dbGetSetting('theme') as string | undefined;
       const savedPrivacy = await dbGetSetting('isPrivateMode') as boolean | undefined;
 
-      if (savedUser)  setUser(savedUser);
-      if (savedPin)  { setPin(savedPin); setIsAppLocked(true); }
+      // Auto-fill profile from Firebase Auth if empty or default
+      if (isFirebaseConfigured && auth.currentUser) {
+        const u = auth.currentUser;
+        if (!profile || profile.name === 'Pengguna MoneyApp' || profile.email === 'pengguna@email.com') {
+          profile = {
+            name: u.displayName || profile?.name || 'Pengguna MoneyApp',
+            email: u.email || profile?.email || '',
+            avatar: u.photoURL || profile?.avatar || ''
+          };
+          await dbPutSetting('user', profile);
+        }
+      }
+
+      if (profile) setUser(profile);
+      if (savedPin) { setPin(savedPin); setIsAppLocked(true); }
       if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
       if (savedPrivacy !== undefined) setIsPrivateMode(savedPrivacy);
 
@@ -304,7 +317,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   useEffect(() => {
-    if (isReady) refreshSyncCount();
+    if (isReady) {
+      refreshSyncCount();
+      // Poll sync count every 10 seconds to catch background retry successes
+      const interval = setInterval(refreshSyncCount, 10000);
+      return () => clearInterval(interval);
+    }
   }, [isReady, transactions, assets, debts, refreshSyncCount]);
 
   const syncData = useCallback(async () => {

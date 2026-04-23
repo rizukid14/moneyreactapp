@@ -4,8 +4,10 @@ import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
 import TransactionModal from '../components/modals/TransactionModal';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const getIconForType = (type: AssetType) => {
+// ... existing code ...
   switch (type) {
     case 'Cash': return Wallet;
     case 'Bank Account': return Landmark;
@@ -55,6 +57,7 @@ const AssetDetailDrawer: React.FC<{
   onDeleteAsset: (id: string) => void;
   onEditTx: (tx: Transaction) => void;
 }> = ({ asset, balance, transactions, allAssets, isPrivateMode, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
 
@@ -81,53 +84,60 @@ const AssetDetailDrawer: React.FC<{
     allAssets.find(a => a.id === id)?.name || '';
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ alignItems: 'flex-end' }}>
-      <div
-        className="modal-content"
-        onClick={e => e.stopPropagation()}
-        style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 0, borderRadius: '28px 28px 0 0' }}
-      >
-        {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 14,
-          padding: '20px 20px 16px',
-          borderBottom: '1px solid var(--border-color)',
-          flexShrink: 0
-        }}>
+    <>
+      <div className="modal-overlay" onClick={onClose} style={{ alignItems: 'flex-end' }}>
+        <div
+          className="modal-content"
+          onClick={e => e.stopPropagation()}
+          style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 0, borderRadius: '28px 28px 0 0' }}
+        >
+          {/* Header */}
           <div style={{
-            width: 48, height: 48, borderRadius: 16,
-            backgroundColor: 'var(--bg-main)', color,
-            display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0
+            display: 'flex', alignItems: 'center', gap: 14,
+            padding: '20px 20px 16px',
+            borderBottom: '1px solid var(--border-color)',
+            flexShrink: 0
           }}>
-            <Icon size={24} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>{asset.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              {TYPE_LABELS[asset.type]}
+            <div style={{
+              width: 48, height: 48, borderRadius: 16,
+              backgroundColor: 'var(--bg-main)', color,
+              display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0
+            }}>
+              <Icon size={24} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>{asset.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                {TYPE_LABELS[asset.type]}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                onClick={() => onEditAsset(asset)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 8, cursor: 'pointer' }}
+              >
+                <Pencil size={16} />
+              </button>
+              <button
+                onClick={() => setIsConfirmOpen(true)}
+                style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 8, cursor: 'pointer', opacity: 0.8 }}
+              >
+                <Trash2 size={16} />
+              </button>
+              <button className="close-btn" onClick={onClose}><X size={18} /></button>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              onClick={() => onEditAsset(asset)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 8, cursor: 'pointer' }}
-            >
-              <Pencil size={16} />
-            </button>
-            <button
-              onClick={() => {
-                if (confirm(`Hapus aset "${asset.name}"?\nSisa saldo akan tetap tercatat di total histori, namun aset tidak akan muncul lagi.`)) {
-                  onDeleteAsset(asset.id);
-                  onClose();
-                }
-              }}
-              style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 8, cursor: 'pointer', opacity: 0.8 }}
-            >
-              <Trash2 size={16} />
-            </button>
-            <button className="close-btn" onClick={onClose}><X size={18} /></button>
-          </div>
-        </div>
+  
+          <ConfirmDialog 
+            isOpen={isConfirmOpen}
+            onClose={() => setIsConfirmOpen(false)}
+            onConfirm={() => {
+              onDeleteAsset(asset.id);
+              onClose();
+            }}
+            title="Hapus Aset"
+            message={`Hapus aset "${asset.name}"? Sisa saldo akan tetap tercatat di histori, namun aset tidak akan muncul lagi.`}
+          />
 
         {/* Balance */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>

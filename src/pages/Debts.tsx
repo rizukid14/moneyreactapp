@@ -3,6 +3,7 @@ import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertic
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const fmt = (n: number) => `Rp${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -266,6 +267,8 @@ const Debts: React.FC = () => {
   const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
   const [filter, setFilter] = useState<'all' | 'hutang' | 'piutang' | 'lunas'>('all');
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
@@ -409,7 +412,10 @@ const Debts: React.FC = () => {
               paymentName={getAssetName(d.paymentAssetId)}
               receiveName={getAssetName(d.receiveAssetId)}
               onEdit={() => openEdit(d)}
-              onDelete={() => { if (confirm('Hapus catatan ini?')) deleteDebt(d.id); }}
+              onDelete={() => { 
+                setDeletingId(d.id);
+                setIsConfirmOpen(true);
+              }}
               onPay={() => {
                 setPayingDebt(d);
                 setIsPaymentModalOpen(true);
@@ -458,6 +464,19 @@ const Debts: React.FC = () => {
           }}
         />
       )}
+
+      <ConfirmDialog 
+        isOpen={isConfirmOpen}
+        onClose={() => {
+          setIsConfirmOpen(false);
+          setDeletingId(null);
+        }}
+        onConfirm={() => {
+          if (deletingId) deleteDebt(deletingId);
+        }}
+        title="Hapus Catatan"
+        message="Apakah Anda yakin ingin menghapus catatan hutang/piutang ini? Histori transaksi terkait akan tetap ada."
+      />
     </div>
   );
 };
