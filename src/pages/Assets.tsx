@@ -138,121 +138,121 @@ const AssetDetailDrawer: React.FC<{
             title="Hapus Aset"
             message={`Hapus aset "${asset.name}"? Sisa saldo akan tetap tercatat di histori, namun aset tidak akan muncul lagi.`}
           />
+          {/* Balance */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Saldo Saat Ini</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: balance < 0 ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-1px' }}>
+              {isPrivateMode ? 'Rp ••••••••' : fmt(Math.abs(balance))}
+              {balance < 0 && <span style={{ fontSize: 13, marginLeft: 6, color: 'var(--danger)' }}>(minus)</span>}
+            </div>
 
-        {/* Balance */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Saldo Saat Ini</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: balance < 0 ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-1px' }}>
-            {isPrivateMode ? 'Rp ••••••••' : fmt(Math.abs(balance))}
-            {balance < 0 && <span style={{ fontSize: 13, marginLeft: 6, color: 'var(--danger)' }}>(minus)</span>}
+            {/* Stats row */}
+            <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+              <div style={{ flex: 1, background: 'var(--bg-income)', borderRadius: 12, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                  <ArrowUpRight size={12} color="var(--primary)" />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Masuk</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--primary)' }}>
+                  {isPrivateMode ? '••••' : fmt(stats.income)}
+                </div>
+              </div>
+              <div style={{ flex: 1, background: 'var(--bg-expense)', borderRadius: 12, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                  <ArrowDownRight size={12} color="var(--danger)" />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase' }}>Keluar</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--danger)' }}>
+                  {isPrivateMode ? '••••' : fmt(stats.expense)}
+                </div>
+              </div>
+              <div style={{ flex: 1, background: 'var(--bg-neutral)', borderRadius: 12, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                  <ArrowRightLeft size={12} color="var(--text-muted)" />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Transaksi</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-main)' }}>{stats.count}</div>
+              </div>
+            </div>
           </div>
 
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-            <div style={{ flex: 1, background: 'var(--bg-income)', borderRadius: 12, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <ArrowUpRight size={12} color="var(--primary)" />
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Masuk</span>
+          {/* Transaction list */}
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {assetTxs.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px', fontSize: 14 }}>
+                Belum ada transaksi untuk aset ini.
               </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--primary)' }}>
-                {isPrivateMode ? '••••' : fmt(stats.income)}
+            ) : (
+              <div style={{ padding: '8px 0 24px' }}>
+                {assetTxs.map(tx => {
+                  const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
+                  const amtColor = tx.type === 'transfer'
+                    ? 'var(--text-muted)'
+                    : isIncoming ? 'var(--primary)' : 'var(--danger)';
+                  const prefix = tx.type === 'transfer' ? '↔' : isIncoming ? '+' : '-';
+
+                  return (
+                    <div
+                      key={tx.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', padding: '12px 20px',
+                        borderBottom: '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-main)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {/* Type icon */}
+                      <div style={{
+                        width: 34, height: 34, borderRadius: 10, flexShrink: 0, marginRight: 12,
+                        background: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: tx.type === 'pengeluaran' ? 'var(--danger)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
+                      }}>
+                        {tx.type === 'pengeluaran'
+                          ? <ArrowDownRight size={16} />
+                          : tx.type === 'pendapatan'
+                          ? <ArrowUpRight size={16} />
+                          : <ArrowRightLeft size={16} />}
+                      </div>
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {tx.type === 'transfer'
+                            ? `Transfer → ${getAssetName(tx.toAssetId)}`
+                            : tx.category}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                          {tx.date}
+                          {tx.note && <span style={{ marginLeft: 5, opacity: 0.8 }}>• {tx.note}</span>}
+                        </div>
+                      </div>
+
+                      {/* Amount */}
+                      <div style={{ fontWeight: 800, fontSize: 14, color: amtColor, marginLeft: 10, textAlign: 'right', flexShrink: 0 }}>
+                        {prefix}{isPrivateMode ? '••••' : fmt(tx.amount)}
+                      </div>
+
+                      {/* Actions on hover */}
+                      <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); onEditTx(tx); }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 5, cursor: 'pointer' }}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-            <div style={{ flex: 1, background: 'var(--bg-expense)', borderRadius: 12, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <ArrowDownRight size={12} color="var(--danger)" />
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase' }}>Keluar</span>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--danger)' }}>
-                {isPrivateMode ? '••••' : fmt(stats.expense)}
-              </div>
-            </div>
-            <div style={{ flex: 1, background: 'var(--bg-neutral)', borderRadius: 12, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <ArrowRightLeft size={12} color="var(--text-muted)" />
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Transaksi</span>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-main)' }}>{stats.count}</div>
-            </div>
+            )}
           </div>
-        </div>
-
-        {/* Transaction list */}
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          {assetTxs.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px', fontSize: 14 }}>
-              Belum ada transaksi untuk aset ini.
-            </div>
-          ) : (
-            <div style={{ padding: '8px 0 24px' }}>
-              {assetTxs.map(tx => {
-                const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
-                const amtColor = tx.type === 'transfer'
-                  ? 'var(--text-muted)'
-                  : isIncoming ? 'var(--primary)' : 'var(--danger)';
-                const prefix = tx.type === 'transfer' ? '↔' : isIncoming ? '+' : '-';
-
-                return (
-                  <div
-                    key={tx.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', padding: '12px 20px',
-                      borderBottom: '1px solid var(--border-color)',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-main)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    {/* Type icon */}
-                    <div style={{
-                      width: 34, height: 34, borderRadius: 10, flexShrink: 0, marginRight: 12,
-                      background: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: tx.type === 'pengeluaran' ? 'var(--danger)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
-                    }}>
-                      {tx.type === 'pengeluaran'
-                        ? <ArrowDownRight size={16} />
-                        : tx.type === 'pendapatan'
-                        ? <ArrowUpRight size={16} />
-                        : <ArrowRightLeft size={16} />}
-                    </div>
-
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {tx.type === 'transfer'
-                          ? `Transfer → ${getAssetName(tx.toAssetId)}`
-                          : tx.category}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        {tx.date}
-                        {tx.note && <span style={{ marginLeft: 5, opacity: 0.8 }}>• {tx.note}</span>}
-                      </div>
-                    </div>
-
-                    {/* Amount */}
-                    <div style={{ fontWeight: 800, fontSize: 14, color: amtColor, marginLeft: 10, textAlign: 'right', flexShrink: 0 }}>
-                      {prefix}{isPrivateMode ? '••••' : fmt(tx.amount)}
-                    </div>
-
-                    {/* Actions on hover */}
-                    <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); onEditTx(tx); }}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 5, cursor: 'pointer' }}
-                      >
-                        <Pencil size={13} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
