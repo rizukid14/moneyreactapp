@@ -95,21 +95,22 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         let totalGenerated = 0;
         const messagesToSend: any[] = [];
 
-        // 1. Fetch all users from the 'users' collection
-        const usersSnapshot = await db.collection('users').get();
-        
-        for (const userDoc of usersSnapshot.docs) {
-            const uid = userDoc.id;
-            const recurringRef = db.collection('users').doc(uid).collection('recurring_transactions');
-            const activeRecurring = await recurringRef.where('isActive', '==', true).get();
+        // 1. Fetch all active recurring transactions across all users using collectionGroup
+        const activeRecurring = await db.collectionGroup('recurring_transactions')
+            .where('isActive', '==', true)
+            .get();
 
-            if (activeRecurring.empty) continue;
-
-            const userGeneratedDetails: string[] = [];
-
+        if (activeRecurring.empty) {
+            console.log('[Cron] No active recurring transactions found.');
+        } else {
+            console.log(`[Cron] Found ${activeRecurring.size} active routines.`);
+            
             for (const rtDoc of activeRecurring.docs) {
                 const rt = rtDoc.data();
-                
+                // Get UID from the document path: users/[uid]/recurring_transactions/[id]
+                const uid = rtDoc.ref.parent.parent?.id;
+                if (!uid) continue;
+
                 const startDate = new Date(rt.startDate);
                 startDate.setHours(0, 0, 0, 0);
 
@@ -124,13 +125,13 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
                 let currentCheck = new Date(lastDate);
                 if (rt.lastProcessedDate) {
-                    // Move to the next instance based on frequency
                     currentCheck = getNextDate(currentCheck, rt.frequency);
                 }
 
                 const batch = db.batch();
                 let hasChanges = false;
                 let latestProcessed = rt.lastProcessedDate || null;
+                const userGeneratedDetails: string[] = [];
 
                 while (currentCheck <= today) {
                     if (endDate && currentCheck > endDate) break;
@@ -168,24 +169,22 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
                 if (hasChanges) {
                     batch.update(rtDoc.ref, { lastProcessedDate: latestProcessed });
                     await batch.commit();
-                }
-            }
 
-            // 2. If user had transactions generated, queue a notification
-            if (userGeneratedDetails.length > 0) {
-                const tokenDoc = await db.collection('users').doc(uid).collection('settings').doc('fcmToken').get();
-                const token = tokenDoc.data()?.value;
+                    // Queue notification for this user
+                    const tokenDoc = await db.collection('users').doc(uid).collection('settings').doc('fcmToken').get();
+                    const token = tokenDoc.data()?.value;
 
-                if (token) {
-                    messagesToSend.push({
-                        token,
-                        notification: {
-                            title: 'Transaksi Rutin Tercatat 💸',
-                            body: userGeneratedDetails.length === 1 
-                                ? `Berhasil mencatat: ${userGeneratedDetails[0]}`
-                                : `Berhasil mencatat ${userGeneratedDetails.length} transaksi rutin hari ini.`
-                        }
-                    });
+                    if (token) {
+                        messagesToSend.push({
+                            token,
+                            notification: {
+                                title: 'Transaksi Rutin Tercatat 💸',
+                                body: userGeneratedDetails.length === 1 
+                                    ? `Berhasil mencatat: ${userGeneratedDetails[0]}`
+                                    : `Berhasil mencatat ${userGeneratedDetails.length} transaksi rutin hari ini.`
+                            }
+                        });
+                    }
                 }
             }
         }

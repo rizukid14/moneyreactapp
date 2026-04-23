@@ -319,8 +319,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       setIsReady(true);
-      // After loading, check for routine transactions that need generating
-      _processRecurring(dbRecurring, dbTxs);
     };
     bootstrap();
   }, [authUser]);
@@ -564,83 +562,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
-  const _processRecurring = useCallback((rts: RecurringTransaction[], existingTxs: Transaction[]) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    rts.forEach(rt => {
-      if (!rt.isActive) return;
-
-      const startDate = new Date(rt.startDate);
-      startDate.setHours(0, 0, 0, 0);
-      
-      const lastDate = rt.lastProcessedDate ? new Date(rt.lastProcessedDate) : new Date(startDate);
-      lastDate.setHours(0, 0, 0, 0);
-
-      // If last processed is today or in the future, skip
-      if (lastDate >= today && rt.lastProcessedDate) return;
-
-      const endDate = rt.endDate ? new Date(rt.endDate) : null;
-      if (endDate) endDate.setHours(23, 59, 59, 999);
-
-      let currentCheck = new Date(lastDate);
-      if (rt.lastProcessedDate) {
-        // Move to the next instance
-        currentCheck = _getNextDate(currentCheck, rt.frequency);
-      }
-
-      const newTxs: Transaction[] = [];
-      let latestProcessed = rt.lastProcessedDate || null;
-
-      while (currentCheck <= today) {
-        // Stop if passed end date
-        if (endDate && currentCheck > endDate) break;
-
-        // Generate transaction
-        const txDate = currentCheck.toISOString().split('T')[0];
-        
-        // Simple duplicate prevention: check if this recurring ID + date already exists
-        // Note: we might want a more formal field for this later
-        const isDup = existingTxs.some(t => t.note.includes(`[Auto:${rt.id}]`) && t.date === txDate);
-        
-        if (!isDup) {
-          const newTx: Transaction = {
-            id: `auto-${rt.id}-${txDate}`,
-            type: rt.type,
-            amount: rt.amount,
-            category: rt.category,
-            subCategory: rt.subCategory,
-            assetId: rt.assetId,
-            fromAssetId: rt.fromAssetId,
-            toAssetId: rt.toAssetId,
-            date: txDate,
-            note: `${rt.note} [Auto:${rt.id}]`,
-          };
-          newTxs.push(newTx);
-        }
-
-        latestProcessed = txDate;
-        currentCheck = _getNextDate(currentCheck, rt.frequency);
-      }
-
-      if (newTxs.length > 0) {
-        newTxs.forEach(t => {
-          setTransactions(prev => [t, ...prev]);
-          import('../lib/db').then(m => m.dbPutTransaction(t));
-        });
-        updateRecurringTransaction(rt.id, { lastProcessedDate: latestProcessed! });
-      }
-    });
-  }, []);
-
-  const _getNextDate = (date: Date, freq: RecurringTransaction['frequency']): Date => {
-    const next = new Date(date);
-    if (freq === 'daily')   next.setDate(next.getDate() + 1);
-    if (freq === 'weekly')  next.setDate(next.getDate() + 7);
-    if (freq === 'monthly') next.setMonth(next.getMonth() + 1);
-    if (freq === 'yearly')  next.setFullYear(next.getFullYear() + 1);
-    return next;
-  };
 
   /**
    * Pay one installment. Generates the correct transaction type:
