@@ -19,7 +19,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, editingTransaction, initialType 
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories, budgets, transactions } = useMoney();
+  const { categories, budgets, transactions, defaultAssetId } = useMoney();
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -27,8 +27,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
   const [note, setNote] = useState('');
-  const [assetId, setAssetId] = useState(activeAssets[0]?.id || '');
-  const [fromAssetId, setFromAssetId] = useState(activeAssets[0]?.id || '');
+  const [assetId, setAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
+  const [fromAssetId, setFromAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
   
   // Recurring state
@@ -69,8 +69,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setDate(draft.date || new Date().toISOString().split('T')[0]);
         setTime(draft.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
         setNote(draft.note || '');
-        setAssetId(draft.assetId || activeAssets[0]?.id || '');
-        setFromAssetId(draft.fromAssetId || activeAssets[0]?.id || '');
+        setAssetId(draft.assetId || defaultAssetId || activeAssets[0]?.id || '');
+        setFromAssetId(draft.fromAssetId || defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(draft.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
         setIsRecurring(draft.isRecurring || false);
         setFrequency(draft.frequency || 'monthly');
@@ -83,8 +83,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setDate(new Date().toISOString().split('T')[0]);
         setTime(new Date().toTimeString().split(' ')[0].slice(0, 5));
         setNote('');
-        setAssetId(activeAssets[0]?.id || '');
-        setFromAssetId(activeAssets[0]?.id || '');
+        setAssetId(defaultAssetId || activeAssets[0]?.id || '');
+        setFromAssetId(defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
         setIsRecurring(false);
         setRecurringEndDate('');
@@ -105,8 +105,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setDate(draft.date || new Date().toISOString().split('T')[0]);
         setTime(draft.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
         setNote(draft.note || '');
-        setAssetId(draft.assetId || activeAssets[0]?.id || '');
-        setFromAssetId(draft.fromAssetId || activeAssets[0]?.id || '');
+        setAssetId(draft.assetId || defaultAssetId || activeAssets[0]?.id || '');
+        setFromAssetId(draft.fromAssetId || defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(draft.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
       } else {
         setAmount('');

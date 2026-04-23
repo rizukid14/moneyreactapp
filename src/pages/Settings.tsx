@@ -1,5 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw } from 'lucide-react';
+import { 
+  User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, 
+  Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, 
+  LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw, 
+  Sliders, Wallet
+} from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
 import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/excelImport';
@@ -8,7 +13,7 @@ import { QuotaBanner } from '../components/QuotaBanner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -59,6 +64,7 @@ const Settings: React.FC = () => {
   const menuItems = [
 // ... existing menuItems ...
     { id: 'profile', icon: User, label: 'Profil Saya' },
+    { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
     { id: 'budgets', icon: Target, label: 'Anggaran & Target' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
@@ -286,6 +292,43 @@ const Settings: React.FC = () => {
             </form>
           </>
         );
+      case 'preferences':
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Preferensi Aplikasi</h2>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+            </div>
+            
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Wallet size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Dompet Default</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Pilih dompet yang akan otomatis terpilih saat Anda menambah transaksi baru.
+              </p>
+              
+              <select 
+                value={defaultAssetId || ''} 
+                onChange={(e) => setDefaultAssetId(e.target.value || null)}
+                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
+              >
+                <option value="">-- Gunakan Paling Atas (Default) --</option>
+                {assets.filter(a => !a.isDeleted).map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="card shadow-soft" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '12px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                Note: Pengaturan ini disimpan secara lokal di perangkat ini dan disinkronkan ke cloud jika Anda login.
+              </div>
+            </div>
+          </>
+        );
+
       case 'profile':
         return (
           <form onSubmit={handleUpdateProfile}>

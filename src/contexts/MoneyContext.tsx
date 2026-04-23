@@ -170,6 +170,8 @@ interface MoneyContextType {
   toggleTheme: () => void;
   isPrivateMode: boolean;
   togglePrivateMode: () => void;
+  defaultAssetId: string | null;
+  setDefaultAssetId: (id: string | null) => void;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
   logOut: () => Promise<void>;
@@ -197,6 +199,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isAppLocked,  setIsAppLocked]  = useState(false);
   const [theme,        setTheme]        = useState<'light' | 'dark'>('light');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
+  const [defaultAssetId, setDefaultAssetIdState] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<any>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
@@ -260,6 +263,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const savedPin   = await dbGetSetting('pin')   as string | undefined;
       const savedTheme = await dbGetSetting('theme') as string | undefined;
       const savedPrivacy = await dbGetSetting('isPrivateMode') as boolean | undefined;
+      const savedDefaultAssetId = await dbGetSetting('defaultAssetId') as string | undefined;
 
       // Auto-fill profile from Firebase Auth if empty or default
       if (isFirebaseConfigured && auth.currentUser) {
@@ -278,6 +282,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedPin) { setPin(savedPin); setIsAppLocked(true); }
       if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
       if (savedPrivacy !== undefined) setIsPrivateMode(savedPrivacy);
+      if (savedDefaultAssetId) setDefaultAssetIdState(savedDefaultAssetId);
 
       // --- Migration: budgets collection -> settings/budgets ---
       if (isFirebaseConfigured && auth.currentUser) {
@@ -808,6 +813,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
+  const setDefaultAssetId = useCallback((id: string | null) => {
+    setDefaultAssetIdState(id);
+    dbPutSetting('defaultAssetId', id);
+  }, []);
+
   // ─── Export / Import ─────────────────────────────────────────────────────
   const exportData = useCallback(async () => {
     const data = await dbExportAll();
@@ -849,7 +859,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, budgets, debts, 
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    user, pin, isAppLocked, theme, isPrivateMode,
+    user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
@@ -860,7 +870,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }), [
     isReady, assets, transactions, categories, budgets, debts, 
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    user, pin, isAppLocked, theme, isPrivateMode,
+    user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
