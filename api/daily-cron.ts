@@ -95,17 +95,16 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         let totalGenerated = 0;
         const messagesToSend: any[] = [];
 
-        // 1. Fetch all active recurring transactions across all users using collectionGroup
-        const activeRecurring = await db.collectionGroup('recurring_transactions')
-            .where('isActive', '==', true)
-            .get();
+        // 1. Fetch all recurring transactions across all users using collectionGroup
+        const allRecurring = await db.collectionGroup('recurring_transactions').get();
+        const activeRecurringDocs = allRecurring.docs.filter(doc => doc.data().isActive === true);
 
-        if (activeRecurring.empty) {
+        if (activeRecurringDocs.length === 0) {
             console.log('[Cron] No active recurring transactions found.');
         } else {
-            console.log(`[Cron] Found ${activeRecurring.size} active routines.`);
+            console.log(`[Cron] Found ${activeRecurringDocs.length} active routines.`);
             
-            for (const rtDoc of activeRecurring.docs) {
+            for (const rtDoc of activeRecurringDocs) {
                 const rt = rtDoc.data();
                 // Get UID from the document path: users/[uid]/recurring_transactions/[id]
                 const uid = rtDoc.ref.parent.parent?.id;
