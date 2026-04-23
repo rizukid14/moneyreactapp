@@ -1,0 +1,135 @@
+import React, { useState, useEffect } from 'react';
+import { X, Target } from 'lucide-react';
+import { type Category, type Budget } from '../../contexts/MoneyContext';
+
+interface BudgetModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  budgets: Budget[];
+  categories: Category[];
+  addBudget: (budget: Omit<Budget, 'id'>) => void;
+  updateBudget: (id: string, budget: Partial<Budget>) => void;
+  editingBudget: Budget | null;
+  selectedMonth: number;
+  selectedYear: number;
+}
+
+const BudgetModal: React.FC<BudgetModalProps> = ({ 
+  isOpen, onClose, budgets, categories, addBudget, updateBudget, editingBudget, selectedMonth, selectedYear 
+}) => {
+  const [categoryId, setCategoryId] = useState<string | 'total'>('total');
+  const [limit, setLimit] = useState('');
+
+  useEffect(() => {
+    if (editingBudget) {
+      setCategoryId(editingBudget.categoryId || 'total');
+      setLimit(editingBudget.limit.toLocaleString('id-ID'));
+    } else {
+      setCategoryId('total');
+      setLimit('');
+    }
+  }, [editingBudget, isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericValue = e.target.value.replace(/\D/g, '');
+    if (!numericValue) {
+      setLimit('');
+      return;
+    }
+    setLimit(Number(numericValue).toLocaleString('id-ID'));
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numericLimit = Number(limit.replace(/\./g, ''));
+    
+    if (numericLimit <= 0) {
+      alert('Limit anggaran harus lebih dari 0.');
+      return;
+    }
+
+    const budgetData = {
+      categoryId: categoryId === 'total' ? null : categoryId,
+      limit: numericLimit,
+      period: 'monthly' as const,
+      month: selectedMonth,
+      year: selectedYear
+    };
+
+    // Check for duplicates
+    const isDuplicate = budgets.some(b => 
+      b.categoryId === budgetData.categoryId && 
+      b.month === selectedMonth && 
+      b.year === selectedYear &&
+      (!editingBudget || b.id !== editingBudget.id)
+    );
+
+    if (isDuplicate) {
+      alert('Anggaran untuk kategori ini sudah ada di bulan terpilih.');
+      return;
+    }
+
+    if (editingBudget) {
+      updateBudget(editingBudget.id, budgetData);
+    } else {
+      addBudget(budgetData);
+    }
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+             <Target size={24} color="var(--primary)" />
+             <h2 className="subtitle" style={{ margin: 0 }}>{editingBudget ? 'Edit Anggaran' : 'Set Anggaran'}</h2>
+          </div>
+          <button className="close-btn" onClick={onClose}><X size={24} /></button>
+        </div>
+
+        <form onSubmit={handleSave}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
+            Pilih Target Anggaran
+          </label>
+          <select 
+            required 
+            value={categoryId} 
+            onChange={e => setCategoryId(e.target.value)}
+            disabled={!!editingBudget} // Don't allow changing category on edit to keep logic simple
+          >
+            <option value="total">-- Total Anggaran (Global) --</option>
+            {categories.filter(c => c.type === 'pengeluaran').map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
+            Batas Maksimal (Rp)
+          </label>
+          <input 
+            type="text" 
+            inputMode="numeric" 
+            required 
+            placeholder="Contoh: 1.000.000" 
+            value={limit} 
+            onChange={handleAmountChange} 
+          />
+
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
+            Anggaran ini berlaku untuk bulan <strong>{selectedMonth + 1}/{selectedYear}</strong>. 
+            Anda akan diperingatkan jika pengeluaran mendekati atau melebihi batas ini.
+          </p>
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+            {editingBudget ? 'Simpan Perubahan' : 'Mulai Anggaran'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default BudgetModal;

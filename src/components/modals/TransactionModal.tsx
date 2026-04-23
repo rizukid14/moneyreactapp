@@ -1,22 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { X, ArrowRightLeft } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { useMoney } from '../../contexts/MoneyContext';
-import type { Asset, Transaction } from '../../contexts/MoneyContext';
+import type { Asset, RecurringTransaction, Transaction } from '../../contexts/MoneyContext';
 
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   assets: Asset[];
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
+  addRecurringTransaction?: (rt: Omit<RecurringTransaction, 'id'>) => void;
   updateTransaction?: (id: string, tx: Partial<Transaction>) => void;
   editingTransaction?: Transaction | null;
+  initialType?: 'pengeluaran' | 'pendapatan' | 'transfer';
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({ 
-  isOpen, onClose, assets, addTransaction, updateTransaction, editingTransaction 
+  isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, editingTransaction, initialType 
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories } = useMoney();
+  const { categories, budgets, transactions } = useMoney();
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -26,6 +28,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [assetId, setAssetId] = useState(activeAssets[0]?.id || '');
   const [fromAssetId, setFromAssetId] = useState(activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
+  
+  // Recurring state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [recurringEndDate, setRecurringEndDate] = useState('');
 
   useEffect(() => {
     if (editingTransaction) {
@@ -39,7 +46,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setFromAssetId(editingTransaction.fromAssetId || activeAssets[0]?.id || '');
       setToAssetId(editingTransaction.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
     } else {
-      setType('pengeluaran');
+      setType(initialType || 'pengeluaran');
       setAmount('');
       setCategory('');
       setSubCategory('');
@@ -48,17 +55,75 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setAssetId(activeAssets[0]?.id || '');
       setFromAssetId(activeAssets[0]?.id || '');
       setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
+      setIsRecurring(false);
+      setRecurringEndDate('');
     }
-  }, [editingTransaction, isOpen, assets]);
+  }, [editingTransaction, isOpen, assets, initialType]);
+
+  // ── Budget Alert Logic ──────────────────────────────────────
+  const budgetAlerts = useMemo(() => {
+    if (type !== 'pengeluaran' || !amount) return [];
+    const txDate = new Date(date || new Date());
+    const txMonth = txDate.getMonth();
+    const txYear = txDate.getFullYear();
+    const txAmount = Number(amount.replace(/\./g, ''));
+    if (!txAmount) return [];
+
+    // Current month spending (excluding editing transaction itself)
+    const existingSpend = transactions.reduce((acc, tx) => {
+      if (tx.id === editingTransaction?.id) return acc;
+      const d = new Date(tx.date);
+      if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return acc;
+      return { ...acc, total: acc.total + tx.amount };
+    }, { total: 0 } as Record<string, number>);
+
+    // Also track by category
+    transactions.forEach(tx => {
+      if (tx.id === editingTransaction?.id) return;
+      const d = new Date(tx.date);
+      if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return;
+      const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+      if (cat) existingSpend[cat.id] = (existingSpend[cat.id] || 0) + tx.amount;
+    });
+
+    const alerts: { label: string; over: number }[] = [];
+    const monthBudgets = budgets.filter(b => b.month === txMonth && b.year === txYear);
+
+    // Global budget check
+    const global = monthBudgets.find(b => b.categoryId === null);
+    if (global) {
+      const newTotal = (existingSpend.total || 0) + txAmount;
+      if (newTotal > global.limit) {
+        alerts.push({
+          label: 'Total Anggaran Bulanan',
+          over: newTotal - global.limit
+        });
+      }
+    }
+
+    // Category budget check
+    const selCat = categories.find(c => c.name === category && c.type === 'pengeluaran');
+    if (selCat) {
+      const catBudget = monthBudgets.find(b => b.categoryId === selCat.id);
+      if (catBudget) {
+        const newCatTotal = (existingSpend[selCat.id] || 0) + txAmount;
+        if (newCatTotal > catBudget.limit) {
+          alerts.push({
+            label: `Anggaran: ${selCat.name}`,
+            over: newCatTotal - catBudget.limit
+          });
+        }
+      }
+    }
+
+    return alerts;
+  }, [type, amount, date, category, budgets, transactions, categories, editingTransaction]);
 
   if (!isOpen) return null;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const numericValue = e.target.value.replace(/\D/g, '');
-    if (!numericValue) {
-      setAmount('');
-      return;
-    }
+    if (!numericValue) { setAmount(''); return; }
     setAmount(Number(numericValue).toLocaleString('id-ID'));
   };
 
@@ -80,6 +145,18 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       updateTransaction(editingTransaction.id, txData);
     } else {
       addTransaction(txData);
+      
+      // Handle creating recurring transaction if toggled
+      if (isRecurring && addRecurringTransaction) {
+        addRecurringTransaction({
+          ...txData,
+          frequency,
+          startDate: date,
+          lastProcessedDate: date, // Treat today's transaction as already processed
+          endDate: recurringEndDate || undefined,
+          isActive: true
+        });
+      }
     }
     onClose();
   };
@@ -185,6 +262,74 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
             <input type="date" required value={date} onChange={e => setDate(e.target.value)} />
             <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} />
+
+            {!editingTransaction && (
+              <div style={{ 
+                margin: '12px 0', padding: '12px', borderRadius: '12px', 
+                background: isRecurring ? 'hsla(152,70%,42%,0.08)' : 'var(--bg-main)',
+                border: `1px solid ${isRecurring ? 'var(--primary)' : 'var(--border-color)'}`,
+                transition: 'all 0.2s'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ArrowRightLeft size={16} color={isRecurring ? 'var(--primary)' : 'var(--text-muted)'} />
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Jadikan Transaksi Rutin</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={isRecurring} 
+                    onChange={e => setIsRecurring(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
+                  />
+                </label>
+
+                {isRecurring && (
+                  <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Frekuensi</label>
+                      <select 
+                        value={frequency} 
+                        onChange={e => setFrequency(e.target.value as any)}
+                        style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
+                      >
+                        <option value="daily">Harian</option>
+                        <option value="weekly">Mingguan</option>
+                        <option value="monthly">Bulanan</option>
+                        <option value="yearly">Tahunan</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Sampai Tanggal (Opsional)</label>
+                      <input 
+                        type="date" 
+                        value={recurringEndDate} 
+                        onChange={e => setRecurringEndDate(e.target.value)}
+                        style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Budget Alert Banner */}
+            {budgetAlerts.length > 0 && (
+              <div className="budget-alert-banner">
+                <AlertTriangle size={16} className="ba-icon" />
+                <div>
+                  <div className="ba-title">Peringatan Anggaran</div>
+                  {budgetAlerts.map((alert, i) => (
+                    <div key={i} className="ba-body">
+                      <strong>{alert.label}</strong> akan melebihi batas sebesar{' '}
+                      <strong style={{ color: 'var(--danger)' }}>
+                        Rp{alert.over.toLocaleString('id-ID')}
+                      </strong>
+                    </div>
+                  ))}
+                  <div className="ba-body" style={{ marginTop: 4 }}>Transaksi tetap bisa disimpan.</div>
+                </div>
+              </div>
+            )}
 
             <button 
               type="submit" 

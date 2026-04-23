@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Home, LineChart, Camera, Wallet, Settings } from 'lucide-react';
+import { Home, LineChart, Wallet, Settings, PanelLeftClose, PanelLeftOpen, BadgeDollarSign } from 'lucide-react';
 
 const Layout: React.FC = () => {
-  const NavItems = () => (
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const NavItems = ({ includeDebts = false }: { includeDebts?: boolean }) => (
     <>
       <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <Home size={24} />
@@ -13,14 +15,16 @@ const Layout: React.FC = () => {
         <LineChart size={24} />
         <span>Statistik</span>
       </NavLink>
-      <NavLink to="/scan" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <Camera size={24} />
-        <span>OCR</span>
-      </NavLink>
       <NavLink to="/assets" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <Wallet size={24} />
         <span>Aset</span>
       </NavLink>
+      {includeDebts && (
+        <NavLink to="/debts" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <BadgeDollarSign size={24} />
+          <span>Hutang</span>
+        </NavLink>
+      )}
       <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <Settings size={24} />
         <span>Lainnya</span>
@@ -31,12 +35,20 @@ const Layout: React.FC = () => {
   return (
     <div className="app-container">
       {/* Sidebar for Desktop */}
-      <aside className="sidebar-nav desktop-only">
+      <aside className={`sidebar-nav desktop-only ${isCollapsed ? 'collapsed' : ''}`}>
+        <button 
+          className="sidebar-toggle desktop-only" 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+        </button>
+
         <div className="sidebar-logo">
-          <Wallet size={32} strokeWidth={2.5} />
+          <Wallet size={36} strokeWidth={2.5} color="var(--primary)" />
           <span>MoneyApp</span>
         </div>
-        <NavItems />
+        <NavItems includeDebts={true} />
       </aside>
 
       {/* Main Content Area */}
@@ -46,9 +58,9 @@ const Layout: React.FC = () => {
         </div>
       </main>
       
-      {/* Bottom Nav for Mobile */}
-      <nav className="bottom-nav glass mobile-only">
-        <NavItems />
+      {/* Bottom Nav for Mobile — includes all 6 items */}
+      <nav className="bottom-nav mobile-only">
+        <NavItems includeDebts={true} />
       </nav>
     </div>
   );

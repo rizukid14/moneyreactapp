@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
 import TransactionItem from '../components/transactions/TransactionItem';
@@ -7,16 +8,40 @@ import TransactionModal from '../components/modals/TransactionModal';
 import DatePickerModal from '../components/modals/DatePickerModal';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+type GroupBy = 'date' | 'category' | 'asset' | 'none';
+
+interface TransactionGroup {
+  id: string;
+  title: string;
+  transactions: Transaction[];
+  income: number;
+  expense: number;
+  dateStr?: string;
+  dayName?: string;
+}
 
 const Transactions: React.FC = () => {
-  const { transactions, assets, addTransaction, deleteTransaction, updateTransaction } = useMoney();
+  const navigate = useNavigate();
+  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [initialType, setInitialType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
+  const [isFabOpen, setIsFabOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
+  const [groupBy, setGroupBy] = useState<GroupBy>('date');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Optimized derived state (rerender-memo)
-  const { filteredTransactions, monthlyIncome, monthlyExpense } = useMemo(() => {
+  const getAssetName = useCallback((id?: string) => {
+    const asset = assets.find(a => a.id === id);
+    if (!asset) return 'Unknown';
+    return asset.isDeleted ? `${asset.name} (Dihapus)` : asset.name;
+  }, [assets]);
+
+  // Grouped and filtered data
+  const { groups, monthlyIncome, monthlyExpense } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
@@ -24,6 +49,24 @@ const Transactions: React.FC = () => {
     let exp = 0;
 
     const filtered = transactions.filter(tx => {
+      // 1. Search Query logic (Global)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matches = (
+          tx.note.toLowerCase().includes(q) ||
+          tx.category.toLowerCase().includes(q) ||
+          (tx.subCategory && tx.subCategory.toLowerCase().includes(q)) ||
+          tx.amount.toString().includes(q)
+        );
+        if (!matches) return false;
+        
+        // If matches search, sum up for the visible context
+        if (tx.type === 'pendapatan') inc += tx.amount;
+        if (tx.type === 'pengeluaran') exp += tx.amount;
+        return true;
+      }
+
+      // 2. Default Month/Year filter
       const txD = new Date(tx.date);
       if (txD.getMonth() === vM && txD.getFullYear() === vY) {
         if (tx.type === 'pendapatan') inc += tx.amount;
@@ -33,30 +76,70 @@ const Transactions: React.FC = () => {
       return false;
     }).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
-    return { filteredTransactions: filtered, monthlyIncome: inc, monthlyExpense: exp };
-  }, [transactions, viewDate]);
+    if (groupBy === 'none') {
+      return {
+        groups: [{ id: 'all', title: '', transactions: filtered, income: inc, expense: exp }],
+        monthlyIncome: inc,
+        monthlyExpense: exp
+      };
+    }
 
-  // Stable callbacks for extracted components
+    const groupsMap: Record<string, TransactionGroup> = {};
+
+    filtered.forEach(tx => {
+      let key = '';
+      let title = '';
+      let dateStr = '';
+      let dayName = '';
+
+      if (groupBy === 'date') {
+        key = tx.date;
+        const d = new Date(tx.date);
+        dateStr = `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+        dayName = DAY_NAMES[d.getDay()];
+        title = dateStr;
+      } else if (groupBy === 'category') {
+        key = tx.category;
+        title = tx.category;
+      } else if (groupBy === 'asset') {
+        key = tx.assetId || tx.fromAssetId || 'unknown';
+        title = getAssetName(key);
+      }
+
+      if (!groupsMap[key]) {
+        groupsMap[key] = { id: key, title, transactions: [], income: 0, expense: 0, dateStr, dayName };
+      }
+
+      groupsMap[key].transactions.push(tx);
+      if (tx.type === 'pendapatan') groupsMap[key].income += tx.amount;
+      if (tx.type === 'pengeluaran') groupsMap[key].expense += tx.amount;
+    });
+
+    const sortedGroups = Object.values(groupsMap).sort((a, b) => {
+      if (groupBy === 'date') return b.id.localeCompare(a.id);
+      return a.title.localeCompare(b.title);
+    });
+
+    return { groups: sortedGroups, monthlyIncome: inc, monthlyExpense: exp };
+  }, [transactions, viewDate, groupBy, searchQuery, getAssetName]);
+
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
   }, []);
 
   const resetToToday = useCallback(() => setViewDate(new Date()), []);
 
-  const getAssetName = useCallback((id?: string) => {
-    const asset = assets.find(a => a.id === id);
-    if (!asset) return 'Unknown';
-    return asset.isDeleted ? `${asset.name} (Dihapus)` : asset.name;
-  }, [assets]);
-
   const handleEdit = useCallback((tx: Transaction) => {
     setEditingTransaction(tx);
+    setInitialType(tx.type);
     setIsModalOpen(true);
   }, []);
 
-  const handleAdd = () => {
+  const handleAdd = (type: 'pengeluaran' | 'pendapatan' | 'transfer' = 'pengeluaran') => {
     setEditingTransaction(null);
+    setInitialType(type);
     setIsModalOpen(true);
+    setIsFabOpen(false);
   };
 
   const handleCloseModal = useCallback(() => {
@@ -64,83 +147,249 @@ const Transactions: React.FC = () => {
     setEditingTransaction(null);
   }, []);
 
+  const formatCurrency = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
+
   return (
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
-        <button onClick={resetToToday} style={{
-          display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px',
-          borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-card)',
-          fontSize: '12px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer'
-        }}>
-          <CalendarDays size={14} /> Hari Ini
-        </button>
-      </div>
-
-      {/* Month Switcher Header */}
-      <div className="card" style={{ padding: '8px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', padding: '12px', cursor: 'pointer', color: 'var(--text-muted)' }}>
-            <ChevronLeft size={24} />
-          </button>
-
-          <div
-            onClick={() => setIsDatePickerOpen(true)}
-            style={{ textAlign: 'center', cursor: 'pointer', padding: '8px 16px', borderRadius: '12px' }}>
-            <div style={{ fontWeight: 800, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
-              {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
-              <ChevronDown size={16} color="var(--text-muted)" />
-            </div>
-            <div style={{ display: 'flex', gap: '16px', marginTop: '6px', fontSize: '12px', fontWeight: 700 }}>
-              <span style={{ color: 'var(--primary)' }}>Masuk: Rp{monthlyIncome.toLocaleString('id-ID')}</span>
-              <span style={{ color: 'var(--secondary)' }}>Keluar: Rp{monthlyExpense.toLocaleString('id-ID')}</span>
-            </div>
-          </div>
-
-          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', padding: '12px', cursor: 'pointer', color: 'var(--text-muted)' }}>
-            <ChevronRight size={24} />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={resetToToday} style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
+            borderRadius: '24px', border: 'none', background: 'var(--primary-glow)',
+            fontSize: '13px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer',
+            boxShadow: '0 2px 10px var(--primary-glow)'
+          }}>
+            <CalendarDays size={16} /> Hari Ini
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {filteredTransactions.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '20px' }}>
-            Tidak ada transaksi di bulan ini.
+      {/* Search Bar */}
+      <div className="card glass shadow-soft" style={{ 
+        display: 'flex', alignItems: 'center', gap: '10px', 
+        padding: '8px 16px', marginBottom: '16px', border: 'none',
+        background: 'var(--bg-card-solid)'
+      }}>
+        <Search size={20} color="var(--text-muted)" />
+        <input 
+          type="text" 
+          placeholder="Cari catatan, kategori, atau jumlah..." 
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{ 
+            background: 'none', border: 'none', padding: '8px 0', 
+            fontSize: '14px', flex: 1, color: 'var(--text-main)',
+            outline: 'none', marginBottom: 0
+          }}
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
+            <X size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* Month Switcher */}
+      {!searchQuery && (
+        <div className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <button onClick={() => changeMonth(-1)} className="btn-icon">
+              <ChevronLeft size={24} />
+            </button>
+
+            <div
+              onClick={() => setIsDatePickerOpen(true)}
+              style={{ 
+                textAlign: 'center', cursor: 'pointer', padding: '10px 20px', borderRadius: '14px',
+                background: 'var(--bg-main)', flex: 1, margin: '0 8px'
+              }}>
+              <div style={{ fontWeight: 800, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
+                {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
+                <ChevronDown size={18} color="var(--primary)" />
+              </div>
+            </div>
+
+            <button onClick={() => changeMonth(1)} className="btn-icon">
+              <ChevronRight size={24} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Cards */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
+        <div className="card" style={{ 
+          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)', 
+          color: 'white', border: 'none', padding: '16px',
+          boxShadow: '0 10px 25px var(--primary-glow)' 
+        }}>
+          <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pemasukan</span>
+          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyIncome)}</span>
+        </div>
+        <div className="card" style={{ 
+          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)', 
+          color: 'white', border: 'none', padding: '16px',
+          boxShadow: '0 10px 25px var(--secondary-glow)'
+        }}>
+          <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</span>
+          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyExpense)}</span>
+        </div>
+      </div>
+
+      {/* GroupBy Selector */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px' }}>
+        {[
+          { id: 'date', label: 'Tanggal', icon: Calendar },
+          { id: 'category', label: 'Kategori', icon: Tag },
+          { id: 'asset', label: 'Aset', icon: CreditCard },
+          { id: 'none', label: 'List', icon: LayoutGrid },
+        ].map(item => (
+          <button
+            key={item.id}
+            onClick={() => setGroupBy(item.id as GroupBy)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px',
+              borderRadius: '14px', border: 'none',
+              background: groupBy === item.id ? 'var(--primary-glow)' : 'transparent',
+              color: groupBy === item.id ? 'var(--primary)' : 'var(--text-muted)',
+              fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+              transition: 'all 0.2s'
+            }}
+          >
+            <item.icon size={16} />
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '80px' }}>
+        {groups.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '20px', padding: '40px' }}>
+            {searchQuery ? (
+              <>
+                <Search size={40} style={{ opacity: 0.1, marginBottom: '16px' }} />
+                <div>Tidak menemukan aktivitas untuk "{searchQuery}"</div>
+              </>
+            ) : (
+              'Tidak ada transaksi di bulan ini.'
+            )}
           </div>
         ) : (
-          filteredTransactions.map(tx => (
-            <TransactionItem 
-              key={tx.id}
-              transaction={tx}
-              assetName={getAssetName(tx.assetId)}
-              fromAssetName={getAssetName(tx.fromAssetId)}
-              toAssetName={getAssetName(tx.toAssetId)}
-              onDelete={deleteTransaction}
-              onEdit={handleEdit}
-            />
+          groups.map(group => (
+            <div key={group.id} style={{ marginBottom: '8px' }}>
+              {groupBy !== 'none' && (
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 4px', marginBottom: '8px',
+                  position: 'sticky', top: '0', zIndex: 10,
+                  background: 'var(--bg-main)',
+                  borderBottom: '1px solid var(--border-color)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {groupBy === 'date' ? (
+                      <>
+                        <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{group.id.split('-')[2]}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                          {group.dayName}, {MONTH_NAMES[new Date(group.id).getMonth()]}
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                        {group.title}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '12px', fontWeight: 700 }}>
+                    {group.income > 0 && <span style={{ color: 'var(--primary)' }}>+{group.income.toLocaleString('id-ID')}</span>}
+                    {group.expense > 0 && <span style={{ color: 'var(--danger)' }}>-{group.expense.toLocaleString('id-ID')}</span>}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {group.transactions.map(tx => (
+                  <TransactionItem
+                    key={tx.id}
+                    transaction={tx}
+                    assetName={getAssetName(tx.assetId)}
+                    fromAssetName={getAssetName(tx.fromAssetId)}
+                    toAssetName={getAssetName(tx.toAssetId)}
+                    onDelete={deleteTransaction}
+                    onEdit={handleEdit}
+                    showDate={groupBy !== 'date'}
+                  />
+                ))}
+              </div>
+            </div>
           ))
         )}
       </div>
 
-      <DatePickerModal 
+      <DatePickerModal
         isOpen={isDatePickerOpen}
         onClose={() => setIsDatePickerOpen(false)}
         viewDate={viewDate}
         onSelectDate={setViewDate}
       />
 
-      <button className="fab" onClick={handleAdd}>
+      {isFabOpen && (
+         <div onClick={() => setIsFabOpen(false)} style={{position: 'fixed', inset: 0, background: 'hsla(var(--n-h), 20%, 10%, 0.4)', backdropFilter: 'blur(2px)', zIndex: 998}} />
+      )}
+
+      <div className={`fab-menu ${isFabOpen ? 'open' : ''}`}>
+        <button 
+          className="fab-mini" 
+          onClick={() => navigate('/scan')}
+          title="Scan Struk (OCR)"
+          style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <Camera size={20} />
+        </button>
+        <button 
+          className="fab-mini" 
+          onClick={() => navigate('/bulk-input')}
+          title="Bulk Input (AI)"
+          style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <Sparkles size={20} />
+        </button>
+        <button 
+          className="fab-mini" 
+          onClick={() => handleAdd('transfer')}
+          style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <RefreshCw size={20} />
+        </button>
+        <button 
+          className="fab-mini" 
+          onClick={() => handleAdd('pendapatan')}
+          style={{ background: 'var(--success)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+        >
+          <ArrowDownCircle size={20} />
+        </button>
+        <button 
+          className="fab-mini" 
+          onClick={() => handleAdd('pengeluaran')}
+          style={{ background: 'var(--danger)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+        >
+          <ArrowUpCircle size={20} />
+        </button>
+      </div>
+
+      <button className="fab" onClick={() => setIsFabOpen(!isFabOpen)} style={{ transform: isFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s', zIndex: 1000 }}>
         <Plus size={32} strokeWidth={3} />
       </button>
 
-      <TransactionModal 
+      <TransactionModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         assets={assets}
         addTransaction={addTransaction}
+        addRecurringTransaction={addRecurringTransaction}
         updateTransaction={updateTransaction}
         editingTransaction={editingTransaction}
+        initialType={initialType}
       />
     </div>
   );

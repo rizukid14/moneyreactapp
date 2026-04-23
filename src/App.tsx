@@ -9,7 +9,9 @@ import { Loader2 } from 'lucide-react';
 const Transactions = lazy(() => import('./pages/Transactions'));
 const Statistics = lazy(() => import('./pages/Statistics'));
 const ReceiptScanner = lazy(() => import('./pages/ReceiptScanner'));
+const BulkInput = lazy(() => import('./pages/BulkInput'));
 const Assets = lazy(() => import('./pages/Assets'));
+const Debts = lazy(() => import('./pages/Debts'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 const LoadingFallback = () => (
@@ -39,6 +41,15 @@ const AppContent: React.FC = () => {
     }
   }, [theme]);
 
+  // Request notification permission and setup FCM on mount
+  useEffect(() => {
+    if (isReady) {
+      import('./lib/notifications').then(({ setupPushNotifications }) => {
+        setupPushNotifications();
+      });
+    }
+  }, [isReady]);
+
   // Wait for IndexedDB to load before rendering app
   if (!isReady) return <LoadingFallback />;
 
@@ -48,21 +59,21 @@ const AppContent: React.FC = () => {
 
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
-      <div className="app-container">
-        <BrowserRouter>
-          <Suspense fallback={<LoadingFallback />}>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Transactions />} />
-                <Route path="stats" element={<Statistics />} />
-                <Route path="scan" element={<ReceiptScanner />} />
-                <Route path="assets" element={<Assets />} />
-                <Route path="settings" element={<Settings />} />
-              </Route>
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </div>
+      <BrowserRouter>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Transactions />} />
+              <Route path="stats" element={<Statistics />} />
+              <Route path="scan" element={<ReceiptScanner />} />
+              <Route path="bulk-input" element={<BulkInput />} />
+              <Route path="assets" element={<Assets />} />
+              <Route path="debts" element={<Debts />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
     </div>
   );
 };
