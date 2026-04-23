@@ -32,6 +32,7 @@ export default async function handler(req: any, res: any) {
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
 
     const prompt = `Extract receipt data to JSON:
+    - merchantName: string (store or merchant name)
     - amount: total (number)
     - date: YYYY-MM-DD
     - lineItems: array of {name, amount}

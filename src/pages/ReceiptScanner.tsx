@@ -38,9 +38,11 @@ const ReceiptScanner: React.FC = () => {
   const [editableAmount, setEditableAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
+  const [merchantName, setMerchantName] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<'name' | 'amount' | null>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +58,7 @@ const ReceiptScanner: React.FC = () => {
     setEditableAmount('');
     setSelectedCategory('');
     setSelectedSubCategory('');
+    setMerchantName('');
   }, [previewUrl, setError]);
 
   // ── Draw canvas when entering crop stage ────────────────────────────────────
@@ -212,6 +215,7 @@ const ReceiptScanner: React.FC = () => {
       setSelectedType('pengeluaran');
       setSelectedDate(ocrResult.date);
       setEditableAmount(ocrResult.amount > 0 ? ocrResult.amount.toString() : '');
+      setMerchantName(ocrResult.merchantName || 'Scan Otomatis');
       setLineItems(ocrResult.lineItems);
 
       // 2. Category Matching
@@ -253,7 +257,7 @@ const ReceiptScanner: React.FC = () => {
         category: selectedCategory || 'Belanja (OCR)',
         subCategory: selectedSubCategory || undefined,
         date: selectedDate,
-        note: 'Scan Otomatis',
+        note: merchantName || 'Scan Otomatis',
         assetId: selectedAssetId,
       });
       alert('Transaksi berhasil disimpan!');
@@ -413,6 +417,16 @@ const ReceiptScanner: React.FC = () => {
                 <option value="">-- Pilih Rekening --</option>
                 {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
+
+              <div style={{ marginBottom: '12px' }}>
+                <input 
+                  type="text" 
+                  placeholder="Catatan / Nama Merchant" 
+                  value={merchantName} 
+                  onChange={e => setMerchantName(e.target.value)}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                />
+              </div>
 
               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
             </div>

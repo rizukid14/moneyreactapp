@@ -7,6 +7,7 @@ export interface LineItem {
 }
 
 export interface OCRResult {
+  merchantName?: string;
   amount: number;
   date: string;
   rawText: string;
@@ -126,6 +127,7 @@ export const useReceiptOCR = () => {
       }));
 
       return {
+        merchantName: result.merchantName || "",
         amount: result.amount || 0,
         date: result.date || new Date().toISOString().split('T')[0],
         rawText: result.rawText || "Parsed via Cloud AI",
