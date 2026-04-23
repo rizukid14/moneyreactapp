@@ -243,28 +243,39 @@ const Transactions: React.FC = () => {
         </div>
       </div>
 
-      {/* GroupBy Selector */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px' }}>
+      {/* GroupBy Selector - Segmented Control (Icon Only) */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '4px', 
+        marginBottom: '24px', 
+        background: 'var(--bg-card-solid)', 
+        padding: '6px', 
+        borderRadius: '18px',
+        border: '1.5px solid var(--border-color)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+      }}>
         {[
-          { id: 'date', label: 'Tanggal', icon: Calendar },
-          { id: 'category', label: 'Kategori', icon: Tag },
-          { id: 'asset', label: 'Aset', icon: CreditCard },
-          { id: 'none', label: 'List', icon: LayoutGrid },
+          { id: 'date', icon: Calendar },
+          { id: 'category', icon: Tag },
+          { id: 'asset', icon: CreditCard },
+          { id: 'none', icon: LayoutGrid },
         ].map(item => (
           <button
             key={item.id}
             onClick={() => setGroupBy(item.id as GroupBy)}
             style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px',
+              display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '12px 0',
               borderRadius: '14px', border: 'none',
-              background: groupBy === item.id ? 'var(--primary-glow)' : 'transparent',
-              color: groupBy === item.id ? 'var(--primary)' : 'var(--text-muted)',
-              fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-              transition: 'all 0.2s'
+              background: groupBy === item.id ? 'var(--primary-gradient)' : 'transparent',
+              color: groupBy === item.id ? 'white' : 'var(--text-muted)',
+              cursor: 'pointer',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: groupBy === item.id ? '0 5px 15px var(--primary-glow)' : 'none',
+              transform: groupBy === item.id ? 'scale(1.05)' : 'scale(1)'
             }}
           >
-            <item.icon size={16} />
-            {item.label}
+            <item.icon size={22} />
           </button>
         ))}
       </div>

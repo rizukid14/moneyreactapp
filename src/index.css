@@ -50,6 +50,15 @@
   --danger-red: var(--danger);
 }
 
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .dark {
   --bg-main: hsl(var(--n-h), 30%, 5%);
   --bg-card: hsl(var(--n-h), 25%, 10%);

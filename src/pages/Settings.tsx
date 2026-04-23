@@ -329,15 +329,41 @@ const Settings: React.FC = () => {
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Atur tanggal awal bulan finansial Anda (misalnya tanggal gajian).
               </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Tanggal:</span>
-                <input 
-                  type="number" 
-                  min="1" max="31"
-                  value={startOfMonthDay} 
-                  onChange={(e) => setStartOfMonthDay(parseInt(e.target.value) || 1)}
-                  style={{ width: '80px', padding: '8px', borderRadius: '10px', marginBottom: 0, textAlign: 'center' }}
-                />
+              <div style={{ position: 'relative', marginTop: '12px' }}>
+                <select
+                  value={startOfMonthDay}
+                  onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
+                  style={{
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    width: '100%',
+                    padding: '14px 16px',
+                    paddingRight: '40px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    outline: 'none'
+                  }}
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <option key={day} value={day}>Tanggal {day}</option>
+                  ))}
+                </select>
+                <div style={{
+                  position: 'absolute',
+                  right: '16px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                  color: 'var(--text-muted)'
+                }}>
+                  <div style={{ border: 'solid var(--text-muted)', borderWidth: '0 2px 2px 0', display: 'inline-block', padding: '3px', transform: 'rotate(45deg)' }}></div>
+                </div>
               </div>
             </div>
 

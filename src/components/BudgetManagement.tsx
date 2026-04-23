@@ -8,7 +8,7 @@ const MONTH_NAMES = [
   'Juli','Agustus','September','Oktober','November','Desember'
 ];
 
-const fmt = (val: number, sym: string = 'Rp') => `${sym}${val.toLocaleString('id-ID')}`;
+const fmt = (val: number, sym: string) => `${sym}${val.toLocaleString('id-ID')}`;
 
 const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   const r = 44;

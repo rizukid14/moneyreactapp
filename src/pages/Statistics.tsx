@@ -9,8 +9,6 @@ const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
 
-const formatRupiah = (value: number) => `Rp${value.toLocaleString('id-ID')}`;
-
 const Statistics: React.FC = () => {
   const { transactions, currencySymbol, startOfMonthDay } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
@@ -189,7 +187,7 @@ const Statistics: React.FC = () => {
               <Tooltip 
                 cursor={{fill: 'var(--bg-main)'}} 
                 contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
-                formatter={(val: any) => formatRupiah(Number(val))}
+                formatter={(val: any) => formatCurrency(Number(val))}
               />
               <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}/>
               <Bar dataKey="pendapatan" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pendapatan" />
@@ -251,7 +249,7 @@ const Statistics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: any) => formatRupiah(Number(val))}
+                    formatter={(val: any) => formatCurrency(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
@@ -283,7 +281,7 @@ const Statistics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: any) => formatRupiah(Number(val))}
+                    formatter={(val: any) => formatCurrency(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>

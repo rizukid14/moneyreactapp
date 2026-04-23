@@ -393,7 +393,7 @@ const ReceiptScanner: React.FC = () => {
 
             <div style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>Rp</span>
+                <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{currencySymbol}</span>
                 <input type="text" inputMode="numeric" value={editableAmount ? parseInt(editableAmount).toLocaleString('id-ID') : ''} onChange={e => setEditableAmount(e.target.value.replace(/\D/g, ''))} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
               </div>
 
@@ -500,7 +500,7 @@ const ReceiptScanner: React.FC = () => {
                         style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'text' }}
                         title="Tap untuk edit nominal"
                       >
-                        Rp{item.amount.toLocaleString('id-ID')}
+                        {currencySymbol}{item.amount.toLocaleString('id-ID')}
                       </span>
                     )}
                   </div>

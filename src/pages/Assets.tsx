@@ -329,7 +329,7 @@ const Assets: React.FC = () => {
           </button>
         </div>
         <div style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '-1px' }}>
-          {isPrivateMode ? 'Rp ••••••••' : `Rp${total.toLocaleString('id-ID')}`}
+          {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${total.toLocaleString('id-ID')}`}
         </div>
       </div>
 
@@ -395,7 +395,7 @@ const Assets: React.FC = () => {
                           </div>
                           <div style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
                             {isLiability && <span style={{ fontSize: '13px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
-                            {isPrivateMode ? 'Rp ••••••••' : `Rp${displayBalance.toLocaleString('id-ID')}`}
+                            {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                             {txCount} transaksi
