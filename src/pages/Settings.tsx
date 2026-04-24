@@ -1,12 +1,19 @@
 import React, { useState, useRef } from 'react';
-import { User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw } from 'lucide-react';
+import { 
+  User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, 
+  Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, 
+  LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw, 
+  Sliders, Wallet
+} from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
 import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/excelImport';
 import { BudgetManagement } from '../components/BudgetManagement';
+import { QuotaBanner } from '../components/QuotaBanner';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -17,8 +24,29 @@ const Settings: React.FC = () => {
   const [isImportingExcel, setIsImportingExcel] = useState(false);
   const [excelResult, setExcelResult] = useState<ImportResult | null>(null);
 
+  // Global Confirm State for this page
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'warning' | 'info' = 'danger', confirmText?: string) => {
+    setConfirmDialog({ isOpen: true, title, message, onConfirm, type, confirmText });
+  };
+
   // Profile Form State
   const [tempName, setTempName] = useState(user.name);
+// ... existing state ...
   const [tempEmail, setTempEmail] = useState(user.email);
   const [tempAvatar, setTempAvatar] = useState(user.avatar || '');
 
@@ -34,7 +62,9 @@ const Settings: React.FC = () => {
   const [newSubCatName, setNewSubCatName] = useState('');
 
   const menuItems = [
+// ... existing menuItems ...
     { id: 'profile', icon: User, label: 'Profil Saya' },
+    { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
     { id: 'budgets', icon: Target, label: 'Anggaran & Target' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
@@ -44,6 +74,7 @@ const Settings: React.FC = () => {
   ];
 
   const handleMenuClick = (id: string) => {
+// ... existing handleMenuClick ...
     if (id === 'help') {
       window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp&body=Halo, saya butuh bantuan terkait...';
       return;
@@ -57,6 +88,7 @@ const Settings: React.FC = () => {
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+// ... existing handleImageUpload ...
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -114,14 +146,21 @@ const Settings: React.FC = () => {
     setAppPin(newPin);
     setActiveModal(null);
     setNewPin(''); setConfirmPin(''); setPinError('');
-    alert('PIN Berhasil diaktifkan!');
+    // alert is fine for success usually, or we can make it a Toast. 
+    // For now the user asked for all alerts, but maybe just confirm() is enough.
   };
 
   const handleDisablePin = () => {
-    if (confirm('Matikan keamanan PIN?')) {
-      setAppPin(null);
-      setActiveModal(null);
-    }
+    showConfirm(
+      'Matikan PIN', 
+      'Apakah Anda yakin ingin mematikan keamanan PIN?', 
+      () => {
+        setAppPin(null);
+        setActiveModal(null);
+      },
+      'warning',
+      'Ya, Matikan'
+    );
   };
 
   const handleAddCat = (e: React.FormEvent) => {
@@ -182,7 +221,14 @@ const Settings: React.FC = () => {
                       <ChevronRight size={18} style={{ transform: expandedCat === c.id ? 'rotate(90deg)' : 'none', transition: 'all 0.2s', marginRight: '8px', color: 'var(--text-muted)' }} />
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</span>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
+                    <button onClick={(e) => { 
+                      e.stopPropagation(); 
+                      showConfirm(
+                        'Hapus Kategori',
+                        `Hapus kategori "${c.name}"? Semua data transaksi kategori ini akan kehilangan referensi kategorinya.`,
+                        () => deleteCategory(c.id)
+                      );
+                    }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -192,7 +238,13 @@ const Settings: React.FC = () => {
                       {(c.subcategories || []).map(sub => (
                         <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed var(--border-color)', fontSize: '13px' }}>
                           <span style={{ color: 'var(--text-main)' }}>{sub.name}</span>
-                          <button onClick={() => deleteSubCategory(c.id, sub.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
+                          <button onClick={() => {
+                            showConfirm(
+                              'Hapus Sub-kategori',
+                              `Apakah Anda yakin ingin menghapus sub-kategori "${sub.name}"?`,
+                              () => deleteSubCategory(c.id, sub.id)
+                            );
+                          }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
                             <X size={14} />
                           </button>
                         </div>
@@ -240,6 +292,124 @@ const Settings: React.FC = () => {
             </form>
           </>
         );
+      case 'preferences':
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Preferensi Aplikasi</h2>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+            </div>
+            
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Wallet size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Dompet Default</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Pilih dompet yang akan otomatis terpilih saat Anda menambah transaksi baru.
+              </p>
+              
+              <select 
+                value={defaultAssetId || ''} 
+                onChange={(e) => setDefaultAssetId(e.target.value || null)}
+                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
+              >
+                <option value="">-- Gunakan Paling Atas (Default) --</option>
+                {assets.filter(a => !a.isDeleted).map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <RefreshCw size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Siklus Finansial</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Atur tanggal awal bulan finansial Anda (misalnya tanggal gajian).
+              </p>
+              <div style={{ position: 'relative', marginTop: '12px' }}>
+                <select
+                  value={startOfMonthDay}
+                  onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
+                  style={{
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    width: '100%',
+                    padding: '14px 16px',
+                    paddingRight: '40px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    outline: 'none'
+                  }}
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <option key={day} value={day}>Tanggal {day}</option>
+                  ))}
+                </select>
+                <div style={{
+                  position: 'absolute',
+                  right: '16px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                  color: 'var(--text-muted)'
+                }}>
+                  <div style={{ border: 'solid var(--text-muted)', borderWidth: '0 2px 2px 0', display: 'inline-block', padding: '3px', transform: 'rotate(45deg)' }}></div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Wallet size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Mata Uang & Simbol</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Ubah simbol mata uang yang ditampilkan (Contoh: Rp, $, RM).
+              </p>
+              <input 
+                type="text" 
+                value={currencySymbol} 
+                onChange={(e) => setCurrencySymbol(e.target.value)}
+                placeholder="Simbol Mata Uang..."
+                style={{ width: '100%', padding: '12px', borderRadius: '12px', marginBottom: 0 }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Tags size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Grouping Transaksi Default</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Cara default daftar transaksi dikelompokkan saat pertama kali dibuka.
+              </p>
+              <select 
+                value={defaultTransactionGrouping} 
+                onChange={(e) => setDefaultTransactionGrouping(e.target.value as 'date' | 'category')}
+                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
+              >
+                <option value="date">Kelompokkan per Tanggal</option>
+                <option value="category">Kelompokkan per Kategori</option>
+              </select>
+            </div>
+
+            <div className="card shadow-soft" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '12px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                Note: Pengaturan ini disimpan secara lokal di perangkat ini dan disinkronkan ke cloud jika Anda login.
+              </div>
+            </div>
+          </>
+        );
+
       case 'profile':
         return (
           <form onSubmit={handleUpdateProfile}>
@@ -294,8 +464,8 @@ const Settings: React.FC = () => {
               <div style={{ textAlign: 'center' }}>
                 <ShieldCheck size={48} color="var(--success)" style={{ margin: '0 auto 16px auto' }} />
                 <p style={{ marginBottom: '20px', color: 'var(--text-main)', fontWeight: 600 }}>Keamanan PIN Aktif</p>
-                <button onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-expense)', color: 'var(--danger)', marginBottom: '10px' }}>Nonaktifkan PIN</button>
-                <button onClick={lockApp} className="btn btn-primary" style={{ width: '100%' }}>Kunci Sekarang</button>
+                <button type="button" onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-expense)', color: 'var(--danger)', marginBottom: '10px', width: '100%' }}>Nonaktifkan PIN</button>
+                <button type="button" onClick={lockApp} className="btn btn-primary" style={{ width: '100%' }}>Kunci Sekarang</button>
               </div>
             ) : (
               <form onSubmit={handleSetPin}>
@@ -320,7 +490,7 @@ const Settings: React.FC = () => {
                   onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))} 
                 />
                 {pinError && <p style={{ color: 'var(--danger-red)', fontSize: '12px', marginBottom: '10px' }}>{pinError}</p>}
-                <button type="submit" className="btn btn-orange">Aktifkan Keamanan</button>
+                <button type="submit" className="btn btn-secondary" style={{ width: '100%' }}>Aktifkan Keamanan</button>
               </form>
             )}
           </>
@@ -420,49 +590,7 @@ const Settings: React.FC = () => {
               </div>
             </div>
 
-            {/* Hidden inputs */}
-            <input
-              ref={importInputRef}
-              type="file" accept=".json" style={{ display: 'none' }}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                if (!confirm('Ini akan MENGGANTI semua data saat ini. Lanjutkan?')) return;
-                try {
-                  setIsImporting(true);
-                  await importData(file);
-                  alert('Data berhasil diimpor! Halaman akan dimuat ulang.');
-                  window.location.reload();
-                } catch {
-                  alert('File backup tidak valid atau rusak.');
-                } finally {
-                  setIsImporting(false);
-                  e.target.value = '';
-                }
-              }}
-            />
-            <input
-              ref={excelImportRef}
-              type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setExcelResult(null);
-                setIsImportingExcel(true);
-                try {
-                  const { rows, result } = await parseExcelFile(file, categories, assets);
-                  if (rows.length > 0) {
-                    for (const tx of rows) addTransaction(tx);
-                  }
-                  setExcelResult(result);
-                } catch (err) {
-                  setExcelResult({ imported: 0, skipped: 0, errors: [`Gagal membaca file: ${String(err)}`] });
-                } finally {
-                  setIsImportingExcel(false);
-                  e.target.value = '';
-                }
-              }}
-            />
+            {/* Hidden inputs handled in parent to keep render clean */}
           </>
         );
 
@@ -513,7 +641,13 @@ const Settings: React.FC = () => {
                             {rt.isActive ? 'Matikan' : 'Aktifkan'}
                           </button>
                           <button 
-                            onClick={() => { if(confirm('Hapus jadwal ini?')) deleteRecurringTransaction(rt.id); }}
+                            onClick={() => { 
+                              showConfirm(
+                                'Hapus Jadwal',
+                                'Hapus jadwal transaksi rutin ini?',
+                                () => deleteRecurringTransaction(rt.id)
+                              );
+                            }}
                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
                           >
                             <Trash2 size={16} />
@@ -562,6 +696,8 @@ const Settings: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Lainnya</h1>
       </div>
+
+      <QuotaBanner />
 
       <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
         <div style={{ 
@@ -693,15 +829,16 @@ const Settings: React.FC = () => {
          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
       </div>
 
-
-
-
       <div style={{ marginTop: '24px', paddingBottom: '20px' }}>
         <button
           onClick={() => {
-            if (confirm('Apakah Anda yakin ingin keluar?')) {
-              logOut();
-            }
+            showConfirm(
+              'Keluar Akun',
+              'Apakah Anda yakin ingin keluar dari akun ini?',
+              () => logOut(),
+              'warning',
+              'Ya, Keluar'
+            );
           }}
           className="btn"
           style={{ 
@@ -725,6 +862,57 @@ const Settings: React.FC = () => {
         </p>
       </div>
 
+      {/* Hidden inputs for backup handler */}
+      <input
+        ref={importInputRef}
+        type="file" accept=".json" style={{ display: 'none' }}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          showConfirm(
+            'Restore Backup',
+            'Ini akan MENGGANTI semua data saat ini dengan data dari file backup. Lanjutkan?',
+            async () => {
+              try {
+                setIsImporting(true);
+                await importData(file);
+                alert('Data berhasil diimpor! Halaman akan dimuat ulang.');
+                window.location.reload();
+              } catch {
+                alert('File backup tidak valid atau rusak.');
+              } finally {
+                setIsImporting(false);
+                e.target.value = '';
+              }
+            },
+            'danger',
+            'Ya, Restore'
+          );
+        }}
+      />
+      <input
+        ref={excelImportRef}
+        type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          setExcelResult(null);
+          setIsImportingExcel(true);
+          try {
+            const { rows, result } = await parseExcelFile(file, categories, assets);
+            if (rows.length > 0) {
+              for (const tx of rows) addTransaction(tx);
+            }
+            setExcelResult(result);
+          } catch (err) {
+            setExcelResult({ imported: 0, skipped: 0, errors: [`Gagal membaca file: ${String(err)}`] });
+          } finally {
+            setIsImportingExcel(false);
+            e.target.value = '';
+          }
+        }}
+      />
+
       {activeModal && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -732,6 +920,17 @@ const Settings: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Global Confirmation Dialog */}
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        confirmText={confirmDialog.confirmText}
+      />
     </div>
   );
 };

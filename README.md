@@ -59,7 +59,23 @@ MoneyApp is a Progressive Web App (PWA) for personal finance management. It supp
 
 ## Changelog
 
-### v9 — Debt Tracker + Excel Import + UI Polish *(Current)*
+### v10 — Firestore Quota Fallback + Smart Sync Queue *(LATEST)*
+> Branch: `money-v10`
+
+**Firestore Quota Fallback**
+- **Hybrid Storage Strategy**: Data is always written to local IndexedDB first, ensuring 100% availability even when Firestore's free tier is exhausted.
+- **Non-blocking Writes**: Transactions are saved instantly to the local DB while cloud synchronization happens in the background.
+- **Smart Error Detection**: Automatically detects `resource-exhausted` / `Quota exceeded` errors from Firestore and reroutes data to a local synchronization queue.
+
+**Smart Sync Queue & Banner**
+- **Premium Quota Banner**: A sleek glassmorphism notification banner appears when there are unsynced records.
+- **Immediate Feedback**: Real-time "Pending Sync" count display with an integrated "Sync Now" trigger.
+- **Intelligent Cancellation**: If a pending transaction is deleted locally, the system automatically removes the corresponding "PUT" record from the queue, preventing ghost syncs.
+- **Sync Timeout Protection**: Implemented a 5-second timeout for cloud operations to prevent the UI from hanging during network or quota failures.
+
+---
+
+### v9 — Debt Tracker + Excel Import + UI Polish
 > Branch: `money-v9`
 
 **Debt & Loan Tracker (`/debts`)**
@@ -342,10 +358,12 @@ MoneyApp is a Progressive Web App (PWA) for personal finance management. It supp
 - Lock on demand / lock screen on next visit
 - Firebase Auth (Google login) for cloud sync
 
-### ☁️ Cloud Sync
-- Firebase Firestore for real-time cross-device sync
-- Automatic migration from local IndexedDB on first login
-- Offline-first: IndexedDB fallback when not logged in
+### ☁️ Cloud Sync & Quota Fallback
+- **Firebase Firestore** for real-time cross-device sync.
+- **Automatic migration** from local IndexedDB on first login.
+- **Firestore Quota Fallback**: Uses a local-first sync queue (IndexedDB) to prevent data loss when Firebase limits are hit.
+- **Offline-first logic**: Robust background synchronization with conflict-aware deduplication.
+- **Real-time Sync Status**: Premium UI banner for tracking pending cloud records.
 
 ---
 

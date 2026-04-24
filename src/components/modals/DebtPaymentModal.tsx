@@ -5,14 +5,15 @@ import type { Debt, Asset } from '../../contexts/MoneyContext';
 interface DebtPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (amount: number, assetId: string, date: string, note: string, isFullSettle: boolean) => void;
+  onConfirm: (amount: number, assetId: string, date: string, time: string, note: string, isFullSettle: boolean) => void;
   debt: Debt;
   assets: Asset[];
   paidAmountFromTxs: number;
+  currencySymbol: string;
 }
 
 const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({ 
-  isOpen, onClose, onConfirm, debt, assets, paidAmountFromTxs 
+  isOpen, onClose, onConfirm, debt, assets, paidAmountFromTxs, currencySymbol 
 }) => {
   const isHutang = debt.type === 'hutang';
   const activeAssets = assets.filter(a => !a.isDeleted);
@@ -23,6 +24,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   const [amount, setAmount] = useState(remaining.toString());
   const [selectedAssetId, setSelectedAssetId] = useState(defaultAssetId || (activeAssets[0]?.id || ''));
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
   const [note, setNote] = useState('');
   const [isFullSettle, setIsFullSettle] = useState(true);
 
@@ -44,10 +46,10 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
     if (numAmount <= 0) return;
     
     const finalNote = note || (isFullSettle ? `Pelunasan ${isHutang ? 'Hutang' : 'Piutang'}` : `Cicilan ${isHutang ? 'Hutang' : 'Piutang'}`);
-    onConfirm(numAmount, selectedAssetId, date, finalNote, isFullSettle);
+    onConfirm(numAmount, selectedAssetId, date, time, finalNote, isFullSettle);
   };
 
-  const formatCurrency = (n: number) => `Rp${n.toLocaleString('id-ID')}`;
+  const formatCurrency = (n: number) => `${currencySymbol}${n.toLocaleString('id-ID')}`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -77,7 +79,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               Jumlah Pembayaran:
             </label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>Rp</span>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
               <input 
                 type="text" 
                 inputMode="numeric"
@@ -133,7 +135,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                 Tanggal:
@@ -142,10 +144,16 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
             </div>
             <div>
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                Catatan:
+                Jam:
               </label>
-              <input type="text" placeholder="Catatan bayar" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
             </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+              Catatan:
+            </label>
+            <input type="text" placeholder="Catatan bayar" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
           </div>
         </div>
 

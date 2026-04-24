@@ -14,7 +14,7 @@ const CONFIDENCE_BADGE = {
 };
 
 const ReceiptScanner: React.FC = () => {
-  const { addTransaction, assets, categories } = useMoney();
+  const { addTransaction, assets, categories, currencySymbol } = useMoney();
   const { scanReceipt, isInitializing, progress, error, setError } = useReceiptOCR();
 
   // Stage management
@@ -38,9 +38,11 @@ const ReceiptScanner: React.FC = () => {
   const [editableAmount, setEditableAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
+  const [merchantName, setMerchantName] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<'name' | 'amount' | null>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +58,7 @@ const ReceiptScanner: React.FC = () => {
     setEditableAmount('');
     setSelectedCategory('');
     setSelectedSubCategory('');
+    setMerchantName('');
   }, [previewUrl, setError]);
 
   // ── Draw canvas when entering crop stage ────────────────────────────────────
@@ -212,6 +215,7 @@ const ReceiptScanner: React.FC = () => {
       setSelectedType('pengeluaran');
       setSelectedDate(ocrResult.date);
       setEditableAmount(ocrResult.amount > 0 ? ocrResult.amount.toString() : '');
+      setMerchantName(ocrResult.merchantName || 'Scan Otomatis');
       setLineItems(ocrResult.lineItems);
 
       // 2. Category Matching
@@ -253,7 +257,7 @@ const ReceiptScanner: React.FC = () => {
         category: selectedCategory || 'Belanja (OCR)',
         subCategory: selectedSubCategory || undefined,
         date: selectedDate,
-        note: 'Scan Otomatis',
+        note: merchantName || 'Scan Otomatis',
         assetId: selectedAssetId,
       });
       alert('Transaksi berhasil disimpan!');
@@ -393,7 +397,7 @@ const ReceiptScanner: React.FC = () => {
 
             <div style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>Rp</span>
+                <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{currencySymbol}</span>
                 <input type="text" inputMode="numeric" value={editableAmount ? parseInt(editableAmount).toLocaleString('id-ID') : ''} onChange={e => setEditableAmount(e.target.value.replace(/\D/g, ''))} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
               </div>
 
@@ -413,6 +417,16 @@ const ReceiptScanner: React.FC = () => {
                 <option value="">-- Pilih Rekening --</option>
                 {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
+
+              <div style={{ marginBottom: '12px' }}>
+                <input 
+                  type="text" 
+                  placeholder="Catatan / Nama Merchant" 
+                  value={merchantName} 
+                  onChange={e => setMerchantName(e.target.value)}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                />
+              </div>
 
               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
             </div>
@@ -500,7 +514,7 @@ const ReceiptScanner: React.FC = () => {
                         style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'text' }}
                         title="Tap untuk edit nominal"
                       >
-                        Rp{item.amount.toLocaleString('id-ID')}
+                        {currencySymbol}{item.amount.toLocaleString('id-ID')}
                       </span>
                     )}
                   </div>
@@ -520,7 +534,7 @@ const ReceiptScanner: React.FC = () => {
             <div style={{ marginTop: '10px', padding: '8px 10px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
               <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
               <span style={{ color: 'var(--danger)' }}>
-                Rp{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
+                {currencySymbol}{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
               </span>
             </div>
 

@@ -24,14 +24,14 @@ interface TransactionGroup {
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction } = useMoney();
+  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [initialType, setInitialType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
-  const [groupBy, setGroupBy] = useState<GroupBy>('date');
+  const [groupBy, setGroupBy] = useState<GroupBy>(defaultTransactionGrouping || 'date');
   const [searchQuery, setSearchQuery] = useState('');
 
   const getAssetName = useCallback((id?: string) => {
@@ -44,6 +44,10 @@ const Transactions: React.FC = () => {
   const { groups, monthlyIncome, monthlyExpense } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
+
+    // Calculate period start and end based on startOfMonthDay
+    const periodStart = new Date(vY, vM - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
+    const periodEnd = new Date(vY, vM + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
 
     let inc = 0;
     let exp = 0;
@@ -60,21 +64,23 @@ const Transactions: React.FC = () => {
         );
         if (!matches) return false;
         
-        // If matches search, sum up for the visible context
+        // If matches search, sum up for the visible context (we don't filter by month if searching)
         if (tx.type === 'pendapatan') inc += tx.amount;
         if (tx.type === 'pengeluaran') exp += tx.amount;
         return true;
       }
 
-      // 2. Default Month/Year filter
+      // 2. Default Period filter
       const txD = new Date(tx.date);
-      if (txD.getMonth() === vM && txD.getFullYear() === vY) {
+      // Normalized to strip time for pure date comparison if needed, 
+      // but new Date(tx.date) is already 00:00:00
+      if (txD >= periodStart && txD < periodEnd) {
         if (tx.type === 'pendapatan') inc += tx.amount;
         if (tx.type === 'pengeluaran') exp += tx.amount;
         return true;
       }
       return false;
-    }).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    }).sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || '') || b.id.localeCompare(a.id));
 
     if (groupBy === 'none') {
       return {
@@ -147,7 +153,7 @@ const Transactions: React.FC = () => {
     setEditingTransaction(null);
   }, []);
 
-  const formatCurrency = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
+  const formatCurrency = (val: number) => `${currencySymbol}${val.toLocaleString('id-ID')}`;
 
   return (
     <div className="page">
@@ -237,28 +243,39 @@ const Transactions: React.FC = () => {
         </div>
       </div>
 
-      {/* GroupBy Selector */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px' }}>
+      {/* GroupBy Selector - Segmented Control (Icon Only) */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '4px', 
+        marginBottom: '24px', 
+        background: 'var(--bg-card-solid)', 
+        padding: '6px', 
+        borderRadius: '18px',
+        border: '1.5px solid var(--border-color)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+      }}>
         {[
-          { id: 'date', label: 'Tanggal', icon: Calendar },
-          { id: 'category', label: 'Kategori', icon: Tag },
-          { id: 'asset', label: 'Aset', icon: CreditCard },
-          { id: 'none', label: 'List', icon: LayoutGrid },
+          { id: 'date', icon: Calendar },
+          { id: 'category', icon: Tag },
+          { id: 'asset', icon: CreditCard },
+          { id: 'none', icon: LayoutGrid },
         ].map(item => (
           <button
             key={item.id}
             onClick={() => setGroupBy(item.id as GroupBy)}
             style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px',
+              display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '12px 0',
               borderRadius: '14px', border: 'none',
-              background: groupBy === item.id ? 'var(--primary-glow)' : 'transparent',
-              color: groupBy === item.id ? 'var(--primary)' : 'var(--text-muted)',
-              fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-              transition: 'all 0.2s'
+              background: groupBy === item.id ? 'var(--primary-gradient)' : 'transparent',
+              color: groupBy === item.id ? 'white' : 'var(--text-muted)',
+              cursor: 'pointer',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: groupBy === item.id ? '0 5px 15px var(--primary-glow)' : 'none',
+              transform: groupBy === item.id ? 'scale(1.05)' : 'scale(1)'
             }}
           >
-            <item.icon size={16} />
-            {item.label}
+            <item.icon size={22} />
           </button>
         ))}
       </div>
@@ -337,49 +354,53 @@ const Transactions: React.FC = () => {
          <div onClick={() => setIsFabOpen(false)} style={{position: 'fixed', inset: 0, background: 'hsla(var(--n-h), 20%, 10%, 0.4)', backdropFilter: 'blur(2px)', zIndex: 998}} />
       )}
 
-      <div className={`fab-menu ${isFabOpen ? 'open' : ''}`}>
-        <button 
-          className="fab-mini" 
-          onClick={() => navigate('/scan')}
-          title="Scan Struk (OCR)"
-          style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-        >
-          <Camera size={20} />
-        </button>
-        <button 
-          className="fab-mini" 
-          onClick={() => navigate('/bulk-input')}
-          title="Bulk Input (AI)"
-          style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-        >
-          <Sparkles size={20} />
-        </button>
-        <button 
-          className="fab-mini" 
-          onClick={() => handleAdd('transfer')}
-          style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-        >
-          <RefreshCw size={20} />
-        </button>
-        <button 
-          className="fab-mini" 
-          onClick={() => handleAdd('pendapatan')}
-          style={{ background: 'var(--success)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          <ArrowDownCircle size={20} />
-        </button>
-        <button 
-          className="fab-mini" 
-          onClick={() => handleAdd('pengeluaran')}
-          style={{ background: 'var(--danger)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          <ArrowUpCircle size={20} />
-        </button>
-      </div>
+      {!isModalOpen && (
+        <>
+          <div className={`fab-menu ${isFabOpen ? 'open' : ''}`}>
+            <button 
+              className="fab-mini" 
+              onClick={() => navigate('/scan')}
+              title="Scan Struk (OCR)"
+              style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            >
+              <Camera size={20} />
+            </button>
+            <button 
+              className="fab-mini" 
+              onClick={() => navigate('/bulk-input')}
+              title="Bulk Input (AI)"
+              style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            >
+              <Sparkles size={20} />
+            </button>
+            <button 
+              className="fab-mini" 
+              onClick={() => handleAdd('transfer')}
+              style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            >
+              <RefreshCw size={20} />
+            </button>
+            <button 
+              className="fab-mini" 
+              onClick={() => handleAdd('pendapatan')}
+              style={{ background: 'var(--success)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+            >
+              <ArrowDownCircle size={20} />
+            </button>
+            <button 
+              className="fab-mini" 
+              onClick={() => handleAdd('pengeluaran')}
+              style={{ background: 'var(--danger)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+            >
+              <ArrowUpCircle size={20} />
+            </button>
+          </div>
 
-      <button className="fab" onClick={() => setIsFabOpen(!isFabOpen)} style={{ transform: isFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s', zIndex: 1000 }}>
-        <Plus size={32} strokeWidth={3} />
-      </button>
+          <button className="fab" onClick={() => setIsFabOpen(!isFabOpen)} style={{ transform: isFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s', zIndex: 1000 }}>
+            <Plus size={32} strokeWidth={3} />
+          </button>
+        </>
+      )}
 
       <TransactionModal
         isOpen={isModalOpen}

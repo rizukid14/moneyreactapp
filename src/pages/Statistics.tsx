@@ -9,29 +9,41 @@ const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
 
-const formatRupiah = (value: number) => `Rp${value.toLocaleString('id-ID')}`;
-
 const Statistics: React.FC = () => {
-  const { transactions } = useMoney();
+  const { transactions, currencySymbol, startOfMonthDay } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran'} | null>(null);
+
+  const formatCurrency = useCallback((value: number) => `${currencySymbol}${value.toLocaleString('id-ID')}`, [currencySymbol]);
 
   const { chartData, currentMonthIncome, currentMonthExpense, expenseCategoryData, incomeCategoryData, topCategories } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
-    const last5Months: { name: string, month: number, year: number, pengeluaran: number, pendapatan: number }[] = [];
+    // ─── Phase 1: 5-Month Trend Data ───
+    const last5Months: { name: string, month: number, year: number, pengeluaran: number, pendapatan: number, periodStart: Date, periodEnd: Date }[] = [];
     for (let i = 4; i >= 0; i--) {
       const d = new Date(vY, vM - i, 1);
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      
+      const pS = new Date(y, m - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
+      const pE = new Date(y, m + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
+
       last5Months.push({
-        name: MONTH_NAMES[d.getMonth()],
-        month: d.getMonth(),
-        year: d.getFullYear(),
+        name: MONTH_NAMES[m],
+        month: m,
+        year: y,
         pengeluaran: 0,
-        pendapatan: 0
+        pendapatan: 0,
+        periodStart: pS,
+        periodEnd: pE
       });
     }
+
+    const currentPeriod = last5Months[last5Months.length - 1];
+    const { periodStart: vPeriodStart, periodEnd: vPeriodEnd } = currentPeriod;
 
     let thisMonthInc = 0;
     let thisMonthExp = 0;
@@ -39,15 +51,12 @@ const Statistics: React.FC = () => {
     const incByCategory: Record<string, number> = {};
     const expBySubCategory: Record<string, number> = {};
     const incBySubCategory: Record<string, number> = {};
-    const currentMonthTxs: typeof transactions = [];
 
     transactions.forEach(tx => {
       const txDate = new Date(tx.date);
-      const txM = txDate.getMonth();
-      const txY = txDate.getFullYear();
 
-      if (txM === vM && txY === vY) {
-        currentMonthTxs.push(tx);
+      // 1. Current Period Stats
+      if (txDate >= vPeriodStart && txDate < vPeriodEnd) {
         const subKey = tx.subCategory || 'Lainnya';
 
         if (tx.type === 'pendapatan') {
@@ -66,11 +75,13 @@ const Statistics: React.FC = () => {
         }
       }
 
-      const chartItem = last5Months.find(m => m.month === txM && m.year === txY);
-      if (chartItem) {
-        if (tx.type === 'pendapatan') chartItem.pendapatan += tx.amount;
-        if (tx.type === 'pengeluaran') chartItem.pengeluaran += tx.amount;
-      }
+      // 2. Trend Data (Last 5 Periods)
+      last5Months.forEach(m => {
+        if (txDate >= m.periodStart && txDate < m.periodEnd) {
+          if (tx.type === 'pendapatan') m.pendapatan += tx.amount;
+          if (tx.type === 'pengeluaran') m.pengeluaran += tx.amount;
+        }
+      });
     });
 
     // Sort logic for pie chart slices
@@ -176,7 +187,7 @@ const Statistics: React.FC = () => {
               <Tooltip 
                 cursor={{fill: 'var(--bg-main)'}} 
                 contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
-                formatter={(val: any) => formatRupiah(Number(val))}
+                formatter={(val: any) => formatCurrency(Number(val))}
               />
               <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}/>
               <Bar dataKey="pendapatan" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pendapatan" />
@@ -193,7 +204,7 @@ const Statistics: React.FC = () => {
           boxShadow: '0 10px 25px var(--primary-glow)' 
         }}>
           <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pendapatan</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatRupiah(currentMonthIncome)}</div>
+          <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(currentMonthIncome)}</div>
         </div>
 
         <div className="card" style={{ 
@@ -202,7 +213,7 @@ const Statistics: React.FC = () => {
           boxShadow: '0 10px 25px var(--secondary-glow)'
         }}>
           <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatRupiah(currentMonthExpense)}</div>
+          <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(currentMonthExpense)}</div>
         </div>
       </div>
 
@@ -238,7 +249,7 @@ const Statistics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: any) => formatRupiah(Number(val))}
+                    formatter={(val: any) => formatCurrency(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
@@ -270,7 +281,7 @@ const Statistics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: any) => formatRupiah(Number(val))}
+                    formatter={(val: any) => formatCurrency(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
@@ -315,7 +326,7 @@ const Statistics: React.FC = () => {
                   </div>
                 </div>
                 <div style={{ fontWeight: 700, color: cat.type === 'pendapatan' ? 'var(--primary)' : 'var(--secondary)' }}>
-                  {cat.type === 'pendapatan' ? '+' : '-'}{formatRupiah(cat.amount)}
+                  {cat.type === 'pendapatan' ? '+' : '-'}{formatCurrency(cat.amount)}
                 </div>
               </div>
             ))}

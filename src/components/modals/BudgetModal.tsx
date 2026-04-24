@@ -12,10 +12,11 @@ interface BudgetModalProps {
   editingBudget: Budget | null;
   selectedMonth: number;
   selectedYear: number;
+  currencySymbol: string;
 }
 
 const BudgetModal: React.FC<BudgetModalProps> = ({ 
-  isOpen, onClose, budgets, categories, addBudget, updateBudget, editingBudget, selectedMonth, selectedYear 
+  isOpen, onClose, budgets, categories, addBudget, updateBudget, editingBudget, selectedMonth, selectedYear, currencySymbol 
 }) => {
   const [categoryId, setCategoryId] = useState<string | 'total'>('total');
   const [limit, setLimit] = useState('');
@@ -107,7 +108,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
           </select>
 
           <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
-            Batas Maksimal (Rp)
+            Batas Maksimal ({currencySymbol})
           </label>
           <input 
             type="text" 

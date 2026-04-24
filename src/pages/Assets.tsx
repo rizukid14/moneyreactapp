@@ -4,8 +4,10 @@ import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
 import TransactionModal from '../components/modals/TransactionModal';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const getIconForType = (type: AssetType) => {
+// ... existing code ...
   switch (type) {
     case 'Cash': return Wallet;
     case 'Bank Account': return Landmark;
@@ -41,7 +43,7 @@ const TYPE_LABELS: Record<AssetType, string> = {
   'Loan': 'Pinjaman / Hutang',
 };
 
-const fmt = (n: number) => `Rp${n.toLocaleString('id-ID')}`;
+const fmt = (n: number, sym: string) => `${sym}${n.toLocaleString('id-ID')}`;
 
 // ── Asset Detail Drawer ─────────────────────────────────────────────────────
 const AssetDetailDrawer: React.FC<{
@@ -50,11 +52,13 @@ const AssetDetailDrawer: React.FC<{
   transactions: Transaction[];
   allAssets: Asset[];
   isPrivateMode: boolean;
+  currencySymbol: string;
   onClose: () => void;
   onEditAsset: (a: Asset) => void;
   onDeleteAsset: (id: string) => void;
   onEditTx: (tx: Transaction) => void;
-}> = ({ asset, balance, transactions, allAssets, isPrivateMode, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
+}> = ({ asset, balance, transactions, allAssets, isPrivateMode, currencySymbol, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
 
@@ -81,174 +85,181 @@ const AssetDetailDrawer: React.FC<{
     allAssets.find(a => a.id === id)?.name || '';
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ alignItems: 'flex-end' }}>
-      <div
-        className="modal-content"
-        onClick={e => e.stopPropagation()}
-        style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 0, borderRadius: '28px 28px 0 0' }}
-      >
-        {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 14,
-          padding: '20px 20px 16px',
-          borderBottom: '1px solid var(--border-color)',
-          flexShrink: 0
-        }}>
+    <>
+      <div className="modal-overlay" onClick={onClose} style={{ alignItems: 'flex-end' }}>
+        <div
+          className="modal-content"
+          onClick={e => e.stopPropagation()}
+          style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 0, borderRadius: '28px 28px 0 0' }}
+        >
+          {/* Header */}
           <div style={{
-            width: 48, height: 48, borderRadius: 16,
-            backgroundColor: 'var(--bg-main)', color,
-            display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0
+            display: 'flex', alignItems: 'center', gap: 14,
+            padding: '20px 20px 16px',
+            borderBottom: '1px solid var(--border-color)',
+            flexShrink: 0
           }}>
-            <Icon size={24} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>{asset.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              {TYPE_LABELS[asset.type]}
+            <div style={{
+              width: 48, height: 48, borderRadius: 16,
+              backgroundColor: 'var(--bg-main)', color,
+              display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0
+            }}>
+              <Icon size={24} />
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              onClick={() => onEditAsset(asset)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 8, cursor: 'pointer' }}
-            >
-              <Pencil size={16} />
-            </button>
-            <button
-              onClick={() => {
-                if (confirm(`Hapus aset "${asset.name}"?\nSisa saldo akan tetap tercatat di total histori, namun aset tidak akan muncul lagi.`)) {
-                  onDeleteAsset(asset.id);
-                  onClose();
-                }
-              }}
-              style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 8, cursor: 'pointer', opacity: 0.8 }}
-            >
-              <Trash2 size={16} />
-            </button>
-            <button className="close-btn" onClick={onClose}><X size={18} /></button>
-          </div>
-        </div>
-
-        {/* Balance */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Saldo Saat Ini</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: balance < 0 ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-1px' }}>
-            {isPrivateMode ? 'Rp ••••••••' : fmt(Math.abs(balance))}
-            {balance < 0 && <span style={{ fontSize: 13, marginLeft: 6, color: 'var(--danger)' }}>(minus)</span>}
-          </div>
-
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-            <div style={{ flex: 1, background: 'var(--bg-income)', borderRadius: 12, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <ArrowUpRight size={12} color="var(--primary)" />
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Masuk</span>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--primary)' }}>
-                {isPrivateMode ? '••••' : fmt(stats.income)}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>{asset.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                {TYPE_LABELS[asset.type]}
               </div>
             </div>
-            <div style={{ flex: 1, background: 'var(--bg-expense)', borderRadius: 12, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <ArrowDownRight size={12} color="var(--danger)" />
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase' }}>Keluar</span>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--danger)' }}>
-                {isPrivateMode ? '••••' : fmt(stats.expense)}
-              </div>
-            </div>
-            <div style={{ flex: 1, background: 'var(--bg-neutral)', borderRadius: 12, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <ArrowRightLeft size={12} color="var(--text-muted)" />
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Transaksi</span>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-main)' }}>{stats.count}</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                onClick={() => onEditAsset(asset)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 8, cursor: 'pointer' }}
+              >
+                <Pencil size={16} />
+              </button>
+              <button
+                onClick={() => setIsConfirmOpen(true)}
+                style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 8, cursor: 'pointer', opacity: 0.8 }}
+              >
+                <Trash2 size={16} />
+              </button>
+              <button className="close-btn" onClick={onClose}><X size={18} /></button>
             </div>
           </div>
-        </div>
-
-        {/* Transaction list */}
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          {assetTxs.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px', fontSize: 14 }}>
-              Belum ada transaksi untuk aset ini.
+  
+          <ConfirmDialog 
+            isOpen={isConfirmOpen}
+            onClose={() => setIsConfirmOpen(false)}
+            onConfirm={() => {
+              onDeleteAsset(asset.id);
+              onClose();
+            }}
+            title="Hapus Aset"
+            message={`Hapus aset "${asset.name}"? Sisa saldo akan tetap tercatat di histori, namun aset tidak akan muncul lagi.`}
+          />
+          {/* Balance */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Saldo Saat Ini</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: balance < 0 ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-1px' }}>
+              {isPrivateMode ? `${currencySymbol} ••••••••` : fmt(Math.abs(balance), currencySymbol)}
+              {balance < 0 && <span style={{ fontSize: 13, marginLeft: 6, color: 'var(--danger)' }}>(minus)</span>}
             </div>
-          ) : (
-            <div style={{ padding: '8px 0 24px' }}>
-              {assetTxs.map(tx => {
-                const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
-                const amtColor = tx.type === 'transfer'
-                  ? 'var(--text-muted)'
-                  : isIncoming ? 'var(--primary)' : 'var(--danger)';
-                const prefix = tx.type === 'transfer' ? '↔' : isIncoming ? '+' : '-';
 
-                return (
-                  <div
-                    key={tx.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', padding: '12px 20px',
-                      borderBottom: '1px solid var(--border-color)',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-main)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    {/* Type icon */}
-                    <div style={{
-                      width: 34, height: 34, borderRadius: 10, flexShrink: 0, marginRight: 12,
-                      background: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: tx.type === 'pengeluaran' ? 'var(--danger)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
-                    }}>
-                      {tx.type === 'pengeluaran'
-                        ? <ArrowDownRight size={16} />
-                        : tx.type === 'pendapatan'
-                        ? <ArrowUpRight size={16} />
-                        : <ArrowRightLeft size={16} />}
-                    </div>
+            {/* Stats row */}
+            <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+              <div style={{ flex: 1, background: 'var(--bg-income)', borderRadius: 12, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                  <ArrowUpRight size={12} color="var(--primary)" />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Masuk</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--primary)' }}>
+                  {isPrivateMode ? '••••' : fmt(stats.income, currencySymbol)}
+                </div>
+              </div>
+              <div style={{ flex: 1, background: 'var(--bg-expense)', borderRadius: 12, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                  <ArrowDownRight size={12} color="var(--danger)" />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase' }}>Keluar</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--danger)' }}>
+                  {isPrivateMode ? '••••' : fmt(stats.expense, currencySymbol)}
+                </div>
+              </div>
+              <div style={{ flex: 1, background: 'var(--bg-neutral)', borderRadius: 12, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                  <ArrowRightLeft size={12} color="var(--text-muted)" />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Transaksi</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-main)' }}>{stats.count}</div>
+              </div>
+            </div>
+          </div>
 
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {tx.type === 'transfer'
-                          ? `Transfer → ${getAssetName(tx.toAssetId)}`
-                          : tx.category}
+          {/* Transaction list */}
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {assetTxs.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px', fontSize: 14 }}>
+                Belum ada transaksi untuk aset ini.
+              </div>
+            ) : (
+              <div style={{ padding: '8px 0 24px' }}>
+                {assetTxs.map(tx => {
+                  const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
+                  const amtColor = tx.type === 'transfer'
+                    ? 'var(--text-muted)'
+                    : isIncoming ? 'var(--primary)' : 'var(--danger)';
+                  const prefix = tx.type === 'transfer' ? '↔' : isIncoming ? '+' : '-';
+
+                  return (
+                    <div
+                      key={tx.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', padding: '12px 20px',
+                        borderBottom: '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-main)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {/* Type icon */}
+                      <div style={{
+                        width: 34, height: 34, borderRadius: 10, flexShrink: 0, marginRight: 12,
+                        background: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: tx.type === 'pengeluaran' ? 'var(--danger)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
+                      }}>
+                        {tx.type === 'pengeluaran'
+                          ? <ArrowDownRight size={16} />
+                          : tx.type === 'pendapatan'
+                          ? <ArrowUpRight size={16} />
+                          : <ArrowRightLeft size={16} />}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        {tx.date}
-                        {tx.note && <span style={{ marginLeft: 5, opacity: 0.8 }}>• {tx.note}</span>}
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {tx.type === 'transfer'
+                            ? `Transfer → ${getAssetName(tx.toAssetId)}`
+                            : tx.category}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                          {tx.date}
+                          {tx.note && <span style={{ marginLeft: 5, opacity: 0.8 }}>• {tx.note}</span>}
+                        </div>
+                      </div>
+
+                      {/* Amount */}
+                      <div style={{ fontWeight: 800, fontSize: 14, color: amtColor, marginLeft: 10, textAlign: 'right', flexShrink: 0 }}>
+                        {prefix}{isPrivateMode ? '••••' : fmt(tx.amount, currencySymbol)}
+                      </div>
+
+                      {/* Actions on hover */}
+                      <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); onEditTx(tx); }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 5, cursor: 'pointer' }}
+                        >
+                          <Pencil size={13} />
+                        </button>
                       </div>
                     </div>
-
-                    {/* Amount */}
-                    <div style={{ fontWeight: 800, fontSize: 14, color: amtColor, marginLeft: 10, textAlign: 'right', flexShrink: 0 }}>
-                      {prefix}{isPrivateMode ? '••••' : fmt(tx.amount)}
-                    </div>
-
-                    {/* Actions on hover */}
-                    <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); onEditTx(tx); }}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 5, cursor: 'pointer' }}
-                      >
-                        <Pencil size={13} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
-  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction } = useMoney();
+  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -318,7 +329,7 @@ const Assets: React.FC = () => {
           </button>
         </div>
         <div style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '-1px' }}>
-          {isPrivateMode ? 'Rp ••••••••' : `Rp${total.toLocaleString('id-ID')}`}
+          {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${total.toLocaleString('id-ID')}`}
         </div>
       </div>
 
@@ -384,7 +395,7 @@ const Assets: React.FC = () => {
                           </div>
                           <div style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
                             {isLiability && <span style={{ fontSize: '13px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
-                            {isPrivateMode ? 'Rp ••••••••' : `Rp${displayBalance.toLocaleString('id-ID')}`}
+                            {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                             {txCount} transaksi
@@ -419,6 +430,7 @@ const Assets: React.FC = () => {
         currentBalance={editingAsset ? balances[editingAsset.id] : undefined}
         addTransaction={addTransaction}
         onDelete={deleteAsset}
+        currencySymbol={currencySymbol}
       />
 
       {/* Asset detail drawer */}
@@ -429,6 +441,7 @@ const Assets: React.FC = () => {
           transactions={transactions}
           allAssets={assets}
           isPrivateMode={isPrivateMode}
+          currencySymbol={currencySymbol}
           onClose={() => setSelectedAsset(null)}
           onEditAsset={a => { handleEdit(a); }}
           onDeleteAsset={deleteAsset}

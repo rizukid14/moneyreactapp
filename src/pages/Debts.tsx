@@ -3,8 +3,9 @@ import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertic
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
-const fmt = (n: number) => `Rp${Math.abs(n).toLocaleString('id-ID')}`;
+const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
 
 const getDaysUntilDue = (dueDate?: string) => {
   if (!dueDate) return null;
@@ -25,9 +26,11 @@ const DebtCard: React.FC<{
   history: Transaction[];
   onToggleExpand: () => void;
   isExpanded: boolean;
+  currencySymbol: string;
 }> = ({ 
   debt, onEdit, onDelete, onPay, onSettle, onUnpay, 
-  liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded 
+  liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded,
+  currencySymbol
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const isHutang = debt.type === 'hutang';
@@ -126,13 +129,13 @@ const DebtCard: React.FC<{
             {isHutang ? 'Total Hutang' : 'Total Piutang'}
           </div>
           <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--primary)', letterSpacing: '-0.5px' }}>
-            {fmt(debt.totalAmount)}
+            {fmt(debt.totalAmount, currencySymbol)}
           </div>
         </div>
         {debt.isInstallment && (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Sisa</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(remainingAmount)}</div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>SISA SALDO</div>
           </div>
         )}
       </div>
@@ -150,7 +153,7 @@ const DebtCard: React.FC<{
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
             <span>{debt.paidInstallments} / {debt.totalInstallments || '?'} cicilan</span>
-            <span>{fmt(debt.installmentAmount || 0)} / bulan</span>
+            <span>{fmt(debt.installmentAmount || 0, currencySymbol)} / bulan</span>
           </div>
         </div>
       )}
@@ -239,6 +242,10 @@ const DebtCard: React.FC<{
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total Pinjaman:</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{fmt(debt.totalAmount, currencySymbol)}</span>
+              </div>
               {history.map(tx => (
                 <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
@@ -246,7 +253,7 @@ const DebtCard: React.FC<{
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{tx.date}</div>
                   </div>
                   <div style={{ fontWeight: 800, fontSize: 13, color: tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-main)' }}>
-                    {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}{fmt(tx.amount)}
+                    {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}{fmt(tx.amount, currencySymbol)}
                   </div>
                 </div>
               ))}
@@ -259,13 +266,15 @@ const DebtCard: React.FC<{
 };
 
 const Debts: React.FC = () => {
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, currencySymbol } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
   const [filter, setFilter] = useState<'all' | 'hutang' | 'piutang' | 'lunas'>('all');
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
@@ -335,11 +344,11 @@ const Debts: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
         <div style={{ background: 'var(--bg-expense)', borderRadius: 16, padding: '14px 16px', border: '1.5px solid hsla(350,80%,58%,0.2)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Hutang</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)' }}>{fmt(summary.totalHutang)}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)' }}>{fmt(summary.totalHutang, currencySymbol)}</div>
         </div>
         <div style={{ background: 'var(--bg-income)', borderRadius: 16, padding: '14px 16px', border: '1.5px solid hsla(215,85%,58%,0.2)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Piutang</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--primary)' }}>{fmt(summary.totalPiutang)}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--primary)' }}>{fmt(summary.totalPiutang, currencySymbol)}</div>
         </div>
       </div>
 
@@ -354,8 +363,8 @@ const Debts: React.FC = () => {
           <ChevronRight size={14} color={summary.net >= 0 ? 'var(--primary)' : 'var(--danger)'} />
           <span style={{ fontSize: 13, fontWeight: 700, color: summary.net >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
             {summary.net >= 0
-              ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net)}`
-              : `Neto: kamu berhutang lebih banyak ${fmt(summary.net)}`}
+              ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
+              : `Neto: kamu berhutang lebih banyak ${fmt(summary.net, currencySymbol)}`}
           </span>
         </div>
       )}
@@ -409,7 +418,10 @@ const Debts: React.FC = () => {
               paymentName={getAssetName(d.paymentAssetId)}
               receiveName={getAssetName(d.receiveAssetId)}
               onEdit={() => openEdit(d)}
-              onDelete={() => { if (confirm('Hapus catatan ini?')) deleteDebt(d.id); }}
+              onDelete={() => { 
+                setDeletingId(d.id);
+                setIsConfirmOpen(true);
+              }}
               onPay={() => {
                 setPayingDebt(d);
                 setIsPaymentModalOpen(true);
@@ -422,6 +434,7 @@ const Debts: React.FC = () => {
               history={transactions.filter(t => t.relatedId === d.id).sort((a, b) => b.date.localeCompare(a.date))}
               onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
               isExpanded={expandedDebtId === d.id}
+              currencySymbol={currencySymbol}
             />
           ))
         )}
@@ -434,6 +447,7 @@ const Debts: React.FC = () => {
         editingDebt={editingDebt}
         assets={assets}
         categories={categories.filter(c => c.type === 'pengeluaran')}
+        currencySymbol={currencySymbol}
       />
 
       {payingDebt && (
@@ -442,22 +456,36 @@ const Debts: React.FC = () => {
           onClose={() => setIsPaymentModalOpen(false)}
           debt={payingDebt}
           assets={assets}
+          currencySymbol={currencySymbol}
           paidAmountFromTxs={transactions.filter(t => t.relatedId === payingDebt.id).reduce((sum, tx) => {
              const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') || 
                                   tx.note.includes('Pemberian pinjaman') || 
                                   tx.note.includes('Belanja via'));
              return isPrincipal ? sum : sum + tx.amount;
           }, 0)}
-          onConfirm={(amt, assetId, date, note, isFull) => {
+          onConfirm={(amt, assetId, date, time, note, isFull) => {
             if (isFull) {
-              settleDebt(payingDebt.id, assetId);
+              settleDebt(payingDebt.id, assetId, date, time);
             } else {
-              addDebtPayment(payingDebt.id, amt, assetId, date, note);
+              addDebtPayment(payingDebt.id, amt, assetId, date, time, note);
             }
             setIsPaymentModalOpen(false);
           }}
         />
       )}
+
+      <ConfirmDialog 
+        isOpen={isConfirmOpen}
+        onClose={() => {
+          setIsConfirmOpen(false);
+          setDeletingId(null);
+        }}
+        onConfirm={() => {
+          if (deletingId) deleteDebt(deletingId);
+        }}
+        title="Hapus Catatan"
+        message="Apakah Anda yakin ingin menghapus catatan hutang/piutang ini? Histori transaksi terkait akan tetap ada."
+      />
     </div>
   );
 };
