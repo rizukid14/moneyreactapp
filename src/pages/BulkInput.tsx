@@ -37,7 +37,8 @@ const BulkInput: React.FC = () => {
         return {
           ...tx,
           asset: matchedAssetId,
-          category: matchedCategory || (tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain')
+          category: matchedCategory || (tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
+          subCategory: tx.subCategory || ''
         };
       });
 
@@ -74,6 +75,7 @@ const BulkInput: React.FC = () => {
           type: item.type,
           amount: item.amount,
           category: item.category,
+          subCategory: item.subCategory || undefined,
           date: item.date,
           note: item.note || 'Bulk Input',
           assetId: item.asset,
@@ -104,6 +106,7 @@ const BulkInput: React.FC = () => {
       date: new Date().toISOString().split('T')[0],
       note: '',
       category: 'Lainnya',
+      subCategory: '',
       asset: assets[0]?.id || '',
       selected: true
     };
@@ -241,6 +244,23 @@ const BulkInput: React.FC = () => {
                       {categories.filter(c => c.type === item.type).map(c => (
                         <option key={c.id} value={c.name}>{c.name}</option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sub-Kategori</label>
+                    <select
+                      value={item.subCategory || ''}
+                      onChange={(e) => updateResult(item.id, 'subCategory', e.target.value)}
+                      style={{ width: '100%', fontSize: '13px', padding: '6px', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+                    >
+                      <option value="">-- Pilih --</option>
+                      {(() => {
+                        const selCat = categories.find(c => c.name === item.category && c.type === item.type);
+                        return selCat?.subcategories?.map(sub => (
+                          <option key={sub.id} value={sub.name}>{sub.name}</option>
+                        ));
+                      })()}
                     </select>
                   </div>
 

@@ -36,6 +36,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.1 }}
         >
           <motion.div 
             className="card shadow-soft"
@@ -50,10 +51,10 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               position: 'relative',
               overflow: 'hidden'
             }}
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 350 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            transition={{ type: "spring", damping: 25, stiffness: 600, mass: 0.5 }}
             onClick={e => e.stopPropagation()}
           >
             {/* Background Accent Glow */}

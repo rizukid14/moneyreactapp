@@ -57,6 +57,7 @@ export const useBulkParseAI = () => {
         date: item.date || new Date().toISOString().split('T')[0],
         note: item.note || '',
         category: item.category || '',
+        subCategory: item.subCategory || '',
         asset: item.asset || '',
         selected: true
       }));

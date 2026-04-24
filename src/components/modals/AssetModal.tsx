@@ -117,7 +117,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.1 }}
           >
             <motion.div 
               className="modal-content" 
@@ -125,7 +125,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 500 }}
+              transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
             >
               <div className="modal-header">
                 <h2 className="subtitle" style={{ margin: 0 }}>{editingAsset ? 'Edit Aset' : 'Tambah Aset Baru'}</h2>

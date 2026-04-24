@@ -20,7 +20,9 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ message: 'OPENAI_API_KEY is not configured on the server.' });
     }
 
-    const categoryList = categories?.length > 0 ? categories.map((c: any) => c.name).join(',') : "None";
+    const categoryWithSubs = categories?.length > 0 
+      ? categories.map((c: any) => `${c.name}${c.subcategories?.length > 0 ? ` (Sub: ${c.subcategories.map((s: any) => s.name).join(', ')})` : ''}`).join(' | ')
+      : "None";
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
     const dateContext = currentDate || new Date().toISOString().split('T')[0];
 
@@ -28,9 +30,9 @@ export default async function handler(req: any, res: any) {
     
     CRITICAL RULES:
     1. TREAT EVERY DISTINCT LINE OR LOGICAL ENTRY AS A SEPARATE TRANSACTION.
-    2. DO NOT MERGE multiple items into one unless they are clearly part of the exact same payment (e.g., "Makan dan Minum 50k").
+    2. DO NOT MERGE multiple items into one unless they are clearly part of the exact same payment.
     3. If there are 3 separate lines describing different things, there MUST be 3 objects in the "transactions" array.
-    4. If no amount is found for a line, still try to extract the note/date and set amount to 0 (user will fix it).
+    4. If no amount is found for a line, still try to extract the note/date and set amount to 0.
     
     Currency Handling (IDR):
     - "k" or "rb" = thousand (e.g., 50k or 50rb = 50000)
@@ -45,15 +47,19 @@ export default async function handler(req: any, res: any) {
     - amount: numeric value (int)
     - date: YYYY-MM-DD (fallback to ${dateContext})
     - note: concise description
-    - category: best match from [${categoryList}] or empty string.
+    - category: best match from available categories.
+    - subCategory: best match if a subcategory is identified within the chosen category.
     - asset: best match for payment method from [${assetList}].
+
+    Available Categories & Subcategories:
+    ${categoryWithSubs}
 
     Transactions Text:
     """
     ${text}
     """
     
-    Respond STRICTLY in JSON: { "transactions": [...] }`;
+    Respond STRICTLY in JSON: { "transactions": [{ "type": "...", "amount": 0, "date": "...", "note": "...", "category": "...", "subCategory": "...", "asset": "..." }] }`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",

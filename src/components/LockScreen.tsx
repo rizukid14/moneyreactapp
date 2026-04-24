@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, Delete } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
+import { motion } from 'framer-motion';
 
 const LockScreen: React.FC = () => {
   const { unlockApp, user } = useMoney();
@@ -20,7 +21,6 @@ const LockScreen: React.FC = () => {
 
   useEffect(() => {
     if (enteredPin.length >= 6) {
-      // Small delay for UX so user sees the last bubble filled
       const timer = setTimeout(() => {
         const success = unlockApp(enteredPin);
         if (!success && enteredPin.length >= 6) {
@@ -33,12 +33,17 @@ const LockScreen: React.FC = () => {
   }, [enteredPin, unlockApp]);
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'white', zIndex: 9999,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '20px'
-    }}>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'var(--bg-main)', zIndex: 9999,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        padding: '20px'
+      }}
+    >
       <div style={{ textAlign: 'center', marginBottom: '40px' }}>
         <div style={{ 
           width: 80, height: 80, borderRadius: '40px', 
@@ -95,7 +100,7 @@ const LockScreen: React.FC = () => {
           <Delete size={28} />
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

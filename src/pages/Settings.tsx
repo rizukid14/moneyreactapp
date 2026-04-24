@@ -5,6 +5,7 @@ import {
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw, 
   Sliders, Wallet
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
 import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/excelImport';
@@ -546,11 +547,16 @@ const Settings: React.FC = () => {
 
               {/* Excel result feedback */}
               {excelResult && (
-                <div style={{
-                  padding: '12px 14px', borderRadius: 12, marginBottom: 14,
-                  background: excelResult.errors.length > 0 ? 'hsla(350,80%,58%,0.08)' : 'hsla(152,70%,42%,0.08)',
-                  border: `1.5px solid ${excelResult.errors.length > 0 ? 'hsla(350,80%,58%,0.25)' : 'hsla(152,70%,42%,0.25)'}`
-                }}>
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  style={{
+                    padding: '12px 14px', borderRadius: 12, marginBottom: 14,
+                    background: excelResult.errors.length > 0 ? 'hsla(350,80%,58%,0.08)' : 'hsla(152,70%,42%,0.08)',
+                    border: `1.5px solid ${excelResult.errors.length > 0 ? 'hsla(350,80%,58%,0.25)' : 'hsla(152,70%,42%,0.25)'}`
+                  }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                     {excelResult.imported > 0
                       ? <CheckCircle2 size={15} color="var(--success)" />
@@ -568,7 +574,7 @@ const Settings: React.FC = () => {
                   {excelResult.errors.length > 5 && (
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>...dan {excelResult.errors.length - 5} error lainnya.</div>
                   )}
-                </div>
+                </motion.div>
               )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -913,13 +919,29 @@ const Settings: React.FC = () => {
         }}
       />
 
-      {activeModal && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            {renderModalContent()}
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {activeModal && (
+          <motion.div 
+            className="modal-overlay" 
+            onClick={() => setActiveModal(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1 }}
+          >
+            <motion.div 
+              className="modal-content" 
+              onClick={e => e.stopPropagation()}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
+            >
+              {renderModalContent()}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Global Confirmation Dialog */}
       <ConfirmDialog 
