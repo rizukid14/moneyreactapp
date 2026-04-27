@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { auth } from '../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { motion } from 'framer-motion';
 
 export const AuthScreen: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -27,7 +28,13 @@ export const AuthScreen: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '24px', backgroundColor: 'var(--bg-main)' }}>
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.2 }}
+      style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '24px', backgroundColor: 'var(--bg-main)' }}
+    >
       <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', justifyContent: 'center' }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: 20 }}>
@@ -65,6 +72,6 @@ export const AuthScreen: React.FC = () => {
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

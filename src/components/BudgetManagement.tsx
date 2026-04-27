@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Wallet } from 'lucide-react';
 import { useMoney, type Budget } from '../contexts/MoneyContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import BudgetModal from './modals/BudgetModal';
 
 const MONTH_NAMES = [
@@ -81,12 +82,21 @@ const BudgetCard: React.FC<{
           <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
             <MoreVertical size={16} />
           </button>
-          {isMenuOpen && (
-            <div className="budget-dropdown" style={{ right: 0, top: 28 }}>
-              <button className="budget-dropdown-item" onClick={onEdit}><Edit2 size={13} /> Edit</button>
-              <button className="budget-dropdown-item danger" onClick={onDelete}><Trash2 size={13} /> Hapus</button>
-            </div>
-          )}
+          <AnimatePresence>
+            {isMenuOpen && (
+              <motion.div 
+                className="budget-dropdown" 
+                style={{ right: 0, top: 28 }}
+                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                transition={{ duration: 0.1 }}
+              >
+                <button className="budget-dropdown-item" onClick={onEdit}><Edit2 size={13} /> Edit</button>
+                <button className="budget-dropdown-item danger" onClick={onDelete}><Trash2 size={13} /> Hapus</button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -147,7 +157,10 @@ export const BudgetManagement: React.FC = () => {
   const openAdd = () => { setEditingBudget(null); setIsModalOpen(true); };
   const handleEdit = (b: Budget) => { setEditingBudget(b); setIsModalOpen(true); setActiveMenu(null); };
   const handleDelete = (id: string) => {
-    if (confirm('Hapus anggaran ini?')) { deleteBudget(id); setActiveMenu(null); }
+    // We'll use a standard confirmation later or just keep it simple if the user didn't ask to refactor logic.
+    // However, to avoid native popups, we should ideally use the ConfirmDialog.
+    // For now, let's just make the dropdown look better first.
+    if (window.confirm('Hapus anggaran ini?')) { deleteBudget(id); setActiveMenu(null); }
   };
 
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
@@ -203,12 +216,21 @@ export const BudgetManagement: React.FC = () => {
             <button onClick={() => setActiveMenu(activeMenu === globalBudget.id ? null : globalBudget.id)} className="btn-icon" style={{ padding: 4 }}>
               <MoreVertical size={16} />
             </button>
-            {activeMenu === globalBudget.id && (
-              <div className="budget-dropdown" style={{ right: 0, top: 28 }}>
-                <button className="budget-dropdown-item" onClick={() => handleEdit(globalBudget)}><Edit2 size={13} /> Edit</button>
-                <button className="budget-dropdown-item danger" onClick={() => handleDelete(globalBudget.id)}><Trash2 size={13} /> Hapus</button>
-              </div>
-            )}
+            <AnimatePresence>
+              {activeMenu === globalBudget.id && (
+                <motion.div 
+                  className="budget-dropdown" 
+                  style={{ right: 0, top: 28 }}
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <button className="budget-dropdown-item" onClick={() => handleEdit(globalBudget)}><Edit2 size={13} /> Edit</button>
+                  <button className="budget-dropdown-item danger" onClick={() => handleDelete(globalBudget.id)}><Trash2 size={13} /> Hapus</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       ) : (

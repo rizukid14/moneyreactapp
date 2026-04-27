@@ -13,7 +13,7 @@ const Statistics: React.FC = () => {
   const { transactions, currencySymbol, startOfMonthDay } = useMoney();
   const [viewDate, setViewDate] = useState(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran'} | null>(null);
+  const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran', colorIndex: number} | null>(null);
 
   const formatCurrency = useCallback((value: number) => `${currencySymbol}${value.toLocaleString('id-ID')}`, [currencySymbol]);
 
@@ -57,7 +57,7 @@ const Statistics: React.FC = () => {
 
       // 1. Current Period Stats
       if (txDate >= vPeriodStart && txDate < vPeriodEnd) {
-        const subKey = tx.subCategory || 'Lainnya';
+        const subKey = tx.subCategory || tx.category;
 
         if (tx.type === 'pendapatan') {
           thisMonthInc += tx.amount;
@@ -94,24 +94,35 @@ const Statistics: React.FC = () => {
       : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a,b) => b.value - a.value);
     
     // Prepare the list for the bottom section
-    let allCategories: { id: string, category: string, amount: number, type: 'pengeluaran' | 'pendapatan' }[] = [];
+    let allCategories: { id: string, category: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
     
     if (drillDownCategory) {
-      // In drill-down mode, only show sub-categories for the selected category/type
+      const baseIdx = drillDownCategory.colorIndex;
       if (drillDownCategory.type === 'pengeluaran') {
-        allCategories = Object.keys(expBySubCategory).map(key => ({
-          id: `exp-sub-${key}`, category: key, amount: expBySubCategory[key], type: 'pengeluaran' as const
+        allCategories = expenseData.map((d, i) => ({
+          id: `exp-sub-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const,
+          color: COLORS[(i + baseIdx) % COLORS.length],
+          colorIndex: (i + baseIdx) % COLORS.length
         }));
       } else {
-        allCategories = Object.keys(incBySubCategory).map(key => ({
-          id: `inc-sub-${key}`, category: key, amount: incBySubCategory[key], type: 'pendapatan' as const
+        allCategories = incomeData.map((d, i) => ({
+          id: `inc-sub-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const,
+          color: COLORS[(i + baseIdx) % COLORS.length],
+          colorIndex: (i + baseIdx) % COLORS.length
         }));
       }
     } else {
-      // In summary mode, show all top-level categories
       allCategories = [
-        ...Object.keys(expByCategory).map(key => ({ id: `exp-${key}`, category: key, amount: expByCategory[key], type: 'pengeluaran' as const })),
-        ...Object.keys(incByCategory).map(key => ({ id: `inc-${key}`, category: key, amount: incByCategory[key], type: 'pendapatan' as const }))
+        ...expenseData.map((d, i) => ({ 
+          id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const,
+          color: COLORS[i % COLORS.length],
+          colorIndex: i % COLORS.length
+        })),
+        ...incomeData.map((d, i) => ({ 
+          id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const,
+          color: COLORS[(i + 3) % COLORS.length],
+          colorIndex: (i + 3) % COLORS.length
+        }))
       ];
     }
 
@@ -239,13 +250,13 @@ const Statistics: React.FC = () => {
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
-                    onClick={(data) => {
-                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pengeluaran' });
+                    onClick={(data, index) => {
+                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
                     }}
                     style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
                   >
                     {expenseCategoryData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={COLORS[(index + (drillDownCategory?.colorIndex ?? 0)) % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -271,13 +282,13 @@ const Statistics: React.FC = () => {
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
-                    onClick={(data) => {
-                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pendapatan' });
+                    onClick={(data, index) => {
+                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
                     }}
                     style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
                   >
                     {incomeCategoryData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={COLORS[(index + (drillDownCategory ? drillDownCategory.colorIndex : 3)) % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -302,7 +313,7 @@ const Statistics: React.FC = () => {
               <div 
                 key={cat.id} 
                 onClick={() => {
-                  if (!drillDownCategory) setDrillDownCategory({ name: cat.category, type: cat.type });
+                  if (!drillDownCategory) setDrillDownCategory({ name: cat.category, type: cat.type, colorIndex: cat.colorIndex });
                 }}
                 style={{ 
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
@@ -313,8 +324,8 @@ const Statistics: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ 
                     width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: cat.type === 'pendapatan' ? '#10b98120' : '#ef444420',
-                    color: cat.type === 'pendapatan' ? '#10b981' : '#ef4444'
+                    background: `${cat.color}15`,
+                    color: cat.color
                   }}>
                     {cat.type === 'pendapatan' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                   </div>

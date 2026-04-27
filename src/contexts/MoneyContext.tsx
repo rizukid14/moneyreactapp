@@ -153,7 +153,7 @@ interface MoneyContextType {
   addBudget: (budget: Omit<Budget, 'id'>) => void;
   updateBudget: (id: string, budget: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string) => void;
+  addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string) => void;
   updateDebt: (id: string, debt: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
   addRecurringTransaction: (rt: Omit<RecurringTransaction, 'id'>) => void;
@@ -459,7 +459,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   // ─── Debts ──────────────────────────────────────────────────────────────
-  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryName?: string) => {
+  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryName?: string, subCategoryName?: string) => {
     const newDebt: Debt = { ...debtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
     
     // Generate initial transaction for the principal
@@ -500,10 +500,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'pengeluaran',
           amount: newDebt.totalAmount,
-          category: categoryName || 'Lainnya',
-          date: today,
-          time,
-          note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
+            category: categoryName || 'Lainnya',
+            subCategory: subCategoryName,
+            date: today,
+            time,
+            note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
           assetId: newDebt.liabilityAssetId,
           relatedId: newDebt.id,
         });

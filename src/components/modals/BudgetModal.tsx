@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Target } from 'lucide-react';
 import { type Category, type Budget } from '../../contexts/MoneyContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface BudgetModalProps {
   isOpen: boolean;
@@ -31,8 +32,6 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
     }
   }, [editingBudget, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const numericValue = e.target.value.replace(/\D/g, '');
     if (!numericValue) {
@@ -59,7 +58,6 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
       year: selectedYear
     };
 
-    // Check for duplicates
     const isDuplicate = budgets.some(b => 
       b.categoryId === budgetData.categoryId && 
       b.month === selectedMonth && 
@@ -81,55 +79,73 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-             <Target size={24} color="var(--primary)" />
-             <h2 className="subtitle" style={{ margin: 0 }}>{editingBudget ? 'Edit Anggaran' : 'Set Anggaran'}</h2>
-          </div>
-          <button className="close-btn" onClick={onClose}><X size={24} /></button>
-        </div>
-
-        <form onSubmit={handleSave}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
-            Pilih Target Anggaran
-          </label>
-          <select 
-            required 
-            value={categoryId} 
-            onChange={e => setCategoryId(e.target.value)}
-            disabled={!!editingBudget} // Don't allow changing category on edit to keep logic simple
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          className="modal-overlay" 
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.1 }}
+        >
+          <motion.div 
+            className="modal-content" 
+            onClick={e => e.stopPropagation()}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
           >
-            <option value="total">-- Total Anggaran (Global) --</option>
-            {categories.filter(c => c.type === 'pengeluaran').map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                 <Target size={24} color="var(--primary)" />
+                 <h2 className="subtitle" style={{ margin: 0 }}>{editingBudget ? 'Edit Anggaran' : 'Set Anggaran'}</h2>
+              </div>
+              <button className="close-btn" onClick={onClose}><X size={24} /></button>
+            </div>
 
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
-            Batas Maksimal ({currencySymbol})
-          </label>
-          <input 
-            type="text" 
-            inputMode="numeric" 
-            required 
-            placeholder="Contoh: 1.000.000" 
-            value={limit} 
-            onChange={handleAmountChange} 
-          />
+            <form onSubmit={handleSave}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
+                Pilih Target Anggaran
+              </label>
+              <select 
+                required 
+                value={categoryId} 
+                onChange={e => setCategoryId(e.target.value)}
+                disabled={!!editingBudget}
+              >
+                <option value="total">-- Total Anggaran (Global) --</option>
+                {categories.filter(c => c.type === 'pengeluaran').map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
 
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
-            Anggaran ini berlaku untuk bulan <strong>{selectedMonth + 1}/{selectedYear}</strong>. 
-            Anda akan diperingatkan jika pengeluaran mendekati atau melebihi batas ini.
-          </p>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
+                Batas Maksimal ({currencySymbol})
+              </label>
+              <input 
+                type="text" 
+                inputMode="numeric" 
+                required 
+                placeholder="Contoh: 1.000.000" 
+                value={limit} 
+                onChange={handleAmountChange} 
+              />
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-            {editingBudget ? 'Simpan Perubahan' : 'Mulai Anggaran'}
-          </button>
-        </form>
-      </div>
-    </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
+                Anggaran ini berlaku untuk bulan <strong>{selectedMonth + 1}/{selectedYear}</strong>. 
+                Anda akan diperingatkan jika pengeluaran mendekati atau melebihi batas ini.
+              </p>
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                {editingBudget ? 'Simpan Perubahan' : 'Mulai Anggaran'}
+              </button>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
