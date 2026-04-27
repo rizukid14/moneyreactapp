@@ -70,7 +70,7 @@ const Transactions: React.FC = () => {
           tx.amount.toString().includes(q)
         );
         if (!matches) return false;
-        
+
         // If matches search, sum up for the visible context (we don't filter by month if searching)
         if (tx.type === 'pendapatan') inc += tx.amount;
         if (tx.type === 'pengeluaran') exp += tx.amount;
@@ -87,7 +87,20 @@ const Transactions: React.FC = () => {
         return true;
       }
       return false;
-    }).sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || '') || b.id.localeCompare(a.id));
+    }).sort((a, b) => {
+      // 1. Primary: Date (descending)
+      const dateComp = b.date.localeCompare(a.date);
+      if (dateComp !== 0) return dateComp;
+
+      // 2. Secondary: Time (descending) - Treat missing time as 00:00 to keep it consistent
+      const timeA = a.time || '00:00';
+      const timeB = b.time || '00:00';
+      const timeComp = timeB.localeCompare(timeA);
+      if (timeComp !== 0) return timeComp;
+
+      // 3. Tertiary: ID (descending)
+      return b.id.localeCompare(a.id);
+    });
 
     if (groupBy === 'none') {
       return {
@@ -195,19 +208,19 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="card glass shadow-soft" style={{ 
-        display: 'flex', alignItems: 'center', gap: '10px', 
+      <div className="card glass shadow-soft" style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
         padding: '8px 16px', marginBottom: '16px', border: 'none',
         background: 'var(--bg-card-solid)'
       }}>
         <Search size={20} color="var(--text-muted)" />
-        <input 
-          type="text" 
-          placeholder="Cari catatan, kategori, atau jumlah..." 
+        <input
+          type="text"
+          placeholder="Cari catatan, kategori, atau jumlah..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          style={{ 
-            background: 'none', border: 'none', padding: '8px 0', 
+          style={{
+            background: 'none', border: 'none', padding: '8px 0',
             fontSize: '14px', flex: 1, color: 'var(--text-main)',
             outline: 'none', marginBottom: 0
           }}
@@ -229,7 +242,7 @@ const Transactions: React.FC = () => {
 
             <div
               onClick={() => setIsDatePickerOpen(true)}
-              style={{ 
+              style={{
                 textAlign: 'center', cursor: 'pointer', padding: '10px 20px', borderRadius: '14px',
                 background: 'var(--bg-main)', flex: 1, margin: '0 8px'
               }}>
@@ -248,16 +261,16 @@ const Transactions: React.FC = () => {
 
       {/* Summary Cards */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
-        <div className="card" style={{ 
-          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)', 
+        <div className="card" style={{
+          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)',
           color: 'white', border: 'none', padding: '16px',
-          boxShadow: '0 10px 25px var(--primary-glow)' 
+          boxShadow: '0 10px 25px var(--primary-glow)'
         }}>
           <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pemasukan</span>
           <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyIncome)}</span>
         </div>
-        <div className="card" style={{ 
-          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)', 
+        <div className="card" style={{
+          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)',
           color: 'white', border: 'none', padding: '16px',
           boxShadow: '0 10px 25px var(--secondary-glow)'
         }}>
@@ -267,13 +280,13 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* GroupBy Selector - Segmented Control (Icon Only) */}
-      <div style={{ 
-        display: 'grid', 
+      <div style={{
+        display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '4px', 
-        marginBottom: '24px', 
-        background: 'var(--bg-card-solid)', 
-        padding: '6px', 
+        gap: '4px',
+        marginBottom: '24px',
+        background: 'var(--bg-card-solid)',
+        padding: '6px',
         borderRadius: '18px',
         border: '1.5px solid var(--border-color)',
         boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
@@ -375,44 +388,44 @@ const Transactions: React.FC = () => {
       />
 
       {isFabOpen && (
-         <div onClick={() => setIsFabOpen(false)} style={{position: 'fixed', inset: 0, background: 'hsla(var(--n-h), 20%, 10%, 0.4)', backdropFilter: 'blur(2px)', zIndex: 998}} />
+        <div onClick={() => setIsFabOpen(false)} style={{ position: 'fixed', inset: 0, background: 'hsla(var(--n-h), 20%, 10%, 0.4)', backdropFilter: 'blur(2px)', zIndex: 998 }} />
       )}
 
       {!isModalOpen && (
         <>
           <div className={`fab-menu ${isFabOpen ? 'open' : ''}`}>
-            <button 
-              className="fab-mini" 
+            <button
+              className="fab-mini"
               onClick={() => navigate('/scan')}
               title="Scan Struk (OCR)"
               style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
               <Camera size={20} />
             </button>
-            <button 
-              className="fab-mini" 
+            <button
+              className="fab-mini"
               onClick={() => navigate('/bulk-input')}
               title="Bulk Input (AI)"
               style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
               <Sparkles size={20} />
             </button>
-            <button 
-              className="fab-mini" 
+            <button
+              className="fab-mini"
               onClick={() => handleAdd('transfer')}
               style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
               <RefreshCw size={20} />
             </button>
-            <button 
-              className="fab-mini" 
+            <button
+              className="fab-mini"
               onClick={() => handleAdd('pendapatan')}
               style={{ background: 'var(--success)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
             >
               <ArrowDownCircle size={20} />
             </button>
-            <button 
-              className="fab-mini" 
+            <button
+              className="fab-mini"
               onClick={() => handleAdd('pengeluaran')}
               style={{ background: 'var(--danger)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
             >

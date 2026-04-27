@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { getLocalDate } from '../lib/utils';
 
 export interface LineItem {
   name: string;
@@ -130,7 +131,7 @@ export const useReceiptOCR = () => {
       return {
         merchantName: result.merchantName || "",
         amount: result.amount || 0,
-        date: result.date || new Date().toISOString().split('T')[0],
+        date: result.date || getLocalDate(),
         rawText: result.rawText || "Parsed via Cloud AI",
         suggestedCategory: result.suggestedCategory || "",
         suggestedSubCategory: result.suggestedSubCategory || "",

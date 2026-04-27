@@ -16,6 +16,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
+import { getLocalDate, getLocalTime } from '../lib/utils';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 
@@ -115,14 +116,14 @@ export interface RecurringTransaction {
 const DEFAULT_ASSET: Asset = { id: 'default-1', name: 'Dompet Tunai', type: 'Cash', initialBalance: 0 };
 
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-1', name: 'Makanan',      type: 'pengeluaran', subcategories: [{ id: 'sub-1', name: 'Makan Diluar' }, { id: 'sub-2', name: 'Groceries' }] },
-  { id: 'cat-2', name: 'Transportasi', type: 'pengeluaran', subcategories: [{ id: 'sub-3', name: 'Bensin' },      { id: 'sub-4', name: 'Parkir'     }] },
-  { id: 'cat-3', name: 'Hiburan',      type: 'pengeluaran', subcategories: [] },
-  { id: 'cat-4', name: 'Belanja',      type: 'pengeluaran', subcategories: [] },
-  { id: 'cat-5', name: 'Tagihan',      type: 'pengeluaran', subcategories: [] },
-  { id: 'cat-6', name: 'Gaji',         type: 'pendapatan',  subcategories: [] },
-  { id: 'cat-7', name: 'Bonus',        type: 'pendapatan',  subcategories: [] },
-  { id: 'cat-8', name: 'Investasi',    type: 'pendapatan',  subcategories: [] },
+  { id: 'cat-1', name: 'Makanan', type: 'pengeluaran', subcategories: [{ id: 'sub-1', name: 'Makan Diluar' }, { id: 'sub-2', name: 'Groceries' }] },
+  { id: 'cat-2', name: 'Transportasi', type: 'pengeluaran', subcategories: [{ id: 'sub-3', name: 'Bensin' }, { id: 'sub-4', name: 'Parkir' }] },
+  { id: 'cat-3', name: 'Hiburan', type: 'pengeluaran', subcategories: [] },
+  { id: 'cat-4', name: 'Belanja', type: 'pengeluaran', subcategories: [] },
+  { id: 'cat-5', name: 'Tagihan', type: 'pengeluaran', subcategories: [] },
+  { id: 'cat-6', name: 'Gaji', type: 'pendapatan', subcategories: [] },
+  { id: 'cat-7', name: 'Bonus', type: 'pendapatan', subcategories: [] },
+  { id: 'cat-8', name: 'Investasi', type: 'pendapatan', subcategories: [] },
 ];
 
 const DEFAULT_USER: UserProfile = { name: 'Pengguna MoneyApp', email: 'pengguna@email.com' };
@@ -195,16 +196,16 @@ const _paidInstallmentKeys = new Set<string>();
 // ─── Provider ────────────────────────────────────────────────────────────────
 export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isReady, setIsReady] = useState(false);
-  const [assets,       setAssets]       = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories,   setCategories]   = useState<Category[]>([]);
-  const [budgets,      setBudgets]      = useState<Budget[]>([]);
-  const [debts,        setDebts]        = useState<Debt[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
-  const [user,         setUser]         = useState<UserProfile>(DEFAULT_USER);
-  const [pin,          setPin]          = useState<string | null>(null);
-  const [isAppLocked,  setIsAppLocked]  = useState(false);
-  const [theme,        setTheme]        = useState<'light' | 'dark'>('light');
+  const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
+  const [pin, setPin] = useState<string | null>(null);
+  const [isAppLocked, setIsAppLocked] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [defaultAssetId, setDefaultAssetIdState] = useState<string | null>(null);
   const [startOfMonthDay, setStartOfMonthDayState] = useState<number>(1);
@@ -270,7 +271,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       // Load settings
       let profile = await dbGetSetting('user') as UserProfile | undefined;
-      const savedPin   = await dbGetSetting('pin')   as string | undefined;
+      const savedPin = await dbGetSetting('pin') as string | undefined;
       const savedTheme = await dbGetSetting('theme') as string | undefined;
       const savedPrivacy = await dbGetSetting('isPrivateMode') as boolean | undefined;
       const savedDefaultAssetId = await dbGetSetting('defaultAssetId') as string | undefined;
@@ -348,15 +349,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const syncData = useCallback(async () => {
     const results = await dbSyncPendingItems();
     if (results.success > 0) {
-        // Reload data if anything was synced
-        const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts] = await Promise.all([
-          dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(), dbGetAllBudgets(), dbGetAllDebts(),
-        ]);
-        setAssets(dbAssets);
-        setTransactions(dbTxs);
-        setCategories(dbCats);
-        setBudgets(dbBudgets);
-        setDebts(dbDebts as Debt[]);
+      // Reload data if anything was synced
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts] = await Promise.all([
+        dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(), dbGetAllBudgets(), dbGetAllDebts(),
+      ]);
+      setAssets(dbAssets);
+      setTransactions(dbTxs);
+      setCategories(dbCats);
+      setBudgets(dbBudgets);
+      setDebts(dbDebts as Debt[]);
     }
     await refreshSyncCount();
     return results;
@@ -389,7 +390,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Transactions ─────────────────────────────────────────────────────────
   const addTransaction = useCallback((txReq: Omit<Transaction, 'id'>) => {
-    const newTx: Transaction = { ...txReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    const newTx: Transaction = { 
+      ...txReq, 
+      id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
+      time: txReq.time || getLocalTime()
+    };
     setTransactions(prev => [newTx, ...prev]);
     dbPutTransaction(newTx).then(refreshSyncCount);
   }, [refreshSyncCount]);
@@ -402,11 +407,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (txToDelete && txToDelete.relatedId) {
       setDebts(prev => prev.map(d => {
         if (d.id !== txToDelete.relatedId) return d;
-        
-        const isPrincipal = (txToDelete.note.includes('Penerimaan dana pinjaman') || 
-                             txToDelete.note.includes('Pemberian pinjaman') || 
-                             txToDelete.note.includes('Belanja via'));
-                             
+
+        const isPrincipal = (txToDelete.note.includes('Penerimaan dana pinjaman') ||
+          txToDelete.note.includes('Pemberian pinjaman') ||
+          txToDelete.note.includes('Belanja via'));
+
         if (isPrincipal) return d;
 
         const nextPaid = Math.max(0, (d.paidInstallments || 0) - 1);
@@ -484,12 +489,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ─── Debts ──────────────────────────────────────────────────────────────
   const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryName?: string, subCategoryName?: string) => {
     const newDebt: Debt = { ...debtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
-    
+
     // Generate initial transaction for the principal
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const time = now.toTimeString().split(' ')[0].slice(0, 5);
-    
+    const today = getLocalDate();
+    const time = getLocalTime();
+
     if (newDebt.type === 'piutang') {
       // Give loan: Account balance decreases (Expense)
       if (newDebt.paymentAssetId) {
@@ -523,11 +527,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'pengeluaran',
           amount: newDebt.totalAmount,
-            category: categoryName || 'Lainnya',
-            subCategory: subCategoryName,
-            date: today,
-            time,
-            note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
+          category: categoryName || 'Lainnya',
+          subCategory: subCategoryName,
+          date: today,
+          time,
+          note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
           assetId: newDebt.liabilityAssetId,
           relatedId: newDebt.id,
         });
@@ -554,7 +558,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   /** Create a transaction record and push it to state + DB */
   const _createTx = (tx: Omit<Transaction, 'id'>) => {
-    const newTx: Transaction = { ...tx, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    const newTx: Transaction = { 
+      ...tx, 
+      id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
+      time: tx.time || getLocalTime()
+    };
     setTransactions(prev => [newTx, ...prev]);
     dbPutTransaction(newTx);
   };
@@ -606,9 +614,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const txKey = `${debtId}-${nextPaid}`;
       if (!_paidInstallmentKeys.has(txKey)) {
         _paidInstallmentKeys.add(txKey);
-        const now = new Date();
-        const today = now.toISOString().split('T')[0];
-        const time = now.toTimeString().split(' ')[0].slice(0, 5);
+        const today = getLocalDate();
+        const time = getLocalTime();
         const amt = debt.installmentAmount || 0;
         const note = `Cicilan ${debt.contact} (${nextPaid}/${debt.totalInstallments || '?'})`;
 
@@ -651,9 +658,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const txKey = `settle-${debtId}`;
     if (!_paidInstallmentKeys.has(txKey)) {
       _paidInstallmentKeys.add(txKey);
-      const now = new Date();
-      const today = overrideDate || now.toISOString().split('T')[0];
-      const time = overrideTime || now.toTimeString().split(' ')[0].slice(0, 5);
+      const today = overrideDate || getLocalDate();
+      const time = overrideTime || getLocalTime();
       const paidSoFar = debt.isInstallment ? (debt.paidInstallments * (debt.installmentAmount || 0)) : 0;
       const remaining = Math.max(0, debt.totalAmount - paidSoFar);
       const note = `Pelunasan ${debt.type === 'hutang' ? 'hutang' : 'piutang'} - ${debt.contact}`;
@@ -699,8 +705,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     }
 
-    const updated: Debt = { 
-      ...debt, 
+    const updated: Debt = {
+      ...debt,
       isPaid: true,
       paidInstallments: debt.isInstallment && debt.totalInstallments ? debt.totalInstallments : debt.paidInstallments
     };
@@ -752,13 +758,13 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const nextPaid = (debt.paidInstallments || 0) + 1;
     const isPaid = debt.isInstallment && debt.totalInstallments ? nextPaid >= debt.totalInstallments : false;
-    
+
     const updatedDebt = {
       ...debt,
       paidInstallments: debt.isInstallment ? nextPaid : debt.paidInstallments,
       isPaid
     };
-    
+
     dbPutDebt(updatedDebt);
     setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
   }, [debts]);
@@ -796,7 +802,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       totalAmount: debt.totalAmount + amount,
       isPaid: false
     };
-    
+
     dbPutDebt(updatedDebt);
     setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
   }, [debts]);
@@ -808,10 +814,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!asset) return 0;
     let balance = asset.initialBalance;
     transactions.forEach(tx => {
-      if      (tx.type === 'pendapatan' && tx.assetId === assetId) balance += tx.amount;
+      if (tx.type === 'pendapatan' && tx.assetId === assetId) balance += tx.amount;
       else if (tx.type === 'pengeluaran' && tx.assetId === assetId) balance -= tx.amount;
       else if (tx.type === 'transfer' && tx.fromAssetId === assetId) balance -= tx.amount;
-      else if (tx.type === 'transfer' && tx.toAssetId === assetId)   balance += tx.amount;
+      else if (tx.type === 'transfer' && tx.toAssetId === assetId) balance += tx.amount;
     });
     return balance;
   }, [assets, transactions]);
@@ -825,7 +831,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const setAppPin = useCallback((newPin: string | null) => {
     setPin(newPin);
     if (newPin) dbPutSetting('pin', newPin);
-    else         dbDeleteSetting('pin');
+    else dbDeleteSetting('pin');
     if (!newPin) setIsAppLocked(false);
   }, []);
 
@@ -877,10 +883,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const data = await dbExportAll();
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `moneyapp-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `moneyapp-backup-${getLocalDate()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, []);
@@ -897,9 +903,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setTransactions(dbTxs);
     setCategories(dbCats);
     setBudgets(dbBudgets);
-    const savedUser  = await dbGetSetting('user')  as UserProfile | undefined;
+    const savedUser = await dbGetSetting('user') as UserProfile | undefined;
     const savedTheme = await dbGetSetting('theme') as string | undefined;
-    if (savedUser)  setUser(savedUser);
+    if (savedUser) setUser(savedUser);
     if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
   }, []);
 
@@ -911,7 +917,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
-    isReady, assets, transactions, categories, budgets, debts, 
+    isReady, assets, transactions, categories, budgets, debts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
     user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
@@ -923,7 +929,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData,
   }), [
-    isReady, assets, transactions, categories, budgets, debts, 
+    isReady, assets, transactions, categories, budgets, debts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
     user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,

@@ -371,9 +371,9 @@ const ReceiptScanner: React.FC = () => {
   };
 
   const addItem = () => {
-    const newIdx = lineItems.length;
-    setLineItems(prev => [...prev, { name: 'Item Baru', amount: 0, selected: true }]);
-    setEditingItemIdx(newIdx); setEditingField('name');
+    setLineItems(prev => [{ name: 'Item Baru', amount: 0, selected: true }, ...prev]);
+    setEditingItemIdx(0); 
+    setEditingField('name');
   };
 
   const selCat = categories.find(c => c.name === selectedCategory && c.type === selectedType);

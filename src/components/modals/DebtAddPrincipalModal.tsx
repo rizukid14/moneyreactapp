@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
 
 interface DebtAddPrincipalModalProps {
@@ -12,18 +13,18 @@ interface DebtAddPrincipalModalProps {
   currencySymbol: string;
 }
 
-const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({ 
-  isOpen, onClose, onConfirm, debt, assets, currencySymbol 
+const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
+  isOpen, onClose, onConfirm, debt, assets, currencySymbol
 }) => {
   const { defaultAssetId: globalDefaultAssetId } = useMoney();
   const isHutang = debt.type === 'hutang';
   const activeAssets = assets.filter(a => !a.isDeleted);
-  
+
   const debtDefaultAssetId = isHutang ? debt.paymentAssetId : debt.receiveAssetId;
   const [amount, setAmount] = useState('');
   const [selectedAssetId, setSelectedAssetId] = useState(debtDefaultAssetId || globalDefaultAssetId || (activeAssets[0]?.id || ''));
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
+  const [date, setDate] = useState(getLocalDate());
+  const [time, setTime] = useState(getLocalTime());
   const [note, setNote] = useState('');
   const [lastOpen, setLastOpen] = useState(false);
 
@@ -31,8 +32,8 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
     if (isOpen && !lastOpen) {
       setAmount('');
       setSelectedAssetId(debtDefaultAssetId || globalDefaultAssetId || (activeAssets[0]?.id || ''));
-      setDate(new Date().toISOString().split('T')[0]);
-      setTime(new Date().toTimeString().split(' ')[0].slice(0, 5));
+      setDate(getLocalDate());
+      setTime(getLocalTime());
       setNote('');
     }
     setLastOpen(isOpen);
@@ -46,7 +47,7 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
   const handleConfirm = () => {
     const numAmount = Number(amount);
     if (numAmount <= 0) return;
-    
+
     const finalNote = note || `Tambah ${isHutang ? 'Hutang' : 'Piutang'} Baru`;
     onConfirm(numAmount, selectedAssetId, date, time, finalNote);
   };
@@ -54,16 +55,16 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div 
-          className="modal-overlay" 
+        <motion.div
+          className="modal-overlay"
           onClick={onClose}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.1 }}
         >
-          <motion.div 
-            className="modal-content" 
+          <motion.div
+            className="modal-content"
             onClick={e => e.stopPropagation()}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
@@ -93,8 +94,8 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
                 </label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     inputMode="numeric"
                     value={amount ? Number(amount).toLocaleString('id-ID') : ''}
                     onChange={handleAmountChange}
@@ -108,8 +109,8 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
                 <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                   {isHutang ? '🏦 Uang Masuk ke:' : '🏦 Uang Keluar dari:'}
                 </label>
-                <select 
-                  value={selectedAssetId} 
+                <select
+                  value={selectedAssetId}
                   onChange={(e) => setSelectedAssetId(e.target.value)}
                   style={{ width: '100%', marginBottom: 0 }}
                 >
