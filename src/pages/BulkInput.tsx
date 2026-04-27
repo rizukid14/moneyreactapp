@@ -57,11 +57,6 @@ const BulkInput: React.FC = () => {
     }
   };
 
-  const reset = () => {
-    setStage('input');
-    setResults([]);
-    setError(null);
-  };
 
   return (
     <div className="page">

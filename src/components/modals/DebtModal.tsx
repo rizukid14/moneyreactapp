@@ -33,8 +33,6 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   const [receiveAssetId, setReceiveAssetId]       = useState('');
   // Hutang recording mode (new)
   const [hutangMode, setHutangMode]               = useState<'none' | 'cash' | 'credit'>('none');
-  const [creditCategoryId, setCreditCategoryId]   = useState('');
-  const [creditSubCategoryId, setCreditSubCategoryId] = useState('');
 
   const activeAssets = assets.filter(a => !a.isDeleted);
 
