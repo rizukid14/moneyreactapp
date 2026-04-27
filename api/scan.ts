@@ -33,9 +33,9 @@ export default async function handler(req: any, res: any) {
 
     const prompt = `Extract receipt data to JSON:
     - merchantName: string (store or merchant name)
-    - amount: total (number)
+    - amount: final total paid (number)
     - date: YYYY-MM-DD
-    - lineItems: array of {name, amount}
+    - lineItems: array of {name, amount}. CRITICAL: You MUST include "Pajak" (Tax), "Service Charge", "Diskon" (Discount), and any other additional fees as separate items in this array so that the sum of lineItems exactly matches the final total amount. Discounts should be a negative number.
     - suggestedCategory: from [${categoryList}]
     - suggestedAsset: from [${assetList}]
     - confidence: high/medium/low

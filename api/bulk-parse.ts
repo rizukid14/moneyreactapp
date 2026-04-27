@@ -4,16 +4,24 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '4mb',
+    },
+  },
+};
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
-    const { text, categories, assets, currentDate } = req.body; 
+    const { text, image, categories, assets, currentDate } = req.body; 
 
-    if (!text) {
-      return res.status(400).json({ message: 'No text provided' });
+    if (!text && !image) {
+      return res.status(400).json({ message: 'No text or image provided' });
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -54,19 +62,30 @@ export default async function handler(req: any, res: any) {
     Available Categories & Subcategories:
     ${categoryWithSubs}
 
-    Transactions Text:
+    Transactions Data:
     """
-    ${text}
+    ${text || "Data provided via image"}
     """
     
     Respond STRICTLY in JSON: { "transactions": [{ "type": "...", "amount": 0, "date": "...", "note": "...", "category": "...", "subCategory": "...", "asset": "..." }] }`;
+
+    const messageContent: any[] = [{ type: "text", text: prompt }];
+    if (image) {
+      messageContent.push({
+        type: "image_url",
+        image_url: {
+          url: `data:image/jpeg;base64,${image}`,
+          detail: "high"
+        }
+      });
+    }
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "user",
-          content: prompt,
+          content: messageContent,
         },
       ],
       response_format: { type: "json_object" },

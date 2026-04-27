@@ -2,26 +2,35 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
+import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
+import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
 interface CropRect { x: number; y: number; w: number; h: number; }
 
 const CONFIDENCE_BADGE = {
-  high:   { label: 'Akurasi Tinggi',   color: 'var(--success)'  },
-  medium: { label: 'Akurasi Sedang',   color: 'var(--secondary)' },
-  low:    { label: 'Akurasi Rendah',   color: 'var(--danger)'   },
+  high: { label: 'Akurasi Tinggi', color: 'var(--success)' },
+  medium: { label: 'Akurasi Sedang', color: 'var(--secondary)' },
+  low: { label: 'Akurasi Rendah', color: 'var(--danger)' },
 };
 
 const ReceiptScanner: React.FC = () => {
   const { addTransaction, assets, categories, currencySymbol } = useMoney();
-  const { scanReceipt, isInitializing, progress, error, setError } = useReceiptOCR();
+  const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
+  const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
 
   // Stage management
   const [stage, setStage] = useState<Stage>('upload');
+  const [scanMode, setScanMode] = useState<'struk' | 'mutasi'>('struk');
+  const error = scanMode === 'struk' ? strukError : mutasiError;
+  const setError = scanMode === 'struk' ? setStrukError : setMutasiError;
+  const progress = scanMode === 'struk' ? strukProgress : (isMutasiParsing ? 50 : 0);
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [result, setResult] = useState<OCRResult | null>(null);
+  const [mutasiResults, setMutasiResults] = useState<ParsedTransaction[]>([]);
 
   // Cropping state
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -55,6 +64,7 @@ const ReceiptScanner: React.FC = () => {
     setStage('upload');
     setCropRect(null);
     setLineItems([]);
+    setMutasiResults([]);
     setEditableAmount('');
     setSelectedCategory('');
     setSelectedSubCategory('');
@@ -127,8 +137,8 @@ const ReceiptScanner: React.FC = () => {
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
-      x: Math.max(0, Math.min(canvas.width,  (clientX - rect.left) * scaleX)),
-      y: Math.max(0, Math.min(canvas.height, (clientY - rect.top)  * scaleY)),
+      x: Math.max(0, Math.min(canvas.width, (clientX - rect.left) * scaleX)),
+      y: Math.max(0, Math.min(canvas.height, (clientY - rect.top) * scaleY)),
     };
   }, []);
 
@@ -185,7 +195,49 @@ const ReceiptScanner: React.FC = () => {
 
     if (!blob) { setError('Gambar tidak valid'); setStage('crop'); return; }
 
-    const ocrResult = await scanReceipt(blob as Blob, categories, assets);
+    const activeAssets = assets.filter(a => !a.isDeleted);
+
+    if (scanMode === 'mutasi') {
+      const parsed = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets });
+      if (parsed && parsed.length > 0) {
+        const augmented = parsed.map(tx => {
+          let matchedAssetId = activeAssets[0]?.id || '';
+          if (tx.asset) {
+            const matched = activeAssets.find(a => a.name.toLowerCase().includes(tx.asset.toLowerCase()) || tx.asset.toLowerCase().includes(a.name.toLowerCase()));
+            if (matched) matchedAssetId = matched.id;
+          }
+
+          let matchedCategory = '';
+          let matchedSubCategory = '';
+          if (tx.category) {
+            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type);
+            if (matchedCat) {
+              matchedCategory = matchedCat.name;
+              if (tx.subCategory && matchedCat.subcategories) {
+                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategory!.toLowerCase());
+                if (matchedSub) matchedSubCategory = matchedSub.name;
+              }
+            }
+          }
+
+          return {
+            ...tx,
+            asset: matchedAssetId,
+            category: matchedCategory || (tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
+            subCategory: matchedSubCategory || ''
+          };
+        });
+
+        setMutasiResults(augmented);
+        setStage('results');
+      } else {
+        setError('Tidak ada transaksi yang berhasil dikenali.');
+        setStage('crop');
+      }
+      return;
+    }
+
+    const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets);
 
     if (ocrResult) {
       if (ocrResult.amount === 0) {
@@ -195,21 +247,21 @@ const ReceiptScanner: React.FC = () => {
           setError('Teks terbaca, tapi tidak menemukan nominal Total.');
         }
       }
-      
+
       setResult(ocrResult);
-      
+
       // 1. Asset/Payment Method Matching
       if (ocrResult.suggestedAsset) {
-        const matchedAsset = assets.find(a => 
+        const matchedAsset = activeAssets.find(a =>
           a.name.toLowerCase() === ocrResult.suggestedAsset?.toLowerCase()
         );
         if (matchedAsset) {
           setSelectedAssetId(matchedAsset.id);
         } else {
-          setSelectedAssetId(assets[0]?.id || '');
+          setSelectedAssetId(activeAssets[0]?.id || '');
         }
       } else {
-        setSelectedAssetId(assets[0]?.id || '');
+        setSelectedAssetId(activeAssets[0]?.id || '');
       }
 
       setSelectedType('pengeluaran');
@@ -226,6 +278,12 @@ const ReceiptScanner: React.FC = () => {
         );
         if (matchedCat) {
           setSelectedCategory(matchedCat.name);
+          if (ocrResult.suggestedSubCategory && matchedCat.subcategories) {
+            const matchedSub = matchedCat.subcategories.find(s =>
+              s.name.toLowerCase() === ocrResult.suggestedSubCategory!.toLowerCase()
+            );
+            if (matchedSub) setSelectedSubCategory(matchedSub.name);
+          }
         }
       }
       setStage('results');
@@ -328,24 +386,22 @@ const ReceiptScanner: React.FC = () => {
       <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />
 
       {stage === 'upload' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
-          {error && (
-            <div className="card" style={{ backgroundColor: 'hsla(350,85%,60%,0.1)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <AlertCircle color="var(--danger)" size={20} />
-              <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: 600 }}>{error}</span>
-              <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none' }}><X size={18}/></button>
-            </div>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '20px' }}>
 
-          <button onClick={() => fileInputRef.current?.click()} className="glass" style={{ 
-            width: '100%', padding: '60px 24px', borderRadius: '28px', 
-            border: '3px dashed var(--primary)', cursor: 'pointer', 
-            display: 'flex', flexDirection: 'column', alignItems: 'center', 
+          <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)', marginBottom: '16px', width: '100%', maxWidth: '300px' }}>
+            <button onClick={() => setScanMode('struk')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'struk' ? 'var(--primary)' : 'transparent', color: scanMode === 'struk' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Struk (1 Tx)</button>
+            <button onClick={() => setScanMode('mutasi')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'mutasi' ? 'var(--primary)' : 'transparent', color: scanMode === 'mutasi' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Mutasi (Banyak Tx)</button>
+          </div>
+
+          <button onClick={() => fileInputRef.current?.click()} className="glass" style={{
+            width: '100%', padding: '60px 24px', borderRadius: '28px',
+            border: '3px dashed var(--primary)', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
             color: 'var(--primary)', background: 'var(--bg-income)',
             transition: 'all 0.3s'
           }}>
-            <div style={{ 
-              width: 80, height: 80, borderRadius: '50%', background: 'var(--primary-gradient)', 
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%', background: 'var(--primary-gradient)',
               display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white',
               marginBottom: 20, boxShadow: '0 8px 16px var(--primary-glow)'
             }}>
@@ -356,6 +412,16 @@ const ReceiptScanner: React.FC = () => {
               💡 Tips: Pastikan foto struk terlihat jelas dan terang
             </div>
           </button>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', maxWidth: '300px', lineHeight: 1.5 }}>
+            {scanMode === 'struk' ? 'AI akan membaca total belanja & mendeteksi kategori.' : 'AI akan memecah mutasi bank menjadi banyak transaksi secara otomatis.'}
+          </p>
+          {error && (
+            <div className="card" style={{ backgroundColor: 'hsla(350,85%,60%,0.1)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <AlertCircle color="var(--danger)" size={20} />
+              <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: 600 }}>{error}</span>
+              <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none' }}><X size={18} /></button>
+            </div>
+          )}
         </div>
       )}
 
@@ -382,7 +448,7 @@ const ReceiptScanner: React.FC = () => {
         </div>
       )}
 
-      {stage === 'results' && result && (
+      {stage === 'results' && scanMode === 'struk' && result && (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="card glass">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -415,14 +481,14 @@ const ReceiptScanner: React.FC = () => {
 
               <select value={selectedAssetId} onChange={e => setSelectedAssetId(e.target.value)} style={{ marginBottom: '12px' }}>
                 <option value="">-- Pilih Rekening --</option>
-                {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {assets.filter(a => !a.isDeleted).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
 
               <div style={{ marginBottom: '12px' }}>
-                <input 
-                  type="text" 
-                  placeholder="Catatan / Nama Merchant" 
-                  value={merchantName} 
+                <input
+                  type="text"
+                  placeholder="Catatan / Nama Merchant"
+                  value={merchantName}
                   onChange={e => setMerchantName(e.target.value)}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                 />
@@ -461,7 +527,6 @@ const ReceiptScanner: React.FC = () => {
                     transition: 'background 0.15s',
                   }}
                 >
-                  {/* Checkbox */}
                   <input
                     type="checkbox"
                     checked={item.selected}
@@ -469,7 +534,6 @@ const ReceiptScanner: React.FC = () => {
                     style={{ width: '16px', height: '16px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer', marginBottom: 0 }}
                   />
 
-                  {/* Item name — truncates if too long */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {editingItemIdx === idx && editingField === 'name' ? (
                       <input
@@ -495,14 +559,13 @@ const ReceiptScanner: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Price — fixed width, right-aligned */}
                   <div style={{ flexShrink: 0, minWidth: '80px', textAlign: 'right' }}>
                     {editingItemIdx === idx && editingField === 'amount' ? (
                       <input
                         autoFocus
                         type="text"
                         inputMode="numeric"
-                        value={item.amount === 0 ? '' : item.amount.toString()}
+                        value={item.amount === 0 ? '' : item.amount.toLocaleString('id-ID')}
                         onChange={e => editItem(idx, 'amount', e.target.value)}
                         onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
                         onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
@@ -519,18 +582,16 @@ const ReceiptScanner: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Delete */}
                   <button
                     onClick={() => deleteItem(idx)}
                     style={{ flexShrink: 0, color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', opacity: 0.7, padding: '2px', lineHeight: 1 }}
                   >
-                    <Trash2 size={13}/>
+                    <Trash2 size={13} />
                   </button>
                 </div>
               ))}
             </div>
 
-            {/* Summary row */}
             <div style={{ marginTop: '10px', padding: '8px 10px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
               <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
               <span style={{ color: 'var(--danger)' }}>
@@ -543,7 +604,7 @@ const ReceiptScanner: React.FC = () => {
                 onClick={addItem}
                 style={{ flex: 1, padding: '9px', background: 'none', border: '1.5px dashed var(--border-color)', borderRadius: '10px', cursor: 'pointer', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
               >
-                <Plus size={14}/> Tambah
+                <Plus size={14} /> Tambah
               </button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSaveLineItems}>
                 Simpan Item Terpilih
@@ -553,7 +614,7 @@ const ReceiptScanner: React.FC = () => {
         </div>
       )}
 
-      {result && (
+      {result && scanMode === 'struk' && (
         <div style={{ marginTop: '24px' }}>
           <details className="card" style={{ padding: '12px 16px' }}>
             <summary style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 700 }}>🔍 Diagnostik & Teks Mentah</summary>
@@ -565,6 +626,38 @@ const ReceiptScanner: React.FC = () => {
             <div style={{ whiteSpace: 'pre-wrap', fontSize: '11px', color: 'var(--text-muted)' }}>{result.rawText || "(Kosong)"}</div>
           </details>
         </div>
+      )}
+
+      {stage === 'results' && scanMode === 'mutasi' && (
+        <BulkResultsEditor
+          results={mutasiResults}
+          setResults={setMutasiResults}
+          categories={categories}
+          assets={assets}
+          currencySymbol={currencySymbol}
+          onSave={() => {
+            const toSave = mutasiResults.filter(r => r.selected);
+            if (toSave.some(r => !r.amount || !r.category || !r.asset)) {
+              alert("Pastikan semua transaksi yang dicentang memiliki Nominal, Kategori, dan Rekening!");
+              return;
+            }
+
+            toSave.forEach(tx => {
+              addTransaction({
+                type: tx.type,
+                amount: tx.amount,
+                date: tx.date,
+                note: tx.note,
+                category: tx.category,
+                subCategory: tx.subCategory || undefined,
+                assetId: tx.asset
+              });
+            });
+
+            alert(`${toSave.length} transaksi berhasil disimpan!`);
+            reset();
+          }}
+        />
       )}
     </div>
   );

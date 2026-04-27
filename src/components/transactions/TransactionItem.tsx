@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2, Pencil } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2, Pencil, Copy } from 'lucide-react';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Transaction } from '../../contexts/MoneyContext';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -11,6 +11,7 @@ interface TransactionItemProps {
   toAssetName?: string;
   onDelete: (id: string) => void;
   onEdit: (tx: Transaction) => void;
+  onCopy?: (tx: Transaction) => void;
   showDate?: boolean;
 }
 
@@ -21,6 +22,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   toAssetName, 
   onDelete,
   onEdit,
+  onCopy,
   showDate = true
 }) => {
   const { currencySymbol } = useMoney();
@@ -78,8 +80,18 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         </div>
 
         <div className="transaction-actions" style={{ display: 'flex', gap: '4px', marginLeft: '16px' }}>
+          {onCopy && (
+            <button 
+              onClick={() => onCopy(tx)} 
+              title="Salin Transaksi"
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '6px', cursor: 'pointer' }}
+            >
+              <Copy size={14} />
+            </button>
+          )}
           <button 
             onClick={() => onEdit(tx)} 
+            title="Edit Transaksi"
             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '6px', cursor: 'pointer' }}
           >
             <Pencil size={14} />

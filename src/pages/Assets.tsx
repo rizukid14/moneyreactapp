@@ -353,8 +353,13 @@ const Assets: React.FC = () => {
             if (groupAssets.length === 0) return null;
             return (
               <div key={typeKey}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '12px', marginLeft: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  {TYPE_LABELS[typeKey]} ({groupAssets.length})
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    {TYPE_LABELS[typeKey]} ({groupAssets.length})
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)' }}>
+                    {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${groupAssets.reduce((sum, a) => a.isHidden ? sum : sum + (balances[a.id] || 0), 0).toLocaleString('id-ID')}`}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {groupAssets.map((asset: Asset) => {
