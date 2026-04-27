@@ -27,10 +27,17 @@ const Transactions: React.FC = () => {
   const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isCopyMode, setIsCopyMode] = useState(false);
   const [initialType, setInitialType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [viewDate, setViewDate] = useState(new Date());
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date();
+    if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
+      return new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+    return d;
+  });
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultTransactionGrouping || 'date');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -133,16 +140,32 @@ const Transactions: React.FC = () => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
   }, []);
 
-  const resetToToday = useCallback(() => setViewDate(new Date()), []);
+  const resetToToday = useCallback(() => {
+    const d = new Date();
+    if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
+      setViewDate(new Date(d.getFullYear(), d.getMonth() + 1, 1));
+    } else {
+      setViewDate(d);
+    }
+  }, [startOfMonthDay]);
 
   const handleEdit = useCallback((tx: Transaction) => {
     setEditingTransaction(tx);
+    setIsCopyMode(false);
+    setInitialType(tx.type);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleCopy = useCallback((tx: Transaction) => {
+    setEditingTransaction(tx);
+    setIsCopyMode(true);
     setInitialType(tx.type);
     setIsModalOpen(true);
   }, []);
 
   const handleAdd = (type: 'pengeluaran' | 'pendapatan' | 'transfer' = 'pengeluaran') => {
     setEditingTransaction(null);
+    setIsCopyMode(false);
     setInitialType(type);
     setIsModalOpen(true);
     setIsFabOpen(false);
@@ -334,6 +357,7 @@ const Transactions: React.FC = () => {
                     toAssetName={getAssetName(tx.toAssetId)}
                     onDelete={deleteTransaction}
                     onEdit={handleEdit}
+                    onCopy={handleCopy}
                     showDate={groupBy !== 'date'}
                   />
                 ))}
@@ -410,6 +434,7 @@ const Transactions: React.FC = () => {
         addRecurringTransaction={addRecurringTransaction}
         updateTransaction={updateTransaction}
         editingTransaction={editingTransaction}
+        isCopyMode={isCopyMode}
         initialType={initialType}
       />
     </div>

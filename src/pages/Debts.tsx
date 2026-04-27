@@ -3,6 +3,7 @@ import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertic
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
+import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
@@ -18,6 +19,7 @@ const DebtCard: React.FC<{
   onEdit: () => void;
   onDelete: () => void;
   onPay: () => void;
+  onAddPrincipal: () => void;
   onSettle: () => void;
   onUnpay: () => void;
   liabilityName?: string;
@@ -28,7 +30,7 @@ const DebtCard: React.FC<{
   isExpanded: boolean;
   currencySymbol: string;
 }> = ({ 
-  debt, onEdit, onDelete, onPay, onSettle, onUnpay, 
+  debt, onEdit, onDelete, onPay, onAddPrincipal, onSettle, onUnpay, 
   liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded,
   currencySymbol
 }) => {
@@ -106,7 +108,8 @@ const DebtCard: React.FC<{
           </button>
           {menuOpen && (
             <div className="budget-dropdown" style={{ right: 0, top: 32 }}>
-              <button className="budget-dropdown-item" onClick={() => { onEdit(); setMenuOpen(false); }}><Edit2 size={13} /> Edit</button>
+              <button className="budget-dropdown-item" onClick={() => { onEdit(); setMenuOpen(false); }}><Edit2 size={13} /> Edit Catatan</button>
+              <button className="budget-dropdown-item" onClick={() => { onAddPrincipal(); setMenuOpen(false); }}><Plus size={13} /> Tambah Nominal</button>
               {!debt.isPaid ? (
                 <button className="budget-dropdown-item" onClick={() => { onSettle(); setMenuOpen(false); }}>
                   <CheckCircle2 size={13} /> Tandai Lunas
@@ -266,7 +269,7 @@ const DebtCard: React.FC<{
 };
 
 const Debts: React.FC = () => {
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, currencySymbol } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, currencySymbol } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
@@ -275,6 +278,7 @@ const Debts: React.FC = () => {
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [principalModalDebtId, setPrincipalModalDebtId] = useState<string | null>(null);
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
@@ -418,6 +422,7 @@ const Debts: React.FC = () => {
               paymentName={getAssetName(d.paymentAssetId)}
               receiveName={getAssetName(d.receiveAssetId)}
               onEdit={() => openEdit(d)}
+              onAddPrincipal={() => setPrincipalModalDebtId(d.id)}
               onDelete={() => { 
                 setDeletingId(d.id);
                 setIsConfirmOpen(true);
@@ -470,6 +475,20 @@ const Debts: React.FC = () => {
               addDebtPayment(payingDebt.id, amt, assetId, date, time, note);
             }
             setIsPaymentModalOpen(false);
+          }}
+        />
+      )}
+
+      {principalModalDebtId && debts.find(d => d.id === principalModalDebtId) && (
+        <DebtAddPrincipalModal
+          isOpen={true}
+          onClose={() => setPrincipalModalDebtId(null)}
+          debt={debts.find(d => d.id === principalModalDebtId)!}
+          assets={assets}
+          currencySymbol={currencySymbol}
+          onConfirm={(amt, assetId, date, time, note) => {
+            addDebtPrincipal(principalModalDebtId, amt, assetId, date, time, note);
+            setPrincipalModalDebtId(null);
           }}
         />
       )}

@@ -11,7 +11,13 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const Statistics: React.FC = () => {
   const { transactions, currencySymbol, startOfMonthDay } = useMoney();
-  const [viewDate, setViewDate] = useState(new Date());
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date();
+    if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
+      return new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+    return d;
+  });
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran', colorIndex: number} | null>(null);
 
@@ -144,9 +150,14 @@ const Statistics: React.FC = () => {
   }, []);
 
   const resetToToday = useCallback(() => {
-    setViewDate(new Date());
+    const d = new Date();
+    if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
+      setViewDate(new Date(d.getFullYear(), d.getMonth() + 1, 1));
+    } else {
+      setViewDate(d);
+    }
     setDrillDownCategory(null);
-  }, []);
+  }, [startOfMonthDay]);
 
   return (
     <div className="page">

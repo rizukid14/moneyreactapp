@@ -162,6 +162,7 @@ interface MoneyContextType {
   payInstallment: (debtId: string) => void;
   settleDebt: (debtId: string, assetId?: string, date?: string, time?: string) => void;
   addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
+  addDebtPrincipal: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
@@ -394,9 +395,31 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   const deleteTransaction = useCallback((id: string) => {
+    const txToDelete = transactions.find(t => t.id === id);
     setTransactions(prev => prev.filter(tx => tx.id !== id));
     dbDeleteTransaction(id).then(refreshSyncCount);
-  }, [refreshSyncCount]);
+
+    if (txToDelete && txToDelete.relatedId) {
+      setDebts(prev => prev.map(d => {
+        if (d.id !== txToDelete.relatedId) return d;
+        
+        const isPrincipal = (txToDelete.note.includes('Penerimaan dana pinjaman') || 
+                             txToDelete.note.includes('Pemberian pinjaman') || 
+                             txToDelete.note.includes('Belanja via'));
+                             
+        if (isPrincipal) return d;
+
+        const nextPaid = Math.max(0, (d.paidInstallments || 0) - 1);
+        const updated = {
+          ...d,
+          paidInstallments: d.isInstallment ? nextPaid : d.paidInstallments,
+          isPaid: false
+        };
+        dbPutDebt(updated);
+        return updated;
+      }));
+    }
+  }, [transactions, refreshSyncCount]);
 
   const updateTransaction = useCallback((id: string, updatedTx: Partial<Transaction>) => {
     setTransactions(prev => prev.map(tx => {
@@ -622,22 +645,22 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const settleDebt = useCallback((debtId: string, overrideAssetId?: string, overrideDate?: string, overrideTime?: string) => {
-    setDebts(prev => {
-      const debt = prev.find(d => d.id === debtId);
-      if (!debt || debt.isPaid) return prev;
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt || debt.isPaid) return;
 
-      const txKey = `settle-${debtId}`;
-      if (!_paidInstallmentKeys.has(txKey)) {
-        _paidInstallmentKeys.add(txKey);
-        const now = new Date();
-        const today = overrideDate || now.toISOString().split('T')[0];
-        const time = overrideTime || now.toTimeString().split(' ')[0].slice(0, 5);
-        const paidSoFar = debt.isInstallment ? (debt.paidInstallments * (debt.installmentAmount || 0)) : 0;
-        const remaining = Math.max(0, debt.totalAmount - paidSoFar);
-        const note = `Pelunasan ${debt.type === 'hutang' ? 'hutang' : 'piutang'} - ${debt.contact}`;
+    const txKey = `settle-${debtId}`;
+    if (!_paidInstallmentKeys.has(txKey)) {
+      _paidInstallmentKeys.add(txKey);
+      const now = new Date();
+      const today = overrideDate || now.toISOString().split('T')[0];
+      const time = overrideTime || now.toTimeString().split(' ')[0].slice(0, 5);
+      const paidSoFar = debt.isInstallment ? (debt.paidInstallments * (debt.installmentAmount || 0)) : 0;
+      const remaining = Math.max(0, debt.totalAmount - paidSoFar);
+      const note = `Pelunasan ${debt.type === 'hutang' ? 'hutang' : 'piutang'} - ${debt.contact}`;
 
-        if (remaining > 0) {
-          if (debt.type === 'hutang') {
+      if (remaining > 0) {
+        if (debt.type === 'hutang') {
+          if (debt.liabilityAssetId) {
             _createTx({
               type: 'transfer',
               amount: remaining,
@@ -651,41 +674,69 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             });
           } else {
             _createTx({
-              type: 'pendapatan',
+              type: 'pengeluaran',
               amount: remaining,
-              category: 'Pelunasan Piutang',
+              category: 'Bayar Hutang',
               date: today,
               time,
               note,
-              assetId: overrideAssetId || debt.receiveAssetId,
+              assetId: overrideAssetId || debt.paymentAssetId,
               relatedId: debtId,
             });
           }
+        } else {
+          _createTx({
+            type: 'pendapatan',
+            amount: remaining,
+            category: 'Pelunasan Piutang',
+            date: today,
+            time,
+            note,
+            assetId: overrideAssetId || debt.receiveAssetId,
+            relatedId: debtId,
+          });
         }
       }
+    }
 
-      const updated: Debt = { ...debt, isPaid: true };
-      dbPutDebt(updated);
-      return prev.map(d => d.id === debtId ? updated : d);
-    });
-  }, []);
+    const updated: Debt = { 
+      ...debt, 
+      isPaid: true,
+      paidInstallments: debt.isInstallment && debt.totalInstallments ? debt.totalInstallments : debt.paidInstallments
+    };
+    dbPutDebt(updated);
+    setDebts(prev => prev.map(d => d.id === debtId ? updated : d));
+  }, [debts]);
 
   const addDebtPayment = useCallback((debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => {
     const debt = debts.find(d => d.id === debtId);
     if (!debt) return;
 
     if (debt.type === 'hutang') {
-      _createTx({
-        type: 'transfer',
-        amount,
-        category: 'Transfer',
-        date,
-        time,
-        note,
-        fromAssetId: assetId,
-        toAssetId: debt.liabilityAssetId,
-        relatedId: debtId,
-      });
+      if (debt.liabilityAssetId) {
+        _createTx({
+          type: 'transfer',
+          amount,
+          category: 'Transfer',
+          date,
+          time,
+          note,
+          fromAssetId: assetId,
+          toAssetId: debt.liabilityAssetId,
+          relatedId: debtId,
+        });
+      } else {
+        _createTx({
+          type: 'pengeluaran',
+          amount,
+          category: 'Bayar Hutang',
+          date,
+          time,
+          note,
+          assetId: assetId,
+          relatedId: debtId,
+        });
+      }
     } else {
       _createTx({
         type: 'pendapatan',
@@ -698,6 +749,56 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         relatedId: debtId,
       });
     }
+
+    const nextPaid = (debt.paidInstallments || 0) + 1;
+    const isPaid = debt.isInstallment && debt.totalInstallments ? nextPaid >= debt.totalInstallments : false;
+    
+    const updatedDebt = {
+      ...debt,
+      paidInstallments: debt.isInstallment ? nextPaid : debt.paidInstallments,
+      isPaid
+    };
+    
+    dbPutDebt(updatedDebt);
+    setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
+  }, [debts]);
+
+  const addDebtPrincipal = useCallback((debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => {
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) return;
+
+    if (debt.type === 'hutang') {
+      _createTx({
+        type: 'pendapatan',
+        amount,
+        category: 'Penerimaan dana pinjaman',
+        date,
+        time,
+        note,
+        assetId: assetId || undefined,
+        relatedId: debtId,
+      });
+    } else {
+      _createTx({
+        type: 'pengeluaran',
+        amount,
+        category: 'Pemberian pinjaman',
+        date,
+        time,
+        note,
+        assetId: assetId || undefined,
+        relatedId: debtId,
+      });
+    }
+
+    const updatedDebt = {
+      ...debt,
+      totalAmount: debt.totalAmount + amount,
+      isPaid: false
+    };
+    
+    dbPutDebt(updatedDebt);
+    setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
   }, [debts]);
 
 
@@ -818,7 +919,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     addBudget, updateBudget, deleteBudget,
-    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment,
+    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData,
   }), [
@@ -830,7 +931,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     addBudget, updateBudget, deleteBudget,
-    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment,
+    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData,
   ]);

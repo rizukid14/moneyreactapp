@@ -125,8 +125,14 @@ const BudgetCard: React.FC<{
 };
 
 export const BudgetManagement: React.FC = () => {
-  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol } = useMoney();
-  const [viewDate, setViewDate] = useState(new Date());
+  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol, startOfMonthDay } = useMoney();
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date();
+    if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
+      return new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+    return d;
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -143,16 +149,19 @@ export const BudgetManagement: React.FC = () => {
 
   const spendingMap = useMemo(() => {
     const map: Record<string, number> = { total: 0 };
+    const periodStart = new Date(selectedYear, selectedMonth - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
+    const periodEnd = new Date(selectedYear, selectedMonth + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
+
     transactions.forEach(tx => {
       const d = new Date(tx.date);
-      if (d.getMonth() === selectedMonth && d.getFullYear() === selectedYear && tx.type === 'pengeluaran') {
+      if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         map.total += tx.amount;
         const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
         if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
       }
     });
     return map;
-  }, [transactions, selectedMonth, selectedYear, categories]);
+  }, [transactions, selectedMonth, selectedYear, categories, startOfMonthDay]);
 
   const openAdd = () => { setEditingBudget(null); setIsModalOpen(true); };
   const handleEdit = (b: Budget) => { setEditingBudget(b); setIsModalOpen(true); setActiveMenu(null); };

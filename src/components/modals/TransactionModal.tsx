@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { X, ArrowRightLeft, AlertTriangle, Calculator, Folder, ChevronRight, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Asset, RecurringTransaction, Transaction } from '../../contexts/MoneyContext';
+import CalculatorModal from './CalculatorModal';
+import CategorySelectModal from './CategorySelectModal';
+import AssetSelectModal from './AssetSelectModal';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -12,11 +15,12 @@ interface TransactionModalProps {
   addRecurringTransaction?: (rt: Omit<RecurringTransaction, 'id'>) => void;
   updateTransaction?: (id: string, tx: Partial<Transaction>) => void;
   editingTransaction?: Transaction | null;
+  isCopyMode?: boolean;
   initialType?: 'pengeluaran' | 'pendapatan' | 'transfer';
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({ 
-  isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, editingTransaction, initialType 
+  isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, editingTransaction, isCopyMode, initialType 
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
   const { categories, budgets, transactions, defaultAssetId, currencySymbol } = useMoney();
@@ -27,6 +31,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
   const [note, setNote] = useState('');
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [assetId, setAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [fromAssetId, setFromAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
@@ -37,6 +44,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [recurringEndDate, setRecurringEndDate] = useState('');
 
   const prevType = React.useRef(type);
+  const isSavingRef = React.useRef(false);
+  const amountRef = React.useRef<HTMLInputElement>(null);
+  const submitActionRef = React.useRef<'close' | 'continue'>('close');
 
   // Load drafts from localStorage on mount/open
   const [allDrafts, setAllDrafts] = useState<Record<string, any>>(() => {
@@ -121,7 +131,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // Save draft whenever state changes
   useEffect(() => {
-    if (isOpen && !editingTransaction) {
+    if (isOpen && !editingTransaction && !isSavingRef.current) {
       const currentDraft = { 
         type, amount, category, subCategory, date, time, note, 
         assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate 
@@ -193,13 +203,32 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     return alerts;
   }, [type, amount, date, category, budgets, transactions, categories, editingTransaction]);
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const numericValue = e.target.value.replace(/\D/g, '');
+    const el = e.target;
+    const oldCursor = el.selectionStart || 0;
+    const oldLength = el.value.length;
+
+    const numericValue = el.value.replace(/\D/g, '');
     if (!numericValue) { setAmount(''); return; }
-    setAmount(Number(numericValue).toLocaleString('id-ID'));
+    
+    const newVal = Number(numericValue).toLocaleString('id-ID');
+    setAmount(newVal);
+
+    window.requestAnimationFrame(() => {
+      if (amountRef.current) {
+        const diff = newVal.length - oldLength;
+        const newCursor = Math.max(0, oldCursor + diff);
+        amountRef.current.setSelectionRange(newCursor, newCursor);
+      }
+    });
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (type !== 'transfer' && !category) {
+      alert('Silakan pilih kategori terlebih dahulu.');
+      return;
+    }
+
     const txData = {
       type,
       amount: Number(amount.replace(/\./g, '')),
@@ -212,9 +241,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       toAssetId: type === 'transfer' ? toAssetId : undefined,
     };
 
-    if (editingTransaction && updateTransaction) {
+    if (editingTransaction && updateTransaction && !isCopyMode) {
       updateTransaction(editingTransaction.id, txData);
     } else {
+      isSavingRef.current = true;
       addTransaction(txData);
       
       // Clear draft for this type after success
@@ -224,6 +254,15 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         localStorage.setItem('tx_drafts', JSON.stringify(next));
         return next;
       });
+
+      // Reset local fields immediately so reopening doesn't flash old data
+      setAmount('');
+      setCategory('');
+      setSubCategory('');
+      setNote('');
+      setIsRecurring(false);
+      
+      setTimeout(() => { isSavingRef.current = false; }, 200);
       
       // Handle creating recurring transaction if toggled
       if (isRecurring && addRecurringTransaction) {
@@ -237,11 +276,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         });
       }
     }
-    onClose();
+    
+    if (submitActionRef.current === 'close') {
+      onClose();
+    } else {
+      submitActionRef.current = 'close'; // reset
+    }
   };
 
   return (
-    <AnimatePresence>
+    <>
+      <AnimatePresence>
       {isOpen && (
         <motion.div 
           className="modal-overlay" 
@@ -260,7 +305,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
           >
             <div className="modal-header">
-              <h2 className="subtitle" style={{ margin: 0 }}>{editingTransaction ? 'Edit Transaksi' : 'Tambah Transaksi'}</h2>
+              <h2 className="subtitle" style={{ margin: 0 }}>
+                {editingTransaction && !isCopyMode ? 'Edit Transaksi' : isCopyMode ? 'Salin Transaksi' : 'Tambah Transaksi'}
+              </h2>
               <button className="close-btn" onClick={onClose}><X size={24} /></button>
             </div>
 
@@ -309,41 +356,76 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.15, ease: "easeOut" }}
                 >
-                  <input type="text" inputMode="numeric" required placeholder={`Nominal (${currencySymbol})`} value={amount} onChange={handleAmountChange} />
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                    <input 
+                      ref={amountRef} 
+                      type="text" 
+                      inputMode="numeric" 
+                      required 
+                      placeholder={`Nominal (${currencySymbol})`} 
+                      value={amount} 
+                      onChange={handleAmountChange} 
+                      style={{ flex: 1, marginBottom: 0 }}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setIsCalculatorOpen(true)}
+                      style={{ 
+                        width: '48px', height: '48px', borderRadius: '12px', 
+                        background: 'var(--bg-income)', border: '1px solid var(--primary-glow)',
+                        color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', flexShrink: 0
+                      }}
+                    >
+                      <Calculator size={20} />
+                    </button>
+                  </div>
 
                   {type !== 'transfer' ? (
                     <>
-                      <select required value={category} onChange={e => {
-                        setCategory(e.target.value);
-                        setSubCategory('');
-                      }}>
-                        <option value="" disabled>-- Pilih Kategori --</option>
-                        {categories.filter(c => c.type === type).map(c => (
-                          <option key={c.id} value={c.name}>{c.name}</option>
-                        ))}
-                      </select>
-                      
-                      {(() => {
-                        const selCat = categories.find(c => c.name === category && c.type === type);
-                        if (selCat && selCat.subcategories && selCat.subcategories.length > 0) {
-                          return (
-                            <select required value={subCategory} onChange={e => setSubCategory(e.target.value)}>
-                              <option value="" disabled>-- Pilih Sub-Kategori --</option>
-                              {selCat.subcategories.map(sub => (
-                                <option key={sub.id} value={sub.name}>{sub.name}</option>
-                              ))}
-                            </select>
-                          );
-                        }
-                        return null;
-                      })()}
+                      <button
+                        type="button"
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        style={{
+                          width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
+                          border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          marginBottom: '16px', cursor: 'pointer', color: category ? 'var(--text-main)' : 'var(--text-muted)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Folder size={18} color="var(--primary)" />
+                          <span style={{ fontSize: '14px', fontWeight: category ? 700 : 500 }}>
+                            {category ? (subCategory ? `${category}  >  ${subCategory}` : category) : '-- Pilih Kategori --'}
+                          </span>
+                        </div>
+                        <ChevronRight size={18} color="var(--text-muted)" />
+                      </button>
 
-                      <select required value={assetId} onChange={e => setAssetId(e.target.value)}>
-                        <option value="" disabled>-- Pilih Dompet/Rekening --</option>
-                        {assets.filter(a => !a.isDeleted || a.id === assetId).map(a => (
-                          <option key={a.id} value={a.id}>{a.name} {a.isDeleted ? '(Dihapus)' : ''}</option>
-                        ))}
-                      </select>
+                      {/* Asset selector button */}
+                      {(() => {
+                        const selectedAsset = assets.find(a => a.id === assetId);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setIsAssetModalOpen(true)}
+                            style={{
+                              width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
+                              border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              marginBottom: '16px', cursor: 'pointer', color: selectedAsset ? 'var(--text-main)' : 'var(--text-muted)'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <Wallet size={18} color="var(--primary)" />
+                              <span style={{ fontSize: '14px', fontWeight: selectedAsset ? 700 : 500 }}>
+                                {selectedAsset ? selectedAsset.name : '-- Pilih Dompet/Rekening --'}
+                              </span>
+                            </div>
+                            <ChevronRight size={18} color="var(--text-muted)" />
+                          </button>
+                        );
+                      })()}
                     </>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -436,24 +518,81 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                   )}
                 </motion.div>
 
-                <button 
-                  type="submit" 
-                  className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
-                  style={{
-                    width: '100%',
-                    marginTop: '10px',
-                    backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
-                    color: type === 'transfer' ? 'white' : undefined
-                  }}
-                >
-                  {editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi'}
-                </button>
+                {!editingTransaction || isCopyMode ? (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                    <button 
+                      type="submit" 
+                      onClick={() => { submitActionRef.current = 'continue'; }}
+                      className="btn"
+                      style={{ flex: 1, border: `2px solid ${type === 'pendapatan' ? 'var(--primary)' : type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'}`, color: type === 'pendapatan' ? 'var(--primary)' : type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-main)' }}
+                    >
+                      Simpan & Lanjut
+                    </button>
+                    <button 
+                      type="submit" 
+                      onClick={() => { submitActionRef.current = 'close'; }}
+                      className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
+                      style={{
+                        flex: 1,
+                        backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
+                        color: type === 'transfer' ? 'white' : undefined
+                      }}
+                    >
+                      {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    type="submit" 
+                    onClick={() => { submitActionRef.current = 'close'; }}
+                    className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
+                    style={{
+                      width: '100%',
+                      marginTop: '16px',
+                      backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
+                      color: type === 'transfer' ? 'white' : undefined
+                    }}
+                  >
+                    Simpan Perubahan
+                  </button>
+                )}
               </form>
             )}
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+
+    <CalculatorModal
+      isOpen={isCalculatorOpen}
+      onClose={() => setIsCalculatorOpen(false)}
+      initialValue={amount}
+      onConfirm={(val) => {
+        setAmount(val.toLocaleString('id-ID'));
+      }}
+    />
+
+    <CategorySelectModal
+      isOpen={isCategoryModalOpen}
+      onClose={() => setIsCategoryModalOpen(false)}
+      categories={categories}
+      type={type as 'pengeluaran' | 'pendapatan'}
+      initialCategory={category}
+      initialSubCategory={subCategory}
+      onSelect={(cat, sub) => {
+        setCategory(cat);
+        setSubCategory(sub);
+      }}
+    />
+
+    <AssetSelectModal
+      isOpen={isAssetModalOpen}
+      onClose={() => setIsAssetModalOpen(false)}
+      assets={assets.filter(a => !a.isDeleted)}
+      selectedAssetId={assetId}
+      onSelect={(id) => setAssetId(id)}
+    />
+    </>
   );
 };
 

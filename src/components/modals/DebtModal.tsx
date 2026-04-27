@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Calculator, Folder, Wallet, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Debt, type Asset, type Category } from '../../contexts/MoneyContext';
+import CalculatorModal from './CalculatorModal';
+import CategorySelectModal from './CategorySelectModal';
+import AssetSelectModal from './AssetSelectModal';
 
 interface DebtModalProps {
   isOpen: boolean;
@@ -30,10 +33,18 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   const [receiveAssetId, setReceiveAssetId]       = useState('');
   // Hutang recording mode (new)
   const [hutangMode, setHutangMode]               = useState<'none' | 'cash' | 'credit'>('none');
-  const [creditCategoryId, setCreditCategoryId]   = useState('');
-  const [creditSubCategoryId, setCreditSubCategoryId] = useState('');
 
   const activeAssets = assets.filter(a => !a.isDeleted);
+
+  // Modal state
+  type AssetTarget = 'liability' | 'payment' | 'receive' | null;
+  const [calcOpen, setCalcOpen] = useState<'total' | 'installment' | null>(null);
+  const [catModalOpen, setCatModalOpen] = useState(false);
+  const [assetModalTarget, setAssetModalTarget] = useState<AssetTarget>(null);
+  const [creditCatName, setCreditCatName] = useState('');
+  const [creditSubCatName, setCreditSubCatName] = useState('');
+
+  const getAssetName = (id: string) => activeAssets.find(a => a.id === id)?.name || '-- Tidak ada --';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -48,11 +59,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setInstallmentDay(String(editingDebt.installmentDay || 25));
       setTotalInstallments(String(editingDebt.totalInstallments || ''));
       setLiabilityAssetId(editingDebt.liabilityAssetId || '');
-      setPaymentAssetId(editingDebt.paymentAssetId || defaultAssetId || activeAssets[0]?.id || '');
-      setReceiveAssetId(editingDebt.receiveAssetId || defaultAssetId || activeAssets[0]?.id || '');
-      setHutangMode('none'); // don't re-trigger tx on edit
-      setCreditCategoryId(categories[0]?.id || '');
-      setCreditSubCategoryId('');
+      setPaymentAssetId(editingDebt.paymentAssetId || '');
+      setReceiveAssetId(editingDebt.receiveAssetId || '');
+      setHutangMode('none');
+      setCreditCatName('');
+      setCreditSubCatName('');
     } else {
       setType('hutang');
       setContact('');
@@ -67,14 +78,22 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setPaymentAssetId(defaultAssetId || activeAssets[0]?.id || '');
       setReceiveAssetId(defaultAssetId || activeAssets[0]?.id || '');
       setHutangMode('none');
-      setCreditCategoryId(categories[0]?.id || '');
-      setCreditSubCategoryId('');
+      setCreditCatName('');
+      setCreditSubCatName('');
     }
   }, [isOpen, editingDebt, defaultAssetId]);
 
   // Auto-calculate installment amount
   useEffect(() => {
-    if (isInstallment && totalAmount && totalInstallments && !editingDebt) {
+    if (isInstallment && totalAmount && totalInstallments) {
+      if (editingDebt) {
+        const origTotal = editingDebt.totalAmount.toLocaleString('id-ID');
+        const origMonths = String(editingDebt.totalInstallments || '');
+        if (totalAmount === origTotal && totalInstallments === origMonths) {
+          return; // Skip auto-calculate on initial load if values haven't changed
+        }
+      }
+
       const total = parseNum(totalAmount);
       const months = Number(totalInstallments);
       if (total > 0 && months > 0) {
@@ -92,10 +111,6 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const selCat = categories.find(c => c.id === creditCategoryId);
-    const categoryName = selCat?.name;
-    const subCategoryName = selCat?.subcategories?.find(s => s.id === creditSubCategoryId)?.name;
-
     onSave(
       {
         type,
@@ -115,8 +130,8 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
         receiveAssetId:     type === 'piutang' ? (receiveAssetId || undefined) : undefined,
       },
       type === 'hutang' ? hutangMode : undefined,
-      type === 'hutang' && hutangMode === 'credit' ? categoryName : undefined,
-      type === 'hutang' && hutangMode === 'credit' ? subCategoryName : undefined,
+      type === 'hutang' && hutangMode === 'credit' ? creditCatName : undefined,
+      type === 'hutang' && hutangMode === 'credit' ? creditSubCatName : undefined,
     );
     onClose();
   };
@@ -130,6 +145,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   ];
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <motion.div 
@@ -182,7 +198,24 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               <input type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} />
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Total Jumlah ({currencySymbol})</label>
-              <input type="text" inputMode="numeric" required placeholder="0" value={totalAmount} onChange={e => formatNum(e, setTotalAmount)} />
+              <div style={{ display: 'flex', gap: '8px', marginBottom: 16 }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  placeholder="0"
+                  value={totalAmount}
+                  onChange={e => formatNum(e, setTotalAmount)}
+                  style={{ flex: 1, marginBottom: 0 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setCalcOpen('total')}
+                  style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg-income)', border: '1px solid var(--primary-glow)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <Calculator size={20} />
+                </button>
+              </div>
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Jatuh Tempo (opsional)</label>
               <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
@@ -228,65 +261,42 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
                   {hutangMode === 'credit' && !editingDebt && (
                     <>
-                      <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                        🏷️ Kategori Pengeluaran
-                      </label>
-                      <select value={creditCategoryId} onChange={e => { setCreditCategoryId(e.target.value); setCreditSubCategoryId(''); }} style={{ marginBottom: 10 }}>
-                        <option value="">-- Pilih Kategori --</option>
-                        {categories.filter(c => c.type === 'pengeluaran').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-
-                      {(() => {
-                        const selCat = categories.find(c => c.id === creditCategoryId);
-                        if (selCat && selCat.subcategories && selCat.subcategories.length > 0) {
-                          return (
-                            <>
-                              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                                🏷️ Sub-Kategori
-                              </label>
-                              <select value={creditSubCategoryId} onChange={e => setCreditSubCategoryId(e.target.value)} style={{ marginBottom: 10 }}>
-                                <option value="">-- Pilih Sub-Kategori --</option>
-                                {selCat.subcategories.map(sub => (
-                                  <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                ))}
-                              </select>
-                            </>
-                          );
-                        }
-                        return null;
-                      })()}
+                      <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏷️ Kategori Pengeluaran</label>
+                      <button type="button" onClick={() => setCatModalOpen(true)} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Folder size={16} color="var(--primary)" />
+                          <span style={{ fontSize: 13, fontWeight: creditCatName ? 600 : 400, color: creditCatName ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                            {creditCatName ? (creditSubCatName ? `${creditCatName} > ${creditSubCatName}` : creditCatName) : '-- Pilih Kategori --'}
+                          </span>
+                        </div>
+                        <ChevronRight size={16} color="var(--text-muted)" />
+                      </button>
                     </>
                   )}
 
-                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                    💳 {hutangMode === 'credit' ? 'Bayar pakai (Kartu Kredit / Paylater)' : 'Tempat hutangnya (misal: ShopeePay Later)'}
-                  </label>
-                  <select value={liabilityAssetId} onChange={e => setLiabilityAssetId(e.target.value)} style={{ marginBottom: hutangMode === 'cash' ? 10 : 0 }}>
-                    <option value="">-- Tidak ada / Tunai --</option>
-                    {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>💳 {hutangMode === 'credit' ? 'Bayar pakai (Kartu Kredit / Paylater)' : 'Tempat hutangnya (misal: ShopeePay Later)'}</label>
+                  <button type="button" onClick={() => setAssetModalTarget('liability')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: hutangMode === 'cash' ? 10 : 16, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: liabilityAssetId ? 600 : 400, color: liabilityAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{liabilityAssetId ? getAssetName(liabilityAssetId) : '-- Tidak ada / Tunai --'}</span></div>
+                    <ChevronRight size={16} color="var(--text-muted)" />
+                  </button>
 
                   {hutangMode === 'cash' && !editingDebt && (
                     <>
-                      <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                        🏦 Uang masuk ke rekening mana
-                      </label>
-                      <select value={paymentAssetId} onChange={e => setPaymentAssetId(e.target.value)} style={{ marginBottom: 0 }}>
-                        <option value="">-- Tidak ada --</option>
-                        {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                      </select>
+                      <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏦 Uang masuk ke rekening mana</label>
+                      <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
+                        <ChevronRight size={16} color="var(--text-muted)" />
+                      </button>
                     </>
                   )}
 
                   {editingDebt && (
                     <>
-                      <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginTop: 10, display: 'block' }}>
-                        🏦 Bayar dari rekening (misal: BCA)
-                      </label>
-                      <select value={paymentAssetId} onChange={e => setPaymentAssetId(e.target.value)} style={{ marginBottom: 0 }}>
-                        <option value="">-- Tidak ada --</option>
-                        {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                      </select>
+                      <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginTop: 10, display: 'block' }}>🏦 Bayar dari rekening (misal: BCA)</label>
+                      <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
+                        <ChevronRight size={16} color="var(--text-muted)" />
+                      </button>
                     </>
                   )}
                 </div>
@@ -297,21 +307,17 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                   <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                     Pengaturan Rekening
                   </div>
-                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                    💰 Pinjamkan dari rekening (Dana keluar)
-                  </label>
-                  <select value={paymentAssetId} onChange={e => setPaymentAssetId(e.target.value)} style={{ marginBottom: 10 }}>
-                    <option value="">-- Tidak ada (Hanya catatan) --</option>
-                    {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>💰 Pinjamkan dari rekening (Dana keluar)</label>
+                  <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada (Hanya catatan) --'}</span></div>
+                    <ChevronRight size={16} color="var(--text-muted)" />
+                  </button>
 
-                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-                    🏦 Terima cicilan ke rekening mana (Dana masuk)
-                  </label>
-                  <select value={receiveAssetId} onChange={e => setReceiveAssetId(e.target.value)} style={{ marginBottom: 0 }}>
-                    <option value="">-- Tidak ada --</option>
-                    {activeAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏦 Terima cicilan ke rekening mana (Dana masuk)</label>
+                  <button type="button" onClick={() => setAssetModalTarget('receive')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: receiveAssetId ? 600 : 400, color: receiveAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{receiveAssetId ? getAssetName(receiveAssetId) : '-- Tidak ada --'}</span></div>
+                    <ChevronRight size={16} color="var(--text-muted)" />
+                  </button>
                 </div>
               )}
 
@@ -344,7 +350,12 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               {isInstallment && (
                 <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: 14, marginBottom: 8 }}>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Nominal Per Cicilan ({currencySymbol}) - <span style={{ color: 'var(--primary)', fontStyle: 'italic' }}>Otomatis Terisi</span></label>
-                  <input type="text" inputMode="numeric" required={isInstallment} placeholder="0" value={installmentAmount} onChange={e => formatNum(e, setInstallmentAmount)} />
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                    <input type="text" inputMode="numeric" required={isInstallment} placeholder="0" value={installmentAmount} onChange={e => formatNum(e, setInstallmentAmount)} style={{ flex: 1, marginBottom: 0 }} />
+                    <button type="button" onClick={() => setCalcOpen('installment')} style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg-income)', border: '1px solid var(--primary-glow)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                      <Calculator size={20} />
+                    </button>
+                  </div>
 
                   <div style={{ display: 'flex', gap: 10 }}>
                     <div style={{ flex: 1 }}>
@@ -374,6 +385,40 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
         </motion.div>
       )}
     </AnimatePresence>
+
+    <CalculatorModal
+      isOpen={calcOpen !== null}
+      onClose={() => setCalcOpen(null)}
+      initialValue={calcOpen === 'total' ? totalAmount : installmentAmount}
+      onConfirm={(val) => {
+        const formatted = val.toLocaleString('id-ID');
+        if (calcOpen === 'total') setTotalAmount(formatted);
+        else setInstallmentAmount(formatted);
+      }}
+    />
+
+    <CategorySelectModal
+      isOpen={catModalOpen}
+      onClose={() => setCatModalOpen(false)}
+      categories={categories}
+      type="pengeluaran"
+      initialCategory={creditCatName}
+      initialSubCategory={creditSubCatName}
+      onSelect={(cat, sub) => { setCreditCatName(cat); setCreditSubCatName(sub); }}
+    />
+
+    <AssetSelectModal
+      isOpen={assetModalTarget !== null}
+      onClose={() => setAssetModalTarget(null)}
+      assets={activeAssets}
+      selectedAssetId={assetModalTarget === 'liability' ? liabilityAssetId : assetModalTarget === 'receive' ? receiveAssetId : paymentAssetId}
+      onSelect={(id) => {
+        if (assetModalTarget === 'liability') setLiabilityAssetId(id);
+        else if (assetModalTarget === 'receive') setReceiveAssetId(id);
+        else setPaymentAssetId(id);
+      }}
+    />
+    </>
   );
 };
 

@@ -12,6 +12,7 @@ export interface OCRResult {
   date: string;
   rawText: string;
   suggestedCategory: string;
+  suggestedSubCategory?: string;
   suggestedAsset?: string; // New field for context matching
   lineItems: LineItem[];
   confidence: 'high' | 'medium' | 'low';
@@ -104,7 +105,7 @@ export const useReceiptOCR = () => {
         },
         body: JSON.stringify({ 
           image: base64,
-          categories: categories?.map(c => ({ name: c.name })),
+          categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s:any) => s.name) })),
           assets: assets?.map(a => ({ name: a.name })),
         }),
       });
@@ -132,6 +133,7 @@ export const useReceiptOCR = () => {
         date: result.date || new Date().toISOString().split('T')[0],
         rawText: result.rawText || "Parsed via Cloud AI",
         suggestedCategory: result.suggestedCategory || "",
+        suggestedSubCategory: result.suggestedSubCategory || "",
         suggestedAsset: result.suggestedAsset || "",
         lineItems: mappedLineItems,
         confidence: result.confidence || 'medium',
