@@ -62,8 +62,6 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setPaymentAssetId(editingDebt.paymentAssetId || '');
       setReceiveAssetId(editingDebt.receiveAssetId || '');
       setHutangMode('none');
-      setCreditCategoryId('');
-      setCreditSubCategoryId('');
       setCreditCatName('');
       setCreditSubCatName('');
     } else {
@@ -80,8 +78,6 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setPaymentAssetId(defaultAssetId || activeAssets[0]?.id || '');
       setReceiveAssetId(defaultAssetId || activeAssets[0]?.id || '');
       setHutangMode('none');
-      setCreditCategoryId(categories[0]?.id || '');
-      setCreditSubCategoryId('');
       setCreditCatName('');
       setCreditSubCatName('');
     }
