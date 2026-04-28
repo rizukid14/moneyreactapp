@@ -16,6 +16,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
+import SplashScreen from '../components/SplashScreen';
 import { getLocalDate, getLocalTime } from '../lib/utils';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
@@ -180,6 +181,8 @@ interface MoneyContextType {
   setCurrencySymbol: (symbol: string) => void;
   defaultTransactionGrouping: 'date' | 'category';
   setDefaultTransactionGrouping: (grouping: 'date' | 'category') => void;
+  assetCarouselCards: string[];
+  setAssetCarouselCards: (cards: string[]) => void;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
   logOut: () => Promise<void>;
@@ -212,12 +215,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [currencySymbol, setCurrencySymbolState] = useState<string>('Rp');
   const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'category'>('date');
   const [authUser, setAuthUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(!isFirebaseConfigured);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [assetCarouselCards, setAssetCarouselCardsState] = useState<string[]>(['net_worth']);
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isFirebaseConfigured) {
       setAuthUser({}); // Mock user if not using firebase
+      setAuthChecked(true);
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -228,6 +234,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setAuthUser(null);
         setIsReady(false);
       }
+      setAuthChecked(true);
     });
     return () => unsubscribe();
   }, []);
@@ -294,12 +301,17 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       if (profile) setUser(profile);
       if (savedPin) { setPin(savedPin); setIsAppLocked(true); }
-      if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
+      if (savedTheme) {
+        setTheme(savedTheme as 'light' | 'dark');
+        try { localStorage.setItem('moneyapp-theme', savedTheme); } catch {}
+      }
       if (savedPrivacy !== undefined) setIsPrivateMode(savedPrivacy);
       if (savedDefaultAssetId) setDefaultAssetIdState(savedDefaultAssetId);
       if (savedStartMonth) setStartOfMonthDayState(savedStartMonth);
       if (savedCurrency) setCurrencySymbolState(savedCurrency);
       if (savedGrouping) setDefaultTransactionGroupingState(savedGrouping);
+      const savedCarousel = await dbGetSetting('assetCarouselCards') as string[] | undefined;
+      if (savedCarousel && Array.isArray(savedCarousel) && savedCarousel.length > 0) setAssetCarouselCardsState(savedCarousel);
 
       // --- Migration: budgets collection -> settings/budgets ---
       if (isFirebaseConfigured && auth.currentUser) {
@@ -846,6 +858,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setTheme(prev => {
       const next = prev === 'light' ? 'dark' : 'light';
       dbPutSetting('theme', next);
+      try { localStorage.setItem('moneyapp-theme', next); } catch {}
       return next;
     });
   }, []);
@@ -876,6 +889,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const setDefaultTransactionGrouping = useCallback((grouping: 'date' | 'category') => {
     setDefaultTransactionGroupingState(grouping);
     dbPutSetting('defaultTransactionGrouping', grouping);
+  }, []);
+
+  const setAssetCarouselCards = useCallback((cards: string[]) => {
+    setAssetCarouselCardsState(cards);
+    dbPutSetting('assetCarouselCards', cards);
   }, []);
 
   // ─── Export / Import ─────────────────────────────────────────────────────
@@ -921,6 +939,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
     user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
+    assetCarouselCards, setAssetCarouselCards,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
@@ -933,6 +952,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
     user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
+    assetCarouselCards, setAssetCarouselCards,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
@@ -942,17 +962,18 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     exportData, importData, logOut, pendingSyncCount, syncData,
   ]);
 
+  // Show splash screen while checking auth state or loading data
+  if (!authChecked || (authUser && !isReady)) {
+    return <SplashScreen />;
+  }
+
   if (isFirebaseConfigured && !authUser) {
     return <AuthScreen />;
   }
 
   return (
     <MoneyContext.Provider value={value}>
-      {isReady ? children : (
-        <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)' }}>
-          Memuat aplikasi...
-        </div>
-      )}
+      {children}
     </MoneyContext.Provider>
   );
 };

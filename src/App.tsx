@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MoneyProvider, useMoney } from './contexts/MoneyContext';
 import Layout from './components/Layout';
 import LockScreen from './components/LockScreen';
-import { Loader2 } from 'lucide-react';
+import SplashScreen from './components/SplashScreen';
 
 // Lazy load pages for performance (bundle-dynamic-imports)
 const Transactions = lazy(() => import('./pages/Transactions'));
@@ -14,24 +14,10 @@ const Assets = lazy(() => import('./pages/Assets'));
 const Debts = lazy(() => import('./pages/Debts'));
 const Settings = lazy(() => import('./pages/Settings'));
 
-const LoadingFallback = () => (
-  <div style={{ 
-    height: '100vh', width: '100%', display: 'flex', flexWrap: 'wrap', 
-    justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-main)' 
-  }}>
-    <div style={{ textAlign: 'center' }}>
-      <Loader2 size={48} className="spin" style={{ color: 'var(--secondary-blue)', marginBottom: '16px' }} />
-      <div style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Memuat...</div>
-    </div>
-    <style>{`
-      .spin { animation: spin 1s linear infinite; }
-      @keyframes spin { 100% { transform: rotate(360deg); } }
-    `}</style>
-  </div>
-);
+// SplashScreen is used as fallback for both initial load and lazy page loading
 
 const AppContent: React.FC = () => {
-  const { isAppLocked, isReady, theme } = useMoney();
+  const { isAppLocked, theme } = useMoney();
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -43,15 +29,10 @@ const AppContent: React.FC = () => {
 
   // Request notification permission and setup FCM on mount
   useEffect(() => {
-    if (isReady) {
-      import('./lib/notifications').then(({ setupPushNotifications }) => {
-        setupPushNotifications();
-      });
-    }
-  }, [isReady]);
-
-  // Wait for IndexedDB to load before rendering app
-  if (!isReady) return <LoadingFallback />;
+    import('./lib/notifications').then(({ setupPushNotifications }) => {
+      setupPushNotifications();
+    });
+  }, []);
 
   if (isAppLocked) {
     return <LockScreen />;
@@ -60,7 +41,7 @@ const AppContent: React.FC = () => {
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
       <BrowserRouter>
-        <Suspense fallback={<LoadingFallback />}>
+        <Suspense fallback={<SplashScreen />}>
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<Transactions />} />

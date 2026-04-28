@@ -5,6 +5,8 @@ import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
 import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
+import type { CardId } from '../components/AssetSummaryCarousel';
 
 const getIconForType = (type: AssetType) => {
 // ... existing code ...
@@ -259,15 +261,14 @@ const AssetDetailDrawer: React.FC<{
 
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
-  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol } = useMoney();
+  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol, assetCarouselCards } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
 
-  const { total, balances, assetGroups } = useMemo(() => {
-    let t = 0;
+  const { balances, assetGroups } = useMemo(() => {
     const b: Record<string, number> = {};
     const groups: Record<AssetType, Asset[]> = {
       'Cash': [], 'Bank Account': [], 'Savings': [],
@@ -278,11 +279,10 @@ const Assets: React.FC = () => {
       if (asset.isDeleted) return;
       const bal = getAssetBalance(asset.id);
       b[asset.id] = bal;
-      if (!asset.isHidden) t += bal;
       if (groups[asset.type]) groups[asset.type].push(asset);
     });
 
-    return { total: t, balances: b, assetGroups: groups };
+    return { balances: b, assetGroups: groups };
   }, [assets, getAssetBalance]);
 
   const handleEdit = (asset: Asset) => {
@@ -301,37 +301,21 @@ const Assets: React.FC = () => {
     setEditingAsset(null);
   }, []);
 
-  const getTierStyles = (amount: number) => {
-    if (amount < 1000000) return { bg: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)' };
-    if (amount < 10000000) return { bg: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)' };
-    if (amount < 100000000) return { bg: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)' };
-    return { bg: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)' };
-  };
-
-  const tier = getTierStyles(total);
-
   return (
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Aset Saya</h1>
       </div>
 
-      {/* Total balance hero */}
-      <div className="card" style={{
-        padding: '24px', marginBottom: '32px',
-        background: tier.bg, border: 'none', color: 'white',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, opacity: 0.9 }}>Total Kekayaan Bersih</div>
-          <button onClick={togglePrivateMode} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', opacity: 0.8 }}>
-            {isPrivateMode ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </div>
-        <div style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '-1px' }}>
-          {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${total.toLocaleString('id-ID')}`}
-        </div>
-      </div>
+      {/* Asset Summary Carousel */}
+      <AssetSummaryCarousel
+        cardIds={assetCarouselCards as CardId[]}
+        assets={assets}
+        balances={balances}
+        currencySymbol={currencySymbol}
+        isPrivateMode={isPrivateMode}
+        onTogglePrivate={togglePrivateMode}
+      />
 
       {/* Asset list */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>

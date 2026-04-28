@@ -13,8 +13,8 @@ interface CategorySelectModalProps {
   initialSubCategory?: string;
 }
 
-const CategorySelectModal: React.FC<CategorySelectModalProps> = ({ 
-  isOpen, onClose, categories, type, onSelect, initialCategory, initialSubCategory 
+const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
+  isOpen, onClose, categories, type, onSelect, initialCategory, initialSubCategory
 }) => {
   const [activeCategory, setActiveCategory] = useState<string>('');
 
@@ -62,8 +62,8 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div 
-          className="modal-overlay" 
+        <motion.div
+          className="modal-overlay"
           onClick={onClose}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -71,8 +71,8 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
           transition={{ duration: 0.15 }}
           style={{ zIndex: 3000 }} // Ensure it's above TransactionModal (2000 normally for overlay but TransactionModal is below)
         >
-          <motion.div 
-            className="modal-content" 
+          <motion.div
+            className="modal-content"
             onClick={e => e.stopPropagation()}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
@@ -81,8 +81,8 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
             style={{ padding: 0, height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
           >
             {/* Header */}
-            <div style={{ 
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0
             }}>
               <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Kategori</h2>
@@ -91,11 +91,11 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
             {/* Split View Content */}
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-              
+
               {/* Left Panel: Main Categories */}
-              <div style={{ 
-                flex: 1, 
-                borderRight: '1px solid var(--border-color)', 
+              <div style={{
+                flex: 1,
+                borderRight: '1px solid var(--border-color)',
                 overflowY: 'auto',
                 background: 'var(--bg-main)',
                 padding: '12px 0'
@@ -108,7 +108,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                   sortedCategories.map(cat => {
                     const isActive = cat.name === activeCategory;
                     const hasSub = cat.subcategories && cat.subcategories.length > 0;
-                    
+
                     return (
                       <button
                         key={cat.id}
@@ -125,10 +125,10 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                           <div style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>
                             {isActive ? <FolderOpen size={18} /> : <Folder size={18} />}
                           </div>
-                          <span style={{ 
-                            fontSize: '14px', 
-                            fontWeight: isActive ? 700 : 500, 
-                            color: isActive ? 'var(--text-main)' : 'var(--text-muted)' 
+                          <span style={{
+                            fontSize: '14px',
+                            fontWeight: isActive ? 700 : 500,
+                            color: isActive ? 'var(--text-main)' : 'var(--text-muted)'
                           }}>
                             {cat.name}
                           </span>
@@ -143,9 +143,9 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
               </div>
 
               {/* Right Panel: Sub Categories */}
-              <div style={{ 
-                flex: 1.2, 
-                overflowY: 'auto', 
+              <div style={{
+                flex: 1.2,
+                overflowY: 'auto',
                 background: 'var(--bg-card-solid)',
                 padding: '12px 0'
               }}>
@@ -156,7 +156,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                     </div>
                     <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: 4 }}>"{activeCategoryObj.name}"</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 20 }}>Kategori ini tidak memiliki sub-kategori.</div>
-                    <button 
+                    <button
                       onClick={handleConfirmMainCategoryOnly}
                       className="btn btn-primary"
                       style={{ width: '100%' }}
@@ -175,7 +175,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                       }}
                     >
                       <span style={{ fontSize: '14px', fontWeight: !initialSubCategory ? 700 : 500, color: !initialSubCategory ? 'var(--primary)' : 'var(--text-main)', fontStyle: 'italic' }}>
-                        - Tanpa Sub-Kategori -
+                        Tanpa Sub-Kategori
                       </span>
                       {!initialSubCategory && <Check size={16} color="var(--primary)" />}
                     </button>

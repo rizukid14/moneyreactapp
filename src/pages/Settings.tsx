@@ -3,7 +3,7 @@ import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, 
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, 
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw, 
-  Sliders, Wallet
+  Sliders, Wallet, GripVertical, LayoutDashboard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -12,9 +12,171 @@ import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/e
 import { BudgetManagement } from '../components/BudgetManagement';
 import { QuotaBanner } from '../components/QuotaBanner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
+
+// ─── CarouselCardSettings ─────────────────────────────────────────────────────
+const GACHA_EMOJI: Record<string, string> = {
+  Common: '⬜', Uncommon: '🟩', Rare: '🟦', Epic: '🟪', Legendary: '🟨', Mythic: '🔴',
+};
+
+interface CarouselCardSettingsProps {
+  activeCards: string[];
+  onChange: (cards: string[]) => void;
+}
+
+const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards, onChange }) => {
+  const { assets, getAssetBalance, currencySymbol } = useMoney();
+  const balances = React.useMemo(() => {
+    const b: Record<string, number> = {};
+    assets.filter(a => !a.isDeleted).forEach(a => { b[a.id] = getAssetBalance(a.id); });
+    return b;
+  }, [assets, getAssetBalance]);
+
+  // Drag state
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const toggleCard = (id: string) => {
+    if (activeCards.includes(id)) {
+      if (activeCards.length <= 1) return; // always keep at least 1
+      onChange(activeCards.filter(c => c !== id));
+    } else {
+      onChange([...activeCards, id]);
+    }
+  };
+
+  const handleDragStart = (i: number) => { dragIdx.current = i; };
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    setDragOverIdx(i);
+  };
+  const handleDrop = (i: number) => {
+    if (dragIdx.current === null || dragIdx.current === i) { setDragOverIdx(null); return; }
+    const next = [...activeCards];
+    const [moved] = next.splice(dragIdx.current, 1);
+    next.splice(i, 0, moved);
+    onChange(next);
+    dragIdx.current = null;
+    setDragOverIdx(null);
+  };
+  const handleDragEnd = () => { dragIdx.current = null; setDragOverIdx(null); };
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <LayoutDashboard size={18} color="var(--primary)" />
+        <span style={{ fontWeight: 700, fontSize: 14 }}>Rekap Aset di Halaman Aset</span>
+      </div>
+      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
+        Pilih kartu yang tampil di carousel atas. Seret <GripVertical size={12} style={{ verticalAlign: 'middle', display: 'inline' }} /> untuk mengurutkan.
+      </p>
+
+      {/* Active cards – draggable order list */}
+      {activeCards.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Urutan Tampil
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {activeCards.map((id, i) => {
+              const def = ALL_CARD_DEFS.find(d => d.id === id);
+              if (!def) return null;
+              const val = calcCardValue(id as any, assets, balances);
+              const tier = getGachaTier(id === 'liabilities' ? -val : val);
+              const isDragOver = dragOverIdx === i;
+              return (
+                <div
+                  key={id}
+                  draggable
+                  onDragStart={() => handleDragStart(i)}
+                  onDragOver={e => handleDragOver(e, i)}
+                  onDrop={() => handleDrop(i)}
+                  onDragEnd={handleDragEnd}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 12px',
+                    borderRadius: 14,
+                    background: isDragOver ? 'var(--primary-glow)' : 'var(--bg-main)',
+                    border: isDragOver ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)',
+                    cursor: 'grab',
+                    transition: 'all 0.15s',
+                    userSelect: 'none',
+                  }}
+                >
+                  <GripVertical size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                  {/* Tier color dot */}
+                  <div style={{
+                    width: 10, height: 10, borderRadius: '50%',
+                    background: tier.gradient, flexShrink: 0,
+                    boxShadow: `0 0 6px ${tier.shadowColor}`,
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {GACHA_EMOJI[tier.name]} {tier.name} • {currencySymbol}{val.toLocaleString('id-ID')}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toggleCard(id)}
+                    title="Hapus dari carousel"
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, opacity: activeCards.length <= 1 ? 0.3 : 0.7, flexShrink: 0 }}
+                    disabled={activeCards.length <= 1}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* All available cards – toggle on/off */}
+      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+        Tambah Kartu
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {ALL_CARD_DEFS.filter(d => !activeCards.includes(d.id)).map(def => {
+          const val = calcCardValue(def.id as any, assets, balances);
+          const tier = getGachaTier(def.negate ? -val : val);
+          return (
+            <button
+              key={def.id}
+              onClick={() => toggleCard(def.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 14,
+                background: 'var(--bg-card)', border: '1.5px dashed var(--border-color)',
+                cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-glow)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-card)'; }}
+            >
+              <Plus size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {GACHA_EMOJI[tier.name]} {tier.name} • {def.description}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+        {ALL_CARD_DEFS.every(d => activeCards.includes(d.id)) && (
+          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', padding: '12px 0', fontStyle: 'italic' }}>
+            Semua kartu sudah aktif ✓
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const Settings: React.FC = () => {
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping } = useMoney();
+
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -402,6 +564,12 @@ const Settings: React.FC = () => {
                 <option value="category">Kelompokkan per Kategori</option>
               </select>
             </div>
+
+            {/* ─── Rekap Aset Carousel ─────────────────────────────── */}
+            <CarouselCardSettings
+              activeCards={assetCarouselCards}
+              onChange={setAssetCarouselCards}
+            />
 
             <div className="card shadow-soft" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '12px' }}>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
