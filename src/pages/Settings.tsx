@@ -13,6 +13,7 @@ import { BudgetManagement } from '../components/BudgetManagement';
 import { QuotaBanner } from '../components/QuotaBanner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
+import { useToast } from '../components/common/Toast';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
@@ -175,7 +176,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 };
 
 const Settings: React.FC = () => {
-
+  const { showToast } = useToast();
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -1050,10 +1051,10 @@ const Settings: React.FC = () => {
               try {
                 setIsImporting(true);
                 await importData(file);
-                alert('Data berhasil diimpor! Halaman akan dimuat ulang.');
+                showToast('Data berhasil diimpor! Halaman akan dimuat ulang.', 'success');
                 window.location.reload();
               } catch {
-                alert('File backup tidak valid atau rusak.');
+                showToast('File backup tidak valid atau rusak.', 'error');
               } finally {
                 setIsImporting(false);
                 e.target.value = '';

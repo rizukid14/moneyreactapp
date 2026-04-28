@@ -4,6 +4,7 @@ import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
+import { useToast } from '../components/common/Toast';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -19,6 +20,7 @@ const ReceiptScanner: React.FC = () => {
   const { addTransaction, assets, categories, currencySymbol } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
+  const { showToast } = useToast();
 
   // Stage management
   const [stage, setStage] = useState<Stage>('upload');
@@ -305,8 +307,8 @@ const ReceiptScanner: React.FC = () => {
     if (!result) return;
     // editableAmount state is always raw digits — parse directly
     const finalAmount = parseInt(editableAmount) || 0;
-    if (finalAmount <= 0) { alert('Isi nominal terlebih dahulu'); return; }
-    if (!selectedAssetId) { alert('Pilih rekening terlebih dahulu'); return; }
+    if (finalAmount <= 0) { showToast('Isi nominal terlebih dahulu', 'warning'); return; }
+    if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
 
     try {
       addTransaction({
@@ -318,18 +320,18 @@ const ReceiptScanner: React.FC = () => {
         note: merchantName || 'Scan Otomatis',
         assetId: selectedAssetId,
       });
-      alert('Transaksi berhasil disimpan!');
+      showToast('Transaksi berhasil disimpan!', 'success');
       reset();
     } catch (e) {
-      alert('Gagal menyimpan transaksi. Silakan coba lagi.');
+      showToast('Gagal menyimpan transaksi. Silakan coba lagi.', 'error');
       console.error(e);
     }
   };
 
   const handleSaveLineItems = () => {
-    if (!selectedAssetId) { alert('Pilih rekening terlebih dahulu'); return; }
+    if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
     const toSave = lineItems.filter(i => i.selected && i.amount > 0);
-    if (toSave.length === 0) { alert('Pilih minimal 1 item dengan nominal > 0'); return; }
+    if (toSave.length === 0) { showToast('Pilih minimal 1 item dengan nominal > 0', 'warning'); return; }
 
     try {
       toSave.forEach(item => {
@@ -343,10 +345,10 @@ const ReceiptScanner: React.FC = () => {
           assetId: selectedAssetId,
         });
       });
-      alert(`${toSave.length} transaksi berhasil disimpan!`);
+      showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
       reset();
     } catch (e) {
-      alert('Gagal menyimpan transaksi. Silakan coba lagi.');
+      showToast('Gagal menyimpan transaksi. Silakan coba lagi.', 'error');
       console.error(e);
     }
   };
@@ -638,7 +640,7 @@ const ReceiptScanner: React.FC = () => {
           onSave={() => {
             const toSave = mutasiResults.filter(r => r.selected);
             if (toSave.some(r => !r.amount || !r.category || !r.asset)) {
-              alert("Pastikan semua transaksi yang dicentang memiliki Nominal, Kategori, dan Rekening!");
+              showToast('Pastikan semua transaksi yang dicentang memiliki Nominal, Kategori, dan Rekening!', 'warning');
               return;
             }
 
@@ -654,7 +656,7 @@ const ReceiptScanner: React.FC = () => {
               });
             });
 
-            alert(`${toSave.length} transaksi berhasil disimpan!`);
+            showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
             reset();
           }}
         />

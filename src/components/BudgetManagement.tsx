@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, 
 import { useMoney, type Budget } from '../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BudgetModal from './modals/BudgetModal';
+import ConfirmDialog from './common/ConfirmDialog';
 
 const MONTH_NAMES = [
   'Januari','Februari','Maret','April','Mei','Juni',
@@ -136,6 +137,7 @@ export const BudgetManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
 
   const selectedMonth = viewDate.getMonth();
   const selectedYear = viewDate.getFullYear();
@@ -166,10 +168,8 @@ export const BudgetManagement: React.FC = () => {
   const openAdd = () => { setEditingBudget(null); setIsModalOpen(true); };
   const handleEdit = (b: Budget) => { setEditingBudget(b); setIsModalOpen(true); setActiveMenu(null); };
   const handleDelete = (id: string) => {
-    // We'll use a standard confirmation later or just keep it simple if the user didn't ask to refactor logic.
-    // However, to avoid native popups, we should ideally use the ConfirmDialog.
-    // For now, let's just make the dropdown look better first.
-    if (window.confirm('Hapus anggaran ini?')) { deleteBudget(id); setActiveMenu(null); }
+    setDeleteConfirm({ open: true, id });
+    setActiveMenu(null);
   };
 
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
@@ -294,6 +294,16 @@ export const BudgetManagement: React.FC = () => {
         selectedMonth={selectedMonth}
         selectedYear={selectedYear}
         currencySymbol={currencySymbol}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, id: '' })}
+        onConfirm={() => deleteBudget(deleteConfirm.id)}
+        title="Hapus Anggaran"
+        message="Yakin ingin menghapus anggaran ini?"
+        type="danger"
+        confirmText="Ya, Hapus"
       />
     </div>
   );

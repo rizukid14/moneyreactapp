@@ -3,6 +3,7 @@ import { X, Target, Calculator } from 'lucide-react';
 import { type Category, type Budget } from '../../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalculatorModal from './CalculatorModal';
+import { useToast } from '../common/Toast';
 
 interface BudgetModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface BudgetModalProps {
 const BudgetModal: React.FC<BudgetModalProps> = ({ 
   isOpen, onClose, budgets, categories, addBudget, updateBudget, editingBudget, selectedMonth, selectedYear, currencySymbol 
 }) => {
+  const { showToast } = useToast();
   const [categoryId, setCategoryId] = useState<string | 'total'>('total');
   const [limit, setLimit] = useState('');
   const [isCalcOpen, setIsCalcOpen] = useState(false);
@@ -45,7 +47,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
     const numericLimit = Number(limit.replace(/\./g, ''));
     
     if (numericLimit <= 0) {
-      alert('Limit anggaran harus lebih dari 0.');
+      showToast('Limit anggaran harus lebih dari 0.', 'warning');
       return;
     }
 
@@ -65,7 +67,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
     );
 
     if (isDuplicate) {
-      alert('Anggaran untuk kategori ini sudah ada di bulan terpilih.');
+      showToast('Anggaran untuk kategori ini sudah ada di bulan terpilih.', 'warning');
       return;
     }
 

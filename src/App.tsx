@@ -4,6 +4,7 @@ import { MoneyProvider, useMoney } from './contexts/MoneyContext';
 import Layout from './components/Layout';
 import LockScreen from './components/LockScreen';
 import SplashScreen from './components/SplashScreen';
+import { ToastProvider } from './components/common/Toast';
 
 // Lazy load pages for performance (bundle-dynamic-imports)
 const Transactions = lazy(() => import('./pages/Transactions'));
@@ -61,9 +62,11 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <MoneyProvider>
-      <AppContent />
-    </MoneyProvider>
+    <ToastProvider>
+      <MoneyProvider>
+        <AppContent />
+      </MoneyProvider>
+    </ToastProvider>
   );
 }
 
