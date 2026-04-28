@@ -41,6 +41,12 @@ const Transactions: React.FC = () => {
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultTransactionGrouping || 'date');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = useCallback((groupId: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  }, []);
+
   const getAssetName = useCallback((id?: string) => {
     const asset = assets.find(a => a.id === id);
     if (!asset) return 'Unknown';
@@ -332,14 +338,25 @@ const Transactions: React.FC = () => {
           groups.map(group => (
             <div key={group.id} style={{ marginBottom: '8px' }}>
               {groupBy !== 'none' && (
-                <div style={{
+                <div 
+                  onClick={() => toggleGroup(group.id)}
+                  style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '8px 4px', marginBottom: '8px',
                   position: 'sticky', top: '0', zIndex: 10,
                   background: 'var(--bg-main)',
-                  borderBottom: '1px solid var(--border-color)'
+                  borderBottom: '1px solid var(--border-color)',
+                  cursor: 'pointer'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <ChevronDown 
+                      size={18} 
+                      color="var(--text-muted)" 
+                      style={{ 
+                        transform: collapsedGroups[group.id] ? 'rotate(-90deg)' : 'none', 
+                        transition: 'transform 0.2s' 
+                      }} 
+                    />
                     {groupBy === 'date' ? (
                       <>
                         <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{group.id.split('-')[2]}</div>
@@ -360,21 +377,23 @@ const Transactions: React.FC = () => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {group.transactions.map(tx => (
-                  <TransactionItem
-                    key={tx.id}
-                    transaction={tx}
-                    assetName={getAssetName(tx.assetId)}
-                    fromAssetName={getAssetName(tx.fromAssetId)}
-                    toAssetName={getAssetName(tx.toAssetId)}
-                    onDelete={deleteTransaction}
-                    onEdit={handleEdit}
-                    onCopy={handleCopy}
-                    showDate={groupBy !== 'date'}
-                  />
-                ))}
-              </div>
+              {!collapsedGroups[group.id] && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {group.transactions.map(tx => (
+                    <TransactionItem
+                      key={tx.id}
+                      transaction={tx}
+                      assetName={getAssetName(tx.assetId)}
+                      fromAssetName={getAssetName(tx.fromAssetId)}
+                      toAssetName={getAssetName(tx.toAssetId)}
+                      onDelete={deleteTransaction}
+                      onEdit={handleEdit}
+                      onCopy={handleCopy}
+                      showDate={groupBy !== 'date'}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ))
         )}
