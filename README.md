@@ -2,7 +2,7 @@
 
 > **A premium, full-featured personal finance manager** — built with React, TypeScript, Firebase, and a focus on beautiful mobile UX.
 
-![Version](https://img.shields.io/badge/version-1.0.8-blue)
+![Version](https://img.shields.io/badge/version-1.0.12-blue)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20TypeScript%20%7C%20Firebase-informational)
 ![Deployment](https://img.shields.io/badge/deploy-Vercel-black)
 ![PWA](https://img.shields.io/badge/PWA-ready-brightgreen)
