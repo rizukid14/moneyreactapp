@@ -253,8 +253,6 @@ const LiquidFill: React.FC<{ fillPercent: number; color: string }> = ({ fillPerc
     return () => clearTimeout(t);
   }, [fillPercent]);
 
-  const bottomPct = `${(1 - rendered) * 100}%`;
-
   return (
     <div style={{
       position: 'absolute', inset: 0, borderRadius: '22px', overflow: 'hidden',
