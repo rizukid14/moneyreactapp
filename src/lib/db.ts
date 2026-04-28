@@ -100,25 +100,8 @@ export const dbGetPendingSyncCount = async () => {
   return (await (await getDB()).getAll('pending_sync')).length;
 };
 
-const mergeData = <T extends { id?: string | number }>(cloud: T[], local: T[]): T[] => {
-  const map = new Map<string | number, T>();
-  cloud.forEach(item => { if (item.id) map.set(item.id, item); });
-  local.forEach(item => { if (item.id) map.set(item.id, item); });
-  return Array.from(map.values());
-};
-
 // ─── Cloud Sync Helpers ───────────────────────────────────────────────────────
-// Pull a full collection from Firestore and write every doc into IDB.
-const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: string, putFn: (item: T) => Promise<any>): Promise<T[]> => {
-  const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), colName)), 10000);
-  const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as T));
-  // Write into IDB without triggering another Firestore write
-  const db = await getDB();
-  for (const item of items) {
-    await (db as any).put(colName === 'recurring_transactions' ? 'recurring_transactions' : colName as any, item);
-  }
-  return items;
-};
+// (Unused helpers removed to satisfy build requirements)
 
 /**
  * Force a full pull from Firestore → IDB for all collections.
