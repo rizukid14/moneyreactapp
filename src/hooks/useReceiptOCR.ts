@@ -5,6 +5,7 @@ export interface LineItem {
   name: string;
   amount: number;
   selected: boolean;
+  isTax?: boolean;  // true for tax, service charge, fee items
 }
 
 export interface OCRResult {
@@ -122,10 +123,15 @@ export const useReceiptOCR = () => {
 
       setProgress(100);
       
-      // Ensure line items have the 'selected' property
+      // Tax keyword detection (fallback if AI doesn't set isTax)
+      const TAX_KEYWORDS = /pajak|ppn|pb1|tax|vat|service charge|surcharge|biaya layanan|service fee/i;
+
+      // Ensure line items have the 'selected' property and isTax flag
       const mappedLineItems = (result.lineItems || []).map((item: any) => ({
-        ...item,
-        selected: true
+        name: item.name || '',
+        amount: typeof item.amount === 'number' ? item.amount : 0,
+        selected: true,
+        isTax: item.isTax === true || TAX_KEYWORDS.test(item.name || ''),
       }));
 
       return {
