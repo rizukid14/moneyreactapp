@@ -21,7 +21,7 @@ export interface CardDef {
 }
 
 export const ALL_CARD_DEFS: CardDef[] = [
-  { id: 'net_worth',          label: 'Kekayaan Bersih',                  description: 'Kas, rekening, & dompet digital', types: ['Cash', 'Bank Account', 'eWallet'] },
+  { id: 'net_worth',          label: 'Kekayaan Bersih',                  description: 'Total semua aset dikurangi hutang', types: [] },
   { id: 'cash_bank',          label: 'Kas & Bank',                        description: 'Tunai, rekening, & dompet digital', types: ['Cash', 'Bank Account', 'eWallet'] },
   { id: 'savings',            label: 'Tabungan',                          description: 'Aset bertipe Tabungan',            types: ['Savings'] },
   { id: 'investment',         label: 'Investasi',                         description: 'Aset bertipe Investasi',           types: ['Investment'] },
@@ -74,6 +74,10 @@ export function calcCardValue(
   // Only exclude deleted assets — isHidden is a visual-only preference, carousel always shows full balance
   const visible = assets.filter(a => !a.isDeleted);
 
+  // net_worth = true net worth: sum ALL asset types (liabilities are already negative in balance)
+  if (cardId === 'net_worth') {
+    return visible.reduce((s, a) => s + (balances[a.id] || 0), 0);
+  }
   if (def.negate) {
     // liabilities: credit cards + loans — return absolute value
     const raw = visible
@@ -81,7 +85,7 @@ export function calcCardValue(
       .reduce((s, a) => s + (balances[a.id] || 0), 0);
     return Math.abs(raw);
   }
-  // All other cards (including net_worth which is now Cash+Bank+eWallet)
+  // All other type-filtered cards
   return visible
     .filter(a => def.types.includes(a.type))
     .reduce((s, a) => s + (balances[a.id] || 0), 0);
