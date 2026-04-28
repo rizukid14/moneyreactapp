@@ -31,16 +31,24 @@ export default async function handler(req: any, res: any) {
     const categoryList = categories?.length > 0 ? categories.map((c: any) => c.name).join(',') : "None";
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
 
-    const prompt = `Extract receipt data to JSON:
-    - merchantName: string (store or merchant name)
-    - amount: final total paid (number)
-    - date: YYYY-MM-DD
-    - lineItems: array of {name, amount}. CRITICAL: You MUST include "Pajak" (Tax), "Service Charge", "Diskon" (Discount), and any other additional fees as separate items in this array so that the sum of lineItems exactly matches the final total amount. Discounts should be a negative number.
-    - suggestedCategory: from [${categoryList}]
-    - suggestedAsset: from [${assetList}]
-    - confidence: high/medium/low
+    const prompt = `You are a receipt parser. Extract receipt data and return ONLY a valid JSON object with these fields:
+    - merchantName: string (store/restaurant name)
+    - amount: number (final TOTAL paid by customer, including all taxes and fees)
+    - date: string (YYYY-MM-DD format, use today if not visible)
+    - lineItems: array of objects {name: string, amount: number}.
+      CRITICAL RULES FOR lineItems:
+        1. List all purchased items (food, products, services).
+        2. DO NOT add separate rows for tax, PPN, PB1, service charge, subtotal, or discount.
+        3. Instead, distribute the tax and service charge PROPORTIONALLY into each item's amount.
+           Example: if item costs 10000 and total tax+service = 20% of subtotal, item amount becomes 12000.
+        4. The sum of all lineItems.amount MUST equal the final total (amount field).
+        5. Use the original item names from the receipt.
+    - suggestedCategory: best match from [${categoryList}], or empty string
+    - suggestedSubCategory: sub-category if applicable, or empty string
+    - suggestedAsset: best match payment method from [${assetList}], or empty string
+    - confidence: "high" | "medium" | "low"
     
-    Ref context: Today is ${new Date().toISOString().split('T')[0]}, Indonesia currency.`;
+    Context: Today is ${new Date().toISOString().split('T')[0]}, currency is Indonesian Rupiah (IDR).`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",

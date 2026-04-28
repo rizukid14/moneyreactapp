@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { 
-  User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, 
-  Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, 
-  LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw, 
-  Sliders, Wallet, GripVertical, LayoutDashboard
+import {
+  User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
+  Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
+  LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -13,10 +13,12 @@ import { BudgetManagement } from '../components/BudgetManagement';
 import { QuotaBanner } from '../components/QuotaBanner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
+import { useToast } from '../components/common/Toast';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
-  Common: '⬜', Uncommon: '🟩', Rare: '🟦', Epic: '🟪', Legendary: '🟨', Mythic: '🔴',
+  'Bronze': '🩶', 'Silver': '🥈', 'Gold': '🥇', 'Emerald': '💚',
+  'Sapphire': '💎', 'Ruby': '♦️', 'Amethyst': '🔮', 'Diamond': '💠', 'Sultan 👑': '👑',
 };
 
 interface CarouselCardSettingsProps {
@@ -115,7 +117,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      {GACHA_EMOJI[tier.name]} {tier.name} • {currencySymbol}{val.toLocaleString('id-ID')}
+                      {GACHA_EMOJI[tier.rank]} {tier.rank} • {currencySymbol}{val.toLocaleString('id-ID')}
                     </div>
                   </div>
                   <button
@@ -158,7 +160,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {GACHA_EMOJI[tier.name]} {tier.name} • {def.description}
+                  {GACHA_EMOJI[tier.rank]} {tier.rank} • {def.description}
                 </div>
               </div>
             </button>
@@ -175,7 +177,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 };
 
 const Settings: React.FC = () => {
-
+  const { showToast } = useToast();
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, pullFromCloud } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -201,7 +203,7 @@ const Settings: React.FC = () => {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
     type: 'danger'
   });
 
@@ -211,7 +213,7 @@ const Settings: React.FC = () => {
 
   // Profile Form State
   const [tempName, setTempName] = useState(user.name);
-// ... existing state ...
+  // ... existing state ...
   const [tempEmail, setTempEmail] = useState(user.email);
   const [tempAvatar, setTempAvatar] = useState(user.avatar || '');
 
@@ -227,7 +229,7 @@ const Settings: React.FC = () => {
   const [newSubCatName, setNewSubCatName] = useState('');
 
   const menuItems = [
-// ... existing menuItems ...
+    // ... existing menuItems ...
     { id: 'profile', icon: User, label: 'Profil Saya' },
     { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
@@ -235,11 +237,12 @@ const Settings: React.FC = () => {
     { id: 'security', icon: Shield, label: 'Keamanan' },
     { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
     { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
+    { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
   ];
 
   const handleMenuClick = (id: string) => {
-// ... existing handleMenuClick ...
+    // ... existing handleMenuClick ...
     if (id === 'help') {
       window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp&body=Halo, saya butuh bantuan terkait...';
       return;
@@ -253,7 +256,7 @@ const Settings: React.FC = () => {
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-// ... existing handleImageUpload ...
+    // ... existing handleImageUpload ...
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -282,7 +285,7 @@ const Settings: React.FC = () => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        
+
         // Compress to low quality JPEG to save storage space
         const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         setTempAvatar(dataUrl);
@@ -317,8 +320,8 @@ const Settings: React.FC = () => {
 
   const handleDisablePin = () => {
     showConfirm(
-      'Matikan PIN', 
-      'Apakah Anda yakin ingin mematikan keamanan PIN?', 
+      'Matikan PIN',
+      'Apakah Anda yakin ingin mematikan keamanan PIN?',
       () => {
         setAppPin(null);
         setActiveModal(null);
@@ -347,12 +350,12 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Kategori</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
-              <button 
+              <button
                 type="button"
                 onClick={() => setCatTab('pengeluaran')}
-                style={{ 
+                style={{
                   flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
                   background: catTab === 'pengeluaran' ? 'var(--bg-card)' : 'transparent',
                   color: catTab === 'pengeluaran' ? 'var(--danger)' : 'var(--text-muted)',
@@ -361,10 +364,10 @@ const Settings: React.FC = () => {
               >
                 Pengeluaran
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setCatTab('pendapatan')}
-                style={{ 
+                style={{
                   flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
                   background: catTab === 'pendapatan' ? 'var(--bg-card)' : 'transparent',
                   color: catTab === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
@@ -378,7 +381,7 @@ const Settings: React.FC = () => {
             <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
               {filteredCats.map(c => (
                 <div key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <div 
+                  <div
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', cursor: 'pointer' }}
                     onClick={() => setExpandedCat(expandedCat === c.id ? null : c.id)}
                   >
@@ -386,8 +389,8 @@ const Settings: React.FC = () => {
                       <ChevronRight size={18} style={{ transform: expandedCat === c.id ? 'rotate(90deg)' : 'none', transition: 'all 0.2s', marginRight: '8px', color: 'var(--text-muted)' }} />
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</span>
                     </div>
-                    <button onClick={(e) => { 
-                      e.stopPropagation(); 
+                    <button onClick={(e) => {
+                      e.stopPropagation();
                       showConfirm(
                         'Hapus Kategori',
                         `Hapus kategori "${c.name}"? Semua data transaksi kategori ini akan kehilangan referensi kategorinya.`,
@@ -397,7 +400,7 @@ const Settings: React.FC = () => {
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  
+
                   {expandedCat === c.id && (
                     <div style={{ padding: '0 12px 12px 36px', background: 'var(--bg-main)', borderRadius: '0 0 8px 8px' }}>
                       {(c.subcategories || []).map(sub => (
@@ -415,14 +418,14 @@ const Settings: React.FC = () => {
                         </div>
                       ))}
                       <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <input 
-                          type="text" 
-                          value={newSubCatName} 
-                          onChange={e => setNewSubCatName(e.target.value)} 
-                          placeholder="Sub-kategori..." 
+                        <input
+                          type="text"
+                          value={newSubCatName}
+                          onChange={e => setNewSubCatName(e.target.value)}
+                          placeholder="Sub-kategori..."
                           style={{ flex: 1, marginBottom: 0, padding: '6px 10px', fontSize: '13px' }}
                         />
-                        <button 
+                        <button
                           onClick={() => {
                             if (newSubCatName.trim()) {
                               addSubCategory(c.id, newSubCatName.trim());
@@ -443,13 +446,13 @@ const Settings: React.FC = () => {
             </div>
 
             <form onSubmit={handleAddCat} style={{ display: 'flex', gap: '8px' }}>
-              <input 
-                type="text" 
-                value={newCatName} 
-                onChange={e => setNewCatName(e.target.value)} 
-                placeholder="Nama kategori baru..." 
+              <input
+                type="text"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="Nama kategori baru..."
                 style={{ flex: 1, marginBottom: 0 }}
-                required 
+                required
               />
               <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
                 <Plus size={20} />
@@ -464,7 +467,7 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Preferensi Aplikasi</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            
+
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <Wallet size={18} color="var(--primary)" />
@@ -473,9 +476,9 @@ const Settings: React.FC = () => {
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Pilih dompet yang akan otomatis terpilih saat Anda menambah transaksi baru.
               </p>
-              
-              <select 
-                value={defaultAssetId || ''} 
+
+              <select
+                value={defaultAssetId || ''}
                 onChange={(e) => setDefaultAssetId(e.target.value || null)}
                 style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
               >
@@ -540,9 +543,9 @@ const Settings: React.FC = () => {
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Ubah simbol mata uang yang ditampilkan (Contoh: Rp, $, RM).
               </p>
-              <input 
-                type="text" 
-                value={currencySymbol} 
+              <input
+                type="text"
+                value={currencySymbol}
                 onChange={(e) => setCurrencySymbol(e.target.value)}
                 placeholder="Simbol Mata Uang..."
                 style={{ width: '100%', padding: '12px', borderRadius: '12px', marginBottom: 0 }}
@@ -557,8 +560,8 @@ const Settings: React.FC = () => {
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Cara default daftar transaksi dikelompokkan saat pertama kali dibuka.
               </p>
-              <select 
-                value={defaultTransactionGrouping} 
+              <select
+                value={defaultTransactionGrouping}
                 onChange={(e) => setDefaultTransactionGrouping(e.target.value as 'date' | 'category')}
                 style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
               >
@@ -588,13 +591,13 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Edit Profil</h2>
               <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
               <div style={{ position: 'relative' }}>
-                <div style={{ 
-                  width: 80, height: 80, borderRadius: '40px', 
-                  backgroundColor: 'var(--primary)', 
-                  display: 'flex', justifyContent: 'center', alignItems: 'center', 
+                <div style={{
+                  width: 80, height: 80, borderRadius: '40px',
+                  backgroundColor: 'var(--primary)',
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
                   color: 'white', fontSize: '32px', fontWeight: 700,
                   overflow: 'hidden', border: '3px solid var(--bg-card)'
                 }}>
@@ -630,7 +633,7 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Keamanan</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            
+
             {pin ? (
               <div style={{ textAlign: 'center' }}>
                 <ShieldCheck size={48} color="var(--success)" style={{ margin: '0 auto 16px auto' }} />
@@ -644,21 +647,21 @@ const Settings: React.FC = () => {
                   <Lock size={48} color="var(--secondary)" style={{ margin: '0 auto 16px auto' }} />
                   <p style={{ color: 'var(--text-muted)' }}>Setel PIN untuk mengamankan data Anda.</p>
                 </div>
-                <input 
-                  type="password" 
-                  inputMode="numeric" 
-                  maxLength={6} 
-                  placeholder="Masukkan PIN Baru (6 digit)" 
-                  value={newPin} 
-                  onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} 
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Masukkan PIN Baru (6 digit)"
+                  value={newPin}
+                  onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))}
                 />
-                <input 
-                  type="password" 
-                  inputMode="numeric" 
-                  maxLength={6} 
-                  placeholder="Konfirmasi PIN" 
-                  value={confirmPin} 
-                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))} 
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Konfirmasi PIN"
+                  value={confirmPin}
+                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))}
                 />
                 {pinError && <p style={{ color: 'var(--danger-red)', fontSize: '12px', marginBottom: '10px' }}>{pinError}</p>}
                 <button type="submit" className="btn btn-secondary" style={{ width: '100%' }}>Aktifkan Keamanan</button>
@@ -750,7 +753,7 @@ const Settings: React.FC = () => {
 
               {/* Excel result feedback */}
               {excelResult && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -810,7 +813,7 @@ const Settings: React.FC = () => {
               <h2 className="subtitle">Transaksi Rutin</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            
+
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
               Daftar transaksi yang akan tercatat otomatis sesuai jadwal.
             </p>
@@ -824,8 +827,8 @@ const Settings: React.FC = () => {
                 recurringTransactions.map(rt => {
                   const freqLabel = { daily: 'Harian', weekly: 'Mingguan', monthly: 'Bulanan', yearly: 'Tahunan' }[rt.frequency];
                   return (
-                    <div key={rt.id} className="card" style={{ 
-                      padding: '12px', background: 'var(--bg-main)', 
+                    <div key={rt.id} className="card" style={{
+                      padding: '12px', background: 'var(--bg-main)',
                       opacity: rt.isActive ? 1 : 0.6,
                       border: rt.isActive ? '1px solid var(--border-color)' : '1px dashed var(--border-color)'
                     }}>
@@ -838,10 +841,10 @@ const Settings: React.FC = () => {
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                           <button 
+                          <button
                             onClick={() => updateRecurringTransaction(rt.id, { isActive: !rt.isActive })}
-                            style={{ 
-                              padding: '4px 8px', borderRadius: '6px', border: 'none', 
+                            style={{
+                              padding: '4px 8px', borderRadius: '6px', border: 'none',
                               backgroundColor: rt.isActive ? 'var(--bg-expense)' : 'var(--bg-income)',
                               color: rt.isActive ? 'var(--danger)' : 'var(--primary)',
                               fontSize: '11px', fontWeight: 700, cursor: 'pointer'
@@ -849,8 +852,8 @@ const Settings: React.FC = () => {
                           >
                             {rt.isActive ? 'Matikan' : 'Aktifkan'}
                           </button>
-                          <button 
-                            onClick={() => { 
+                          <button
+                            onClick={() => {
                               showConfirm(
                                 'Hapus Jadwal',
                                 'Hapus jadwal transaksi rutin ini?',
@@ -863,10 +866,10 @@ const Settings: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                      
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ 
-                          fontSize: '12px', fontWeight: 600, 
+                        <div style={{
+                          fontSize: '12px', fontWeight: 600,
                           color: rt.type === 'pengeluaran' ? 'var(--danger)' : rt.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-main)'
                         }}>
                           {rt.type === 'pengeluaran' ? '-' : rt.type === 'pendapatan' ? '+' : ''}
@@ -895,6 +898,100 @@ const Settings: React.FC = () => {
           </>
         );
 
+      case 'whats_new':
+        const changelog: Array<{
+          version: string; date: string; badge?: string;
+          entries: Array<{ type: 'new' | 'fix' | 'improve'; text: string }>;
+        }> = [
+            {
+              version: 'v1.0.8', date: 'Apr 2025', badge: 'Terbaru',
+              entries: [
+                { type: 'new', text: 'Gacha tier system: 9 tingkatan kekayaan (Bronze → Sultan 👑)' },
+                { type: 'new', text: 'Liquid wave fill animation pada kartu aset carousel' },
+                { type: 'new', text: 'Pesan motivasi berputar (3 per tier) setiap 4 detik' },
+                { type: 'new', text: 'Progress "berapa lagi ke tier berikutnya" langsung di kartu' },
+                { type: 'new', text: 'OCR Struk: pajak & service charge didistribusikan proporsional ke setiap item' },
+                { type: 'new', text: 'Toast notification system — tidak ada lagi dialog browser bawaan' },
+                { type: 'improve', text: 'Warna section pada modal Hutang/Piutang lebih distinct (filled + border)' },
+                { type: 'improve', text: 'Summary card Hutang/Piutang: fill lebih pekat, tanpa border' },
+                { type: 'fix', text: 'Build error: field tier.name → tier.rank setelah refactor gacha' },
+              ],
+            },
+            {
+              version: 'v1.0.7', date: 'Mar 2025',
+              entries: [
+                { type: 'new', text: 'Asset carousel swipeable dengan konfigurasi kartu di Settings' },
+                { type: 'new', text: 'Hidden Assets accordion — aset tersembunyi tidak hilang dari neraca' },
+                { type: 'new', text: 'OCR Struk via OpenAI GPT-4o-mini dengan auto-kategori & aset' },
+                { type: 'new', text: 'Modul Hutang & Piutang dengan cicilan, jatuh tempo, dan riwayat' },
+                { type: 'improve', text: 'Subcategory tersedia di BulkInput, DebtModal, dan ReceiptScanner' },
+                { type: 'fix', text: 'Default aset tidak tersimpan dengan benar di beberapa modul input' },
+              ],
+            },
+            {
+              version: 'v1.0.6', date: 'Feb 2025',
+              entries: [
+                { type: 'new', text: 'Scan mutasi bank (bulk import via foto/PDF)' },
+                { type: 'new', text: 'Recurring transactions — transaksi berulang otomatis' },
+                { type: 'new', text: 'PIN lock untuk keamanan aplikasi' },
+                { type: 'improve', text: 'Dark mode dengan CSS variable full-coverage' },
+              ],
+            },
+          ];
+        const typeMeta = {
+          new: { label: 'BARU', color: 'var(--primary)', bg: 'hsla(215,85%,58%,0.12)' },
+          fix: { label: 'FIX', color: 'var(--danger)', bg: 'hsla(350,80%,58%,0.1)' },
+          improve: { label: 'IMPROVE', color: '#d97706', bg: 'hsla(35,90%,52%,0.1)' },
+        };
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Apa yang Baru ✨</h2>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {changelog.map(v => (
+                <div key={v.version}>
+                  {/* Version header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-main)' }}>{v.version}</span>
+                    {v.badge && (
+                      <span style={{
+                        fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px',
+                        background: 'var(--primary)', color: 'white', letterSpacing: '0.04em',
+                      }}>{v.badge}</span>
+                    )}
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{v.date}</span>
+                  </div>
+                  {/* Entries */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                    {v.entries.map((e, i) => {
+                      const meta = typeMeta[e.type];
+                      return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                          <span style={{
+                            flexShrink: 0, fontSize: '9px', fontWeight: 800, marginTop: '3px',
+                            padding: '2px 6px', borderRadius: '5px',
+                            background: meta.bg, color: meta.color, letterSpacing: '0.05em',
+                          }}>{meta.label}</span>
+                          <span style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.5 }}>{e.text}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Divider (except last) */}
+                  {v !== changelog[changelog.length - 1] && (
+                    <div style={{ marginTop: '16px', borderBottom: '1px dashed var(--border-color)' }} />
+                  )}
+                </div>
+              ))}
+              <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
+                Money Tracker v1.0.12 · Made with ❤️
+              </div>
+            </div>
+          </>
+        );
+
       default:
         return null;
     }
@@ -909,10 +1006,10 @@ const Settings: React.FC = () => {
       <QuotaBanner />
 
       <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ 
-          width: 56, height: 56, borderRadius: '28px', 
-          backgroundColor: 'var(--primary)', 
-          display: 'flex', justifyContent: 'center', alignItems: 'center', 
+        <div style={{
+          width: 56, height: 56, borderRadius: '28px',
+          backgroundColor: 'var(--primary)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
           color: 'white', marginRight: '16px',
           fontSize: '20px', fontWeight: 700,
           overflow: 'hidden'
@@ -935,9 +1032,9 @@ const Settings: React.FC = () => {
           const isLast = index === menuItems.length - 1;
           return (
             <React.Fragment key={item.id}>
-              <div onClick={() => handleMenuClick(item.id)} style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <div onClick={() => handleMenuClick(item.id)} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '16px 0',
                 borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
@@ -955,9 +1052,9 @@ const Settings: React.FC = () => {
 
               {/* Tema Row - Inserted after Security */}
               {item.id === 'security' && (
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '16px 0',
                   borderBottom: '1px solid var(--border-color)',
@@ -966,16 +1063,16 @@ const Settings: React.FC = () => {
                     <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />
                     <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Tema Gelap</span>
                   </div>
-                  <div 
+                  <div
                     onClick={toggleTheme}
-                    style={{ 
-                      width: '44px', height: '24px', borderRadius: '12px', 
+                    style={{
+                      width: '44px', height: '24px', borderRadius: '12px',
                       backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
                       display: 'flex', alignItems: 'center', padding: '0 2px',
                       cursor: 'pointer', transition: 'all 0.3s'
                     }}>
-                    <div style={{ 
-                      width: '20px', height: '20px', borderRadius: '10px', 
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '10px',
                       backgroundColor: 'white',
                       transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -995,19 +1092,20 @@ const Settings: React.FC = () => {
             <Bell size={18} color="var(--text-muted)" style={{ marginRight: '12px' }} />
             <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Notifikasi Otomatis</span>
           </div>
-          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 700, 
+          <span style={{
+            fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 700,
             backgroundColor: notifPermission === 'granted' ? 'var(--success-glow)' : 'var(--danger-glow)',
-            color: notifPermission === 'granted' ? 'var(--success)' : 'var(--danger)' 
+            color: notifPermission === 'granted' ? 'var(--success)' : 'var(--danger)'
           }}>
             {notifPermission === 'granted' ? 'AKTIF' : 'NONAKTIF'}
           </span>
         </div>
         <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
-          Pengingat harian dan laporan mingguan dikirimkan otomatis ke perangkat ini. 
+          Pengingat harian dan laporan mingguan dikirimkan otomatis ke perangkat ini.
           {notifPermission !== 'granted' && " Klik untuk mengaktifkan izin notifikasi."}
         </p>
         {notifPermission !== 'granted' && (
-          <button 
+          <button
             onClick={async () => {
               const res = await Notification.requestPermission();
               setNotifPermission(res);
@@ -1015,7 +1113,7 @@ const Settings: React.FC = () => {
                 setupPushNotifications();
               }
             }}
-            className="btn btn-primary" 
+            className="btn btn-primary"
             style={{ width: '100%', marginTop: '12px', padding: '8px', fontSize: '12px' }}
           >
             Aktifkan Izin Notifikasi
@@ -1023,19 +1121,19 @@ const Settings: React.FC = () => {
         )}
       </div>
 
-      <div className="card" style={{ 
-        marginTop: '16px', 
-        textAlign: 'center', 
-        backgroundColor: 'var(--bg-main)', 
-        borderColor: 'var(--border-color)', 
-        borderStyle: 'solid', 
-        borderWidth: '1px' 
+      <div className="card" style={{
+        marginTop: '16px',
+        textAlign: 'center',
+        backgroundColor: 'var(--bg-main)',
+        borderColor: 'var(--border-color)',
+        borderStyle: 'solid',
+        borderWidth: '1px'
       }}>
-         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 700 }}>
-            <Mail size={18} />
-            Hubungi Dukungan
-         </div>
-         <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 700 }}>
+          <Mail size={18} />
+          Hubungi Dukungan
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
       </div>
 
       <div style={{ marginTop: '24px', paddingBottom: '20px' }}>
@@ -1050,13 +1148,13 @@ const Settings: React.FC = () => {
             );
           }}
           className="btn"
-          style={{ 
-            width: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            gap: '8px', 
-            background: 'var(--bg-expense)', 
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            background: 'var(--bg-expense)',
             color: 'var(--danger)',
             padding: '12px',
             borderRadius: '12px',
@@ -1085,10 +1183,10 @@ const Settings: React.FC = () => {
               try {
                 setIsImporting(true);
                 await importData(file);
-                alert('Data berhasil diimpor! Halaman akan dimuat ulang.');
+                showToast('Data berhasil diimpor! Halaman akan dimuat ulang.', 'success');
                 window.location.reload();
               } catch {
-                alert('File backup tidak valid atau rusak.');
+                showToast('File backup tidak valid atau rusak.', 'error');
               } finally {
                 setIsImporting(false);
                 e.target.value = '';
@@ -1124,16 +1222,16 @@ const Settings: React.FC = () => {
 
       <AnimatePresence>
         {activeModal && (
-          <motion.div 
-            className="modal-overlay" 
+          <motion.div
+            className="modal-overlay"
             onClick={() => setActiveModal(null)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
           >
-            <motion.div 
-              className="modal-content" 
+            <motion.div
+              className="modal-content"
               onClick={e => e.stopPropagation()}
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -1147,7 +1245,7 @@ const Settings: React.FC = () => {
       </AnimatePresence>
 
       {/* Global Confirmation Dialog */}
-      <ConfirmDialog 
+      <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
         onConfirm={confirmDialog.onConfirm}

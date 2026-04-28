@@ -7,6 +7,7 @@ import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
+import { useToast } from '../common/Toast';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
   const { categories, budgets, transactions, defaultAssetId, currencySymbol } = useMoney();
+  const { showToast } = useToast();
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -226,7 +228,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (type !== 'transfer' && !category) {
-      alert('Silakan pilih kategori terlebih dahulu.');
+      showToast('Silakan pilih kategori terlebih dahulu.', 'warning');
       return;
     }
 

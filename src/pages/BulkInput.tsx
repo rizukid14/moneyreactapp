@@ -4,11 +4,13 @@ import { useMoney } from '../contexts/MoneyContext';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../components/common/Toast';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
   const { addTransaction, assets, categories, currencySymbol } = useMoney();
   const { parseData, isParsing, error, setError } = useBulkParseAI();
+  const { showToast } = useToast();
 
   const [stage, setStage] = useState<'input' | 'results'>('input');
   const [inputText, setInputText] = useState('');
@@ -16,7 +18,7 @@ const BulkInput: React.FC = () => {
 
   const handleParse = async () => {
     if (!inputText.trim()) {
-      alert('Masukkan teks transaksi terlebih dahulu.');
+      showToast('Masukkan teks transaksi terlebih dahulu.', 'warning');
       return;
     }
     const activeAssets = assets.filter(a => !a.isDeleted);
@@ -70,7 +72,7 @@ const BulkInput: React.FC = () => {
       setResults(augmented);
       setStage('results');
     } else if (parsed && parsed.length === 0) {
-      alert('Tidak ada transaksi yang berhasil dikenali.');
+      showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
     }
   };
 
@@ -142,7 +144,7 @@ const BulkInput: React.FC = () => {
           onSave={() => {
             const toSave = results.filter(r => r.selected);
             if (toSave.some(r => !r.amount || !r.category || !r.asset)) {
-              alert("Pastikan semua transaksi yang dicentang memiliki Nominal, Kategori, dan Rekening!");
+              showToast('Pastikan semua transaksi yang dicentang memiliki Nominal, Kategori, dan Rekening!', 'warning');
               return;
             }
 
@@ -158,7 +160,7 @@ const BulkInput: React.FC = () => {
               });
             });
 
-            alert(`${toSave.length} transaksi berhasil disimpan!`);
+            showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
             setStage('input');
             setInputText('');
             setResults([]);
