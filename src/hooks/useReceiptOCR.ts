@@ -122,18 +122,43 @@ export const useReceiptOCR = () => {
 
       setProgress(100);
       
-      // Items come from AI already with tax/service distributed proportionally
-      // (the server prompt instructs GPT to fold tax into each item's amount)
-      const mappedLineItems: LineItem[] = (result.lineItems || [])
-        .filter((item: any) => {
-          const amount = typeof item.amount === 'number' ? item.amount : 0;
-          return amount > 0 && item.name;
-        })
-        .map((item: any) => ({
+      // Items come from AI with their base prices
+      const validItems = (result.lineItems || []).filter((item: any) => {
+        const amt = typeof item.amount === 'number' ? item.amount : 0;
+        return amt > 0 && item.name;
+      });
+
+      const itemsSubtotal = validItems.reduce((sum: number, i: any) => sum + i.amount, 0);
+      const grandTotal = typeof result.amount === 'number' ? result.amount : 0;
+      
+      let mappedLineItems: LineItem[];
+
+      // Calculate the gap between the sum of items and the grand total.
+      // This gap represents tax, service charges, and discounts.
+      if (itemsSubtotal > 0 && grandTotal > 0 && itemsSubtotal !== grandTotal) {
+        const gap = grandTotal - itemsSubtotal;
+        
+        // Distribute the gap proportionally — last item absorbs rounding errors
+        let distributed = 0;
+        mappedLineItems = validItems.map((item: any, idx: number) => {
+          const isLast = idx === validItems.length - 1;
+          const share = isLast
+            ? gap - distributed
+            : Math.round((item.amount / itemsSubtotal) * gap);
+          distributed += share;
+          return {
+            name: item.name,
+            amount: Math.max(0, Math.round(item.amount + share)), // Ensure no negative amounts
+            selected: true,
+          };
+        });
+      } else {
+        mappedLineItems = validItems.map((item: any) => ({
           name: item.name,
-          amount: typeof item.amount === 'number' ? Math.round(item.amount) : 0,
+          amount: Math.round(item.amount),
           selected: true,
         }));
+      }
 
       return {
         merchantName: result.merchantName || "",

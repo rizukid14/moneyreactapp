@@ -37,12 +37,10 @@ export default async function handler(req: any, res: any) {
     - date: string (YYYY-MM-DD format, use today if not visible)
     - lineItems: array of objects {name: string, amount: number}.
       CRITICAL RULES FOR lineItems:
-        1. List all purchased items (food, products, services).
-        2. DO NOT add separate rows for tax, PPN, PB1, service charge, subtotal, or discount.
-        3. Instead, distribute the tax and service charge PROPORTIONALLY into each item's amount.
-           Example: if item costs 10000 and total tax+service = 20% of subtotal, item amount becomes 12000.
-        4. The sum of all lineItems.amount MUST equal the final total (amount field).
-        5. Use the original item names from the receipt.
+        1. List only the actual purchased items (food, products, services).
+        2. Do NOT include rows for tax, PPN, service charge, subtotal, total, or change (kembalian).
+        3. Use the original base prices for the items.
+        4. Use the original item names from the receipt.
     - suggestedCategory: best match from [${categoryList}], or empty string
     - suggestedSubCategory: sub-category if applicable, or empty string
     - suggestedAsset: best match payment method from [${assetList}], or empty string
