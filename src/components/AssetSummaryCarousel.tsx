@@ -21,14 +21,14 @@ export interface CardDef {
 }
 
 export const ALL_CARD_DEFS: CardDef[] = [
-  { id: 'net_worth', label: 'Kekayaan Bersih', description: 'Semua aset dikurangi kewajiban', types: [] },
-  { id: 'cash_bank', label: 'Kas & Bank', description: 'Tunai, rekening, & dompet digital', types: ['Cash', 'Bank Account', 'eWallet'] },
-  { id: 'savings', label: 'Tabungan', description: 'Aset bertipe Tabungan', types: ['Savings'] },
-  { id: 'investment', label: 'Investasi', description: 'Aset bertipe Investasi', types: ['Investment'] },
-  { id: 'savings_investment', label: 'Tabungan + Investasi', description: 'Gabungan tabungan & investasi', types: ['Savings', 'Investment'] },
-  { id: 'net_plus_savings', label: 'Kekayaan + Tabungan', description: 'Kas, bank, e-wallet & tabungan', types: ['Cash', 'Bank Account', 'eWallet', 'Savings'] },
-  { id: 'net_plus_all', label: 'Kekayaan + Tabungan + Investasi', description: 'Semua aset produktif', types: ['Cash', 'Bank Account', 'eWallet', 'Savings', 'Investment'] },
-  { id: 'liabilities', label: 'Total Hutang', description: 'Kartu kredit & pinjaman (hutang)', types: ['Credit Card', 'Loan'], negate: true },
+  { id: 'net_worth',          label: 'Kekayaan Bersih',                  description: 'Kas, rekening, & dompet digital', types: ['Cash', 'Bank Account', 'eWallet'] },
+  { id: 'cash_bank',          label: 'Kas & Bank',                        description: 'Tunai, rekening, & dompet digital', types: ['Cash', 'Bank Account', 'eWallet'] },
+  { id: 'savings',            label: 'Tabungan',                          description: 'Aset bertipe Tabungan',            types: ['Savings'] },
+  { id: 'investment',         label: 'Investasi',                         description: 'Aset bertipe Investasi',           types: ['Investment'] },
+  { id: 'savings_investment', label: 'Tabungan + Investasi',              description: 'Gabungan tabungan & investasi',    types: ['Savings', 'Investment'] },
+  { id: 'net_plus_savings',   label: 'Kekayaan + Tabungan',               description: 'Kas, bank, e-wallet & tabungan',   types: ['Cash', 'Bank Account', 'eWallet', 'Savings'] },
+  { id: 'net_plus_all',       label: 'Kekayaan + Tabungan + Investasi',   description: 'Semua aset produktif',              types: ['Cash', 'Bank Account', 'eWallet', 'Savings', 'Investment'] },
+  { id: 'liabilities',        label: 'Total Hutang',                      description: 'Kartu kredit & pinjaman (hutang)', types: ['Credit Card', 'Loan'], negate: true },
 ];
 
 // ─── Gacha Tiers ─────────────────────────────────────────────────────────────
@@ -71,20 +71,19 @@ export function calcCardValue(
   balances: Record<string, number>
 ): number {
   const def = ALL_CARD_DEFS.find(d => d.id === cardId)!;
+  // Only exclude deleted assets — isHidden is a visual-only preference, carousel always shows full balance
   const visible = assets.filter(a => !a.isDeleted);
 
-  if (cardId === 'net_worth') {
-    return visible.filter(a => !a.isHidden).reduce((s, a) => s + (balances[a.id] || 0), 0);
-  }
   if (def.negate) {
-    // liabilities: credit cards + loans with negative balance → show abs
+    // liabilities: credit cards + loans — return absolute value
     const raw = visible
       .filter(a => def.types.includes(a.type))
       .reduce((s, a) => s + (balances[a.id] || 0), 0);
     return Math.abs(raw);
   }
+  // All other cards (including net_worth which is now Cash+Bank+eWallet)
   return visible
-    .filter(a => def.types.includes(a.type) && !a.isHidden)
+    .filter(a => def.types.includes(a.type))
     .reduce((s, a) => s + (balances[a.id] || 0), 0);
 }
 

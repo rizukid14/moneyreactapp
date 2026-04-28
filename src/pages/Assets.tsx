@@ -267,6 +267,7 @@ const Assets: React.FC = () => {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
+  const [hiddenOpen, setHiddenOpen] = useState(false);
 
   const { balances, assetGroups } = useMemo(() => {
     const b: Record<string, number> = {};
@@ -332,80 +333,152 @@ const Assets: React.FC = () => {
         {assets.filter(a => !a.isDeleted).length === 0 ? (
           <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada aset.</div>
         ) : (
-          (Object.keys(assetGroups) as AssetType[]).map(typeKey => {
-            const groupAssets = assetGroups[typeKey];
-            if (groupAssets.length === 0) return null;
-            return (
-              <div key={typeKey}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 12px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                    {TYPE_LABELS[typeKey]} ({groupAssets.length})
+          <>
+            {(Object.keys(assetGroups) as AssetType[]).map(typeKey => {
+              const visibleAssets = assetGroups[typeKey].filter(a => !a.isHidden);
+              if (visibleAssets.length === 0) return null;
+              return (
+                <div key={typeKey}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {TYPE_LABELS[typeKey]} ({visibleAssets.length})
+                    </div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)' }}>
+                      {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${visibleAssets.reduce((sum, a) => sum + (balances[a.id] || 0), 0).toLocaleString('id-ID')}`}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)' }}>
-                    {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${groupAssets.reduce((sum, a) => a.isHidden ? sum : sum + (balances[a.id] || 0), 0).toLocaleString('id-ID')}`}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {groupAssets.map((asset: Asset) => {
-                    const Icon = getIconForType(asset.type);
-                    const color = getColorForType(asset.type);
-                    const balance = balances[asset.id] || 0;
-                    const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
-                    const displayBalance = isLiability ? Math.abs(balance) : balance;
-                    const txCount = transactions.filter(tx =>
-                      tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
-                    ).length;
-
-                    return (
-                      <div
-                        className="card"
-                        key={asset.id}
-                        onClick={() => setSelectedAsset(asset)}
-                        style={{
-                          display: 'flex', alignItems: 'center', marginBottom: 0,
-                          opacity: asset.isHidden ? 0.6 : 1, border: 'none',
-                          background: 'var(--bg-card)', cursor: 'pointer',
-                          transition: 'transform 0.15s, box-shadow 0.15s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.08)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-                      >
-                        <div style={{
-                          width: 48, height: 48, borderRadius: '16px', backgroundColor: 'var(--bg-main)',
-                          color, display: 'flex', justifyContent: 'center', alignItems: 'center',
-                          marginRight: '16px', flexShrink: 0
-                        }}>
-                          <Icon size={24} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {visibleAssets.map((asset: Asset) => {
+                      const Icon = getIconForType(asset.type);
+                      const color = getColorForType(asset.type);
+                      const balance = balances[asset.id] || 0;
+                      const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
+                      const displayBalance = isLiability ? Math.abs(balance) : balance;
+                      const txCount = transactions.filter(tx =>
+                        tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
+                      ).length;
+                      return (
+                        <div
+                          className="card"
+                          key={asset.id}
+                          onClick={() => setSelectedAsset(asset)}
+                          style={{
+                            display: 'flex', alignItems: 'center', marginBottom: 0,
+                            border: 'none', background: 'var(--bg-card)', cursor: 'pointer',
+                            transition: 'transform 0.15s, box-shadow 0.15s',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.08)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+                        >
+                          <div style={{ width: 48, height: 48, borderRadius: '16px', backgroundColor: 'var(--bg-main)', color, display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '16px', flexShrink: 0 }}>
+                            <Icon size={24} />
+                          </div>
+                          <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{asset.name}</div>
-                            {asset.isHidden && <EyeOff size={14} color="var(--text-muted)" />}
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                              {isLiability && <span style={{ fontSize: '13px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
+                              {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{txCount} transaksi</div>
                           </div>
-                          <div style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
-                            {isLiability && <span style={{ fontSize: '13px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
-                            {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                            {txCount} transaksi
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <button onClick={e => { e.stopPropagation(); handleEdit(asset); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.5 }}>
+                              <Pencil size={16} />
+                            </button>
+                            <ChevronRight size={16} color="var(--border-color)" />
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <button
-                            onClick={e => { e.stopPropagation(); handleEdit(asset); }}
-                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.5 }}
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <ChevronRight size={16} color="var(--border-color)" />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+
+            {/* ── Hidden assets accordion ── */}
+            {(() => {
+              const hiddenAssets = assets.filter(a => !a.isDeleted && a.isHidden);
+              if (hiddenAssets.length === 0) return null;
+              return (
+                <div>
+                  <button
+                    onClick={() => setHiddenOpen(o => !o)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      background: 'none', border: '1.5px dashed var(--border-color)',
+                      borderRadius: 16, padding: '12px 16px', cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-glow)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'none'; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <EyeOff size={15} color="var(--text-muted)" />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>
+                        Tersembunyi ({hiddenAssets.length})
+                      </span>
+                    </div>
+                    <ChevronRight
+                      size={16}
+                      color="var(--text-muted)"
+                      style={{ transform: hiddenOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}
+                    />
+                  </button>
+
+                  {hiddenOpen && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                      {hiddenAssets.map((asset: Asset) => {
+                        const Icon = getIconForType(asset.type);
+                        const color = getColorForType(asset.type);
+                        const balance = balances[asset.id] || 0;
+                        const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
+                        const displayBalance = isLiability ? Math.abs(balance) : balance;
+                        const txCount = transactions.filter(tx =>
+                          tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
+                        ).length;
+                        return (
+                          <div
+                            className="card"
+                            key={asset.id}
+                            onClick={() => setSelectedAsset(asset)}
+                            style={{
+                              display: 'flex', alignItems: 'center', marginBottom: 0,
+                              border: 'none', background: 'var(--bg-card)', cursor: 'pointer',
+                              opacity: 0.65,
+                              transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.15s',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.opacity = '1'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = '0.65'; }}
+                          >
+                            <div style={{ width: 48, height: 48, borderRadius: '16px', backgroundColor: 'var(--bg-main)', color, display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '16px', flexShrink: 0 }}>
+                              <Icon size={24} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{asset.name}</div>
+                                <EyeOff size={12} color="var(--text-muted)" />
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>{TYPE_LABELS[asset.type as AssetType]}</div>
+                              <div style={{ fontSize: '16px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                                {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{txCount} transaksi</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <button onClick={e => { e.stopPropagation(); handleEdit(asset); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.5 }}>
+                                <Pencil size={16} />
+                              </button>
+                              <ChevronRight size={16} color="var(--border-color)" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </>
         )}
       </div>
 
