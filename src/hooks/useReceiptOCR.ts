@@ -133,25 +133,25 @@ export const useReceiptOCR = () => {
       
       let mappedLineItems: LineItem[];
 
-      // Calculate the specific gap confirmed as tax/service minus discount
+      // Calculate the net difference confirmed as tax/service minus discount
       const taxAndFees = typeof result.totalTaxAndFees === 'number' ? result.totalTaxAndFees : 0;
       const discount = typeof result.totalDiscount === 'number' ? result.totalDiscount : 0;
-      const explicitTaxGap = Math.max(0, taxAndFees - discount); // Ensure gap to distribute isn't negative
+      const netTaxOrDiscount = taxAndFees - discount; // Can be negative if discount is larger
       
 
 
-      if (explicitTaxGap > 0 && itemsSubtotal > 0) {
-        // Distribute ONLY the explicit tax/fee gap proportionally
+      if (netTaxOrDiscount !== 0 && itemsSubtotal > 0) {
+        // Distribute the net tax/discount proportionally
         let distributed = 0;
         mappedLineItems = validItems.map((item: any, idx: number) => {
           const isLast = idx === validItems.length - 1;
           const share = isLast
-            ? explicitTaxGap - distributed
-            : Math.round((item.amount / itemsSubtotal) * explicitTaxGap);
+            ? netTaxOrDiscount - distributed
+            : Math.round((item.amount / itemsSubtotal) * netTaxOrDiscount);
           distributed += share;
           return {
             name: item.name,
-            amount: Math.max(0, Math.round(item.amount + share)), // Ensure no negative amounts
+            amount: Math.max(0, Math.round(item.amount + share)), // Ensure no item drops below 0
             selected: true,
           };
         });
@@ -164,13 +164,20 @@ export const useReceiptOCR = () => {
       }
 
       // Check if there's still a gap between the mapped items and the grand total
-      // This indicates missing/unread items by the OCR
+      // This indicates missing items OR unread discounts by the OCR
       const finalItemsSum = mappedLineItems.reduce((sum, i) => sum + i.amount, 0);
-      if (grandTotal > finalItemsSum + 100) { // +100 for rounding safety
-        const missingAmount = grandTotal - finalItemsSum;
+      const missingAmount = grandTotal - finalItemsSum;
+      
+      if (missingAmount > 100) { // +100 for rounding safety
         mappedLineItems.push({
           name: "Item Tidak Terbaca (Scan Kurang Jelas)",
           amount: missingAmount,
+          selected: true,
+        });
+      } else if (missingAmount < -100) { // If grandTotal is significantly lower
+        mappedLineItems.push({
+          name: "Diskon/Potongan Harga (Tidak Terbaca)",
+          amount: missingAmount, // Will be negative
           selected: true,
         });
       }
