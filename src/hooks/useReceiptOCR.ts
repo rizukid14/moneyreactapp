@@ -134,9 +134,10 @@ export const useReceiptOCR = () => {
       let mappedLineItems: LineItem[];
 
       // Calculate the net difference confirmed as tax/service minus discount
-      const taxAndFees = typeof result.totalTaxAndFees === 'number' ? result.totalTaxAndFees : 0;
-      const discount = typeof result.totalDiscount === 'number' ? result.totalDiscount : 0;
-      const netTaxOrDiscount = taxAndFees - discount; // Can be negative if discount is larger
+      const tax = typeof result.taxAmount === 'number' ? result.taxAmount : 0;
+      const service = typeof result.serviceChargeAmount === 'number' ? result.serviceChargeAmount : 0;
+      const discount = typeof result.discountAmount === 'number' ? result.discountAmount : 0;
+      const netTaxOrDiscount = (tax + service) - discount; // Can be negative if discount is larger
       
 
 

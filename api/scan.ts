@@ -41,8 +41,9 @@ export default async function handler(req: any, res: any) {
         2. Do NOT include rows for tax, PPN, service charge, subtotal, total, or change (kembalian).
         3. Use the original base prices for the items.
         4. Use the original item names from the receipt.
-    - totalTaxAndFees: number (Sum of all taxes, PPN, PB1, service charges, etc. 0 if none.)
-    - totalDiscount: number (Sum of all discounts. Positive number. 0 if none.)
+    - taxAmount: number (Amount of tax, PPN, PB1, VAT, etc. 0 if none.)
+    - serviceChargeAmount: number (Amount of service charge, service fee, etc. 0 if none.)
+    - discountAmount: number (Amount of all discounts. Positive number. 0 if none.)
     - suggestedCategory: best match from [${categoryList}], or empty string
     - suggestedSubCategory: sub-category if applicable, or empty string
     - suggestedAsset: best match payment method from [${assetList}], or empty string
