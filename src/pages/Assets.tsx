@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Wallet, CreditCard, Landmark, Plus, Smartphone, Pencil, EyeOff, Eye, TrendingUp, PiggyBank, HandCoins, X, ArrowUpRight, ArrowDownRight, ArrowRightLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Wallet, CreditCard, Landmark, Plus, Smartphone, Pencil, EyeOff, TrendingUp, PiggyBank, HandCoins, X, ArrowUpRight, ArrowDownRight, ArrowRightLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
