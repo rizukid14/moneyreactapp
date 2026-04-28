@@ -3,7 +3,7 @@ import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck, 
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup, 
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw, 
-  Sliders, Wallet, GripVertical, LayoutDashboard
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -235,6 +235,7 @@ const Settings: React.FC = () => {
     { id: 'security', icon: Shield, label: 'Keamanan' },
     { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
     { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
+    { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
   ];
 
@@ -859,6 +860,100 @@ const Settings: React.FC = () => {
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
             <BudgetManagement />
+          </>
+        );
+
+      case 'whats_new':
+        const changelog: Array<{
+          version: string; date: string; badge?: string;
+          entries: Array<{ type: 'new' | 'fix' | 'improve'; text: string }>;
+        }> = [
+          {
+            version: 'v1.0.8', date: 'Apr 2025', badge: 'Terbaru',
+            entries: [
+              { type: 'new',     text: 'Gacha tier system: 9 tingkatan kekayaan (Bronze → Sultan 👑)' },
+              { type: 'new',     text: 'Liquid wave fill animation pada kartu aset carousel' },
+              { type: 'new',     text: 'Pesan motivasi berputar (3 per tier) setiap 4 detik' },
+              { type: 'new',     text: 'Progress "berapa lagi ke tier berikutnya" langsung di kartu' },
+              { type: 'new',     text: 'OCR Struk: pajak & service charge didistribusikan proporsional ke setiap item' },
+              { type: 'new',     text: 'Toast notification system — tidak ada lagi dialog browser bawaan' },
+              { type: 'improve', text: 'Warna section pada modal Hutang/Piutang lebih distinct (filled + border)' },
+              { type: 'improve', text: 'Summary card Hutang/Piutang: fill lebih pekat, tanpa border' },
+              { type: 'fix',     text: 'Build error: field tier.name → tier.rank setelah refactor gacha' },
+            ],
+          },
+          {
+            version: 'v1.0.7', date: 'Mar 2025',
+            entries: [
+              { type: 'new',     text: 'Asset carousel swipeable dengan konfigurasi kartu di Settings' },
+              { type: 'new',     text: 'Hidden Assets accordion — aset tersembunyi tidak hilang dari neraca' },
+              { type: 'new',     text: 'OCR Struk via OpenAI GPT-4o-mini dengan auto-kategori & aset' },
+              { type: 'new',     text: 'Modul Hutang & Piutang dengan cicilan, jatuh tempo, dan riwayat' },
+              { type: 'improve', text: 'Subcategory tersedia di BulkInput, DebtModal, dan ReceiptScanner' },
+              { type: 'fix',     text: 'Default aset tidak tersimpan dengan benar di beberapa modul input' },
+            ],
+          },
+          {
+            version: 'v1.0.6', date: 'Feb 2025',
+            entries: [
+              { type: 'new',     text: 'Scan mutasi bank (bulk import via foto/PDF)' },
+              { type: 'new',     text: 'Recurring transactions — transaksi berulang otomatis' },
+              { type: 'new',     text: 'PIN lock untuk keamanan aplikasi' },
+              { type: 'improve', text: 'Dark mode dengan CSS variable full-coverage' },
+            ],
+          },
+        ];
+        const typeMeta = {
+          new:     { label: 'BARU',      color: 'var(--primary)',  bg: 'hsla(215,85%,58%,0.12)' },
+          fix:     { label: 'FIX',       color: 'var(--danger)',   bg: 'hsla(350,80%,58%,0.1)'  },
+          improve: { label: 'IMPROVE',   color: '#d97706',         bg: 'hsla(35,90%,52%,0.1)'   },
+        };
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Apa yang Baru ✨</h2>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {changelog.map(v => (
+                <div key={v.version}>
+                  {/* Version header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-main)' }}>{v.version}</span>
+                    {v.badge && (
+                      <span style={{
+                        fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px',
+                        background: 'var(--primary)', color: 'white', letterSpacing: '0.04em',
+                      }}>{v.badge}</span>
+                    )}
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{v.date}</span>
+                  </div>
+                  {/* Entries */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                    {v.entries.map((e, i) => {
+                      const meta = typeMeta[e.type];
+                      return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                          <span style={{
+                            flexShrink: 0, fontSize: '9px', fontWeight: 800, marginTop: '3px',
+                            padding: '2px 6px', borderRadius: '5px',
+                            background: meta.bg, color: meta.color, letterSpacing: '0.05em',
+                          }}>{meta.label}</span>
+                          <span style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.5 }}>{e.text}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Divider (except last) */}
+                  {v !== changelog[changelog.length - 1] && (
+                    <div style={{ marginTop: '16px', borderBottom: '1px dashed var(--border-color)' }} />
+                  )}
+                </div>
+              ))}
+              <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
+                Money Tracker v1.0.8 · Made with ❤️
+              </div>
+            </div>
           </>
         );
 
