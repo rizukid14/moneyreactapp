@@ -9,7 +9,7 @@ import {
   dbGetSetting, dbPutSetting, dbDeleteSetting,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
-  dbGetPendingSyncCount, dbSyncPendingItems,
+  dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync,
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -188,6 +188,7 @@ interface MoneyContextType {
   logOut: () => Promise<void>;
   pendingSyncCount: number;
   syncData: () => Promise<{ success: number; failed: number }>;
+  pullFromCloud: () => Promise<{ total: number }>;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -933,6 +934,31 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, []);
 
+  /**
+   * Pull all data from Firestore into IndexedDB, then reload state.
+   * Use this as the "Sync from Cloud" / "Pull from Cloud" action.
+   * Only needed when the user wants to see data added on another device.
+   */
+  const pullFromCloud = useCallback(async () => {
+    const result = await dbForceCloudSync();
+    if (result.total > 0) {
+      // Reload all state from IDB (which now has the fresh cloud data)
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRec] = await Promise.all([
+        dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(),
+        dbGetAllBudgets(), dbGetAllDebts(),
+        import('../lib/db').then(m => m.dbGetAllRecurringTransactions())
+      ]);
+      setAssets(dbAssets);
+      setTransactions(dbTxs);
+      setCategories(dbCats);
+      setBudgets(dbBudgets);
+      setDebts(dbDebts as Debt[]);
+      setRecurringTransactions(dbRec);
+      await refreshSyncCount();
+    }
+    return result;
+  }, [refreshSyncCount]);
+
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, budgets, debts,
@@ -946,7 +972,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData, logOut, pendingSyncCount, syncData,
+    exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
   }), [
     isReady, assets, transactions, categories, budgets, debts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
@@ -959,7 +985,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData, logOut, pendingSyncCount, syncData,
+    exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
   ]);
 
   // Show splash screen while checking auth state or loading data

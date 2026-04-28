@@ -176,7 +176,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 
 const Settings: React.FC = () => {
 
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, pullFromCloud } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -186,6 +186,8 @@ const Settings: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isImportingExcel, setIsImportingExcel] = useState(false);
   const [excelResult, setExcelResult] = useState<ImportResult | null>(null);
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullResult, setPullResult] = useState<{ total: number } | null>(null);
 
   // Global Confirm State for this page
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -699,6 +701,39 @@ const Settings: React.FC = () => {
                   <Upload size={15} /> {isImporting ? 'Mengimpor...' : 'Restore Backup (.json)'}
                 </button>
               </div>
+            </div>
+
+            {/* ── Section 1.5: Pull from Cloud ── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <RefreshCw size={15} color="var(--secondary)" />
+                <span style={{ fontWeight: 700, fontSize: 13 }}>Tarik Data dari Cloud</span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Gunakan ini jika Anda baru menambah transaksi di perangkat lain dan ingin data terbaru muncul di sini.
+                Aplikasi biasanya membaca data lokal (lebih cepat &amp; hemat kuota).
+              </p>
+              {pullResult && (
+                <div style={{
+                  padding: '10px 12px', borderRadius: 10, marginBottom: 10,
+                  background: pullResult.total > 0 ? 'var(--bg-income)' : 'var(--bg-neutral)',
+                  border: `1px solid ${pullResult.total > 0 ? 'var(--primary)' : 'var(--border-color)'}`,
+                  fontSize: 12, color: pullResult.total > 0 ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 600
+                }}>
+                  {pullResult.total > 0
+                    ? `✓ ${pullResult.total} dokumen berhasil disinkronkan dari cloud`
+                    : 'Tidak ada data baru dari cloud'}
+                </div>
+              )}
+              <button
+                className="btn"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)', fontWeight: 700, width: '100%' }}
+                onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); }}
+                disabled={isPulling}
+              >
+                <RefreshCw size={15} style={{ animation: isPulling ? 'spin 1s linear infinite' : 'none' }} />
+                {isPulling ? 'Menarik data...' : 'Tarik Data dari Cloud'}
+              </button>
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '4px 0 20px' }} />

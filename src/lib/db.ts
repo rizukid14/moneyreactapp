@@ -107,14 +107,72 @@ const mergeData = <T extends { id?: string | number }>(cloud: T[], local: T[]): 
   return Array.from(map.values());
 };
 
+// ─── Cloud Sync Helpers ───────────────────────────────────────────────────────
+// Pull a full collection from Firestore and write every doc into IDB.
+const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: string, putFn: (item: T) => Promise<any>): Promise<T[]> => {
+  const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), colName)), 10000);
+  const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as T));
+  // Write into IDB without triggering another Firestore write
+  const db = await getDB();
+  for (const item of items) {
+    await (db as any).put(colName === 'recurring_transactions' ? 'recurring_transactions' : colName as any, item);
+  }
+  return items;
+};
+
+/**
+ * Force a full pull from Firestore → IDB for all collections.
+ * Call this when the user explicitly wants to sync (e.g. "Pull from Cloud" button).
+ * Returns the number of documents synced.
+ */
+export const dbForceCloudSync = async (): Promise<{ total: number }> => {
+  if (!isFirebaseConfigured || !auth.currentUser) return { total: 0 };
+  const db = await getDB();
+  let total = 0;
+  try {
+    // Collections
+    const collections: Array<[string, string]> = [
+      ['assets', 'assets'],
+      ['transactions', 'transactions'],
+      ['categories', 'categories'],
+      ['debts', 'debts'],
+      ['recurring_transactions', 'recurring_transactions'],
+    ];
+    for (const [fsCol, idbStore] of collections) {
+      const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), fsCol)), 10000);
+      for (const d of snapshot.docs) {
+        await (db as any).put(idbStore, { id: d.id, ...d.data() });
+        total++;
+      }
+    }
+    // Settings: pull all setting docs from the settings sub-collection
+    const settingsSnap = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'settings')), 10000);
+    for (const d of settingsSnap.docs) {
+      const val = d.data().value;
+      if (val !== undefined) {
+        await db.put('settings', val, d.id);
+        total++;
+      }
+    }
+    return { total };
+  } catch (e) {
+    console.error('[dbForceCloudSync] Failed:', e);
+    return { total };
+  }
+};
+
 // ─── Assets ───────────────────────────────────────────────────────────────────
 export const dbGetAllAssets = async (): Promise<Asset[]> => {
   const local = await localDbGetAllAssets();
-  if (!isFirebaseConfigured || !auth.currentUser) return local;
+  // IDB-first: only hit Firestore when IDB is empty (new device / first login)
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
     const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'assets')));
     const cloud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
-    return mergeData(cloud, local);
+    // Populate IDB so next open costs 0 reads
+    const db = await getDB();
+    for (const item of cloud) await db.put('assets', item);
+    return cloud;
   } catch (e) { return local; }
 };
 
@@ -147,11 +205,14 @@ export const dbClearAssets = async () => {
 // ─── Transactions ─────────────────────────────────────────────────────────────
 export const dbGetAllTransactions = async (): Promise<Transaction[]> => {
   const local = await localDbGetAllTransactions();
-  if (!isFirebaseConfigured || !auth.currentUser) return local;
+  // IDB-first: transactions are the most expensive collection — never re-read from cloud unnecessarily
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'transactions')));
+    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'transactions')), 10000);
     const cloud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
-    return mergeData(cloud, local);
+    const db = await getDB();
+    for (const item of cloud) await db.put('transactions', item);
+    return cloud;
   } catch (e) { return local; }
 };
 
@@ -180,11 +241,14 @@ export const dbDeleteTransaction = async (id: string) => {
 // ─── Categories ───────────────────────────────────────────────────────────────
 export const dbGetAllCategories = async (): Promise<Category[]> => {
   const local = await localDbGetAllCategories();
-  if (!isFirebaseConfigured || !auth.currentUser) return local;
+  // IDB-first
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
     const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'categories')));
     const cloud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-    return mergeData(cloud, local);
+    const db = await getDB();
+    for (const item of cloud) await db.put('categories', item);
+    return cloud;
   } catch (e) { return local; }
 };
 
@@ -236,11 +300,14 @@ export const localDbGetAllDebts = async (): Promise<any[]> => (await getDB()).ge
 
 export const dbGetAllDebts = async (): Promise<any[]> => {
   const local = await localDbGetAllDebts();
-  if (!isFirebaseConfigured || !auth.currentUser) return local;
+  // IDB-first
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
     const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'debts')));
     const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-    return mergeData(cloud, local);
+    const db = await getDB();
+    for (const item of cloud) await db.put('debts', item);
+    return cloud;
   } catch (e) { return local; }
 };
 
@@ -267,11 +334,14 @@ export const dbDeleteDebt = async (id: string) => {
 // ─── Recurring Transactions ──────────────────────────────────────────────────
 export const dbGetAllRecurringTransactions = async (): Promise<any[]> => {
   const local = await (await getDB()).getAll('recurring_transactions');
-  if (!isFirebaseConfigured || !auth.currentUser) return local;
+  // IDB-first
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
     const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'recurring_transactions')));
     const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-    return mergeData(cloud, local);
+    const db = await getDB();
+    for (const item of cloud) await db.put('recurring_transactions', item);
+    return cloud;
   } catch (e) { return local; }
 };
 
@@ -298,12 +368,15 @@ export const dbDeleteRecurringTransaction = async (id: string) => {
 // ─── Settings ────────────────────────────────────────────────────────────────
 export const dbGetSetting = async (key: string) => {
   const local = await localDbGetSetting(key);
-  if (!isFirebaseConfigured || !auth.currentUser) return local;
+  // IDB-first: only fetch from Firestore if we have no local value
+  // (covers new device / first login scenario)
+  if (local !== undefined || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
     const docSnap = await withTimeout(getDoc(doc(firestore, 'users', getUid(), 'settings', key)));
     const cloud = docSnap.exists() ? docSnap.data().value : undefined;
-    if (Array.isArray(cloud) && Array.isArray(local)) return mergeData(cloud, local);
-    return cloud !== undefined ? cloud : local;
+    // Cache into IDB so next read costs nothing
+    if (cloud !== undefined) await (await getDB()).put('settings', cloud, key);
+    return cloud;
   } catch (e) { return local; }
 };
 
