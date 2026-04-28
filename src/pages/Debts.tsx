@@ -162,8 +162,9 @@ const DebtCard: React.FC<{
         )}
 
         {/* Footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-          <div style={{ display: 'flex', gap: 10, fontSize: 11, color: 'var(--text-muted)' }}>
+        <div style={{ marginTop: 10 }}>
+          {/* Info row — wraps on mobile */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
             {debt.dueDate && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Clock size={11} />
@@ -203,15 +204,15 @@ const DebtCard: React.FC<{
             )}
           </div>
 
-          {/* Pay installment button */}
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* Action buttons row */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             {!debt.isPaid && (
               <button
                 onClick={(e) => { e.stopPropagation(); onPay(); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 10,
                   background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                  boxShadow: '0 3px 10px var(--primary-glow)',
+                  boxShadow: '0 3px 10px var(--primary-glow)', whiteSpace: 'nowrap',
                 }}
               >
                 <PlayCircle size={14} /> Cicil / Lunas

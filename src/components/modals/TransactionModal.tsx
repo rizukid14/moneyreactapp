@@ -521,8 +521,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     )}
                   </motion.div>
 
+                  <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-card-solid)', paddingTop: 12, paddingBottom: 4, zIndex: 1 }}>
                   {!editingTransaction || isCopyMode ? (
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         type="submit"
                         onClick={() => { submitActionRef.current = 'continue'; }}
@@ -551,7 +552,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
                       style={{
                         width: '100%',
-                        marginTop: '16px',
                         backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
                         color: type === 'transfer' ? 'white' : undefined
                       }}
@@ -559,6 +559,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       Simpan Perubahan
                     </button>
                   )}
+                  </div>
                 </form>
               )}
             </motion.div>
