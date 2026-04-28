@@ -116,9 +116,29 @@ export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: 
   const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as T));
   const db = await getDB();
   const store = idbStoreName || colName;
+  
+  // 1. Put all valid items from cloud into IDB
   for (const item of items) {
     await (db as any).put(store as any, item);
   }
+
+  // 2. Clean up "zombies" (Items deleted on other devices)
+  // If an item exists in local IDB but NOT in Firestore, it means it was deleted elsewhere.
+  const cloudKeys = new Set(items.map(i => i.id));
+  const localKeys = await (db as any).getAllKeys(store);
+
+  for (const key of localKeys) {
+    if (!cloudKeys.has(key as string)) {
+      // It's locally present but missing from cloud.
+      // Make sure it's not a newly created offline item waiting to be pushed.
+      const pending = await db.get('pending_sync', key as string);
+      if (!pending || pending.operation !== 'PUT') {
+        // Safe to delete: It's a zombie!
+        await (db as any).delete(store, key as string);
+      }
+    }
+  }
+
   return items;
 };
 
