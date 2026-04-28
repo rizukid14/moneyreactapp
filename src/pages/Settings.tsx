@@ -17,7 +17,8 @@ import { useToast } from '../components/common/Toast';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
-  Common: '⬜', Uncommon: '🟩', Rare: '🟦', Epic: '🟪', Legendary: '🟨', Mythic: '🔴',
+  'Bronze': '🩶', 'Silver': '🥈', 'Gold': '🥇', 'Emerald': '💚',
+  'Sapphire': '💎', 'Ruby': '♦️', 'Amethyst': '🔮', 'Diamond': '💠', 'Sultan 👑': '👑',
 };
 
 interface CarouselCardSettingsProps {
@@ -116,7 +117,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      {GACHA_EMOJI[tier.name]} {tier.name} • {currencySymbol}{val.toLocaleString('id-ID')}
+                      {GACHA_EMOJI[tier.rank]} {tier.rank} • {currencySymbol}{val.toLocaleString('id-ID')}
                     </div>
                   </div>
                   <button
@@ -159,7 +160,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {GACHA_EMOJI[tier.name]} {tier.name} • {def.description}
+                  {GACHA_EMOJI[tier.rank]} {tier.rank} • {def.description}
                 </div>
               </div>
             </button>
