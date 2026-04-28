@@ -21,14 +21,14 @@ export interface CardDef {
 }
 
 export const ALL_CARD_DEFS: CardDef[] = [
-  { id: 'net_worth',          label: 'Kekayaan Bersih',                  description: 'Total semua aset dikurangi hutang', types: [] },
-  { id: 'cash_bank',          label: 'Kas & Bank',                        description: 'Tunai, rekening, & dompet digital', types: ['Cash', 'Bank Account', 'eWallet'] },
-  { id: 'savings',            label: 'Tabungan',                          description: 'Aset bertipe Tabungan',            types: ['Savings'] },
-  { id: 'investment',         label: 'Investasi',                         description: 'Aset bertipe Investasi',           types: ['Investment'] },
-  { id: 'savings_investment', label: 'Tabungan + Investasi',              description: 'Gabungan tabungan & investasi',    types: ['Savings', 'Investment'] },
-  { id: 'net_plus_savings',   label: 'Kekayaan + Tabungan',               description: 'Kas, bank, e-wallet & tabungan',   types: ['Cash', 'Bank Account', 'eWallet', 'Savings'] },
-  { id: 'net_plus_all',       label: 'Kekayaan + Tabungan + Investasi',   description: 'Semua aset produktif',              types: ['Cash', 'Bank Account', 'eWallet', 'Savings', 'Investment'] },
-  { id: 'liabilities',        label: 'Total Hutang',                      description: 'Kartu kredit & pinjaman (hutang)', types: ['Credit Card', 'Loan'], negate: true },
+  { id: 'net_worth', label: 'Kekayaan Bersih', description: 'Total semua aset dikurangi hutang', types: [] },
+  { id: 'cash_bank', label: 'Kas & Bank', description: 'Tunai, rekening, & dompet digital', types: ['Cash', 'Bank Account', 'eWallet'] },
+  { id: 'savings', label: 'Tabungan', description: 'Aset bertipe Tabungan', types: ['Savings'] },
+  { id: 'investment', label: 'Investasi', description: 'Aset bertipe Investasi', types: ['Investment'] },
+  { id: 'savings_investment', label: 'Tabungan + Investasi', description: 'Gabungan tabungan & investasi', types: ['Savings', 'Investment'] },
+  { id: 'net_plus_savings', label: 'Kekayaan + Tabungan', description: 'Kas, bank, e-wallet & tabungan', types: ['Cash', 'Bank Account', 'eWallet', 'Savings'] },
+  { id: 'net_plus_all', label: 'Kekayaan + Tabungan + Investasi', description: 'Semua aset produktif', types: ['Cash', 'Bank Account', 'eWallet', 'Savings', 'Investment'] },
+  { id: 'liabilities', label: 'Total Hutang', description: 'Kartu kredit & pinjaman (hutang)', types: ['Credit Card', 'Loan'], negate: true },
 ];
 
 // ─── Gacha Tiers (9 tiers) ────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ const GACHA_TIERS: GachaTier[] = [
   {
     rank: 'Gold',
     messages: [
-      '🥇 2,5 juta! Kamu lebih baik dari kebanyakan orang seumuranmu!',
+      '🥇 Kamu lebih baik dari kebanyakan orang seumuranmu!',
       '💰 Terus tabung, masa depan cerah sudah menanti!',
       '🔥 Konsistensimu mulai terasa. Jangan putus di sini!',
     ],
@@ -89,7 +89,7 @@ const GACHA_TIERS: GachaTier[] = [
   {
     rank: 'Emerald',
     messages: [
-      '💚 7,5 juta! Dana daruratmu sudah mulai terbentuk!',
+      '💚 Dana daruratmu sudah mulai terbentuk!',
       '🌿 Kamu sedang membangun benteng finansial yang kuat!',
       '🎯 Target 10 juta sudah di depan mata. Ayo kejar!',
     ],
@@ -103,7 +103,7 @@ const GACHA_TIERS: GachaTier[] = [
   {
     rank: 'Sapphire',
     messages: [
-      '💎 10 juta! Selamat — kamu masuk level serius!',
+      '💎 Selamat — kamu masuk level serius!',
       '📊 Di sini portofolio mulai bermakna. Investasikan dengan bijak!',
       '🌊 Aliran uangmu sudah lebih stabil. Jaga terus!',
     ],
@@ -117,7 +117,7 @@ const GACHA_TIERS: GachaTier[] = [
   {
     rank: 'Ruby',
     messages: [
-      '❤️‍🔥 25 juta! Kamu sudah jauh meninggalkan rata-rata!',
+      '❤️‍🔥 Kamu sudah jauh diatas rata-rata!',
       '🏆 Dedikasi finansialmu sungguh luar biasa. Terus berjuang!',
       '🔮 Masa pensiun yang nyaman sudah tidak terlalu jauh!',
     ],

@@ -523,13 +523,9 @@ const ReceiptScanner: React.FC = () => {
                   style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '8px 10px',
-                    background: item.isTax
-                      ? 'hsla(35,90%,52%,0.10)'
-                      : item.selected ? 'var(--bg-income)' : 'var(--bg-main)',
+                    background: item.selected ? 'var(--bg-income)' : 'var(--bg-main)',
                     borderRadius: '10px',
-                    border: item.isTax
-                      ? '1px solid hsla(35,90%,52%,0.35)'
-                      : `1px solid ${item.selected ? 'var(--primary)40' : 'var(--border-color)'}`,
+                    border: `1px solid ${item.selected ? 'var(--primary)40' : 'var(--border-color)'}`,
                     transition: 'background 0.15s',
                   }}
                 >
@@ -552,13 +548,6 @@ const ReceiptScanner: React.FC = () => {
                       />
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
-                        {item.isTax && (
-                          <span style={{
-                            flexShrink: 0, fontSize: '10px', fontWeight: 700,
-                            background: 'hsla(35,90%,52%,0.2)', color: '#d97706',
-                            borderRadius: '6px', padding: '1px 5px', letterSpacing: '0.04em',
-                          }}>PAJAK</span>
-                        )}
                         <span
                           onClick={() => { setEditingItemIdx(idx); setEditingField('name'); }}
                           title={item.name}

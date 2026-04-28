@@ -5,7 +5,6 @@ export interface LineItem {
   name: string;
   amount: number;
   selected: boolean;
-  isTax?: boolean;  // true for tax, service charge, fee items
 }
 
 export interface OCRResult {
@@ -123,16 +122,50 @@ export const useReceiptOCR = () => {
 
       setProgress(100);
       
-      // Tax keyword detection (fallback if AI doesn't set isTax)
-      const TAX_KEYWORDS = /pajak|ppn|pb1|tax|vat|service charge|surcharge|biaya layanan|service fee/i;
+      // Tax keyword detection
+      const TAX_KEYWORDS = /pajak|ppn|pb1|tax|vat|service charge|surcharge|biaya layanan|service fee|subtotal/i;
 
-      // Ensure line items have the 'selected' property and isTax flag
-      const mappedLineItems = (result.lineItems || []).map((item: any) => ({
-        name: item.name || '',
-        amount: typeof item.amount === 'number' ? item.amount : 0,
-        selected: true,
-        isTax: item.isTax === true || TAX_KEYWORDS.test(item.name || ''),
-      }));
+      // Raw items from AI
+      const rawItems: Array<{ name: string; amount: number; isTax?: boolean }> =
+        (result.lineItems || []).map((item: any) => ({
+          name: item.name || '',
+          amount: typeof item.amount === 'number' ? item.amount : 0,
+          isTax: item.isTax === true || TAX_KEYWORDS.test(item.name || ''),
+        }));
+
+      // Separate regular items vs tax/fee rows
+      const regularItems = rawItems.filter(i => !i.isTax && i.amount > 0);
+      const taxItems = rawItems.filter(i => i.isTax || i.amount < 0); // negative = discount
+
+      // Distribute tax + discounts proportionally into regular items
+      const regularSubtotal = regularItems.reduce((s, i) => s + i.amount, 0);
+      const totalTax = taxItems.reduce((s, i) => s + i.amount, 0); // discounts already negative
+
+      let mappedLineItems: LineItem[];
+
+      if (taxItems.length > 0 && regularSubtotal > 0) {
+        // Distribute proportionally — last item absorbs rounding
+        let distributed = 0;
+        mappedLineItems = regularItems.map((item, idx) => {
+          const isLast = idx === regularItems.length - 1;
+          const share = isLast
+            ? totalTax - distributed
+            : Math.round((item.amount / regularSubtotal) * totalTax);
+          distributed += share;
+          return {
+            name: item.name,
+            amount: item.amount + share,
+            selected: true,
+          };
+        });
+      } else {
+        // No tax rows — use items as-is
+        mappedLineItems = regularItems.map(item => ({
+          name: item.name,
+          amount: item.amount,
+          selected: true,
+        }));
+      }
 
       return {
         merchantName: result.merchantName || "",

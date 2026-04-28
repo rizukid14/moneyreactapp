@@ -35,13 +35,14 @@ export default async function handler(req: any, res: any) {
     - merchantName: string (store/restaurant name)
     - amount: number (final TOTAL paid by customer, including all taxes and fees)
     - date: string (YYYY-MM-DD format, use today if not visible)
-    - lineItems: array of objects {name: string, amount: number, isTax: boolean}.
-      RULES FOR lineItems:
-        1. List all purchased items with their individual prices.
-        2. ALWAYS include tax, VAT, PPN, PB1, service charge, and any surcharge as SEPARATE line items with isTax: true.
-        3. If you see a discount, include it as a negative number with isTax: false.
-        4. The sum of ALL lineItems.amount MUST equal the final total (amount field).
-        5. Do NOT skip tax even if it is small. Tax line name should match what's on the receipt (e.g. "PPN 11%", "Service Charge", "Tax").
+    - lineItems: array of objects {name: string, amount: number}.
+      CRITICAL RULES FOR lineItems:
+        1. List all purchased items (food, products, services).
+        2. DO NOT add separate rows for tax, PPN, PB1, service charge, subtotal, or discount.
+        3. Instead, distribute the tax and service charge PROPORTIONALLY into each item's amount.
+           Example: if item costs 10000 and total tax+service = 20% of subtotal, item amount becomes 12000.
+        4. The sum of all lineItems.amount MUST equal the final total (amount field).
+        5. Use the original item names from the receipt.
     - suggestedCategory: best match from [${categoryList}], or empty string
     - suggestedSubCategory: sub-category if applicable, or empty string
     - suggestedAsset: best match payment method from [${assetList}], or empty string
