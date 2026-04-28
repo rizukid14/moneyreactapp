@@ -133,18 +133,21 @@ export const useReceiptOCR = () => {
       
       let mappedLineItems: LineItem[];
 
-      // Calculate the gap between the sum of items and the grand total.
-      // This gap represents tax, service charges, and discounts.
-      if (itemsSubtotal > 0 && grandTotal > 0 && itemsSubtotal !== grandTotal) {
-        const gap = grandTotal - itemsSubtotal;
-        
-        // Distribute the gap proportionally — last item absorbs rounding errors
+      // Calculate the specific gap confirmed as tax/service minus discount
+      const taxAndFees = typeof result.totalTaxAndFees === 'number' ? result.totalTaxAndFees : 0;
+      const discount = typeof result.totalDiscount === 'number' ? result.totalDiscount : 0;
+      const explicitTaxGap = Math.max(0, taxAndFees - discount); // Ensure gap to distribute isn't negative
+      
+
+
+      if (explicitTaxGap > 0 && itemsSubtotal > 0) {
+        // Distribute ONLY the explicit tax/fee gap proportionally
         let distributed = 0;
         mappedLineItems = validItems.map((item: any, idx: number) => {
           const isLast = idx === validItems.length - 1;
           const share = isLast
-            ? gap - distributed
-            : Math.round((item.amount / itemsSubtotal) * gap);
+            ? explicitTaxGap - distributed
+            : Math.round((item.amount / itemsSubtotal) * explicitTaxGap);
           distributed += share;
           return {
             name: item.name,
@@ -158,6 +161,18 @@ export const useReceiptOCR = () => {
           amount: Math.round(item.amount),
           selected: true,
         }));
+      }
+
+      // Check if there's still a gap between the mapped items and the grand total
+      // This indicates missing/unread items by the OCR
+      const finalItemsSum = mappedLineItems.reduce((sum, i) => sum + i.amount, 0);
+      if (grandTotal > finalItemsSum + 100) { // +100 for rounding safety
+        const missingAmount = grandTotal - finalItemsSum;
+        mappedLineItems.push({
+          name: "Item Tidak Terbaca (Scan Kurang Jelas)",
+          amount: missingAmount,
+          selected: true,
+        });
       }
 
       return {
