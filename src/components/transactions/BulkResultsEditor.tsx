@@ -5,6 +5,7 @@ import type { Category, Asset } from '../../contexts/MoneyContext';
 import CategorySelectModal from '../modals/CategorySelectModal';
 import AssetSelectModal from '../modals/AssetSelectModal';
 import CalculatorModal from '../modals/CalculatorModal';
+import { getLocalDate } from '../../lib/utils';
 
 interface BulkResultsEditorProps {
   results: ParsedTransaction[];
@@ -38,7 +39,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
       id: `manual-${Date.now()}`,
       type: 'pengeluaran',
       amount: 0,
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDate(),
       note: '',
       category: '',
       subCategory: '',

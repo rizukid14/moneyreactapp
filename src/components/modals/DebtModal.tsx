@@ -221,7 +221,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
 
               {type === 'hutang' && !editingDebt && (
-                <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                <div style={{ background: 'hsla(350,80%,58%,0.08)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid hsla(350,80%,58%,0.18)' }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--danger)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                     Metode Pencatatan
                   </div>
@@ -254,7 +254,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               )}
 
               {type === 'hutang' && (
-                <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                <div style={{ background: 'hsla(350,80%,58%,0.08)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid hsla(350,80%,58%,0.18)' }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--danger)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                     Rekening / Akun Hutang
                   </div>
@@ -303,7 +303,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               )}
 
               {type === 'piutang' && (
-                <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                <div style={{ background: 'hsla(215,85%,58%,0.08)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid hsla(215,85%,58%,0.18)' }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                     Pengaturan Rekening
                   </div>
@@ -348,7 +348,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               </div>
 
               {isInstallment && (
-                <div style={{ background: 'var(--bg-main)', borderRadius: 12, padding: 14, marginBottom: 8 }}>
+                <div style={{ background: 'hsla(215,85%,58%,0.08)', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid hsla(215,85%,58%,0.18)' }}>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Nominal Per Cicilan ({currencySymbol}) - <span style={{ color: 'var(--primary)', fontStyle: 'italic' }}>Otomatis Terisi</span></label>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                     <input type="text" inputMode="numeric" required={isInstallment} placeholder="0" value={installmentAmount} onChange={e => formatNum(e, setInstallmentAmount)} style={{ flex: 1, marginBottom: 0 }} />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getLocalDate } from '../../lib/utils';
 import type { Asset, AssetType, Transaction } from '../../contexts/MoneyContext';
 import ConfirmDialog from '../common/ConfirmDialog';
 
@@ -95,7 +96,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
             type: difference > 0 ? 'pendapatan' : 'pengeluaran',
             amount: Math.abs(difference),
             category: 'Koreksi Saldo',
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalDate(),
             note: 'Penyesuaian saldo manual',
             assetId: editingAsset.id
           });

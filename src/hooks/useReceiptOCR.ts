@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { getLocalDate } from '../lib/utils';
 
 export interface LineItem {
   name: string;
@@ -121,16 +122,55 @@ export const useReceiptOCR = () => {
 
       setProgress(100);
       
-      // Ensure line items have the 'selected' property
-      const mappedLineItems = (result.lineItems || []).map((item: any) => ({
-        ...item,
-        selected: true
-      }));
+      // Tax keyword detection
+      const TAX_KEYWORDS = /pajak|ppn|pb1|tax|vat|service charge|surcharge|biaya layanan|service fee|subtotal/i;
+
+      // Raw items from AI
+      const rawItems: Array<{ name: string; amount: number; isTax?: boolean }> =
+        (result.lineItems || []).map((item: any) => ({
+          name: item.name || '',
+          amount: typeof item.amount === 'number' ? item.amount : 0,
+          isTax: item.isTax === true || TAX_KEYWORDS.test(item.name || ''),
+        }));
+
+      // Separate regular items vs tax/fee rows
+      const regularItems = rawItems.filter(i => !i.isTax && i.amount > 0);
+      const taxItems = rawItems.filter(i => i.isTax || i.amount < 0); // negative = discount
+
+      // Distribute tax + discounts proportionally into regular items
+      const regularSubtotal = regularItems.reduce((s, i) => s + i.amount, 0);
+      const totalTax = taxItems.reduce((s, i) => s + i.amount, 0); // discounts already negative
+
+      let mappedLineItems: LineItem[];
+
+      if (taxItems.length > 0 && regularSubtotal > 0) {
+        // Distribute proportionally — last item absorbs rounding
+        let distributed = 0;
+        mappedLineItems = regularItems.map((item, idx) => {
+          const isLast = idx === regularItems.length - 1;
+          const share = isLast
+            ? totalTax - distributed
+            : Math.round((item.amount / regularSubtotal) * totalTax);
+          distributed += share;
+          return {
+            name: item.name,
+            amount: item.amount + share,
+            selected: true,
+          };
+        });
+      } else {
+        // No tax rows — use items as-is
+        mappedLineItems = regularItems.map(item => ({
+          name: item.name,
+          amount: item.amount,
+          selected: true,
+        }));
+      }
 
       return {
         merchantName: result.merchantName || "",
         amount: result.amount || 0,
-        date: result.date || new Date().toISOString().split('T')[0],
+        date: result.date || getLocalDate(),
         rawText: result.rawText || "Parsed via Cloud AI",
         suggestedCategory: result.suggestedCategory || "",
         suggestedSubCategory: result.suggestedSubCategory || "",

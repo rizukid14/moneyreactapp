@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { getLocalDate } from '../lib/utils';
 
 export interface ParsedTransaction {
   id: string; // temporary id for frontend listing
@@ -70,8 +71,8 @@ export const useBulkParseAI = () => {
     categories?: any[];
     assets?: any[];
   }): Promise<ParsedTransaction[] | null> => {
-    setIsParsing(true); 
-    setError(null); 
+    setIsParsing(true);
+    setError(null);
 
     try {
       let imageBase64;
@@ -85,12 +86,12 @@ export const useBulkParseAI = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           text: text || '',
           image: imageBase64,
-          categories: categories?.map(c => ({ name: c.name })),
+          categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s: any) => ({ name: s.name })) })),
           assets: assets?.map(a => ({ name: a.name })),
-          currentDate: new Date().toISOString().split('T')[0]
+          currentDate: getLocalDate()
         }),
       });
 
@@ -100,7 +101,7 @@ export const useBulkParseAI = () => {
       }
 
       const result = await response.json();
-      
+
       if (!result.transactions || !Array.isArray(result.transactions)) {
         throw new Error('Format balasan dari AI tidak valid.');
       }
@@ -110,7 +111,7 @@ export const useBulkParseAI = () => {
         id: `bulk-${Date.now()}-${index}`,
         type: item.type === 'pendapatan' ? 'pendapatan' : 'pengeluaran',
         amount: item.amount || 0,
-        date: item.date || new Date().toISOString().split('T')[0],
+        date: item.date || getLocalDate(),
         note: item.note || '',
         category: item.category || '',
         subCategory: item.subCategory || '',
@@ -128,10 +129,10 @@ export const useBulkParseAI = () => {
     }
   }, []);
 
-  return { 
-    parseData, 
-    isParsing, 
-    error, 
-    setError 
+  return {
+    parseData,
+    isParsing,
+    error,
+    setError
   };
 };
