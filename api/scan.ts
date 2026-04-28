@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { image, categories, assets } = req.body; 
+    const { image, categories, assets } = req.body;
 
     if (!image) {
       return res.status(400).json({ message: 'No image provided' });
@@ -41,7 +41,7 @@ export default async function handler(req: any, res: any) {
         2. Do NOT include rows for tax, PPN, service charge, subtotal, total, or change (kembalian).
         3. Use the original base prices for the items.
         4. Use the original item names from the receipt.
-    - taxAmount: number (Amount of tax, PPN, PB1, VAT, etc. 0 if none.)
+    - taxAmount: number (Amount of tax1,tax, PPN, PB1, VAT, etc. 0 if none.)
     - serviceChargeAmount: number (Amount of service charge, service fee, etc. 0 if none.)
     - discountAmount: number (Amount of all discounts. Positive number. 0 if none.)
     - suggestedCategory: best match from [${categoryList}], or empty string
@@ -74,13 +74,13 @@ export default async function handler(req: any, res: any) {
     const text = response.choices[0].message.content;
     const parsedData = JSON.parse(text || '{}');
     parsedData.rawText = "Optimized via OpenAI (Low Detail/65 tokens)";
-    
+
     return res.status(200).json(parsedData);
   } catch (error: any) {
     console.error('OCR API Error:', error);
-    return res.status(500).json({ 
-      message: 'OCR Failed', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'OCR Failed',
+      error: error.message
     });
   }
 }
