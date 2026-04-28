@@ -180,6 +180,8 @@ export function getGachaTier(amount: number): GachaTier {
   return GACHA_TIERS[0];
 }
 
+export { GACHA_TIERS };
+
 /** Progress within current tier [0–1] */
 function getTierFillPercent(amount: number, tier: GachaTier): number {
   if (tier.maxVal === Infinity) return 1;
@@ -330,6 +332,11 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   const fillPercent = getTierFillPercent(absValue, tier);
   const message = useRotatingMessage(tier.messages);
 
+  // Next tier progress
+  const tierIdx = GACHA_TIERS.findIndex(t => t.rank === tier.rank);
+  const nextTier = tierIdx < GACHA_TIERS.length - 1 ? GACHA_TIERS[tierIdx + 1] : null;
+  const amountToNext = nextTier ? nextTier.minVal - Math.abs(absValue) : 0;
+
   const formatted = isPrivateMode
     ? `${currencySymbol} ••••••••`
     : `${currencySymbol}${value.toLocaleString('id-ID')}`;
@@ -411,9 +418,37 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
             fontStyle: 'italic',
             fontWeight: 500,
             animation: 'fadeIn 0.5s ease',
+            marginBottom: '8px',
           }}>
             {message}
           </div>
+
+          {/* Next tier hint */}
+          {!isPrivateMode && (
+            nextTier ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{
+                  height: '3px', borderRadius: '2px',
+                  background: 'rgba(255,255,255,0.2)',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%', borderRadius: '2px',
+                    width: `${Math.round(fillPercent * 100)}%`,
+                    background: 'rgba(255,255,255,0.75)',
+                    transition: 'width 1s ease',
+                  }} />
+                </div>
+                <div style={{ fontSize: '10px', opacity: 0.75, fontWeight: 600 }}>
+                  {currencySymbol}{amountToNext.toLocaleString('id-ID')} lagi ke {nextTier.emoji} {nextTier.rank}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '10px', opacity: 0.75, fontWeight: 700 }}>
+                🏆 Kamu sudah di puncak! Sultan sejati!
+              </div>
+            )
+          )}
         </div>
       </div>
     </div>
