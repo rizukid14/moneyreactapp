@@ -4,6 +4,7 @@ import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext'
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
+import DebtOffsetModal from '../components/modals/DebtOffsetModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
@@ -270,7 +271,7 @@ const DebtCard: React.FC<{
   };
 
 const Debts: React.FC = () => {
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, currencySymbol } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
@@ -280,6 +281,8 @@ const Debts: React.FC = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [principalModalDebtId, setPrincipalModalDebtId] = useState<string | null>(null);
+  const [offsetTarget, setOffsetTarget] = useState<{ contact: string; h: number; p: number; amt: number } | null>(null);
+  const [isOffsetModalOpen, setIsOffsetModalOpen] = useState(false);
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
@@ -307,6 +310,35 @@ const Debts: React.FC = () => {
       else totalPiutang += remaining;
     });
     return { totalHutang, totalPiutang, net: totalPiutang - totalHutang };
+  }, [debts, transactions]);
+
+  const offsetPotentials = useMemo(() => {
+    const contactMap: Record<string, { h: number; p: number }> = {};
+    debts.forEach(d => {
+      if (d.isPaid) return;
+      const history = transactions.filter(t => t.relatedId === d.id);
+      const paidAmt = history.reduce((sum, tx) => {
+        const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
+          tx.note.includes('Pemberian pinjaman') ||
+          tx.note.includes('Belanja via'));
+        return isPrincipal ? sum : sum + tx.amount;
+      }, 0);
+      const remaining = Math.max(0, d.totalAmount - paidAmt);
+      if (remaining <= 0) return;
+
+      if (!contactMap[d.contact]) contactMap[d.contact] = { h: 0, p: 0 };
+      if (d.type === 'hutang') contactMap[d.contact].h += remaining;
+      else contactMap[d.contact].p += remaining;
+    });
+
+    return Object.entries(contactMap)
+      .filter(([_, vals]) => vals.h > 0 && vals.p > 0)
+      .map(([name, vals]) => ({
+        contact: name,
+        h: vals.h,
+        p: vals.p,
+        amt: Math.min(vals.h, vals.p)
+      }));
   }, [debts, transactions]);
 
   const filtered = useMemo(() => {
@@ -361,7 +393,7 @@ const Debts: React.FC = () => {
       {(summary.totalHutang > 0 || summary.totalPiutang > 0) && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
-          borderRadius: 12, marginBottom: 20,
+          borderRadius: 12, marginBottom: 12,
           background: summary.net >= 0 ? 'var(--bg-income)' : 'var(--bg-expense)',
           border: `1px solid ${summary.net >= 0 ? 'hsla(215, 69%, 50%, 0.67)' : 'hsla(350, 80%, 58%, 0.78)'}`,
         }}>
@@ -371,6 +403,43 @@ const Debts: React.FC = () => {
               ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
               : `Neto: kamu berhutang lebih banyak ${fmt(summary.net, currencySymbol)}`}
           </span>
+        </div>
+      )}
+
+      {/* Offset Banner */}
+      {offsetPotentials.length > 0 && (
+        <div style={{ 
+          marginBottom: 20, padding: '14px', borderRadius: '16px', 
+          background: 'var(--primary-gradient)', color: 'white',
+          boxShadow: '0 8px 20px var(--primary-glow)',
+          display: 'flex', alignItems: 'center', gap: '12px'
+        }}>
+          <div style={{ 
+            width: '40px', height: '40px', borderRadius: '12px', 
+            background: 'rgba(255,255,255,0.2)', display: 'flex', 
+            alignItems: 'center', justifyContent: 'center' 
+          }}>
+            <ArrowRightLeft size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '13px', fontWeight: 800 }}>Tersedia Potong Silang (Offset)</div>
+            <div style={{ fontSize: '11px', opacity: 0.9, fontWeight: 600 }}>
+              Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif.
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              setOffsetTarget(offsetPotentials[0]);
+              setIsOffsetModalOpen(true);
+            }}
+            style={{ 
+              padding: '8px 16px', borderRadius: '10px', background: 'white', 
+              color: 'var(--primary)', border: 'none', fontWeight: 800, 
+              fontSize: '12px', cursor: 'pointer' 
+            }}
+          >
+            Selesaikan
+          </button>
         </div>
       )}
 
@@ -506,6 +575,23 @@ const Debts: React.FC = () => {
         title="Hapus Catatan"
         message="Apakah Anda yakin ingin menghapus catatan hutang/piutang ini? Histori transaksi terkait akan tetap ada."
       />
+
+      {offsetTarget && (
+        <DebtOffsetModal
+          isOpen={isOffsetModalOpen}
+          onClose={() => setIsOffsetModalOpen(false)}
+          onConfirm={() => {
+            offsetDebt(offsetTarget.contact);
+            setIsOffsetModalOpen(false);
+            setOffsetTarget(null);
+          }}
+          contactName={offsetTarget.contact}
+          totalHutang={offsetTarget.h}
+          totalPiutang={offsetTarget.p}
+          offsetAmount={offsetTarget.amt}
+          currencySymbol={currencySymbol}
+        />
+      )}
     </div>
   );
 };

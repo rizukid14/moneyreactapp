@@ -34,9 +34,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [date, setDate] = useState(getLocalDate());
   const [time, setTime] = useState(getLocalTime());
   const [note, setNote] = useState('');
+  const [description, setDescription] = useState('');
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [assetSelectingField, setAssetSelectingField] = useState<'assetId' | 'fromAssetId' | 'toAssetId'>('assetId');
   const [assetId, setAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [fromAssetId, setFromAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
@@ -45,6 +47,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
   const [recurringEndDate, setRecurringEndDate] = useState('');
+
+  // Admin fee state (transfer only)
+  const [adminFee, setAdminFee] = useState('');
+  const [adminFeeTarget, setAdminFeeTarget] = useState<'sender' | 'receiver'>('sender');
 
   const prevType = React.useRef(type);
   const isSavingRef = React.useRef(false);
@@ -67,6 +73,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setDate(editingTransaction.date);
       setTime(editingTransaction.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
       setNote(editingTransaction.note);
+      setDescription(editingTransaction.description || '');
       setAssetId(editingTransaction.assetId || activeAssets[0]?.id || '');
       setFromAssetId(editingTransaction.fromAssetId || activeAssets[0]?.id || '');
       setToAssetId(editingTransaction.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
@@ -82,6 +89,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setDate(draft.date || getLocalDate());
         setTime(draft.time || getLocalTime());
         setNote(draft.note || '');
+        setDescription(draft.description || '');
         setAssetId(draft.assetId || defaultAssetId || activeAssets[0]?.id || '');
         setFromAssetId(draft.fromAssetId || defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(draft.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
@@ -96,6 +104,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setDate(getLocalDate());
         setTime(getLocalTime());
         setNote('');
+        setDescription('');
         setAssetId(defaultAssetId || activeAssets[0]?.id || '');
         setFromAssetId(defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
@@ -136,7 +145,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   useEffect(() => {
     if (isOpen && !editingTransaction && !isSavingRef.current) {
       const currentDraft = {
-        type, amount, category, subCategory, date, time, note,
+        type, amount, category, subCategory, date, time, note, description,
         assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate
       };
       setAllDrafts(prev => {
@@ -145,7 +154,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         return next;
       });
     }
-  }, [type, amount, category, subCategory, date, time, note, assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate, isOpen, editingTransaction]);
+  }, [type, amount, category, subCategory, date, time, note, description, assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate, isOpen, editingTransaction]);
 
   // ── Budget Alert Logic ──────────────────────────────────────
   const budgetAlerts = useMemo(() => {
@@ -238,7 +247,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       category: type === 'transfer' ? 'Transfer' : category,
       subCategory: type === 'transfer' ? undefined : (subCategory || undefined),
       date,
+      time,
       note,
+      description: description || undefined,
       assetId: type !== 'transfer' ? assetId : undefined,
       fromAssetId: type === 'transfer' ? fromAssetId : undefined,
       toAssetId: type === 'transfer' ? toAssetId : undefined,
@@ -249,6 +260,21 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     } else {
       isSavingRef.current = true;
       addTransaction(txData);
+
+      // Create separate pengeluaran transaction for admin fee
+      const adminFeeAmount = Number(adminFee.replace(/\./g, ''));
+      if (type === 'transfer' && adminFeeAmount > 0) {
+        const feeAssetId = adminFeeTarget === 'sender' ? fromAssetId : toAssetId;
+        const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+        addTransaction({
+          type: 'pengeluaran',
+          amount: adminFeeAmount,
+          category: 'Biaya Admin',
+          date,
+          note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+          assetId: feeAssetId,
+        });
+      }
 
       // Clear draft for this type after success
       setAllDrafts(prev => {
@@ -264,6 +290,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setSubCategory('');
       setNote('');
       setIsRecurring(false);
+      setAdminFee('');
+      setAdminFeeTarget('sender');
 
       setTimeout(() => { isSavingRef.current = false; }, 200);
 
@@ -411,7 +439,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           return (
                             <button
                               type="button"
-                              onClick={() => setIsAssetModalOpen(true)}
+                              onClick={() => {
+                            setAssetSelectingField('assetId');
+                            setIsAssetModalOpen(true);
+                          }}
                               style={{
                                 width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
                                 border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
@@ -431,19 +462,115 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         })()}
                       </>
                     ) : (
+                      <>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                        <select style={{ marginBottom: 0 }} value={fromAssetId} onChange={e => setFromAssetId(e.target.value)}>
-                          {assets.filter(a => !a.isDeleted || a.id === fromAssetId).map(a => (
-                            <option key={a.id} value={a.id}>{a.name} {a.isDeleted ? '(Dihapus)' : ''}</option>
-                          ))}
-                        </select>
-                        <ArrowRightLeft color="var(--text-muted)" size={20} />
-                        <select style={{ marginBottom: 0 }} value={toAssetId} onChange={e => setToAssetId(e.target.value)}>
-                          {assets.filter(a => !a.isDeleted || a.id === toAssetId).map(a => (
-                            <option key={a.id} value={a.id}>{a.name} {a.isDeleted ? '(Dihapus)' : ''}</option>
-                          ))}
-                        </select>
+                        {/* From Asset Button */}
+                        {(() => {
+                          const asset = assets.find(a => a.id === fromAssetId);
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAssetSelectingField('fromAssetId');
+                                setIsAssetModalOpen(true);
+                              }}
+                              style={{
+                                flex: 1, padding: '12px 14px', background: 'var(--bg-card-solid)',
+                                border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
+                              }}
+                            >
+                              <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {asset ? asset.name : '-- Dari --'}
+                              </span>
+                              <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                            </button>
+                          );
+                        })()}
+
+                        <ArrowRightLeft color="var(--text-muted)" size={18} style={{ flexShrink: 0 }} />
+
+                        {/* To Asset Button */}
+                        {(() => {
+                          const asset = assets.find(a => a.id === toAssetId);
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAssetSelectingField('toAssetId');
+                                setIsAssetModalOpen(true);
+                              }}
+                              style={{
+                                flex: 1, padding: '12px 14px', background: 'var(--bg-card-solid)',
+                                border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
+                              }}
+                            >
+                              <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {asset ? asset.name : '-- Ke --'}
+                              </span>
+                              <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                            </button>
+                          );
+                        })()}
                       </div>
+
+                      {/* Admin Fee Section */}
+                      <div style={{
+                        padding: '10px 12px', borderRadius: '10px',
+                        background: adminFee ? 'hsla(35, 90%, 55%, 0.08)' : 'var(--bg-main)',
+                        border: `1px solid ${adminFee ? 'hsla(35, 90%, 55%, 0.3)' : 'var(--border-color)'}`,
+                        marginBottom: '16px', transition: 'all 0.2s'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: adminFee ? '10px' : 0 }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>Biaya Admin</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={adminFee}
+                            onChange={e => {
+                              const numericValue = e.target.value.replace(/\D/g, '');
+                              setAdminFee(numericValue ? Number(numericValue).toLocaleString('id-ID') : '');
+                            }}
+                            style={{
+                              width: '100px', fontSize: '13px', fontWeight: 700, textAlign: 'right',
+                              padding: '6px 10px', marginBottom: 0, borderRadius: '8px',
+                              border: '1px solid var(--border-color)', background: 'var(--bg-card-solid)'
+                            }}
+                          />
+                        </div>
+
+                        {adminFee && (
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setAdminFeeTarget('sender')}
+                              style={{
+                                flex: 1, padding: '7px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
+                                border: `1.5px solid ${adminFeeTarget === 'sender' ? 'var(--secondary)' : 'var(--border-color)'}`,
+                                background: adminFeeTarget === 'sender' ? 'var(--bg-expense)' : 'var(--bg-card)',
+                                color: adminFeeTarget === 'sender' ? 'var(--secondary)' : 'var(--text-muted)',
+                                cursor: 'pointer', transition: 'all 0.15s'
+                              }}
+                            >Pengirim</button>
+                            <button
+                              type="button"
+                              onClick={() => setAdminFeeTarget('receiver')}
+                              style={{
+                                flex: 1, padding: '7px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
+                                border: `1.5px solid ${adminFeeTarget === 'receiver' ? 'var(--secondary)' : 'var(--border-color)'}`,
+                                background: adminFeeTarget === 'receiver' ? 'var(--bg-expense)' : 'var(--bg-card)',
+                                color: adminFeeTarget === 'receiver' ? 'var(--secondary)' : 'var(--text-muted)',
+                                cursor: 'pointer', transition: 'all 0.15s'
+                              }}
+                            >Penerima</button>
+                          </div>
+                        )}
+                      </div>
+                      </>
                     )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', marginBottom: '16px' }}>
@@ -451,6 +578,27 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       <input type="time" required value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
                     </div>
                     <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} />
+                    
+                    <div style={{ marginBottom: '16px' }}>
+                      <textarea
+                        placeholder="Detail item / Catatan tambahan..."
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        style={{
+                          width: '100%',
+                          minHeight: '80px',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-main)',
+                          color: 'var(--text-main)',
+                          fontSize: '13px',
+                          resize: 'vertical',
+                          outline: 'none',
+                          marginTop: '4px'
+                        }}
+                      />
+                    </div>
 
                     {!editingTransaction && (
                       <div style={{
@@ -593,8 +741,16 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         isOpen={isAssetModalOpen}
         onClose={() => setIsAssetModalOpen(false)}
         assets={assets.filter(a => !a.isDeleted)}
-        selectedAssetId={assetId}
-        onSelect={(id) => setAssetId(id)}
+        selectedAssetId={
+          assetSelectingField === 'assetId' ? assetId :
+          assetSelectingField === 'fromAssetId' ? fromAssetId :
+          toAssetId
+        }
+        onSelect={(id) => {
+          if (assetSelectingField === 'assetId') setAssetId(id);
+          else if (assetSelectingField === 'fromAssetId') setFromAssetId(id);
+          else setToAssetId(id);
+        }}
       />
     </>
   );

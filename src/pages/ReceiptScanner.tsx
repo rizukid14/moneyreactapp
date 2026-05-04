@@ -46,6 +46,7 @@ const ReceiptScanner: React.FC = () => {
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [selectedType, setSelectedType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedTime, setSelectedTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
   const [editableAmount, setEditableAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
@@ -71,6 +72,7 @@ const ReceiptScanner: React.FC = () => {
     setSelectedCategory('');
     setSelectedSubCategory('');
     setMerchantName('');
+    setSelectedTime(new Date().toTimeString().split(' ')[0].slice(0, 5));
   }, [previewUrl, setError]);
 
   // ── Draw canvas when entering crop stage ────────────────────────────────────
@@ -203,15 +205,20 @@ const ReceiptScanner: React.FC = () => {
       const parsed = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets });
       if (parsed && parsed.length > 0) {
         const augmented = parsed.map(tx => {
-          let matchedAssetId = activeAssets[0]?.id || '';
-          if (tx.asset) {
-            const matched = activeAssets.find(a => a.name.toLowerCase().includes(tx.asset.toLowerCase()) || tx.asset.toLowerCase().includes(a.name.toLowerCase()));
-            if (matched) matchedAssetId = matched.id;
-          }
+          const mapAsset = (assetName: string | undefined, defaultId = '') => {
+            if (!assetName) return defaultId;
+            const matched = activeAssets.find(a => a.name.toLowerCase().includes(assetName.toLowerCase()) || assetName.toLowerCase().includes(a.name.toLowerCase()));
+            return matched?.id || defaultId;
+          };
+
+          const defaultAssetId = activeAssets[0]?.id || '';
+          const matchedAssetId = mapAsset(tx.asset, defaultAssetId);
+          const matchedFromAssetId = mapAsset(tx.fromAsset, defaultAssetId);
+          const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || defaultAssetId);
 
           let matchedCategory = '';
           let matchedSubCategory = '';
-          if (tx.category) {
+          if (tx.category && tx.type !== 'transfer') {
             const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type);
             if (matchedCat) {
               matchedCategory = matchedCat.name;
@@ -225,7 +232,9 @@ const ReceiptScanner: React.FC = () => {
           return {
             ...tx,
             asset: matchedAssetId,
-            category: matchedCategory || (tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
+            fromAsset: matchedFromAssetId,
+            toAsset: matchedToAssetId,
+            category: matchedCategory || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
             subCategory: matchedSubCategory || ''
           };
         });
@@ -268,6 +277,7 @@ const ReceiptScanner: React.FC = () => {
 
       setSelectedType('pengeluaran');
       setSelectedDate(ocrResult.date);
+      setSelectedTime(ocrResult.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
       setEditableAmount(ocrResult.amount > 0 ? ocrResult.amount.toString() : '');
       setMerchantName(ocrResult.merchantName || 'Scan Otomatis');
       setLineItems(ocrResult.lineItems);
@@ -311,13 +321,23 @@ const ReceiptScanner: React.FC = () => {
     if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
 
     try {
+      // Build note and description with line items if they exist
+      const selectedItems = lineItems.filter(i => i.selected);
+      const finalNote = merchantName || 'Scan Otomatis';
+      let finalDescription = '';
+      if (selectedItems.length > 0) {
+        finalDescription = selectedItems.map(i => i.name).join(', ');
+      }
+
       addTransaction({
         type: selectedType,
         amount: finalAmount,
         category: selectedCategory || 'Belanja (OCR)',
         subCategory: selectedSubCategory || undefined,
         date: selectedDate,
-        note: merchantName || 'Scan Otomatis',
+        time: selectedTime,
+        note: finalNote,
+        description: finalDescription || undefined,
         assetId: selectedAssetId,
       });
       showToast('Transaksi berhasil disimpan!', 'success');
@@ -330,8 +350,8 @@ const ReceiptScanner: React.FC = () => {
 
   const handleSaveLineItems = () => {
     if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
-    const toSave = lineItems.filter(i => i.selected && i.amount > 0);
-    if (toSave.length === 0) { showToast('Pilih minimal 1 item dengan nominal > 0', 'warning'); return; }
+    const toSave = lineItems.filter(i => i.selected && i.amount !== 0);
+    if (toSave.length === 0) { showToast('Pilih minimal 1 item dengan nominal selain 0', 'warning'); return; }
 
     try {
       toSave.forEach(item => {
@@ -341,6 +361,7 @@ const ReceiptScanner: React.FC = () => {
           category: selectedCategory || 'Belanja (OCR)',
           subCategory: selectedSubCategory || undefined,
           date: selectedDate,
+          time: selectedTime,
           note: item.name,
           assetId: selectedAssetId,
         });
@@ -361,8 +382,9 @@ const ReceiptScanner: React.FC = () => {
     setLineItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
       if (field === 'amount') {
+        const isNegative = value.startsWith('-');
         const num = parseInt(value.replace(/\D/g, '')) || 0;
-        return { ...item, amount: num };
+        return { ...item, amount: isNegative ? -num : num };
       }
       return { ...item, name: value };
     }));
@@ -603,6 +625,17 @@ const ReceiptScanner: React.FC = () => {
               </span>
             </div>
 
+            {result.taxInfo && (
+              <div style={{
+                marginTop: '8px', padding: '8px 12px', background: 'hsla(210, 80%, 55%, 0.08)',
+                borderRadius: '10px', border: '1px solid hsla(210, 80%, 55%, 0.2)',
+                fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px'
+              }}>
+                <span>ℹ️</span>
+                <span>{result.taxInfo} <span style={{ opacity: 0.7 }}>(sudah termasuk di harga item)</span></span>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
               <button
                 onClick={addItem}
@@ -641,21 +674,50 @@ const ReceiptScanner: React.FC = () => {
           currencySymbol={currencySymbol}
           onSave={() => {
             const toSave = mutasiResults.filter(r => r.selected);
-            if (toSave.some(r => !r.amount || !r.category || !r.asset)) {
-              showToast('Pastikan semua transaksi yang dicentang memiliki Nominal, Kategori, dan Rekening!', 'warning');
+            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category || !r.asset))) {
+              showToast('Pastikan semua transaksi reguler memiliki Nominal, Kategori, dan Rekening!', 'warning');
+              return;
+            }
+            if (toSave.some(r => r.type === 'transfer' && (!r.amount || !r.fromAsset || !r.toAsset))) {
+              showToast('Pastikan semua transaksi transfer memiliki Nominal, Dari Rekening, dan Ke Rekening!', 'warning');
               return;
             }
 
             toSave.forEach(tx => {
-              addTransaction({
-                type: tx.type,
-                amount: tx.amount,
-                date: tx.date,
-                note: tx.note,
-                category: tx.category,
-                subCategory: tx.subCategory || undefined,
-                assetId: tx.asset
-              });
+              if (tx.type === 'transfer') {
+                addTransaction({
+                  type: 'transfer',
+                  amount: tx.amount,
+                  date: tx.date,
+                  note: tx.note || 'Transfer',
+                  category: 'Transfer',
+                  fromAssetId: tx.fromAsset,
+                  toAssetId: tx.toAsset
+                });
+
+                if (tx.adminFee && tx.adminFee > 0) {
+                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? tx.toAsset : tx.fromAsset;
+                  const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+                  addTransaction({
+                    type: 'pengeluaran',
+                    amount: tx.adminFee,
+                    category: 'Biaya Admin',
+                    date: tx.date,
+                    note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+                    assetId: feeAssetId,
+                  });
+                }
+              } else {
+                addTransaction({
+                  type: tx.type,
+                  amount: tx.amount,
+                  date: tx.date,
+                  note: tx.note,
+                  category: tx.category,
+                  subCategory: tx.subCategory || undefined,
+                  assetId: tx.asset
+                });
+              }
             });
 
             showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');

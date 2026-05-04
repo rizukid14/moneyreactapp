@@ -17,7 +17,7 @@ interface BulkResultsEditorProps {
 }
 
 interface ModalState {
-  type: 'calculator' | 'category' | 'asset' | null;
+  type: 'calculator' | 'category' | 'asset' | 'fromAsset' | 'toAsset' | null;
   itemId: string | null;
 }
 
@@ -44,6 +44,8 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
       category: '',
       subCategory: '',
       asset: '',
+      fromAsset: '',
+      toAsset: '',
       selected: true
     };
     setResults(prev => [...prev, newRow]);
@@ -63,9 +65,10 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
     return item.subCategory ? `${item.category} > ${item.subCategory}` : item.category;
   };
 
-  const getAssetLabel = (item: ParsedTransaction) => {
-    const found = activeAssets.find(a => a.id === item.asset);
-    return found ? found.name : '-- Pilih Rekening --';
+  const getAssetLabel = (assetId?: string, fallback = '-- Pilih Rekening --') => {
+    if (!assetId) return fallback;
+    const found = activeAssets.find(a => a.id === assetId);
+    return found ? found.name : fallback;
   };
 
   const btnStyle: React.CSSProperties = {
@@ -108,6 +111,25 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                   style={{ flex: 1, fontSize: '14px', fontWeight: 600, padding: '4px 8px', border: '1px solid transparent', borderBottom: '1px solid var(--border-color)', background: 'transparent' }}
                 />
               </div>
+              
+              <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)' }}>
+                {(['pengeluaran', 'pendapatan', 'transfer'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => updateResult(item.id, 'type', t)}
+                    style={{
+                      flex: 1, padding: '4px 8px', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                      background: item.type === t ? 'var(--bg-card)' : 'transparent',
+                      color: item.type === t ? (t === 'pengeluaran' ? 'var(--danger)' : t === 'pendapatan' ? 'var(--success)' : 'var(--primary)') : 'var(--text-muted)',
+                      boxShadow: item.type === t ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      textTransform: 'capitalize'
+                    }}
+                  >
+                    {t === 'pengeluaran' ? 'Keluar' : t === 'pendapatan' ? 'Masuk' : 'TF'}
+                  </button>
+                ))}
+              </div>
+
               <button onClick={() => deleteResult(item.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
                 <Trash2 size={16} />
               </button>
@@ -138,33 +160,93 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                 />
               </div>
 
-              {/* Category - spans full width */}
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kategori</label>
-                <button style={btnStyle} onClick={() => openModal('category', item.id)}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Folder size={14} color="var(--primary)" />
-                    <span style={{ fontSize: '13px', fontWeight: item.category ? 600 : 400, color: item.category ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                      {getCategoryLabel(item)}
-                    </span>
+              {item.type !== 'transfer' ? (
+                <>
+                  {/* Category - spans full width */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kategori</label>
+                    <button style={btnStyle} onClick={() => openModal('category', item.id)}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Folder size={14} color="var(--primary)" />
+                        <span style={{ fontSize: '13px', fontWeight: item.category ? 600 : 400, color: item.category ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                          {getCategoryLabel(item)}
+                        </span>
+                      </div>
+                      <ChevronRight size={14} color="var(--text-muted)" />
+                    </button>
                   </div>
-                  <ChevronRight size={14} color="var(--text-muted)" />
-                </button>
-              </div>
 
-              {/* Asset - spans full width */}
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rekening/Dompet</label>
-                <button style={btnStyle} onClick={() => openModal('asset', item.id)}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Wallet size={14} color="var(--primary)" />
-                    <span style={{ fontSize: '13px', fontWeight: item.asset ? 600 : 400, color: item.asset ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                      {getAssetLabel(item)}
-                    </span>
+                  {/* Asset - spans full width */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rekening/Dompet</label>
+                    <button style={btnStyle} onClick={() => openModal('asset', item.id)}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Wallet size={14} color="var(--primary)" />
+                        <span style={{ fontSize: '13px', fontWeight: item.asset ? 600 : 400, color: item.asset ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                          {getAssetLabel(item.asset)}
+                        </span>
+                      </div>
+                      <ChevronRight size={14} color="var(--text-muted)" />
+                    </button>
                   </div>
-                  <ChevronRight size={14} color="var(--text-muted)" />
-                </button>
-              </div>
+                </>
+              ) : (
+                <>
+                  {/* From Asset */}
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dari Rekening</label>
+                    <button style={btnStyle} onClick={() => openModal('fromAsset', item.id)}>
+                      <span style={{ fontSize: '13px', fontWeight: item.fromAsset ? 600 : 400, color: item.fromAsset ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {getAssetLabel(item.fromAsset, '-- Dari --')}
+                      </span>
+                      <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                    </button>
+                  </div>
+
+                  {/* To Asset */}
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ke Rekening</label>
+                    <button style={btnStyle} onClick={() => openModal('toAsset', item.id)}>
+                      <span style={{ fontSize: '13px', fontWeight: item.toAsset ? 600 : 400, color: item.toAsset ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {getAssetLabel(item.toAsset, '-- Ke --')}
+                      </span>
+                      <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                    </button>
+                  </div>
+
+                  {/* Admin Fee - spans full width */}
+                  <div style={{ gridColumn: '1 / -1', padding: '10px 12px', borderRadius: '10px', background: item.adminFee ? 'hsla(35, 90%, 55%, 0.08)' : 'var(--bg-main)', border: `1px solid ${item.adminFee ? 'hsla(35, 90%, 55%, 0.3)' : 'var(--border-color)'}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: item.adminFee ? '8px' : 0 }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>Biaya Admin</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={item.adminFee ? item.adminFee.toLocaleString('id-ID') : ''}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          updateResult(item.id, 'adminFee', val ? Number(val) : 0);
+                        }}
+                        style={{ width: '90px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', marginBottom: 0 }}
+                      />
+                    </div>
+                    {item.adminFee ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => updateResult(item.id, 'adminFeeTarget', 'sender')}
+                          style={{ flex: 1, padding: '4px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, border: `1.5px solid ${item.adminFeeTarget !== 'receiver' ? 'var(--secondary)' : 'var(--border-color)'}`, background: item.adminFeeTarget !== 'receiver' ? 'var(--bg-expense)' : 'var(--bg-card)', color: item.adminFeeTarget !== 'receiver' ? 'var(--secondary)' : 'var(--text-muted)', cursor: 'pointer' }}
+                        >Pengirim</button>
+                        <button
+                          type="button"
+                          onClick={() => updateResult(item.id, 'adminFeeTarget', 'receiver')}
+                          style={{ flex: 1, padding: '4px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, border: `1.5px solid ${item.adminFeeTarget === 'receiver' ? 'var(--secondary)' : 'var(--border-color)'}`, background: item.adminFeeTarget === 'receiver' ? 'var(--bg-expense)' : 'var(--bg-card)', color: item.adminFeeTarget === 'receiver' ? 'var(--secondary)' : 'var(--text-muted)', cursor: 'pointer' }}
+                        >Penerima</button>
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ))}
@@ -200,6 +282,18 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
         onConfirm={(val) => {
           if (modalState.itemId) updateResult(modalState.itemId, 'amount', val);
           closeModal();
+        }}
+      />
+
+      <AssetSelectModal
+        isOpen={modalState.type === 'asset' || modalState.type === 'fromAsset' || modalState.type === 'toAsset'}
+        onClose={closeModal}
+        assets={assets}
+        onSelect={(assetId) => {
+          if (modalState.itemId && modalState.type) {
+            updateResult(modalState.itemId, modalState.type as keyof ParsedTransaction, assetId);
+            closeModal();
+          }
         }}
       />
 

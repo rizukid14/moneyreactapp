@@ -904,7 +904,18 @@ const Settings: React.FC = () => {
           entries: Array<{ type: 'new' | 'fix' | 'improve'; text: string }>;
         }> = [
             {
-              version: 'v1.0.8', date: 'Apr 2025', badge: 'Terbaru',
+              version: 'v1.0.13', date: 'Mei 2026', badge: 'Terbaru',
+              entries: [
+                { type: 'new', text: 'Sistem Potong Silang (Offset) otomatis untuk Hutang & Piutang dari kontak yang sama' },
+                { type: 'new', text: 'Support tipe transaksi "Transfer" pada fitur Input Sekaligus & OCR Mutasi' },
+                { type: 'new', text: 'Input Biaya Admin pada mode Bulk/OCR dengan pemisahan transaksi pengeluaran otomatis' },
+                { type: 'new', text: 'Statistik perbandingan pertumbuhan (growth) pendapatan & pengeluaran dari bulan lalu' },
+                { type: 'improve', text: 'Penyempurnaan parsing AI untuk mendeteksi rekening asal/tujuan pada transfer' },
+                { type: 'fix', text: 'Reference error pada halaman statistik saat menghitung perbandingan bulan' },
+              ],
+            },
+            {
+              version: 'v1.0.8', date: 'Apr 2025',
               entries: [
                 { type: 'new', text: 'Gacha tier system: 9 tingkatan kekayaan (Bronze → Sultan 👑)' },
                 { type: 'new', text: 'Liquid wave fill animation pada kartu aset carousel' },
@@ -986,7 +997,7 @@ const Settings: React.FC = () => {
                 </div>
               ))}
               <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
-                Money Tracker v1.0.12 · Made with ❤️
+                Money Tracker v1.0.13 · Made with ❤️
               </div>
             </div>
           </>
@@ -1165,7 +1176,7 @@ const Settings: React.FC = () => {
           <LogOut size={20} /> Logout dari Akun
         </button>
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-          MoneyApp v1.0.8 • Dibuat dengan ❤️ by Dappal
+          MoneyApp v1.0.13 • Dibuat dengan ❤️ by Dappal
         </p>
       </div>
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2, Pencil, Copy } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ArrowRightLeft, Trash2, Pencil, Copy, FileText } from 'lucide-react';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Transaction } from '../../contexts/MoneyContext';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -30,12 +30,15 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
   return (
     <>
-      <div className="card transaction-card" style={{ 
-        display: 'flex', 
-        alignItems: 'center',
-        padding: '12px 16px',
-        marginBottom: '0'
-      }}>
+      <div className="card transaction-card" 
+        onClick={() => onEdit(tx)}
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          padding: '12px 16px',
+          marginBottom: '0',
+          cursor: 'pointer'
+        }}>
         <div style={{
           width: 36, height: 36, borderRadius: '10px',
           backgroundColor: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
@@ -66,6 +69,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
             {tx.time && <span style={{ marginRight: '6px', color: 'var(--primary)', fontWeight: 700 }}>{tx.time}</span>}
             <span>{tx.type !== 'transfer' ? assetName : 'Transfer'}</span>
             {tx.note && <span style={{ marginLeft: '6px', opacity: 0.8 }}>• {tx.note}</span>}
+            {tx.description && <FileText size={10} style={{ marginLeft: '6px', verticalAlign: 'middle', opacity: 0.6 }} />}
           </div>
         </div>
 
@@ -82,7 +86,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         <div className="transaction-actions" style={{ display: 'flex', gap: '4px', marginLeft: '16px' }}>
           {onCopy && (
             <button 
-              onClick={() => onCopy(tx)} 
+              onClick={(e) => { e.stopPropagation(); onCopy(tx); }} 
               title="Salin Transaksi"
               style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '6px', cursor: 'pointer' }}
             >
@@ -90,14 +94,14 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
             </button>
           )}
           <button 
-            onClick={() => onEdit(tx)} 
+            onClick={(e) => { e.stopPropagation(); onEdit(tx); }} 
             title="Edit Transaksi"
             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '6px', cursor: 'pointer' }}
           >
             <Pencil size={14} />
           </button>
           <button 
-            onClick={() => setIsConfirmOpen(true)} 
+            onClick={(e) => { e.stopPropagation(); setIsConfirmOpen(true); }} 
             style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: '6px', cursor: 'pointer' }}
           >
             <Trash2 size={14} />

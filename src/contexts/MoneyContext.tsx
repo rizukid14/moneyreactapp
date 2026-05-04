@@ -90,6 +90,7 @@ export interface Transaction {
   date: string; // YYYY-MM-DD
   time?: string; // HH:mm
   note: string;
+  description?: string;
   assetId?: string;
   fromAssetId?: string;
   toAssetId?: string;
@@ -165,6 +166,7 @@ interface MoneyContextType {
   settleDebt: (debtId: string, assetId?: string, date?: string, time?: string) => void;
   addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   addDebtPrincipal: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
+  offsetDebt: (contactName: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
@@ -504,8 +506,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newDebt: Debt = { ...debtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
 
     // Generate initial transaction for the principal
-    const today = getLocalDate();
-    const time = getLocalTime();
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().split(' ')[0].substring(0, 5);
 
     if (newDebt.type === 'piutang') {
       // Give loan: Account balance decreases (Expense)
@@ -514,7 +517,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           type: 'pengeluaran',
           amount: newDebt.totalAmount,
           category: 'Pinjaman & Piutang',
-          date: today,
+          date,
           time,
           note: `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
           assetId: newDebt.paymentAssetId,
@@ -528,8 +531,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'pendapatan',
           amount: newDebt.totalAmount,
-          category: 'Hutang / Pinjaman',
-          date: today,
+          category: categoryName || 'Lainnya',
+          date,
           time,
           note: `Penerimaan dana pinjaman dari ${newDebt.contact}`,
           assetId: newDebt.liabilityAssetId,
@@ -542,7 +545,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           amount: newDebt.totalAmount,
           category: categoryName || 'Lainnya',
           subCategory: subCategoryName,
-          date: today,
+          date,
           time,
           note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
           assetId: newDebt.liabilityAssetId,
@@ -820,6 +823,94 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
   }, [debts]);
 
+  const offsetDebt = useCallback((contactName: string) => {
+    const contactDebts = debts.filter(d => !d.isPaid && d.contact.toLowerCase() === contactName.toLowerCase());
+    
+    const debtsWithBal = contactDebts.map(d => {
+      const history = transactions.filter(t => t.relatedId === d.id);
+      const paidAmt = history.reduce((sum, tx) => {
+        const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
+          tx.note.includes('Pemberian pinjaman') ||
+          tx.note.includes('Belanja via'));
+        return isPrincipal ? sum : sum + tx.amount;
+      }, 0);
+      return { ...d, remaining: Math.max(0, d.totalAmount - paidAmt) };
+    });
+
+    const hutangs = debtsWithBal.filter(d => d.type === 'hutang' && d.remaining > 0);
+    const piutangs = debtsWithBal.filter(d => d.type === 'piutang' && d.remaining > 0);
+
+    const totalHutang = hutangs.reduce((s, d) => s + d.remaining, 0);
+    const totalPiutang = piutangs.reduce((s, d) => s + d.remaining, 0);
+
+    const offsetAmount = Math.min(totalHutang, totalPiutang);
+    if (offsetAmount <= 0) return;
+
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().split(' ')[0].substring(0, 5);
+    const note = `Potong Silang Utang/Piutang dengan ${contactName}`;
+    const virtualAssetId = 'system-offset'; 
+
+    let hAmountToOffset = offsetAmount;
+    let pAmountToOffset = offsetAmount;
+    let debtsToUpdate: Debt[] = [];
+
+    // Process Hutang
+    for (const h of hutangs) {
+      if (hAmountToOffset <= 0) break;
+      const payAmt = Math.min(hAmountToOffset, h.remaining);
+      hAmountToOffset -= payAmt;
+
+      _createTx({
+        type: 'pengeluaran',
+        amount: payAmt,
+        category: 'Bayar Hutang',
+        date,
+        time,
+        note,
+        assetId: virtualAssetId,
+        relatedId: h.id,
+      });
+
+      if (payAmt >= h.remaining) {
+        const original = debts.find(d => d.id === h.id)!;
+        debtsToUpdate.push({ ...original, isPaid: true });
+      }
+    }
+
+    // Process Piutang
+    for (const p of piutangs) {
+      if (pAmountToOffset <= 0) break;
+      const payAmt = Math.min(pAmountToOffset, p.remaining);
+      pAmountToOffset -= payAmt;
+
+      _createTx({
+        type: 'pendapatan',
+        amount: payAmt,
+        category: 'Pelunasan Piutang',
+        date,
+        time,
+        note,
+        assetId: virtualAssetId,
+        relatedId: p.id,
+      });
+
+      if (payAmt >= p.remaining) {
+        const original = debts.find(d => d.id === p.id)!;
+        debtsToUpdate.push({ ...original, isPaid: true });
+      }
+    }
+
+    if (debtsToUpdate.length > 0) {
+      debtsToUpdate.forEach(dbPutDebt);
+      setDebts(prev => prev.map(d => {
+        const updated = debtsToUpdate.find(u => u.id === d.id);
+        return updated ? updated : d;
+      }));
+    }
+  }, [debts, transactions]);
+
 
   // ─── Balance ──────────────────────────────────────────────────────────────
   const getAssetBalance = useCallback((assetId: string) => {
@@ -970,7 +1061,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     addBudget, updateBudget, deleteBudget,
-    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal,
+    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
   }), [
@@ -983,7 +1074,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     addBudget, updateBudget, deleteBudget,
-    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal,
+    addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
   ]);

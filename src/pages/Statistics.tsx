@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
-import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
 
@@ -23,7 +23,20 @@ const Statistics: React.FC = () => {
 
   const formatCurrency = useCallback((value: number) => `${currencySymbol}${value.toLocaleString('id-ID')}`, [currencySymbol]);
 
-  const { chartData, currentMonthIncome, currentMonthExpense, expenseCategoryData, incomeCategoryData, topCategories } = useMemo(() => {
+  const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights } = useMemo((): {
+    chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
+    currentMonthIncome: number; currentMonthExpense: number;
+    prevMonthIncome: number; prevMonthExpense: number;
+    expenseCategoryData: { name: string; value: number }[];
+    incomeCategoryData: { name: string; value: number }[];
+    topCategories: { id: string; category: string; amount: number; type: 'pengeluaran' | 'pendapatan'; color: string; colorIndex: number }[];
+    insights: {
+      netSavings: number; savingsRate: number; avgDailySpending: number;
+      txCountIncome: number; txCountExpense: number; txCountTransfer: number; txCountTotal: number;
+      biggestExpenseTx: { note: string; amount: number; category: string } | null;
+      topSpendingDay: { date: string; amount: number } | null;
+    };
+  } => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
@@ -58,6 +71,13 @@ const Statistics: React.FC = () => {
     const expBySubCategory: Record<string, number> = {};
     const incBySubCategory: Record<string, number> = {};
 
+    // Additional insight trackers
+    let txCountIncome = 0;
+    let txCountExpense = 0;
+    let txCountTransfer = 0;
+    let biggestExpenseTx: { note: string; amount: number; category: string } | null = null;
+    const dailySpending: Record<string, number> = {}; // 'YYYY-MM-DD' -> total expense
+
     transactions.forEach(tx => {
       const txDate = new Date(tx.date);
 
@@ -79,6 +99,19 @@ const Statistics: React.FC = () => {
           }
           expByCategory[tx.category] = (expByCategory[tx.category] || 0) + tx.amount;
         }
+
+        // Insight tracking
+        if (tx.type === 'pendapatan') txCountIncome++;
+        if (tx.type === 'pengeluaran') {
+          txCountExpense++;
+          // Daily spending
+          dailySpending[tx.date] = (dailySpending[tx.date] || 0) + tx.amount;
+          // Biggest single expense
+          if (!biggestExpenseTx || tx.amount > biggestExpenseTx.amount) {
+            biggestExpenseTx = { note: tx.note || tx.category, amount: tx.amount, category: tx.category };
+          }
+        }
+        if (tx.type === 'transfer') txCountTransfer++;
       }
 
       // 2. Trend Data (Last 5 Periods)
@@ -134,13 +167,43 @@ const Statistics: React.FC = () => {
 
     const topCats = allCategories.sort((a, b) => b.amount - a.amount).slice(0, 10);
 
+    // Insights computation
+    const netSavings = thisMonthInc - thisMonthExp;
+    const savingsRate = thisMonthInc > 0 ? (netSavings / thisMonthInc) * 100 : 0;
+
+    const daysInPeriod = Math.max(1, Math.ceil((vPeriodEnd.getTime() - vPeriodStart.getTime()) / (1000 * 60 * 60 * 24)));
+    const daysSoFar = Math.max(1, Math.min(daysInPeriod, Math.ceil((new Date().getTime() - vPeriodStart.getTime()) / (1000 * 60 * 60 * 24))));
+    const avgDailySpending = txCountExpense > 0 ? Math.round(thisMonthExp / daysSoFar) : 0;
+
+    const dailyEntries = Object.entries(dailySpending).sort((a, b) => b[1] - a[1]);
+    const topSpendingDay = dailyEntries.length > 0 ? dailyEntries[0] : null;
+
+    const insightsData = {
+      netSavings,
+      savingsRate,
+      avgDailySpending,
+      txCountIncome,
+      txCountExpense,
+      txCountTransfer,
+      txCountTotal: txCountIncome + txCountExpense + txCountTransfer,
+      biggestExpenseTx,
+      topSpendingDay: topSpendingDay ? { date: topSpendingDay[0], amount: topSpendingDay[1] } : null,
+    };
+
+    const prevPeriod = last5Months.length > 1 ? last5Months[last5Months.length - 2] : null;
+    const prevMonthIncomeVal = prevPeriod ? prevPeriod.pendapatan : 0;
+    const prevMonthExpenseVal = prevPeriod ? prevPeriod.pengeluaran : 0;
+
     return { 
       chartData: last5Months, 
       currentMonthIncome: thisMonthInc, 
       currentMonthExpense: thisMonthExp,
+      prevMonthIncome: prevMonthIncomeVal,
+      prevMonthExpense: prevMonthExpenseVal,
       expenseCategoryData: expenseData,
       incomeCategoryData: incomeData,
-      topCategories: topCats
+      topCategories: topCats,
+      insights: insightsData
     };
   }, [transactions, viewDate, drillDownCategory]);
 
@@ -220,24 +283,156 @@ const Statistics: React.FC = () => {
       </div>
       
       <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
-        <div className="card" style={{ 
-          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)', 
-          color: 'white', border: 'none', padding: '16px',
-          boxShadow: '0 10px 25px var(--primary-glow)' 
-        }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pendapatan</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(currentMonthIncome)}</div>
+        {/* Pendapatan Card */}
+        {(() => {
+          const growthPct = prevMonthIncome > 0
+            ? ((currentMonthIncome - prevMonthIncome) / prevMonthIncome) * 100
+            : (currentMonthIncome > 0 ? 100 : 0);
+          const isUp = growthPct >= 0;
+          return (
+            <div className="card" style={{ 
+              flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)', 
+              color: 'white', border: 'none', padding: '16px',
+              boxShadow: '0 10px 25px var(--primary-glow)' 
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pendapatan</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(currentMonthIncome)}</div>
+              {(currentMonthIncome > 0 || prevMonthIncome > 0) && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '6px',
+                  padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                  background: isUp ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+                }}>
+                  {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                  {Math.abs(growthPct).toFixed(0)}% vs bulan lalu
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Pengeluaran Card */}
+        {(() => {
+          const growthPct = prevMonthExpense > 0
+            ? ((currentMonthExpense - prevMonthExpense) / prevMonthExpense) * 100
+            : (currentMonthExpense > 0 ? 100 : 0);
+          const isUp = growthPct >= 0;
+          // For expense: going up is bad (red-ish), going down is good (green-ish)
+          return (
+            <div className="card" style={{ 
+              flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)', 
+              color: 'white', border: 'none', padding: '16px',
+              boxShadow: '0 10px 25px var(--secondary-glow)'
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(currentMonthExpense)}</div>
+              {(currentMonthExpense > 0 || prevMonthExpense > 0) && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '6px',
+                  padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                  background: isUp ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)',
+                }}>
+                  {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                  {Math.abs(growthPct).toFixed(0)}% vs bulan lalu
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* ── Insights Section ────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
+        {/* Net Savings */}
+        <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: insights.netSavings >= 0 ? 'var(--bg-income)' : 'var(--bg-expense)', color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--secondary)' }}>
+              <TrendingUp size={14} />
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Sisa Bersih</span>
+          </div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
+            {insights.netSavings >= 0 ? '+' : ''}{formatCurrency(insights.netSavings)}
+          </div>
+          {currentMonthIncome > 0 && (
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Rasio tabungan: {insights.savingsRate.toFixed(0)}%
+            </div>
+          )}
         </div>
 
-        <div className="card" style={{ 
-          flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)', 
-          color: 'white', border: 'none', padding: '16px',
-          boxShadow: '0 10px 25px var(--secondary-glow)'
-        }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(currentMonthExpense)}</div>
+        {/* Daily Average Spending */}
+        <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(35,80%,55%,0.1)', color: 'hsl(35,80%,45%)' }}>
+              <Calendar size={14} />
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Rata-rata/Hari</span>
+          </div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--secondary)' }}>
+            {formatCurrency(insights.avgDailySpending)}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            pengeluaran harian
+          </div>
+        </div>
+
+        {/* Transaction Count */}
+        <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(260,70%,60%,0.1)', color: 'hsl(260,70%,55%)' }}>
+              <Receipt size={14} />
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Transaksi</span>
+          </div>
+          <div style={{ fontSize: '15px', fontWeight: 800 }}>
+            {insights.txCountTotal}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {insights.txCountExpense} keluar · {insights.txCountIncome} masuk{insights.txCountTransfer > 0 ? ` · ${insights.txCountTransfer} tf` : ''}
+          </div>
+        </div>
+
+        {/* Top Spending Day */}
+        <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(350,80%,55%,0.1)', color: 'hsl(350,80%,50%)' }}>
+              <Flame size={14} />
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Hari Terboros</span>
+          </div>
+          {insights.topSpendingDay ? (
+            <>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--danger)' }}>
+                {formatCurrency(insights.topSpendingDay.amount)}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {new Date(insights.topSpendingDay.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>-</div>
+          )}
         </div>
       </div>
+
+      {/* Biggest Transaction */}
+      {insights.biggestExpenseTx && (
+        <div className="card glass" style={{ marginBottom: '24px', padding: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-expense)', color: 'var(--secondary)', flexShrink: 0 }}>
+            <Wallet size={18} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Pengeluaran Terbesar</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {insights.biggestExpenseTx.note || insights.biggestExpenseTx.category}
+            </div>
+          </div>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--danger)', flexShrink: 0 }}>
+            {formatCurrency(insights.biggestExpenseTx.amount)}
+          </div>
+        </div>
+      )}
 
       {drillDownCategory && (
         <div className="card glass" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>

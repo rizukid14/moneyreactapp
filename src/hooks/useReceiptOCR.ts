@@ -11,11 +11,13 @@ export interface OCRResult {
   merchantName?: string;
   amount: number;
   date: string;
+  time?: string;
   rawText: string;
   suggestedCategory: string;
   suggestedSubCategory?: string;
   suggestedAsset?: string; // New field for context matching
   lineItems: LineItem[];
+  taxInfo?: string; // Summary of tax/service/discount (not a line item)
   confidence: 'high' | 'medium' | 'low';
   debugLogs?: string[];
 }
@@ -150,6 +152,7 @@ export const useReceiptOCR = () => {
             ? netTaxOrDiscount - distributed
             : Math.round((item.amount / itemsSubtotal) * netTaxOrDiscount);
           distributed += share;
+          
           return {
             name: item.name,
             amount: Math.max(0, Math.round(item.amount + share)), // Ensure no item drops below 0
@@ -183,15 +186,24 @@ export const useReceiptOCR = () => {
         });
       }
 
+      // Build tax info summary string
+      let summaryParts: string[] = [];
+      if (tax > 0) summaryParts.push(`Pajak: Rp${tax.toLocaleString('id-ID')}`);
+      if (service > 0) summaryParts.push(`Service: Rp${service.toLocaleString('id-ID')}`);
+      if (discount > 0) summaryParts.push(`Diskon: -Rp${discount.toLocaleString('id-ID')}`);
+      const taxInfo = summaryParts.length > 0 ? summaryParts.join(' · ') : undefined;
+
       return {
         merchantName: result.merchantName || "",
         amount: result.amount || 0,
         date: result.date || getLocalDate(),
+        time: result.time || "",
         rawText: result.rawText || "Parsed via Cloud AI",
         suggestedCategory: result.suggestedCategory || "",
         suggestedSubCategory: result.suggestedSubCategory || "",
         suggestedAsset: result.suggestedAsset || "",
         lineItems: mappedLineItems,
+        taxInfo,
         confidence: result.confidence || 'medium',
         debugLogs: logs
       };

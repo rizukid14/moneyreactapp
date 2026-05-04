@@ -35,6 +35,7 @@ export default async function handler(req: any, res: any) {
     - merchantName: string (store/restaurant name)
     - amount: number (final TOTAL paid by customer, including all taxes and fees)
     - date: string (YYYY-MM-DD format, use today if not visible)
+    - time: string (HH:mm format, extraction from receipt, use current time if not visible)
     - lineItems: array of objects {name: string, amount: number}.
       CRITICAL RULES FOR lineItems:
         1. List only the actual purchased items (food, products, services).

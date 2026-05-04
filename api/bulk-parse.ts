@@ -51,13 +51,17 @@ export default async function handler(req: any, res: any) {
     - Relative dates: If "kemarin", "tadi", or day names are used, calculate the date relative to ${dateContext}.
 
     For each transaction, extract:
-    - type: "pengeluaran" or "pendapatan"
+    - type: "pengeluaran", "pendapatan", or "transfer"
     - amount: numeric value (int)
     - date: YYYY-MM-DD (fallback to ${dateContext})
     - note: concise description
-    - category: best match from available categories.
-    - subCategory: best match if a subcategory is identified within the chosen category.
-    - asset: best match for payment method from [${assetList}].
+    - category: best match from available categories (leave empty if transfer).
+    - subCategory: best match if a subcategory is identified.
+    - asset: best match for payment method from [${assetList}] (for pengeluaran/pendapatan).
+    - fromAsset: best match for sender/source from [${assetList}] (only for transfer).
+    - toAsset: best match for receiver/destination from [${assetList}] (only for transfer).
+    - adminFee: numeric value (int) if there's a fee explicitly mentioned, otherwise 0.
+    - adminFeeTarget: "sender" or "receiver" (only if adminFee > 0).
 
     Available Categories & Subcategories:
     ${categoryWithSubs}
@@ -67,7 +71,7 @@ export default async function handler(req: any, res: any) {
     ${text || "Data provided via image"}
     """
     
-    Respond STRICTLY in JSON: { "transactions": [{ "type": "...", "amount": 0, "date": "...", "note": "...", "category": "...", "subCategory": "...", "asset": "..." }] }`;
+    Respond STRICTLY in JSON: { "transactions": [{ "type": "...", "amount": 0, "date": "...", "note": "...", "category": "...", "subCategory": "...", "asset": "...", "fromAsset": "...", "toAsset": "...", "adminFee": 0, "adminFeeTarget": "sender" }] }`;
 
     const messageContent: any[] = [{ type: "text", text: prompt }];
     if (image) {
