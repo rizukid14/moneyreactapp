@@ -71,7 +71,7 @@ const ChatBot: React.FC = () => {
 
   const handleConfirmTransaction = (msgIndex: number, toolArgs: any) => {
     try {
-      const tx = addTransaction({
+      addTransaction({
         type: toolArgs.type,
         amount: Number(toolArgs.amount),
         category: toolArgs.category,
