@@ -273,14 +273,22 @@ const ChatBot: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <div style={{ padding: '16px', background: 'var(--bg-main)', borderTop: '1px solid var(--border-color)' }}>
+          {/* Input Area */}
+          <div style={{ 
+            padding: '16px 20px calc(16px + env(safe-area-inset-bottom, 0px))', 
+            background: 'var(--bg-card)', 
+            borderTop: '1px solid var(--border-color)',
+          }}>
             <div style={{
               display: 'flex',
-              background: 'var(--bg-card)',
-              borderRadius: '20px',
-              padding: '4px',
-              border: '1px solid var(--border-color)',
+              alignItems: 'center',
+              gap: '12px',
+              background: 'var(--bg-main)',
+              borderRadius: '28px',
+              padding: '6px 6px 6px 18px',
+              border: '1.5px solid var(--border-color)',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
+              transition: 'border-color 0.2s ease',
             }}>
               <input 
                 type="text" 
@@ -292,10 +300,12 @@ const ChatBot: React.FC = () => {
                   flex: 1,
                   background: 'none',
                   border: 'none',
-                  padding: '10px 16px',
-                  fontSize: '14px',
+                  padding: '10px 0',
+                  fontSize: '15px',
+                  fontWeight: 500,
                   color: 'var(--text-main)',
-                  outline: 'none'
+                  outline: 'none',
+                  marginBottom: 0
                 }}
                 disabled={isLoading}
               />
@@ -303,20 +313,22 @@ const ChatBot: React.FC = () => {
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
                 style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '16px',
-                  background: input.trim() && !isLoading ? 'var(--primary)' : 'var(--bg-main)',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: input.trim() && !isLoading ? 'var(--primary-gradient)' : 'var(--bg-neutral)',
                   color: input.trim() && !isLoading ? 'white' : 'var(--text-muted)',
                   border: 'none',
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
                   cursor: input.trim() && !isLoading ? 'pointer' : 'default',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: input.trim() && !isLoading ? '0 4px 15px var(--primary-glow)' : 'none',
+                  flexShrink: 0
                 }}
               >
-                <Send size={18} style={{ marginLeft: '2px' }} />
+                <Send size={20} style={{ marginLeft: input.trim() ? '2px' : '0' }} />
               </button>
             </div>
           </div>
