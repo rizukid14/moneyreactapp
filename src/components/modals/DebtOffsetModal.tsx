@@ -4,7 +4,6 @@ import { X, ArrowRightLeft, TrendingDown, TrendingUp, CheckCircle2 } from 'lucid
 interface DebtOffsetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
   contactName: string;
   totalHutang: number;
   totalPiutang: number;
