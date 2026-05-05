@@ -9,6 +9,7 @@ interface DebtOffsetModalProps {
   totalHutang: number;
   totalPiutang: number;
   offsetAmount: number;
+  onConfirm: (date: string) => void;
   currencySymbol: string;
 }
 
@@ -19,6 +20,7 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
   const remainingHutang = totalHutang - offsetAmount;
   const remainingPiutang = totalPiutang - offsetAmount;
 
@@ -91,8 +93,20 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
             </div>
           </div>
 
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+              Tanggal Transaksi:
+            </label>
+            <input 
+              type="date" 
+              value={date} 
+              onChange={e => setDate(e.target.value)} 
+              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-main)' }} 
+            />
+          </div>
+
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm(date)}
             style={{
               width: '100%', padding: '14px', borderRadius: '14px',
               background: 'var(--primary-gradient)', color: 'white',

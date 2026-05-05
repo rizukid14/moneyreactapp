@@ -580,8 +580,8 @@ const Debts: React.FC = () => {
         <DebtOffsetModal
           isOpen={isOffsetModalOpen}
           onClose={() => setIsOffsetModalOpen(false)}
-          onConfirm={() => {
-            offsetDebt(offsetTarget.contact);
+          onConfirm={(date) => {
+            offsetDebt(offsetTarget.contact, date);
             setIsOffsetModalOpen(false);
             setOffsetTarget(null);
           }}

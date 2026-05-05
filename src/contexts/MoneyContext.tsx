@@ -878,7 +878,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
   }, [debts]);
 
-  const offsetDebt = useCallback((contactName: string) => {
+  const offsetDebt = useCallback((contactName: string, customDate?: string) => {
     const contactDebts = debts.filter(d => !d.isPaid && d.contact.toLowerCase() === contactName.toLowerCase());
     
     const debtsWithBal = contactDebts.map(d => {
@@ -902,7 +902,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (offsetAmount <= 0) return;
 
     const now = new Date();
-    const date = now.toISOString().split('T')[0];
+    const date = customDate || now.toISOString().split('T')[0];
     const time = now.toTimeString().split(' ')[0].substring(0, 5);
     const note = `Potong Silang Utang/Piutang dengan ${contactName}`;
     const virtualAssetId = 'system-offset'; 
