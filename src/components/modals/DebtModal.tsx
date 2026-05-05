@@ -33,6 +33,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   const [receiveAssetId, setReceiveAssetId]       = useState('');
   // Hutang recording mode (new)
   const [hutangMode, setHutangMode]               = useState<'none' | 'cash' | 'credit'>('none');
+  const [createdAt, setCreatedAt]                 = useState(new Date().toISOString().split('T')[0]);
 
   const activeAssets = assets.filter(a => !a.isDeleted);
 
@@ -64,6 +65,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setHutangMode('none');
       setCreditCatName('');
       setCreditSubCatName('');
+      setCreatedAt(editingDebt.createdAt.split('T')[0]);
     } else {
       setType('hutang');
       setContact('');
@@ -80,6 +82,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setHutangMode('none');
       setCreditCatName('');
       setCreditSubCatName('');
+      setCreatedAt(new Date().toISOString().split('T')[0]);
     }
   }, [isOpen, editingDebt, defaultAssetId]);
 
@@ -119,7 +122,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
         totalAmount:  parseNum(totalAmount),
         dueDate:      dueDate || undefined,
         isPaid:       editingDebt?.isPaid || false,
-        createdAt:    editingDebt?.createdAt || new Date().toISOString(),
+        createdAt:    editingDebt ? editingDebt.createdAt : new Date(createdAt).toISOString(),
         isInstallment,
         installmentAmount:  isInstallment ? parseNum(installmentAmount) : undefined,
         installmentDay:     isInstallment ? Number(installmentDay) : undefined,
@@ -217,8 +220,16 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                 </button>
               </div>
 
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Jatuh Tempo (opsional)</label>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Tanggal Pinjam</label>
+                  <input type="date" required value={createdAt} onChange={e => setCreatedAt(e.target.value)} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Jatuh Tempo (opsional)</label>
+                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                </div>
+              </div>
 
               {type === 'hutang' && !editingDebt && (
                 <div style={{ background: 'hsla(350,80%,58%,0.08)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid hsla(350,80%,58%,0.18)' }}>

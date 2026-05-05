@@ -531,9 +531,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newDebt: Debt = { ...debtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
 
     // Generate initial transaction for the principal
-    const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().split(' ')[0].substring(0, 5);
+    const createdAtDate = new Date(newDebt.createdAt);
+    const date = createdAtDate.toISOString().split('T')[0];
+    const time = createdAtDate.toTimeString().split(' ')[0].substring(0, 5);
 
     if (newDebt.type === 'piutang') {
       // Give loan: Account balance decreases (Expense)
