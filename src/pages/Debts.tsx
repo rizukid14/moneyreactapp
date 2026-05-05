@@ -56,10 +56,10 @@ const DebtCard: React.FC<{
         tx.note.includes('Belanja via'));
 
       if (isPrincipal) return sum;
-      return sum + tx.amount;
+      return sum + Number(tx.amount || 0);
     }, 0);
 
-    const remainingAmount = debt.totalAmount - paidAmount;
+    const remainingAmount = Number(debt.totalAmount || 0) - paidAmount;
 
     const borderColor = debt.isPaid ? 'var(--success)' : isOverdue ? 'var(--danger)' : isDueSoon ? '#f59e0b' : 'var(--border-color)';
 
@@ -302,10 +302,10 @@ const Debts: React.FC = () => {
         const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
           tx.note.includes('Pemberian pinjaman') ||
           tx.note.includes('Belanja via'));
-        return isPrincipal ? sum : sum + tx.amount;
+        return isPrincipal ? sum : sum + Number(tx.amount || 0);
       }, 0);
 
-      const remaining = Math.max(0, d.totalAmount - paidAmt);
+      const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
       if (d.type === 'hutang') totalHutang += remaining;
       else totalPiutang += remaining;
     });
@@ -321,9 +321,9 @@ const Debts: React.FC = () => {
         const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
           tx.note.includes('Pemberian pinjaman') ||
           tx.note.includes('Belanja via'));
-        return isPrincipal ? sum : sum + tx.amount;
+        return isPrincipal ? sum : sum + Number(tx.amount || 0);
       }, 0);
-      const remaining = Math.max(0, d.totalAmount - paidAmt);
+      const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
       if (remaining <= 0) return;
 
       if (!contactMap[d.contact]) contactMap[d.contact] = { h: 0, p: 0 };

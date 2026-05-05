@@ -887,7 +887,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
           tx.note.includes('Pemberian pinjaman') ||
           tx.note.includes('Belanja via'));
-        return isPrincipal ? sum : sum + tx.amount;
+        return isPrincipal ? sum : sum + Number(tx.amount);
       }, 0);
       return { ...d, remaining: Math.max(0, d.totalAmount - paidAmt) };
     });
@@ -909,7 +909,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     let hAmountToOffset = offsetAmount;
     let pAmountToOffset = offsetAmount;
-    let debtsToUpdate: Debt[] = [];
+    
+    const newTransactions: Transaction[] = [];
+    const debtsToUpdate: Debt[] = [];
 
     // Process Hutang
     for (const h of hutangs) {
@@ -917,18 +919,20 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const payAmt = Math.min(hAmountToOffset, h.remaining);
       hAmountToOffset -= payAmt;
 
-      _createTx({
+      const newTx: Transaction = {
+        id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
         type: 'pengeluaran',
         amount: payAmt,
         category: 'Bayar Hutang',
         date,
         time,
         note,
-        assetId: virtualAssetId,
+        assetId: h.liabilityAssetId || virtualAssetId,
         relatedId: h.id,
-      });
+      };
+      newTransactions.push(newTx);
+      dbPutTransaction(newTx);
 
-      // Bug #4: Always update debt state, not just fully-paid ones
       const original = debts.find(d => d.id === h.id)!;
       debtsToUpdate.push({
         ...original,
@@ -945,18 +949,20 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const payAmt = Math.min(pAmountToOffset, p.remaining);
       pAmountToOffset -= payAmt;
 
-      _createTx({
+      const newTx: Transaction = {
+        id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
         type: 'pendapatan',
         amount: payAmt,
         category: 'Pelunasan Piutang',
         date,
         time,
         note,
-        assetId: virtualAssetId,
+        assetId: virtualAssetId, // Piutang doesn't have liability assets
         relatedId: p.id,
-      });
+      };
+      newTransactions.push(newTx);
+      dbPutTransaction(newTx);
 
-      // Bug #4: Always update debt state, not just fully-paid ones
       const original = debts.find(d => d.id === p.id)!;
       debtsToUpdate.push({
         ...original,
@@ -967,12 +973,18 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
     }
 
-    // Always persist updates — covers both partial and full offsets
-    debtsToUpdate.forEach(dbPutDebt);
-    setDebts(prev => prev.map(d => {
-      const updated = debtsToUpdate.find(u => u.id === d.id);
-      return updated ? updated : d;
-    }));
+    // Apply state updates atomically
+    if (newTransactions.length > 0) {
+      setTransactions(prev => [...newTransactions, ...prev]);
+    }
+    
+    if (debtsToUpdate.length > 0) {
+      debtsToUpdate.forEach(dbPutDebt);
+      setDebts(prev => prev.map(d => {
+        const updated = debtsToUpdate.find(u => u.id === d.id);
+        return updated ? updated : d;
+      }));
+    }
   }, [debts, transactions]);
 
 
