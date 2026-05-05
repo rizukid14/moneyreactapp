@@ -38,7 +38,7 @@ export default async function handler(req: any, res: any) {
       : "None";
     
     const assetList = assets?.length > 0 
-      ? assets.map((a: any) => `{ id: "${a.id}", name: "${a.name}" }`).join(', ') 
+      ? assets.map((a: any) => `- ID: "${a.id}", Name: "${a.name}", Type: "${a.type}"`).join('\n') 
       : "None";
 
     const defaultAssetId = assets?.length > 0 ? assets[0].id : "";
@@ -69,9 +69,10 @@ BEHAVIOR RULES FOR TRANSACTIONS:
 1. When a user describes a transaction (e.g., "makan kfc 10k"), DO NOT call the 'create_transaction' tool immediately.
 2. First, reply with a TEXT recommendation for the best category, subcategory, and asset NAME, and explicitly ask for confirmation. Example: "Menurut saya kategori yang cocok adalah Makanan > Jajan, aset Blu. Boleh saya buatkan?"
 3. ONLY WHEN the user explicitly agrees (e.g., "yes", "boleh", "ok", "ya", "silakan"), THEN call 'create_transaction'.
-4. CRITICAL: The tool call arguments MUST EXACTLY MATCH your earlier recommendation. If you recommended asset "Blu", you MUST use Blu's asset ID, NOT any other asset. Look up the correct ID from the Assets list above.
-5. CRITICAL: You MUST always include subCategory in the tool call. If the category has subcategories, pick the best one. If none fits, use an empty string.
-6. For the asset, guess based on context (e.g., if they say "Cash", find a cash asset). If unsure, recommend the first available asset (ID: "${defaultAssetId}") — but state the asset name in your text.
+4. CRITICAL: The tool call arguments MUST EXACTLY MATCH your earlier recommendation. If you recommended asset "Blu" in your text, you MUST use the ID for "Blu" in the tool call.
+5. CRITICAL: If you recommended a subcategory (e.g. "Jajan") in your text, you MUST include it in the 'subCategory' field of the tool call. DO NOT leave it empty if you mentioned it.
+6. For the asset, guess based on context. If unsure, recommend the first available asset (ID: "${defaultAssetId}") — but state that specific asset name in your text so the user knows what to expect.
+7. Always check your previous messages to maintain consistency. If you promised "Blu", don't switch to "BCA" in the tool call.
 
 Keep your text responses extremely concise, friendly, and in Indonesian by default unless the user speaks English.`;
 
