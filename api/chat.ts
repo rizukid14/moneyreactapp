@@ -29,7 +29,12 @@ export default async function handler(req: any, res: any) {
     }
 
     const categoryList = categories?.length > 0 
-      ? categories.map((c: any) => `${c.name} (${c.type})`).join(', ') 
+      ? categories.map((c: any) => {
+          const subs = c.subcategories?.length > 0 
+            ? c.subcategories.map((s: any) => s.name).join(', ') 
+            : 'none';
+          return `${c.name} (${c.type}) [sub: ${subs}]`;
+        }).join('; ') 
       : "None";
     
     const assetList = assets?.length > 0 
@@ -58,9 +63,11 @@ Assets: ${assetList}
 
 BEHAVIOR RULES FOR TRANSACTIONS:
 1. When a user describes a transaction (e.g., "makan kfc 10k"), DO NOT call the 'create_transaction' tool immediately.
-2. First, reply with a TEXT recommendation for the best category and asset, and explicitly ask for confirmation. For example: "Menurut saya kategori yang cocok adalah Makanan. Apakah boleh saya buatkan transaksinya?"
-3. ONLY WHEN the user explicitly agrees (e.g., "yes", "boleh", "ok", "ya", "silakan"), THEN you must call the 'create_transaction' tool.
-4. For the asset, guess based on context (e.g., if they say "Cash", find a cash asset). If unsure, recommend the first available asset (ID: "${defaultAssetId}").
+2. First, reply with a TEXT recommendation for the best category, subcategory, and asset NAME, and explicitly ask for confirmation. Example: "Menurut saya kategori yang cocok adalah Makanan > Jajan, aset Blu. Boleh saya buatkan?"
+3. ONLY WHEN the user explicitly agrees (e.g., "yes", "boleh", "ok", "ya", "silakan"), THEN call 'create_transaction'.
+4. CRITICAL: The tool call arguments MUST EXACTLY MATCH your earlier recommendation. If you recommended asset "Blu", you MUST use Blu's asset ID, NOT any other asset. Look up the correct ID from the Assets list above.
+5. CRITICAL: You MUST always include subCategory in the tool call. If the category has subcategories, pick the best one. If none fits, use an empty string.
+6. For the asset, guess based on context (e.g., if they say "Cash", find a cash asset). If unsure, recommend the first available asset (ID: "${defaultAssetId}") — but state the asset name in your text.
 
 Keep your text responses extremely concise, friendly, and in Indonesian by default unless the user speaks English.`;
 
@@ -83,18 +90,22 @@ Keep your text responses extremely concise, friendly, and in Indonesian by defau
             },
             category: { 
               type: "string", 
-              description: "The closest matching category name from the user's available categories." 
+              description: "The EXACT parent category name you recommended earlier. Must match your text recommendation." 
+            },
+            subCategory: { 
+              type: "string", 
+              description: "The EXACT subcategory name you recommended earlier. Use empty string only if the category has no subcategories." 
             },
             assetId: { 
               type: "string", 
-              description: "The ID of the best matching asset. Default to the first available asset ID if unsure." 
+              description: "The EXACT asset ID matching the asset name you recommended earlier. Look up the correct ID from the assets list." 
             },
             note: { 
               type: "string", 
               description: "A short descriptive note or merchant name based on the user's input." 
             }
           },
-          required: ["type", "amount", "category", "assetId", "note"]
+          required: ["type", "amount", "category", "subCategory", "assetId", "note"]
         }
       }
     };

@@ -75,6 +75,7 @@ const ChatBot: React.FC = () => {
         type: toolArgs.type,
         amount: Number(toolArgs.amount),
         category: toolArgs.category,
+        subCategory: toolArgs.subCategory || undefined,
         assetId: toolArgs.assetId,
         note: toolArgs.note || 'Dari AI Chat',
         date: new Date().toISOString().split('T')[0],
@@ -199,7 +200,9 @@ const ChatBot: React.FC = () => {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                        <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.category}</span>
+                        <span style={{ fontWeight: 500 }}>
+                          {msg.toolCall.arguments.category}{msg.toolCall.arguments.subCategory ? ` > ${msg.toolCall.arguments.subCategory}` : ''}
+                        </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: 'var(--text-muted)' }}>Aset:</span>
