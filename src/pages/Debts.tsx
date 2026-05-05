@@ -53,7 +53,8 @@ const DebtCard: React.FC<{
       // Check if it's the principal transaction (the one created during addDebt)
       const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
         tx.note.includes('Pemberian pinjaman') ||
-        tx.note.includes('Belanja via'));
+        tx.note.includes('Belanja via') ||
+        tx.note.includes('Penambahan'));
 
       if (isPrincipal) return sum;
       return sum + Number(tx.amount || 0);
@@ -307,7 +308,8 @@ const Debts: React.FC = () => {
       const paidAmt = history.reduce((sum, tx) => {
         const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
           tx.note.includes('Pemberian pinjaman') ||
-          tx.note.includes('Belanja via'));
+          tx.note.includes('Belanja via') ||
+          tx.note.includes('Penambahan'));
         return isPrincipal ? sum : sum + Number(tx.amount || 0);
       }, 0);
 
@@ -326,7 +328,8 @@ const Debts: React.FC = () => {
       const paidAmt = history.reduce((sum, tx) => {
         const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
           tx.note.includes('Pemberian pinjaman') ||
-          tx.note.includes('Belanja via'));
+          tx.note.includes('Belanja via') ||
+          tx.note.includes('Penambahan'));
         return isPrincipal ? sum : sum + Number(tx.amount || 0);
       }, 0);
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
@@ -541,7 +544,8 @@ const Debts: React.FC = () => {
           paidAmountFromTxs={transactions.filter(t => t.relatedId === payingDebt.id).reduce((sum, tx) => {
             const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
               tx.note.includes('Pemberian pinjaman') ||
-              tx.note.includes('Belanja via'));
+              tx.note.includes('Belanja via') ||
+              tx.note.includes('Penambahan'));
             return isPrincipal ? sum : sum + tx.amount;
           }, 0)}
           onConfirm={(amt, assetId, date, time, note, isFull) => {

@@ -37,6 +37,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
       const defaultAmount = (debt.isInstallment && debt.installmentAmount && debt.installmentAmount < remaining)
         ? debt.installmentAmount
         : remaining;
+        
       setAmount(defaultAmount.toString());
       setSelectedAssetId(debtDefaultAssetId || globalDefaultAssetId || (activeAssets[0]?.id || ''));
       setIsFullSettle(defaultAmount >= remaining);

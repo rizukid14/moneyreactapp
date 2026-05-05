@@ -421,40 +421,91 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const deleteTransaction = useCallback((id: string) => {
     const txToDelete = transactions.find(t => t.id === id);
+    if (!txToDelete) return;
 
-    if (txToDelete && txToDelete.relatedId) {
-      const isPrincipal = (txToDelete.note.includes('Penerimaan dana pinjaman') ||
+    if (txToDelete.relatedId) {
+      const isPrincipal = (
+        txToDelete.note.includes('Penerimaan dana pinjaman') ||
         txToDelete.note.includes('Pemberian pinjaman') ||
-        txToDelete.note.includes('Belanja via'));
+        txToDelete.note.includes('Belanja via') ||
+        txToDelete.note.includes('Penambahan')
+      );
 
       if (isPrincipal) {
-        // Bug #3: Deleting a principal tx → cascade delete debt + all its related txs
         const debtId = txToDelete.relatedId;
-        const relatedTxs = transactions.filter(tx => tx.relatedId === debtId && tx.id !== id);
-        relatedTxs.forEach(tx => dbDeleteTransaction(tx.id));
-        setTransactions(prev => prev.filter(tx => tx.id !== id && tx.relatedId !== debtId));
-        dbDeleteTransaction(id).then(refreshSyncCount);
-        setDebts(prev => prev.filter(d => d.id !== debtId));
-        dbDeleteDebt(debtId);
+        const otherPrincipalTxs = transactions.filter(tx => 
+          tx.relatedId === debtId && 
+          tx.id !== id && 
+          (tx.note.includes('Penerimaan dana pinjaman') ||
+           tx.note.includes('Pemberian pinjaman') ||
+           tx.note.includes('Belanja via') ||
+           tx.note.includes('Penambahan'))
+        );
+
+        if (otherPrincipalTxs.length === 0) {
+          // No principal left → cascade delete everything
+          const relatedTxs = transactions.filter(tx => tx.relatedId === debtId && tx.id !== id);
+          relatedTxs.forEach(tx => dbDeleteTransaction(tx.id));
+          setTransactions(prev => prev.filter(tx => tx.id !== id && tx.relatedId !== debtId));
+          dbDeleteTransaction(id).then(refreshSyncCount);
+          setDebts(prev => prev.filter(d => d.id !== debtId));
+          dbDeleteDebt(debtId);
+        } else {
+          // Just subtract this principal amount from total
+          setTransactions(prev => prev.filter(tx => tx.id !== id));
+          dbDeleteTransaction(id).then(refreshSyncCount);
+          setDebts(prev => prev.map(d => {
+            if (d.id !== debtId) return d;
+            const newTotal = Math.max(0, Number(d.totalAmount || 0) - txToDelete.amount);
+            
+            // Recalculate if it's paid after total decreased
+            const history = transactions.filter(t => t.relatedId === debtId && t.id !== id);
+            const paidAmt = history.reduce((sum, tx) => {
+              const isP = (tx.note.includes('Penerimaan dana pinjaman') ||
+                tx.note.includes('Pemberian pinjaman') ||
+                tx.note.includes('Belanja via') ||
+                tx.note.includes('Penambahan'));
+              return isP ? sum : sum + Number(tx.amount || 0);
+            }, 0);
+            const isPaid = newTotal > 0 && paidAmt >= newTotal;
+
+            const updated = { ...d, totalAmount: newTotal, isPaid };
+            dbPutDebt(updated);
+            return updated;
+          }));
+        }
       } else {
-        // Payment/installment tx deleted → recalculate debt from remaining txs
+        // Payment/installment tx deleted → recalculate debt status
         setTransactions(prev => prev.filter(tx => tx.id !== id));
         dbDeleteTransaction(id).then(refreshSyncCount);
 
         const remainingPaymentCount = transactions.filter(t =>
           t.id !== id &&
           t.relatedId === txToDelete.relatedId &&
-          !t.note.includes('Penerimaan dana pinjaman') &&
-          !t.note.includes('Pemberian pinjaman') &&
-          !t.note.includes('Belanja via')
+          !(t.note.includes('Penerimaan dana pinjaman') ||
+            t.note.includes('Pemberian pinjaman') ||
+            t.note.includes('Belanja via') ||
+            t.note.includes('Penambahan'))
         ).length;
 
         setDebts(prev => prev.map(d => {
           if (d.id !== txToDelete.relatedId) return d;
+          
+          // Recalculate isPaid based on new transaction sum
+          const history = transactions.filter(t => t.relatedId === d.id && t.id !== id);
+          const paidAmt = history.reduce((sum, tx) => {
+            const isP = (tx.note.includes('Penerimaan dana pinjaman') ||
+              tx.note.includes('Pemberian pinjaman') ||
+              tx.note.includes('Belanja via') ||
+              tx.note.includes('Penambahan'));
+            return isP ? sum : sum + Number(tx.amount || 0);
+          }, 0);
+          const isPaid = Number(d.totalAmount || 0) > 0 && paidAmt >= Number(d.totalAmount || 0);
+
           const updated = {
             ...d,
             paidInstallments: d.isInstallment ? remainingPaymentCount : d.paidInstallments,
-            isPaid: false
+            isPaid
           };
           dbPutDebt(updated);
           return updated;
