@@ -169,7 +169,7 @@ interface MoneyContextType {
   settleDebt: (debtId: string, assetId?: string, date?: string, time?: string) => void;
   addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   addDebtPrincipal: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
-  offsetDebt: (contactName: string) => void;
+  offsetDebt: (contactName: string, customDate?: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
