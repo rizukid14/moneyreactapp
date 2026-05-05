@@ -127,24 +127,25 @@ const DebtCard: React.FC<{
         </div>
 
         {/* Amount */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: debt.isInstallment ? 12 : (paidAmount > 0 ? 8 : 0) }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: (debt.isInstallment || paidAmount > 0) ? 12 : 0 }}>
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>
-              {isHutang ? 'Sisa Hutang' : 'Sisa Piutang'}
+              {isHutang ? 'Total Hutang' : 'Total Piutang'}
             </div>
             <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--primary)', letterSpacing: '-0.5px' }}>
-              {fmt(remainingAmount, currencySymbol)}
+              {fmt(debt.totalAmount, currencySymbol)}
             </div>
-            {paidAmount > 0 && (
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                dari {fmt(debt.totalAmount, currencySymbol)} · sudah bayar {fmt(paidAmount, currencySymbol)}
-              </div>
-            )}
           </div>
+          {paidAmount > 0 && !debt.isInstallment && (
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>SISA SALDO</div>
+            </div>
+          )}
           {debt.isInstallment && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>CICILAN</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(debt.installmentAmount || 0, currencySymbol)}/bln</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>SISA SALDO</div>
             </div>
           )}
         </div>
