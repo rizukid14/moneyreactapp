@@ -1,0 +1,298 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { MessageCircle, X, Send, Loader2, Check, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useMoney } from '../../contexts/MoneyContext';
+import { useToast } from '../common/Toast';
+
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  toolCall?: {
+    name: string;
+    arguments: any;
+  };
+}
+
+const ChatBot: React.FC = () => {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: 'Halo! Saya MoneyBot. Ada yang bisa saya bantu tentang MoneyApp atau pencatatan keuanganmu hari ini?' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { categories, assets, addTransaction, currencySymbol, isChatOpen, setIsChatOpen } = useMoney();
+  const { showToast } = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isChatOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isChatOpen]);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    const userMsg: Message = { role: 'user', content: input };
+    const newMessages = [...messages, userMsg];
+    
+    setMessages(newMessages);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          categories,
+          assets
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch from chat API');
+
+      const data = await response.json();
+      
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.content,
+        toolCall: data.toolCall
+      }]);
+
+    } catch (error) {
+      console.error(error);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Maaf, terjadi kesalahan saat menghubungi server.' }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmTransaction = (msgIndex: number, toolArgs: any) => {
+    try {
+      const tx = addTransaction({
+        type: toolArgs.type,
+        amount: Number(toolArgs.amount),
+        category: toolArgs.category,
+        assetId: toolArgs.assetId,
+        note: toolArgs.note || 'Dari AI Chat',
+        date: new Date().toISOString().split('T')[0],
+      });
+
+      // Update message to remove tool call and show success
+      setMessages(prev => prev.map((m, i) => 
+        i === msgIndex ? { ...m, toolCall: undefined, content: '✅ Transaksi berhasil dicatat!' } : m
+      ));
+      
+      showToast('Transaksi berhasil ditambahkan via AI!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menambahkan transaksi', 'error');
+    }
+  };
+
+  const handleCancelTransaction = (msgIndex: number) => {
+    setMessages(prev => prev.map((m, i) => 
+      i === msgIndex ? { ...m, toolCall: undefined, content: '❌ Transaksi dibatalkan.' } : m
+    ));
+  };
+
+  return (
+    <>
+      <AnimatePresence>
+        {isChatOpen && (
+          <motion.div 
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsChatOpen(false)}
+            style={{ zIndex: 1100 }}
+          >
+            <motion.div 
+              className="modal-content"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                height: '85vh',
+                maxHeight: '800px',
+                padding: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}
+            >
+          {/* Header */}
+          <div style={{
+            padding: '16px 20px',
+            background: 'var(--primary-gradient)',
+            color: 'white',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <MessageCircle size={18} />
+              </div>
+              <span style={{ fontWeight: 700, fontSize: '16px' }}>MoneyBot AI</span>
+            </div>
+            <button onClick={() => setIsChatOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '4px' }}>
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-card)' }}>
+            {messages.map((msg, idx) => (
+              <div key={idx} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
+              }}>
+                {msg.content && (
+                  <div style={{
+                    maxWidth: '85%',
+                    padding: '12px 16px',
+                    borderRadius: '16px',
+                    borderBottomRightRadius: msg.role === 'user' ? '4px' : '16px',
+                    borderBottomLeftRadius: msg.role === 'assistant' ? '4px' : '16px',
+                    background: msg.role === 'user' ? 'var(--primary)' : 'var(--bg-main)',
+                    color: msg.role === 'user' ? 'white' : 'var(--text-main)',
+                    border: msg.role === 'assistant' ? '1px solid var(--border-color)' : 'none',
+                    fontSize: '14px',
+                    lineHeight: 1.5,
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {msg.content}
+                  </div>
+                )}
+
+                {msg.toolCall && msg.toolCall.name === 'create_transaction' && (
+                  <div style={{
+                    marginTop: '8px',
+                    width: '100%',
+                    background: 'var(--bg-main)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
+                      <AlertCircle size={16} />
+                      <span style={{ fontSize: '12px', fontWeight: 700 }}>Draft Transaksi</span>
+                    </div>
+                    
+                    <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
+                        <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
+                        <span style={{ fontWeight: 700, color: msg.toolCall.arguments.type === 'pendapatan' ? 'var(--success)' : 'var(--danger)' }}>
+                          {currencySymbol}{msg.toolCall.arguments.amount?.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                        <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.category}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Aset:</span>
+                        <span style={{ fontWeight: 500 }}>
+                          {assets.find(a => a.id === msg.toolCall?.arguments.assetId)?.name || 'Tidak diketahui'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
+                        <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.note}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        onClick={() => handleCancelTransaction(idx)}
+                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Batal
+                      </button>
+                      <button 
+                        onClick={() => handleConfirmTransaction(idx, msg.toolCall!.arguments)}
+                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                      >
+                        <Check size={16} /> Konfirmasi
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-muted)', fontSize: '13px', padding: '8px' }}>
+                <Loader2 size={16} className="spin" /> <span>Mengetik...</span>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div style={{ padding: '16px', background: 'var(--bg-main)', borderTop: '1px solid var(--border-color)' }}>
+            <div style={{
+              display: 'flex',
+              background: 'var(--bg-card)',
+              borderRadius: '20px',
+              padding: '4px',
+              border: '1px solid var(--border-color)',
+            }}>
+              <input 
+                type="text" 
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
+                placeholder="Tanya bot atau catat transaksi..."
+                style={{
+                  flex: 1,
+                  background: 'none',
+                  border: 'none',
+                  padding: '10px 16px',
+                  fontSize: '14px',
+                  color: 'var(--text-main)',
+                  outline: 'none'
+                }}
+                disabled={isLoading}
+              />
+              <button 
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '16px',
+                  background: input.trim() && !isLoading ? 'var(--primary)' : 'var(--bg-main)',
+                  color: input.trim() && !isLoading ? 'white' : 'var(--text-muted)',
+                  border: 'none',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  cursor: input.trim() && !isLoading ? 'pointer' : 'default',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Send size={18} style={{ marginLeft: '2px' }} />
+              </button>
+            </div>
+          </div>
+          </motion.div>
+        </motion.div>
+      )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+export default ChatBot;

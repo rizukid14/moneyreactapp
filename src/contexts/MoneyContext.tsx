@@ -142,6 +142,9 @@ interface MoneyContextType {
   user: UserProfile;
   pin: string | null;
   isAppLocked: boolean;
+  setIsAppLocked: (v: boolean) => void;
+  isChatOpen: boolean;
+  setIsChatOpen: (v: boolean) => void;
   theme: 'light' | 'dark';
   addAsset: (asset: Omit<Asset, 'id'>) => void;
   deleteAsset: (id: string) => void;
@@ -211,6 +214,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [pin, setPin] = useState<string | null>(null);
   const [isAppLocked, setIsAppLocked] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [defaultAssetId, setDefaultAssetIdState] = useState<string | null>(null);
@@ -1114,7 +1118,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, budgets, debts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
+    user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards,
     addAsset, deleteAsset, updateAsset,
@@ -1127,7 +1131,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }), [
     isReady, assets, transactions, categories, budgets, debts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    user, pin, isAppLocked, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
+    user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards,
     addAsset, deleteAsset, updateAsset,

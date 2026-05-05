@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
@@ -24,7 +24,7 @@ interface TransactionGroup {
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping } = useMoney();
+  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping, setIsChatOpen } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isCopyMode, setIsCopyMode] = useState(false);
@@ -420,6 +420,17 @@ const Transactions: React.FC = () => {
               style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
               <Camera size={20} />
+            </button>
+            <button
+              className="fab-mini"
+              onClick={() => {
+                setIsFabOpen(false);
+                setIsChatOpen(true);
+              }}
+              title="MoneyBot AI Chat"
+              style={{ background: 'var(--primary-gradient)', color: 'white', border: 'none', boxShadow: '0 4px 12px var(--primary-glow)' }}
+            >
+              <MessageCircle size={20} />
             </button>
             <button
               className="fab-mini"

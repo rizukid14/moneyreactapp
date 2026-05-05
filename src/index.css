@@ -454,10 +454,12 @@ body {
 }
 
 /* Delay for staggered animation */
-.fab-menu.open .fab-mini:nth-child(1) { transition-delay: 0.15s; }
-.fab-menu.open .fab-mini:nth-child(2) { transition-delay: 0.10s; }
-.fab-menu.open .fab-mini:nth-child(3) { transition-delay: 0.05s; }
-.fab-menu.open .fab-mini:nth-child(4) { transition-delay: 0s; }
+.fab-menu.open .fab-mini:nth-child(1) { transition-delay: 0.25s; }
+.fab-menu.open .fab-mini:nth-child(2) { transition-delay: 0.20s; }
+.fab-menu.open .fab-mini:nth-child(3) { transition-delay: 0.15s; }
+.fab-menu.open .fab-mini:nth-child(4) { transition-delay: 0.10s; }
+.fab-menu.open .fab-mini:nth-child(5) { transition-delay: 0.05s; }
+.fab-menu.open .fab-mini:nth-child(6) { transition-delay: 0s; }
 
 
 @media (min-width: 541px) and (max-width: 767px) {

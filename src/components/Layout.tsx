@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { Home, LineChart, Wallet, Settings, PanelLeftClose, PanelLeftOpen, BadgeDollarSign } from 'lucide-react';
+import ChatBot from './chatbot/ChatBot';
 
 const Layout: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -62,6 +63,8 @@ const Layout: React.FC = () => {
       <nav className="bottom-nav mobile-only">
         <NavItems includeDebts={true} />
       </nav>
+
+      <ChatBot />
     </div>
   );
 };
