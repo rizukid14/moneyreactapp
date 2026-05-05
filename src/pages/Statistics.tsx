@@ -447,7 +447,7 @@ const Statistics: React.FC = () => {
         {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
           <div className="card glass">
             <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
-            <div style={{ width: '100%', height: 250 }}>
+            <div style={{ width: '100%', height: 400 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie
@@ -469,7 +469,7 @@ const Statistics: React.FC = () => {
                     formatter={(val: any) => formatCurrency(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
+                  <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '12px', maxHeight: '120px', overflowY: 'auto' }}/>
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -479,7 +479,7 @@ const Statistics: React.FC = () => {
         {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
           <div className="card glass">
             <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
-            <div style={{ width: '100%', height: 250 }}>
+            <div style={{ width: '100%', height: 400 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie

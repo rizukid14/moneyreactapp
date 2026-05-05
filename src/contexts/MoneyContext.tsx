@@ -146,7 +146,7 @@ interface MoneyContextType {
   addAsset: (asset: Omit<Asset, 'id'>) => void;
   deleteAsset: (id: string) => void;
   updateAsset: (id: string, asset: Partial<Asset>) => void;
-  addTransaction: (tx: Omit<Transaction, 'id'>) => void;
+  addTransaction: (tx: Omit<Transaction, 'id'>) => Transaction;
   deleteTransaction: (id: string) => void;
   updateTransaction: (id: string, tx: Partial<Transaction>) => void;
   addCategory: (cat: Omit<Category, 'id'>) => void;
@@ -412,32 +412,53 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
     setTransactions(prev => [newTx, ...prev]);
     dbPutTransaction(newTx).then(refreshSyncCount);
+    return newTx;
   }, [refreshSyncCount]);
 
   const deleteTransaction = useCallback((id: string) => {
     const txToDelete = transactions.find(t => t.id === id);
-    setTransactions(prev => prev.filter(tx => tx.id !== id));
-    dbDeleteTransaction(id).then(refreshSyncCount);
 
     if (txToDelete && txToDelete.relatedId) {
-      setDebts(prev => prev.map(d => {
-        if (d.id !== txToDelete.relatedId) return d;
+      const isPrincipal = (txToDelete.note.includes('Penerimaan dana pinjaman') ||
+        txToDelete.note.includes('Pemberian pinjaman') ||
+        txToDelete.note.includes('Belanja via'));
 
-        const isPrincipal = (txToDelete.note.includes('Penerimaan dana pinjaman') ||
-          txToDelete.note.includes('Pemberian pinjaman') ||
-          txToDelete.note.includes('Belanja via'));
+      if (isPrincipal) {
+        // Bug #3: Deleting a principal tx → cascade delete debt + all its related txs
+        const debtId = txToDelete.relatedId;
+        const relatedTxs = transactions.filter(tx => tx.relatedId === debtId && tx.id !== id);
+        relatedTxs.forEach(tx => dbDeleteTransaction(tx.id));
+        setTransactions(prev => prev.filter(tx => tx.id !== id && tx.relatedId !== debtId));
+        dbDeleteTransaction(id).then(refreshSyncCount);
+        setDebts(prev => prev.filter(d => d.id !== debtId));
+        dbDeleteDebt(debtId);
+      } else {
+        // Payment/installment tx deleted → recalculate debt from remaining txs
+        setTransactions(prev => prev.filter(tx => tx.id !== id));
+        dbDeleteTransaction(id).then(refreshSyncCount);
 
-        if (isPrincipal) return d;
+        const remainingPaymentCount = transactions.filter(t =>
+          t.id !== id &&
+          t.relatedId === txToDelete.relatedId &&
+          !t.note.includes('Penerimaan dana pinjaman') &&
+          !t.note.includes('Pemberian pinjaman') &&
+          !t.note.includes('Belanja via')
+        ).length;
 
-        const nextPaid = Math.max(0, (d.paidInstallments || 0) - 1);
-        const updated = {
-          ...d,
-          paidInstallments: d.isInstallment ? nextPaid : d.paidInstallments,
-          isPaid: false
-        };
-        dbPutDebt(updated);
-        return updated;
-      }));
+        setDebts(prev => prev.map(d => {
+          if (d.id !== txToDelete.relatedId) return d;
+          const updated = {
+            ...d,
+            paidInstallments: d.isInstallment ? remainingPaymentCount : d.paidInstallments,
+            isPaid: false
+          };
+          dbPutDebt(updated);
+          return updated;
+        }));
+      }
+    } else {
+      setTransactions(prev => prev.filter(tx => tx.id !== id));
+      dbDeleteTransaction(id).then(refreshSyncCount);
     }
   }, [transactions, refreshSyncCount]);
 
@@ -561,16 +582,46 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const updateDebt = useCallback((id: string, updatedDebt: Partial<Debt>) => {
     setDebts(prev => prev.map(d => {
       if (d.id !== id) return d;
+
+      // Bug #2: Sync principal transaction when totalAmount or contact changes
+      if (updatedDebt.totalAmount !== undefined && updatedDebt.totalAmount !== d.totalAmount ||
+          updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact) {
+        const principalTx = transactions.find(tx =>
+          tx.relatedId === id &&
+          (tx.note.includes('Penerimaan dana pinjaman') ||
+           tx.note.includes('Pemberian pinjaman') ||
+           tx.note.includes('Belanja via'))
+        );
+        if (principalTx) {
+          const txUpdate: Partial<Transaction> = {};
+          if (updatedDebt.totalAmount !== undefined && updatedDebt.totalAmount !== d.totalAmount) {
+            txUpdate.amount = updatedDebt.totalAmount;
+          }
+          if (updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact) {
+            txUpdate.note = principalTx.note.replace(d.contact, updatedDebt.contact);
+          }
+          const updatedTx = { ...principalTx, ...txUpdate };
+          setTransactions(prev => prev.map(tx => tx.id === principalTx.id ? updatedTx : tx));
+          dbPutTransaction(updatedTx);
+        }
+      }
+
       const updated = { ...d, ...updatedDebt } as Debt;
       dbPutDebt(updated);
       return updated;
     }));
-  }, []);
+  }, [transactions]);
 
   const deleteDebt = useCallback((id: string) => {
+    // Bug #1: Cascade delete all related transactions
+    const relatedTxs = transactions.filter(tx => tx.relatedId === id);
+    if (relatedTxs.length > 0) {
+      relatedTxs.forEach(tx => dbDeleteTransaction(tx.id));
+      setTransactions(prev => prev.filter(tx => tx.relatedId !== id));
+    }
     setDebts(prev => prev.filter(d => d.id !== id));
     dbDeleteDebt(id).then(refreshSyncCount);
-  }, [refreshSyncCount]);
+  }, [transactions, refreshSyncCount]);
 
   /** Create a transaction record and push it to state + DB */
   const _createTx = (tx: Omit<Transaction, 'id'>) => {
@@ -873,10 +924,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         relatedId: h.id,
       });
 
-      if (payAmt >= h.remaining) {
-        const original = debts.find(d => d.id === h.id)!;
-        debtsToUpdate.push({ ...original, isPaid: true });
-      }
+      // Bug #4: Always update debt state, not just fully-paid ones
+      const original = debts.find(d => d.id === h.id)!;
+      debtsToUpdate.push({
+        ...original,
+        isPaid: payAmt >= h.remaining,
+        paidInstallments: original.isInstallment
+          ? (original.paidInstallments || 0) + 1
+          : original.paidInstallments
+      });
     }
 
     // Process Piutang
@@ -896,19 +952,23 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         relatedId: p.id,
       });
 
-      if (payAmt >= p.remaining) {
-        const original = debts.find(d => d.id === p.id)!;
-        debtsToUpdate.push({ ...original, isPaid: true });
-      }
+      // Bug #4: Always update debt state, not just fully-paid ones
+      const original = debts.find(d => d.id === p.id)!;
+      debtsToUpdate.push({
+        ...original,
+        isPaid: payAmt >= p.remaining,
+        paidInstallments: original.isInstallment
+          ? (original.paidInstallments || 0) + 1
+          : original.paidInstallments
+      });
     }
 
-    if (debtsToUpdate.length > 0) {
-      debtsToUpdate.forEach(dbPutDebt);
-      setDebts(prev => prev.map(d => {
-        const updated = debtsToUpdate.find(u => u.id === d.id);
-        return updated ? updated : d;
-      }));
-    }
+    // Always persist updates — covers both partial and full offsets
+    debtsToUpdate.forEach(dbPutDebt);
+    setDebts(prev => prev.map(d => {
+      const updated = debtsToUpdate.find(u => u.id === d.id);
+      return updated ? updated : d;
+    }));
   }, [debts, transactions]);
 
 

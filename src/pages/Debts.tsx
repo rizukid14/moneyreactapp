@@ -573,7 +573,7 @@ const Debts: React.FC = () => {
           if (deletingId) deleteDebt(deletingId);
         }}
         title="Hapus Catatan"
-        message="Apakah Anda yakin ingin menghapus catatan hutang/piutang ini? Histori transaksi terkait akan tetap ada."
+        message="Apakah Anda yakin ingin menghapus catatan hutang/piutang ini? Semua transaksi terkait juga akan ikut terhapus."
       />
 
       {offsetTarget && (

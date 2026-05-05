@@ -288,7 +288,12 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
       <AssetSelectModal
         isOpen={modalState.type === 'asset' || modalState.type === 'fromAsset' || modalState.type === 'toAsset'}
         onClose={closeModal}
-        assets={assets}
+        assets={activeAssets}
+        selectedAssetId={
+          modalState.type === 'asset' ? activeItem?.asset :
+          modalState.type === 'fromAsset' ? activeItem?.fromAsset :
+          activeItem?.toAsset
+        }
         onSelect={(assetId) => {
           if (modalState.itemId && modalState.type) {
             updateResult(modalState.itemId, modalState.type as keyof ParsedTransaction, assetId);
@@ -314,15 +319,6 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
         />
       )}
 
-      <AssetSelectModal
-        isOpen={modalState.type === 'asset'}
-        onClose={closeModal}
-        assets={activeAssets}
-        selectedAssetId={activeItem?.asset}
-        onSelect={(id) => {
-          if (modalState.itemId) updateResult(modalState.itemId, 'asset', id);
-        }}
-      />
     </div>
   );
 };

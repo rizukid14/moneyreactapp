@@ -465,6 +465,7 @@ const Transactions: React.FC = () => {
         addTransaction={addTransaction}
         addRecurringTransaction={addRecurringTransaction}
         updateTransaction={updateTransaction}
+        deleteTransaction={deleteTransaction}
         editingTransaction={editingTransaction}
         isCopyMode={isCopyMode}
         initialType={initialType}

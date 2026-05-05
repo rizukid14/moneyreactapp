@@ -618,6 +618,37 @@ const ReceiptScanner: React.FC = () => {
               ))}
             </div>
 
+            {/* Tax, Service, Discount Breakdown */}
+            {(result.taxAmount! > 0 || result.serviceAmount! > 0 || result.discountAmount! > 0) && (
+              <div style={{
+                marginTop: '12px', padding: '10px 12px', background: 'var(--bg-main)',
+                borderRadius: '10px', border: '1px solid var(--border-color)',
+                display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px'
+              }}>
+                {result.taxAmount! > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Pajak (PPN/PB1)</span>
+                    <span style={{ fontWeight: 600 }}>{currencySymbol}{result.taxAmount?.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                {result.serviceAmount! > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Service Charge</span>
+                    <span style={{ fontWeight: 600 }}>{currencySymbol}{result.serviceAmount?.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                {result.discountAmount! > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Diskon</span>
+                    <span style={{ fontWeight: 600, color: 'var(--primary)' }}>-{currencySymbol}{result.discountAmount?.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.7, marginTop: '2px', fontStyle: 'italic' }}>
+                  * Nilai di atas sudah didistribusikan secara proporsional ke harga item di bawah.
+                </div>
+              </div>
+            )}
+
             <div style={{ marginTop: '10px', padding: '8px 10px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
               <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
               <span style={{ color: 'var(--danger)' }}>
@@ -625,16 +656,6 @@ const ReceiptScanner: React.FC = () => {
               </span>
             </div>
 
-            {result.taxInfo && (
-              <div style={{
-                marginTop: '8px', padding: '8px 12px', background: 'hsla(210, 80%, 55%, 0.08)',
-                borderRadius: '10px', border: '1px solid hsla(210, 80%, 55%, 0.2)',
-                fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px'
-              }}>
-                <span>ℹ️</span>
-                <span>{result.taxInfo} <span style={{ opacity: 0.7 }}>(sudah termasuk di harga item)</span></span>
-              </div>
-            )}
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
               <button
@@ -685,7 +706,7 @@ const ReceiptScanner: React.FC = () => {
 
             toSave.forEach(tx => {
               if (tx.type === 'transfer') {
-                addTransaction({
+                const newTx = addTransaction({
                   type: 'transfer',
                   amount: tx.amount,
                   date: tx.date,
@@ -705,6 +726,7 @@ const ReceiptScanner: React.FC = () => {
                     date: tx.date,
                     note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
                     assetId: feeAssetId,
+                    relatedId: newTx.id,
                   });
                 }
               } else {

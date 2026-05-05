@@ -13,16 +13,17 @@ interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   assets: Asset[];
-  addTransaction: (tx: Omit<Transaction, 'id'>) => void;
+  addTransaction: (tx: Omit<Transaction, 'id'>) => Transaction;
   addRecurringTransaction?: (rt: Omit<RecurringTransaction, 'id'>) => void;
   updateTransaction?: (id: string, tx: Partial<Transaction>) => void;
+  deleteTransaction?: (id: string) => void;
   editingTransaction?: Transaction | null;
   isCopyMode?: boolean;
   initialType?: 'pengeluaran' | 'pendapatan' | 'transfer';
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({
-  isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, editingTransaction, isCopyMode, initialType
+  isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
   const { categories, budgets, transactions, defaultAssetId, currencySymbol } = useMoney();
@@ -77,6 +78,18 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setAssetId(editingTransaction.assetId || activeAssets[0]?.id || '');
       setFromAssetId(editingTransaction.fromAssetId || activeAssets[0]?.id || '');
       setToAssetId(editingTransaction.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
+
+      // Initialize admin fee state for transfers
+      if (editingTransaction.type === 'transfer') {
+        const feeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin');
+        if (feeTx) {
+          setAdminFee(feeTx.amount.toLocaleString('id-ID'));
+          setAdminFeeTarget(feeTx.assetId === editingTransaction.toAssetId ? 'receiver' : 'sender');
+        } else {
+          setAdminFee('');
+          setAdminFeeTarget('sender');
+        }
+      }
     } else if (isOpen) {
       const targetType = initialType || type || 'pengeluaran';
       setType(targetType);
@@ -257,9 +270,43 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     if (editingTransaction && updateTransaction && !isCopyMode) {
       updateTransaction(editingTransaction.id, txData);
+
+      // Handle admin fee for edited transfer
+      if (type === 'transfer') {
+        const adminFeeAmount = Number(adminFee.replace(/\./g, ''));
+        const existingFeeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin');
+        const feeAssetId = adminFeeTarget === 'sender' ? fromAssetId : toAssetId;
+        const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+        const feeNote = `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`;
+
+        if (existingFeeTx) {
+          if (adminFeeAmount > 0) {
+            updateTransaction(existingFeeTx.id, {
+              amount: adminFeeAmount,
+              assetId: feeAssetId,
+              note: feeNote,
+              date,
+              time
+            });
+          } else if (deleteTransaction) {
+            deleteTransaction(existingFeeTx.id);
+          }
+        } else if (adminFeeAmount > 0) {
+          addTransaction({
+            type: 'pengeluaran',
+            amount: adminFeeAmount,
+            category: 'Biaya Admin',
+            date,
+            time,
+            note: feeNote,
+            assetId: feeAssetId,
+            relatedId: editingTransaction.id
+          });
+        }
+      }
     } else {
       isSavingRef.current = true;
-      addTransaction(txData);
+      const newTx = addTransaction(txData);
 
       // Create separate pengeluaran transaction for admin fee
       const adminFeeAmount = Number(adminFee.replace(/\./g, ''));
@@ -271,8 +318,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           amount: adminFeeAmount,
           category: 'Biaya Admin',
           date,
+          time,
           note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
           assetId: feeAssetId,
+          relatedId: newTx.id,
         });
       }
 

@@ -18,6 +18,9 @@ export interface OCRResult {
   suggestedAsset?: string; // New field for context matching
   lineItems: LineItem[];
   taxInfo?: string; // Summary of tax/service/discount (not a line item)
+  taxAmount?: number;
+  serviceAmount?: number;
+  discountAmount?: number;
   confidence: 'high' | 'medium' | 'low';
   debugLogs?: string[];
 }
@@ -204,6 +207,9 @@ export const useReceiptOCR = () => {
         suggestedAsset: result.suggestedAsset || "",
         lineItems: mappedLineItems,
         taxInfo,
+        taxAmount: tax,
+        serviceAmount: service,
+        discountAmount: discount,
         confidence: result.confidence || 'medium',
         debugLogs: logs
       };

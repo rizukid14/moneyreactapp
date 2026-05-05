@@ -261,7 +261,7 @@ const AssetDetailDrawer: React.FC<{
 
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
-  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol, assetCarouselCards } = useMoney();
+  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, deleteTransaction, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol, assetCarouselCards } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -522,6 +522,7 @@ const Assets: React.FC = () => {
         assets={assets.filter(a => !a.isDeleted)}
         addTransaction={addTransaction}
         updateTransaction={updateTransaction}
+        deleteTransaction={deleteTransaction}
         editingTransaction={editingTx}
       />
     </div>
