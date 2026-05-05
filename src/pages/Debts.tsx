@@ -138,14 +138,14 @@ const DebtCard: React.FC<{
           </div>
           {paidAmount > 0 && !debt.isInstallment && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>SISA SALDO</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>{isHutang ? 'Sisa Hutang' : 'Sisa Piutang'}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--primary)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
             </div>
           )}
           {debt.isInstallment && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>SISA SALDO</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>{isHutang ? 'Sisa Hutang' : 'Sisa Piutang'}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--primary)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
             </div>
           )}
         </div>
@@ -414,16 +414,16 @@ const Debts: React.FC = () => {
 
       {/* Offset Banner */}
       {offsetPotentials.length > 0 && (
-        <div style={{ 
-          marginBottom: 20, padding: '14px', borderRadius: '16px', 
+        <div style={{
+          marginBottom: 20, padding: '14px', borderRadius: '16px',
           background: 'var(--primary-gradient)', color: 'white',
           boxShadow: '0 8px 20px var(--primary-glow)',
           display: 'flex', alignItems: 'center', gap: '12px'
         }}>
-          <div style={{ 
-            width: '40px', height: '40px', borderRadius: '12px', 
-            background: 'rgba(255,255,255,0.2)', display: 'flex', 
-            alignItems: 'center', justifyContent: 'center' 
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '12px',
+            background: 'rgba(255,255,255,0.2)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center'
           }}>
             <ArrowRightLeft size={20} />
           </div>
@@ -433,15 +433,15 @@ const Debts: React.FC = () => {
               Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif.
             </div>
           </div>
-          <button 
+          <button
             onClick={() => {
               setOffsetTarget(offsetPotentials[0]);
               setIsOffsetModalOpen(true);
             }}
-            style={{ 
-              padding: '8px 16px', borderRadius: '10px', background: 'white', 
-              color: 'var(--primary)', border: 'none', fontWeight: 800, 
-              fontSize: '12px', cursor: 'pointer' 
+            style={{
+              padding: '8px 16px', borderRadius: '10px', background: 'white',
+              color: 'var(--primary)', border: 'none', fontWeight: 800,
+              fontSize: '12px', cursor: 'pointer'
             }}
           >
             Selesaikan
