@@ -423,17 +423,6 @@ const Transactions: React.FC = () => {
             </button>
             <button
               className="fab-mini"
-              onClick={() => {
-                setIsFabOpen(false);
-                setIsChatOpen(true);
-              }}
-              title="MoneyBot AI Chat"
-              style={{ background: 'var(--primary-gradient)', color: 'white', border: 'none', boxShadow: '0 4px 12px var(--primary-glow)' }}
-            >
-              <MessageCircle size={20} />
-            </button>
-            <button
-              className="fab-mini"
               onClick={() => navigate('/bulk-input')}
               title="Bulk Input (AI)"
               style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
@@ -460,6 +449,17 @@ const Transactions: React.FC = () => {
               style={{ background: 'var(--danger)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
             >
               <ArrowUpCircle size={20} />
+            </button>
+            <button
+              className="fab-mini"
+              onClick={() => {
+                setIsFabOpen(false);
+                setIsChatOpen(true);
+              }}
+              title="MoneyBot AI Chat"
+              style={{ background: 'var(--primary-gradient)', color: 'white', border: 'none', boxShadow: '0 4px 12px var(--primary-glow)' }}
+            >
+              <MessageCircle size={20} />
             </button>
           </div>
 
