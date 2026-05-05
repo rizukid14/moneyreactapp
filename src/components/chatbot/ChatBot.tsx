@@ -78,7 +78,7 @@ const ChatBot: React.FC = () => {
         subCategory: toolArgs.subCategory || undefined,
         assetId: toolArgs.assetId,
         note: toolArgs.note || 'Dari AI Chat',
-        date: new Date().toISOString().split('T')[0],
+        date: toolArgs.date || new Date().toISOString().split('T')[0],
       });
 
       // Update message to remove tool call and show success
@@ -95,6 +95,18 @@ const ChatBot: React.FC = () => {
   const handleCancelTransaction = (msgIndex: number) => {
     setMessages(prev => prev.map((m, i) => 
       i === msgIndex ? { ...m, toolCall: undefined, content: '❌ Transaksi dibatalkan.' } : m
+    ));
+  };
+  
+  const handleUpdateDraftDate = (msgIndex: number, newDate: string) => {
+    setMessages(prev => prev.map((m, i) => 
+      i === msgIndex && m.toolCall ? { 
+        ...m, 
+        toolCall: { 
+          ...m.toolCall, 
+          arguments: { ...m.toolCall.arguments, date: newDate } 
+        } 
+      } : m
     ));
   };
 
@@ -213,6 +225,24 @@ const ChatBot: React.FC = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
                         <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.note}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Tanggal:</span>
+                        <input 
+                          type="date" 
+                          value={msg.toolCall.arguments.date || new Date().toISOString().split('T')[0]}
+                          onChange={(e) => handleUpdateDraftDate(idx, e.target.value)}
+                          style={{ 
+                            background: 'var(--bg-neutral)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: '8px', 
+                            padding: '4px 8px', 
+                            fontSize: '12px', 
+                            color: 'var(--text-main)',
+                            cursor: 'pointer',
+                            outline: 'none'
+                          }}
+                        />
                       </div>
                     </div>
 

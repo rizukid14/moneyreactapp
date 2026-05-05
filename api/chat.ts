@@ -108,9 +108,13 @@ Keep your text responses extremely concise, friendly, and in Indonesian by defau
             note: { 
               type: "string", 
               description: "A short descriptive note or merchant name based on the user's input." 
+            },
+            date: {
+              type: "string",
+              description: "The transaction date in YYYY-MM-DD format. Default to today's date if not specified."
             }
           },
-          required: ["type", "amount", "category", "subCategory", "assetId", "note"]
+          required: ["type", "amount", "category", "subCategory", "assetId", "note", "date"]
         }
       }
     };
