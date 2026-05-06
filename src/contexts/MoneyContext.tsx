@@ -177,7 +177,6 @@ interface MoneyContextType {
   addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string) => void;
   updateDebt: (id: string, debt: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
-  contacts: Contact[];
   addContact: (contact: Omit<Contact, 'id'>) => void;
   updateContact: (id: string, contact: Partial<Contact>) => void;
   deleteContact: (id: string) => void;
@@ -189,9 +188,6 @@ interface MoneyContextType {
   addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   addDebtPrincipal: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   offsetDebt: (contactName: string, customDate?: string) => void;
-  addContact: (contact: Omit<Contact, 'id'>) => void;
-  updateContact: (id: string, contact: Partial<Contact>) => void;
-  deleteContact: (id: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => void;
@@ -234,7 +230,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [debts, setDebts] = useState<Debt[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [pin, setPin] = useState<string | null>(null);
   const [isAppLocked, setIsAppLocked] = useState(false);
@@ -290,9 +285,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setRecurringTransactions(dbRecurring);
       setContacts(dbContacts);
 
-      // Load contacts
-      const dbContacts = await import('../lib/db').then(m => m.dbGetAllContacts());
-      setContacts(dbContacts);
 
       // Seed defaults if DB is empty
       if (dbAssets.length === 0) {
@@ -722,33 +714,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     import('../lib/db').then(m => {
       setRecurringTransactions(prev => prev.filter(rt => rt.id !== id));
       m.dbDeleteRecurringTransaction(id);
-    });
-  }, []);
-
-  // ─── Contacts ─────────────────────────────────────────────────────────────
-  const addContact = useCallback((contactReq: Omit<Contact, 'id'>) => {
-    import('../lib/db').then(m => {
-      const newContact: Contact = { ...contactReq, id: generateId() };
-      setContacts(prev => [...prev, newContact]);
-      m.dbPutContact(newContact);
-    });
-  }, []);
-
-  const updateContact = useCallback((id: string, updated: Partial<Contact>) => {
-    import('../lib/db').then(m => {
-      setContacts(prev => prev.map(c => {
-        if (c.id !== id) return c;
-        const next = { ...c, ...updated };
-        m.dbPutContact(next);
-        return next;
-      }));
-    });
-  }, []);
-
-  const deleteContact = useCallback((id: string) => {
-    import('../lib/db').then(m => {
-      setContacts(prev => prev.filter(c => c.id !== id));
-      m.dbDeleteContact(id);
     });
   }, []);
 
@@ -1236,7 +1201,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, budgets, debts, contacts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    contacts, addContact, updateContact, deleteContact,
+    addContact, updateContact, deleteContact,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards,
@@ -1245,13 +1210,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
-    addContact, updateContact, deleteContact,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
   }), [
     isReady, assets, transactions, categories, budgets, debts, contacts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    contacts, addContact, updateContact, deleteContact,
+    addContact, updateContact, deleteContact,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards,
@@ -1260,7 +1224,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
-    addContact, updateContact, deleteContact,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
   ]);
