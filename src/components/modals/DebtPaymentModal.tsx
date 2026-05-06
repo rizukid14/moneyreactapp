@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Check, ArrowRightLeft } from 'lucide-react';
+import { X, Check, ArrowRightLeft, Wallet, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
+import AssetSelectModal from './AssetSelectModal';
 
 interface DebtPaymentModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   const [note, setNote] = useState('');
   const [isFullSettle, setIsFullSettle] = useState(true);
   const [lastOpen, setLastOpen] = useState(false);
+  const [assetModalOpen, setAssetModalOpen] = useState(false);
 
   React.useEffect(() => {
     if (isOpen && !lastOpen) {
@@ -174,16 +176,45 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                   {isHutang ? '🏦 Bayar dari:' : '🏦 Terima ke:'}
                 </label>
-                <select
-                  value={selectedAssetId}
-                  onChange={(e) => setSelectedAssetId(e.target.value)}
-                  style={{ width: '100%', marginBottom: 0 }}
+                <button
+                  type="button"
+                  onClick={() => setAssetModalOpen(true)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    background: 'var(--bg-card-solid)',
+                    border: '2px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    marginBottom: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)';
+                    (e.currentTarget as HTMLElement).style.background = 'var(--bg-main)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-color)';
+                    (e.currentTarget as HTMLElement).style.background = 'var(--bg-card-solid)';
+                  }}
                 >
-                  <option value="">-- Pilih Rekening --</option>
-                  {activeAssets.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Wallet size={16} color="var(--primary)" />
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: selectedAssetId ? 600 : 400,
+                        color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {selectedAssetId ? activeAssets.find(a => a.id === selectedAssetId)?.name : '-- Pilih Rekening --'}
+                    </span>
+                  </div>
+                  <ChevronRight size={16} color="var(--text-muted)" />
+                </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
@@ -229,6 +260,14 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               {isFullSettle ? <Check size={18} /> : <ArrowRightLeft size={18} />}
               {isFullSettle ? 'Konfirmasi Pelunasan' : 'Konfirmasi Pembayaran Cicilan'}
             </button>
+
+            <AssetSelectModal
+              isOpen={assetModalOpen}
+              onClose={() => setAssetModalOpen(false)}
+              assets={activeAssets}
+              selectedAssetId={selectedAssetId}
+              onSelect={(id) => setSelectedAssetId(id)}
+            />
           </motion.div>
         </motion.div>
       )}
