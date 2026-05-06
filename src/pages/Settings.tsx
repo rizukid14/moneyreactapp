@@ -3,7 +3,7 @@ import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -178,7 +178,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, pullFromCloud } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, pullFromCloud, contacts, addContact, updateContact, deleteContact } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -228,10 +228,17 @@ const Settings: React.FC = () => {
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [newSubCatName, setNewSubCatName] = useState('');
 
+  // Contact State
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactPhone, setNewContactPhone] = useState('');
+  const [newContactNote, setNewContactNote] = useState('');
+  const [editingContact, setEditingContact] = useState<string | null>(null);
+
   const menuItems = [
     // ... existing menuItems ...
     { id: 'profile', icon: User, label: 'Profil Saya' },
     { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
+    { id: 'contacts', icon: BookUser, label: 'Kontak' },
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
     { id: 'budgets', icon: Target, label: 'Anggaran & Target' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
@@ -342,6 +349,110 @@ const Settings: React.FC = () => {
 
   const renderModalContent = () => {
     switch (activeModal) {
+      case 'contacts':
+        const handleAddContact = (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!newContactName.trim()) return;
+          if (editingContact) {
+            updateContact(editingContact, {
+              name: newContactName.trim(),
+              phone: newContactPhone.trim() || undefined,
+              note: newContactNote.trim() || undefined,
+            });
+            setEditingContact(null);
+          } else {
+            addContact({
+              name: newContactName.trim(),
+              phone: newContactPhone.trim() || undefined,
+              note: newContactNote.trim() || undefined,
+            });
+          }
+          setNewContactName('');
+          setNewContactPhone('');
+          setNewContactNote('');
+        };
+
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Kontak</h2>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }}><X /></button>
+            </div>
+
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.6 }}>
+              Kelola daftar kontak untuk hutang & piutang. Kontak ini akan muncul sebagai pilihan saat menambah catatan hutang/piutang.
+            </p>
+
+            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
+              {contacts.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Belum ada kontak.</div>
+              ) : (
+                contacts.map(c => (
+                  <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: 2 }}>{c.name}</div>
+                      {c.phone && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>📞 {c.phone}</div>}
+                      {c.note && <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>{c.note}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => {
+                        setEditingContact(c.id);
+                        setNewContactName(c.name);
+                        setNewContactPhone(c.phone || '');
+                        setNewContactNote(c.note || '');
+                      }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px' }}>
+                        <Edit2 size={16} />
+                      </button>
+                      <button onClick={() => {
+                        showConfirm(
+                          'Hapus Kontak',
+                          `Hapus kontak "${c.name}"? Catatan hutang/piutang yang menggunakan kontak ini tidak akan terhapus.`,
+                          () => deleteContact(c.id)
+                        );
+                      }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleAddContact} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                type="text"
+                value={newContactName}
+                onChange={e => setNewContactName(e.target.value)}
+                placeholder="Nama kontak..."
+                style={{ marginBottom: 0 }}
+                required
+              />
+              <input
+                type="tel"
+                value={newContactPhone}
+                onChange={e => setNewContactPhone(e.target.value)}
+                placeholder="Nomor telepon (opsional)..."
+                style={{ marginBottom: 0 }}
+              />
+              <input
+                type="text"
+                value={newContactNote}
+                onChange={e => setNewContactNote(e.target.value)}
+                placeholder="Catatan (opsional)..."
+                style={{ marginBottom: 0 }}
+              />
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {editingContact ? <><CheckCircle2 size={18} /> Simpan Perubahan</> : <><Plus size={18} /> Tambah Kontak</>}
+              </button>
+              {editingContact && (
+                <button type="button" onClick={() => { setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }} className="btn" style={{ width: '100%', margin: 0, background: 'var(--bg-neutral)', color: 'var(--text-muted)' }}>
+                  Batal
+                </button>
+              )}
+            </form>
+          </>
+        );
+
       case 'categories':
         const filteredCats = categories.filter(c => c.type === catTab);
         return (

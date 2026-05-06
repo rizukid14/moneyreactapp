@@ -3,6 +3,7 @@ import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid,
 import { useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
+import { formatCurrency } from '../lib/utils';
 import TransactionItem from '../components/transactions/TransactionItem';
 import TransactionModal from '../components/modals/TransactionModal';
 import DatePickerModal from '../components/modals/DatePickerModal';
@@ -195,8 +196,6 @@ const Transactions: React.FC = () => {
     setEditingTransaction(null);
   }, []);
 
-  const formatCurrency = (val: number) => `${currencySymbol}${val.toLocaleString('id-ID')}`;
-
   return (
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -273,7 +272,7 @@ const Transactions: React.FC = () => {
           boxShadow: '0 10px 25px var(--primary-glow)'
         }}>
           <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pemasukan</span>
-          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyIncome)}</span>
+          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyIncome, currencySymbol)}</span>
         </div>
         <div className="card" style={{
           flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)',
@@ -281,7 +280,7 @@ const Transactions: React.FC = () => {
           boxShadow: '0 10px 25px var(--secondary-glow)'
         }}>
           <span style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</span>
-          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyExpense)}</span>
+          <span style={{ display: 'block', fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(monthlyExpense, currencySymbol)}</span>
         </div>
       </div>
 
