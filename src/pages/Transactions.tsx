@@ -3,10 +3,11 @@ import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid,
 import { useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, getLocalDate } from '../lib/utils';
 import TransactionItem from '../components/transactions/TransactionItem';
 import TransactionModal from '../components/modals/TransactionModal';
 import DatePickerModal from '../components/modals/DatePickerModal';
+import WhatsNewModal from '../components/modals/WhatsNewModal';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -41,6 +42,20 @@ const Transactions: React.FC = () => {
   });
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultTransactionGrouping || 'date');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
+
+  React.useEffect(() => {
+    const hasSeen = localStorage.getItem('whats_new_seen_v14');
+    if (!hasSeen) {
+      const timer = setTimeout(() => setIsWhatsNewOpen(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const closeWhatsNew = () => {
+    setIsWhatsNewOpen(false);
+    localStorage.setItem('whats_new_seen_v14', 'true');
+  };
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
@@ -352,7 +367,7 @@ const Transactions: React.FC = () => {
                       size={18} 
                       color="var(--text-muted)" 
                       style={{ 
-                        transform: collapsedGroups[group.id] ? 'rotate(-90deg)' : 'none', 
+                        transform: (collapsedGroups[group.id] ?? (groupBy === 'date' && group.id !== getLocalDate())) ? 'rotate(-90deg)' : 'none', 
                         transition: 'transform 0.2s' 
                       }} 
                     />
@@ -376,7 +391,7 @@ const Transactions: React.FC = () => {
                 </div>
               )}
 
-              {!collapsedGroups[group.id] && (
+              {!(collapsedGroups[group.id] ?? (groupBy === 'date' && group.id !== getLocalDate())) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {group.transactions.map(tx => (
                     <TransactionItem
@@ -479,6 +494,11 @@ const Transactions: React.FC = () => {
         editingTransaction={editingTransaction}
         isCopyMode={isCopyMode}
         initialType={initialType}
+      />
+
+      <WhatsNewModal 
+        isOpen={isWhatsNewOpen}
+        onClose={closeWhatsNew}
       />
     </div>
   );

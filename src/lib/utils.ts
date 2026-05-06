@@ -46,8 +46,14 @@ export const generateId = (): string =>
  * Returns true if a debt-related transaction is a principal (loan creation) tx,
  * not a payment. Used to exclude it when calculating how much has been paid.
  */
-export const isPrincipalTx = (note: string): boolean =>
-  note.includes('Penerimaan dana pinjaman') ||
-  note.includes('Pemberian pinjaman') ||
-  note.includes('Belanja via') ||
-  note.includes('Penambahan');
+export const isPrincipalTx = (note: string, category?: string): boolean => {
+  const n = note.toLowerCase();
+  const c = category ? category.toLowerCase() : '';
+  return n.includes('penerimaan dana pinjaman') ||
+         n.includes('pemberian pinjaman') ||
+         n.includes('belanja via') ||
+         n.includes('penambahan') ||
+         c === 'pinjaman & piutang' ||
+         c === 'penerimaan dana pinjaman' ||
+         c === 'pemberian pinjaman';
+};

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus } from 'lucide-react';
+import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
+import SplitBillModal from '../components/modals/SplitBillModal';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -17,7 +18,7 @@ const CONFIDENCE_BADGE = {
 };
 
 const ReceiptScanner: React.FC = () => {
-  const { addTransaction, assets, categories, currencySymbol } = useMoney();
+  const { addTransaction, addDebt, assets, categories, currencySymbol } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { showToast } = useToast();
@@ -54,6 +55,7 @@ const ReceiptScanner: React.FC = () => {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<'name' | 'amount' | null>(null);
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -302,7 +304,7 @@ const ReceiptScanner: React.FC = () => {
     } else {
       setStage('crop');
     }
-  }, [imageFile, scanReceipt, assets, categories, setError]);
+  }, [imageFile, scanReceipt, assets, categories, setError, selectedAssetId, selectedCategory, selectedDate, selectedTime, merchantName, editableAmount, selectedType]);
 
   // ── Handle file select ─────────────────────────────────────────────────────
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -398,6 +400,89 @@ const ReceiptScanner: React.FC = () => {
     setLineItems(prev => [{ name: 'Item Baru', amount: 0, selected: true }, ...prev]);
     setEditingItemIdx(0); 
     setEditingField('name');
+  };
+
+  const handleSplitBillSave = (splits: any[]) => {
+    if (!selectedAssetId) {
+      showToast('Pilih rekening terlebih dahulu', 'warning');
+      return;
+    }
+
+    try {
+      // Find the user's share (named 'Me', 'Saya', or similar)
+      const userSplit = splits.find(s => 
+        ['me', 'saya', 'i', 'myself', 'me '].includes(s.contactName.toLowerCase().trim())
+      );
+
+      // We assume User paid the bill using selectedAssetId
+      const payers = splits.filter(s => s.isPayer);
+      
+      // If User is among payers or no one is marked as payer (default case)
+      const isUserPayer = userSplit ? userSplit.isPayer : (payers.length === 0 || payers.some(p => ['me', 'saya'].includes(p.contactName.toLowerCase().trim())));
+
+      if (isUserPayer) {
+        // 1. User paid for everyone.
+        // Save User's own share as a regular transaction
+        const myShare = userSplit ? userSplit.amount : (splits.length > 0 ? (parseInt(editableAmount) - splits.filter(s => s !== userSplit).reduce((sum, s) => sum + s.amount, 0)) : parseInt(editableAmount));
+        
+        if (myShare > 0) {
+          addTransaction({
+            type: 'pengeluaran',
+            amount: myShare,
+            category: selectedCategory || 'Makan & Minum',
+            subCategory: selectedSubCategory || undefined,
+            date: selectedDate,
+            time: selectedTime,
+            note: `${merchantName} (Share Saya)`,
+            assetId: selectedAssetId,
+          });
+        }
+
+        // 2. Save others' shares as Piutang (Receivables)
+        splits.forEach(s => {
+          if (userSplit && s.id === userSplit.id) return;
+          if (!s.isPayer) {
+            // Friend owes user
+            addDebt({
+              type: 'piutang',
+              contact: s.contactName,
+              totalAmount: s.amount,
+              description: `Split Bill: ${merchantName}`,
+              createdAt: new Date(selectedDate + 'T' + selectedTime).toISOString(),
+              paymentAssetId: selectedAssetId,
+              isPaid: false,
+              isInstallment: false,
+              paidInstallments: 0
+            }, 'none');
+          }
+        });
+      } else {
+        // User is NOT the payer (someone else paid)
+        // User owes the payer
+        const payer = payers[0] || splits[0];
+        const mySplit = userSplit || { amount: 0 }; // If user not in list, they owe nothing?
+        
+        if (mySplit.amount > 0) {
+          addDebt({
+            type: 'hutang',
+            contact: payer.contactName,
+            totalAmount: mySplit.amount,
+            description: `Split Bill: ${merchantName}`,
+            createdAt: new Date(selectedDate + 'T' + selectedTime).toISOString(),
+            liabilityAssetId: selectedAssetId,
+            isPaid: false,
+            isInstallment: false,
+            paidInstallments: 0
+          }, 'credit', selectedCategory || 'Makan & Minum', selectedSubCategory);
+        }
+      }
+
+      showToast('Split bill berhasil disimpan!', 'success');
+      reset();
+    } catch (e) {
+      showToast('Gagal menyimpan split bill', 'error');
+      console.error(e);
+    }
   };
 
   const selCat = categories.find(c => c.name === selectedCategory && c.type === selectedType);
@@ -523,6 +608,9 @@ const ReceiptScanner: React.FC = () => {
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
               <button className="btn" style={{ flex: 1 }} onClick={reset}>Batal</button>
+              <button className="btn" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => setIsSplitModalOpen(true)}>
+                <Users size={16} /> Split Bill
+              </button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSaveMain}>Simpan Total</button>
             </div>
           </div>
@@ -747,6 +835,15 @@ const ReceiptScanner: React.FC = () => {
           }}
         />
       )}
+
+      <SplitBillModal
+        isOpen={isSplitModalOpen}
+        onClose={() => setIsSplitModalOpen(false)}
+        totalAmount={parseInt(editableAmount) || 0}
+        merchantName={merchantName}
+        date={selectedDate}
+        onSave={handleSplitBillSave}
+      />
     </div>
   );
 };

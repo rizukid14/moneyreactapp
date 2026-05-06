@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check, UserPlus, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Contact } from '../../contexts/MoneyContext';
+import { useMoney, type Contact } from '../../contexts/MoneyContext';
 
 interface ContactSelectModalProps {
   isOpen: boolean;
@@ -18,7 +18,21 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
   selectedContactName = '',
   onSelect,
 }) => {
+  const { addContact } = useMoney();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+
+  // Reset state when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setIsAddingNew(false);
+      setSearchQuery('');
+      setNewName('');
+      setNewPhone('');
+    }
+  }, [isOpen]);
 
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return contacts;
@@ -31,6 +45,21 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
     onSelect(contactName);
     onClose();
     setSearchQuery('');
+    setIsAddingNew(false);
+  };
+
+  const handleAddNew = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    
+    addContact({
+      name: newName.trim(),
+      phone: newPhone.trim() || undefined
+    });
+    
+    handleSelect(newName.trim());
+    setNewName('');
+    setNewPhone('');
   };
 
   return (
@@ -52,101 +81,181 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.5 }}
-            style={{ padding: 0, height: '70vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+            style={{ padding: 0, height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
           >
             {/* Header */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0,
             }}>
-              <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Kontak</h2>
+              <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>
+                {isAddingNew ? 'Tambah Kontak Baru' : 'Pilih Kontak'}
+              </h2>
               <button className="close-btn" onClick={onClose}><X size={20} /></button>
             </div>
 
-            {/* Search */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
-              <input
-                type="text"
-                placeholder="Cari kontak..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '14px',
-                  marginBottom: 0,
-                }}
-              />
-            </div>
-
-            {/* Contacts List */}
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              background: 'var(--bg-card-solid)',
-              padding: '12px 0',
-            }}>
-              {filteredContacts.length === 0 ? (
-                <div style={{ padding: '30px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                  {contacts.length === 0 ? 'Tidak ada kontak. Buat kontak di Settings terlebih dahulu.' : 'Kontak tidak ditemukan.'}
+            {isAddingNew ? (
+              <form onSubmit={handleAddNew} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>Nama Kontak</label>
+                  <input 
+                    autoFocus
+                    required
+                    type="text" 
+                    placeholder="Masukkan nama..." 
+                    value={newName} 
+                    onChange={e => setNewName(e.target.value)} 
+                    style={{ width: '100%', marginBottom: 0 }}
+                  />
                 </div>
-              ) : (
-                filteredContacts.map(contact => {
-                  const isSelected = contact.name === selectedContactName;
-                  return (
-                    <button
-                      key={contact.id}
-                      onClick={() => handleSelect(contact.name)}
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>Nomor Telepon (Opsional)</label>
+                  <input 
+                    type="tel" 
+                    placeholder="0812..." 
+                    value={newPhone} 
+                    onChange={e => setNewPhone(e.target.value)} 
+                    style={{ width: '100%', marginBottom: 0 }}
+                  />
+                </div>
+                
+                <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsAddingNew(false)}
+                    style={{ 
+                      flex: 1, 
+                      padding: '12px', 
+                      borderRadius: '12px', 
+                      border: '1px solid var(--border-color)', 
+                      background: 'var(--bg-neutral)',
+                      color: 'var(--text-muted)',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn" 
+                    style={{ flex: 2, background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  >
+                    <Save size={18} /> Simpan & Pilih
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                {/* Search & Add Bar */}
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="text"
+                      placeholder="Cari kontak..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       style={{
-                        width: '100%', padding: '14px 16px',
-                        background: isSelected ? 'var(--bg-income)' : 'transparent',
-                        border: 'none', borderBottom: '1px solid var(--border-color)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        cursor: 'pointer', textAlign: 'left',
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '14px',
+                        marginBottom: 0,
                       }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                        <div
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setIsAddingNew(true)}
+                    style={{
+                      padding: '0 12px',
+                      background: 'var(--bg-income)',
+                      border: '1px solid var(--primary-glow)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <UserPlus size={20} />
+                  </button>
+                </div>
+
+                {/* Contacts List */}
+                <div style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  background: 'var(--bg-card-solid)',
+                  padding: '12px 0',
+                }}>
+                  {filteredContacts.length === 0 ? (
+                    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: 16 }}>
+                        {contacts.length === 0 ? 'Belum ada kontak.' : 'Kontak tidak ditemukan.'}
+                      </div>
+                      <button 
+                        onClick={() => setIsAddingNew(true)}
+                        className="btn"
+                        style={{ padding: '10px 20px', fontSize: 13, background: 'var(--primary)', color: 'white' }}
+                      >
+                        Tambah Kontak Baru
+                      </button>
+                    </div>
+                  ) : (
+                    filteredContacts.map(contact => {
+                      const isSelected = contact.name === selectedContactName;
+                      return (
+                        <button
+                          key={contact.id}
+                          onClick={() => handleSelect(contact.name)}
                           style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 10,
-                            background: isSelected ? 'var(--primary)' : 'var(--bg-main)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                            fontWeight: 700,
-                            fontSize: 14,
-                            color: isSelected ? 'white' : 'var(--text-muted)',
+                            width: '100%', padding: '14px 16px',
+                            background: isSelected ? 'var(--bg-income)' : 'transparent',
+                            border: 'none', borderBottom: '1px solid var(--border-color)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            cursor: 'pointer', textAlign: 'left',
                           }}
                         >
-                          {contact.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--primary)' : 'var(--text-main)', marginBottom: 2 }}>
-                            {contact.name}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 10,
+                                background: isSelected ? 'var(--primary)' : 'var(--bg-main)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                fontWeight: 700,
+                                fontSize: 14,
+                                color: isSelected ? 'white' : 'var(--text-muted)',
+                              }}
+                            >
+                              {contact.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '14px', fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--primary)' : 'var(--text-main)', marginBottom: 2 }}>
+                                {contact.name}
+                              </div>
+                              {contact.phone && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                  {contact.phone}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          {contact.phone && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              {contact.phone}
-                            </div>
-                          )}
-                          {contact.note && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 2 }}>
-                              {contact.note}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {isSelected && <Check size={18} color="var(--primary)" />}
-                    </button>
-                  );
-                })
-              )}
-            </div>
+                          {isSelected && <Check size={18} color="var(--primary)" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
           </motion.div>
         </motion.div>
       )}

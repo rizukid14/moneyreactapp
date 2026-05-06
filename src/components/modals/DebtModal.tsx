@@ -5,6 +5,8 @@ import { useMoney, type Debt, type Asset, type Category } from '../../contexts/M
 import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
+import ContactSelectModal from './ContactSelectModal';
+import { User } from 'lucide-react';
 
 interface DebtModalProps {
   isOpen: boolean;
@@ -41,6 +43,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   type AssetTarget = 'liability' | 'payment' | 'receive' | null;
   const [calcOpen, setCalcOpen] = useState<'total' | 'installment' | null>(null);
   const [catModalOpen, setCatModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
   const [assetModalTarget, setAssetModalTarget] = useState<AssetTarget>(null);
   const [creditCatName, setCreditCatName] = useState('');
   const [creditSubCatName, setCreditSubCatName] = useState('');
@@ -195,25 +198,30 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
                 {type === 'hutang' ? 'Hutang ke siapa / institusi' : 'Siapa yang berhutang ke kamu'}
               </label>
-              {contacts.length === 0 ? (
-                <div style={{ padding: '12px', background: 'var(--bg-neutral)', borderRadius: 10, border: '1px dashed var(--border-color)', marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 8 }}>
-                    Belum ada kontak. Tambahkan kontak di menu <strong>Lainnya → Kontak</strong> terlebih dahulu.
-                  </div>
+              <button
+                type="button"
+                onClick={() => setContactModalOpen(true)}
+                style={{
+                  width: '100%', padding: '12px 14px',
+                  background: 'var(--bg-card-solid)',
+                  border: '2px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  marginBottom: 16, cursor: 'pointer'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <User size={16} color="var(--primary)" />
+                  <span style={{
+                    fontSize: 13,
+                    fontWeight: contact ? 600 : 400,
+                    color: contact ? 'var(--text-main)' : 'var(--text-muted)'
+                  }}>
+                    {contact || '-- Pilih Kontak --'}
+                  </span>
                 </div>
-              ) : (
-                <select 
-                  required 
-                  value={contact} 
-                  onChange={e => setContact(e.target.value)}
-                  style={{ marginBottom: 16 }}
-                >
-                  <option value="">-- Pilih Kontak --</option>
-                  {contacts.map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-              )}
+                <ChevronRight size={16} color="var(--text-muted)" />
+              </button>
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Keterangan</label>
               <input type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} />
@@ -446,6 +454,14 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
         else if (assetModalTarget === 'receive') setReceiveAssetId(id);
         else setPaymentAssetId(id);
       }}
+    />
+
+    <ContactSelectModal
+      isOpen={contactModalOpen}
+      onClose={() => setContactModalOpen(false)}
+      contacts={contacts}
+      selectedContactName={contact}
+      onSelect={(name) => setContact(name)}
     />
     </>
   );

@@ -441,19 +441,30 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return newTx;
   }, [refreshSyncCount]);
 
+  /** Create a transaction record and push it to state + DB */
+  const _createTx = (tx: Omit<Transaction, 'id'>) => {
+    const newTx: Transaction = { 
+      ...tx, 
+      id: generateId(),
+      time: tx.time || getLocalTime()
+    };
+    setTransactions(prev => [newTx, ...prev]);
+    dbPutTransaction(newTx);
+  };
+
   const deleteTransaction = useCallback((id: string) => {
     const txToDelete = transactions.find(t => t.id === id);
     if (!txToDelete) return;
 
     if (txToDelete.relatedId) {
-      const isPrincipal = isPrincipalTx(txToDelete.note);
+      const isPrincipal = isPrincipalTx(txToDelete.note, txToDelete.category);
 
       if (isPrincipal) {
         const debtId = txToDelete.relatedId;
         const otherPrincipalTxs = transactions.filter(tx => 
           tx.relatedId === debtId && 
           tx.id !== id && 
-          isPrincipalTx(tx.note)
+          isPrincipalTx(tx.note, tx.category)
         );
 
         if (otherPrincipalTxs.length === 0) {
@@ -475,7 +486,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             // Recalculate if it's paid after total decreased
             const history = transactions.filter(t => t.relatedId === debtId && t.id !== id);
             const paidAmt = history.reduce((sum, tx) => {
-              return isPrincipalTx(tx.note) ? sum : sum + Number(tx.amount || 0);
+              return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
             }, 0);
             const isPaid = newTotal > 0 && paidAmt >= newTotal;
 
@@ -492,7 +503,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const remainingPaymentCount = transactions.filter(t =>
           t.id !== id &&
           t.relatedId === txToDelete.relatedId &&
-          !isPrincipalTx(t.note)
+          !isPrincipalTx(t.note, t.category)
         ).length;
 
         setDebts(prev => prev.map(d => {
@@ -501,7 +512,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           // Recalculate isPaid based on new transaction sum
           const history = transactions.filter(t => t.relatedId === d.id && t.id !== id);
           const paidAmt = history.reduce((sum, tx) => {
-            return isPrincipalTx(tx.note) ? sum : sum + Number(tx.amount || 0);
+            return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
           }, 0);
           const isPaid = Number(d.totalAmount || 0) > 0 && paidAmt >= Number(d.totalAmount || 0);
 
@@ -582,7 +593,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Debts ──────────────────────────────────────────────────────────────
   const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryName?: string, subCategoryName?: string) => {
-    const newDebt: Debt = { ...debtReq, id: generateId() };
+    // Check if an existing unpaid debt with the same contact and type exists
+    const existingDebt = debts.find(d => 
+      !d.isPaid && 
+      d.contact.toLowerCase().trim() === debtReq.contact.toLowerCase().trim() && 
+      d.type === debtReq.type
+    );
+
+    const debtId = existingDebt ? existingDebt.id : generateId();
+    const newDebt: Debt = { ...debtReq, id: debtId };
 
     // Generate initial transaction for the principal
     const createdAtDate = new Date(newDebt.createdAt);
@@ -598,9 +617,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           category: 'Pinjaman & Piutang',
           date,
           time,
-          note: `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
+          note: existingDebt 
+            ? `Penambahan Piutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
+            : `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
           assetId: newDebt.paymentAssetId,
-          relatedId: newDebt.id,
+          relatedId: debtId,
         });
       }
     } else {
@@ -613,9 +634,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           category: categoryName || 'Lainnya',
           date,
           time,
-          note: `Penerimaan dana pinjaman dari ${newDebt.contact}`,
+          note: existingDebt
+            ? `Penambahan Hutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
+            : `Penerimaan dana pinjaman dari ${newDebt.contact}`,
           assetId: newDebt.liabilityAssetId,
-          relatedId: newDebt.id,
+          relatedId: debtId,
         });
       } else if (initialMode === 'credit' && newDebt.liabilityAssetId) {
         // Credit/Paylater purchase: Account balance decreases (Expense)
@@ -626,16 +649,33 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           subCategory: subCategoryName,
           date,
           time,
-          note: `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
+          note: existingDebt
+            ? `Penambahan Hutang (Kredit): ${newDebt.contact} (${newDebt.description || 'Baru'})`
+            : `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
           assetId: newDebt.liabilityAssetId,
-          relatedId: newDebt.id,
+          relatedId: debtId,
         });
       }
     }
 
-    setDebts(prev => [...prev, newDebt]);
-    dbPutDebt(newDebt).then(refreshSyncCount);
-  }, [refreshSyncCount]);
+    if (existingDebt) {
+      const updatedDebt = {
+        ...existingDebt,
+        totalAmount: Number(existingDebt.totalAmount || 0) + Number(newDebt.totalAmount || 0),
+        // Keep the more recent due date if provided
+        dueDate: newDebt.dueDate || existingDebt.dueDate,
+        // Append description if different
+        description: existingDebt.description && newDebt.description && existingDebt.description !== newDebt.description
+          ? `${existingDebt.description}; ${newDebt.description}`
+          : (newDebt.description || existingDebt.description)
+      };
+      setDebts(prev => prev.map(d => d.id === existingDebt.id ? updatedDebt : d));
+      dbPutDebt(updatedDebt);
+    } else {
+      setDebts(prev => [...prev, newDebt]);
+      dbPutDebt(newDebt).then(refreshSyncCount);
+    }
+  }, [debts, _createTx, refreshSyncCount]);
 
   const updateDebt = useCallback((id: string, updatedDebt: Partial<Debt>) => {
     setDebts(prev => prev.map(d => {
@@ -646,7 +686,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact) {
         const principalTx = transactions.find(tx =>
           tx.relatedId === id &&
-          isPrincipalTx(tx.note)
+          isPrincipalTx(tx.note, tx.category)
         );
         if (principalTx) {
           const txUpdate: Partial<Transaction> = {};
@@ -679,16 +719,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbDeleteDebt(id).then(refreshSyncCount);
   }, [transactions, refreshSyncCount]);
 
-  /** Create a transaction record and push it to state + DB */
-  const _createTx = (tx: Omit<Transaction, 'id'>) => {
-    const newTx: Transaction = { 
-      ...tx, 
-      id: generateId(),
-      time: tx.time || getLocalTime()
-    };
-    setTransactions(prev => [newTx, ...prev]);
-    dbPutTransaction(newTx);
-  };
+
 
   // ─── Recurring Transactions ───────────────────────────────────────────────
   const addRecurringTransaction = useCallback((rtReq: Omit<RecurringTransaction, 'id'>) => {
@@ -935,7 +966,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const debtsWithBal = contactDebts.map(d => {
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note) ? sum : sum + Number(tx.amount);
+        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount);
       }, 0);
       return { ...d, remaining: Math.max(0, d.totalAmount - paidAmt) };
     });

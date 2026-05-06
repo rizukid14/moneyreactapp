@@ -251,8 +251,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                       >
                         <div
                           style={{
-                            width: 36,
-                            height: 36,
+                            width: 40,
+                            height: 40,
                             borderRadius: 10,
                             background: split.isPayer
                               ? 'hsla(215,85%,58%,0.2)'

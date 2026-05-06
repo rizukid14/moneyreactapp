@@ -3,7 +3,7 @@ import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -233,6 +233,7 @@ const Settings: React.FC = () => {
   const [newContactPhone, setNewContactPhone] = useState('');
   const [newContactNote, setNewContactNote] = useState('');
   const [editingContact, setEditingContact] = useState<string | null>(null);
+  const [contactSearchQuery, setContactSearchQuery] = useState('');
 
   const menuItems = [
     // ... existing menuItems ...
@@ -375,81 +376,192 @@ const Settings: React.FC = () => {
         return (
           <>
             <div className="modal-header">
-              <h2 className="subtitle">Kontak</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }}><X /></button>
+              <h2 className="subtitle">Daftar Kontak</h2>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); setContactSearchQuery(''); }}><X /></button>
             </div>
 
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.6 }}>
-              Kelola daftar kontak untuk hutang & piutang. Kontak ini akan muncul sebagai pilihan saat menambah catatan hutang/piutang.
-            </p>
-
-            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
-              {contacts.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Belum ada kontak.</div>
-              ) : (
-                contacts.map(c => (
-                  <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderBottom: '1px solid var(--border-color)' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: 2 }}>{c.name}</div>
-                      {c.phone && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>📞 {c.phone}</div>}
-                      {c.note && <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>{c.note}</div>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => {
-                        setEditingContact(c.id);
-                        setNewContactName(c.name);
-                        setNewContactPhone(c.phone || '');
-                        setNewContactNote(c.note || '');
-                      }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px' }}>
-                        <Edit2 size={16} />
-                      </button>
-                      <button onClick={() => {
-                        showConfirm(
-                          'Hapus Kontak',
-                          `Hapus kontak "${c.name}"? Catatan hutang/piutang yang menggunakan kontak ini tidak akan terhapus.`,
-                          () => deleteContact(c.id)
-                        );
-                      }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+            <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingBottom: '20px' }}>
+              
+              {/* Form Section - Only show when editing or via a toggle if we want to match exactly, 
+                  but for Settings it's better to stay accessible. Let's style it to match the modal's add form. */}
+              {(editingContact || contacts.length === 0 || newContactName) ? (
+                <div style={{ 
+                  padding: '20px', 
+                  background: 'var(--bg-main)',
+                  borderBottom: '1px solid var(--border-color)',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {editingContact ? <Edit2 size={16} /> : <UserPlus size={16} />}
+                    {editingContact ? 'Edit Kontak' : 'Tambah Kontak Baru'}
                   </div>
-                ))
+                  <form onSubmit={handleAddContact} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Nama Kontak</label>
+                      <input
+                        type="text"
+                        value={newContactName}
+                        onChange={e => setNewContactName(e.target.value)}
+                        placeholder="Masukkan nama..."
+                        style={{ width: '100%', marginBottom: 0 }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Nomor Telepon (Opsional)</label>
+                      <input
+                        type="tel"
+                        value={newContactPhone}
+                        onChange={e => setNewContactPhone(e.target.value)}
+                        placeholder="0812..."
+                        style={{ width: '100%', marginBottom: 0 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Catatan (Opsional)</label>
+                      <input
+                        type="text"
+                        value={newContactNote}
+                        onChange={e => setNewContactNote(e.target.value)}
+                        placeholder="Contoh: Teman SD"
+                        style={{ width: '100%', marginBottom: 0 }}
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      {(editingContact || newContactName) && (
+                        <button 
+                          type="button" 
+                          onClick={() => { setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }} 
+                          className="btn" 
+                          style={{ flex: 1, margin: 0, background: 'var(--bg-neutral)', color: 'var(--text-muted)', fontWeight: 700 }}
+                        >
+                          Batal
+                        </button>
+                      )}
+                      <button type="submit" className="btn btn-primary" style={{ flex: 2, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <Save size={18} /> {editingContact ? 'Simpan Perubahan' : 'Tambah Kontak'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>DAFTAR KONTAK</span>
+                  <button 
+                    onClick={() => setNewContactName(' ')} // Trick to show form
+                    style={{ 
+                      padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)', 
+                      border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
+                    }}
+                  >
+                    <Plus size={14} /> Tambah
+                  </button>
+                </div>
               )}
-            </div>
 
-            <form onSubmit={handleAddContact} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <input
-                type="text"
-                value={newContactName}
-                onChange={e => setNewContactName(e.target.value)}
-                placeholder="Nama kontak..."
-                style={{ marginBottom: 0 }}
-                required
-              />
-              <input
-                type="tel"
-                value={newContactPhone}
-                onChange={e => setNewContactPhone(e.target.value)}
-                placeholder="Nomor telepon (opsional)..."
-                style={{ marginBottom: 0 }}
-              />
-              <input
-                type="text"
-                value={newContactNote}
-                onChange={e => setNewContactNote(e.target.value)}
-                placeholder="Catatan (opsional)..."
-                style={{ marginBottom: 0 }}
-              />
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                {editingContact ? <><CheckCircle2 size={18} /> Simpan Perubahan</> : <><Plus size={18} /> Tambah Kontak</>}
-              </button>
-              {editingContact && (
-                <button type="button" onClick={() => { setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }} className="btn" style={{ width: '100%', margin: 0, background: 'var(--bg-neutral)', color: 'var(--text-muted)' }}>
-                  Batal
-                </button>
-              )}
-            </form>
+              {/* Search Bar */}
+              <div style={{ padding: '0 20px', marginBottom: '12px' }}>
+                <div style={{ position: 'relative' }}>
+                  <Search 
+                    size={18} 
+                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} 
+                  />
+                  <input
+                    type="text"
+                    placeholder="Cari kontak..."
+                    value={contactSearchQuery}
+                    onChange={e => setContactSearchQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 40px',
+                      borderRadius: '12px',
+                      background: 'var(--bg-main)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '14px',
+                      marginBottom: 0
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* List Section */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {(() => {
+                  const filtered = contacts
+                    .filter(c => c.name.toLowerCase().includes(contactSearchQuery.toLowerCase()))
+                    .sort((a,b) => a.name.localeCompare(b.name));
+                  
+                  if (filtered.length === 0) {
+                    return (
+                      <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
+                        <div style={{ fontSize: '14px', fontWeight: 600 }}>{contactSearchQuery ? 'Tidak ada hasil' : 'Belum ada kontak'}</div>
+                        <div style={{ fontSize: '12px' }}>{contactSearchQuery ? 'Coba kata kunci lain' : 'Tambahkan kontak untuk memudahkan mencatat hutang.'}</div>
+                      </div>
+                    );
+                  }
+
+                  return filtered.map(c => (
+                    <div key={c.id} style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      padding: '14px 20px',
+                      background: editingContact === c.id ? 'var(--bg-income)' : 'transparent',
+                      borderBottom: '1px solid var(--border-color)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          width: 40, height: 40, borderRadius: 10,
+                          background: 'var(--bg-main)', color: 'var(--text-muted)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 14, fontWeight: 700, flexShrink: 0
+                        }}>
+                          {c.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '14px' }}>{c.name}</div>
+                          {c.phone && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 2 }}>
+                              📞 {c.phone}
+                            </div>
+                          )}
+                          {c.note && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 2, fontStyle: 'italic' }}>
+                              {c.note}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => {
+                          setEditingContact(c.id);
+                          setNewContactName(c.name);
+                          setNewContactPhone(c.phone || '');
+                          setNewContactNote(c.note || '');
+                          // Scroll to top
+                          const modal = document.querySelector('.modal-content');
+                          if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
+                        }} className="btn-icon" style={{ color: 'var(--primary)', padding: 6 }}>
+                          <Edit2 size={18} />
+                        </button>
+                        <button onClick={() => {
+                          showConfirm(
+                            'Hapus Kontak',
+                            `Hapus kontak "${c.name}"? Catatan hutang/piutang yang menggunakan kontak ini tidak akan terhapus.`,
+                            () => deleteContact(c.id)
+                          );
+                        }} className="btn-icon" style={{ color: 'var(--danger)', padding: 6 }}>
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
           </>
         );
 
@@ -1015,7 +1127,16 @@ const Settings: React.FC = () => {
           entries: Array<{ type: 'new' | 'fix' | 'improve'; text: string }>;
         }> = [
             {
-              version: 'v1.0.13', date: 'Mei 2026', badge: 'Terbaru',
+              version: 'v1.0.14', date: 'Mei 2026', badge: 'Terbaru',
+              entries: [
+                { type: 'new', text: 'Split Bill (OCR): Bagi tagihan belanja ke banyak orang sekaligus langsung dari hasil scan struk' },
+                { type: 'new', text: 'Penggabungan Hutang Otomatis: Tambah piutang/hutang ke kontak yang sama kini otomatis digabung (Tips: Kosongkan aset jika ingin pembayaran tercatat sebagai Pengeluaran)' },
+                { type: 'improve', text: 'Auto-Collapse Transaksi: Daftar transaksi hanya membuka hari ini agar tampilan lebih rapi' },
+                { type: 'fix', text: 'Kalkulasi saldo sisa piutang yang salah saat penambahan nominal dengan catatan kustom' },
+              ],
+            },
+            {
+              version: 'v1.0.13', date: 'Mei 2026',
               entries: [
                 { type: 'new', text: 'Sistem Potong Silang (Offset) otomatis untuk Hutang & Piutang dari kontak yang sama' },
                 { type: 'new', text: 'Support tipe transaksi "Transfer" pada fitur Input Sekaligus & OCR Mutasi' },
@@ -1287,7 +1408,7 @@ const Settings: React.FC = () => {
           <LogOut size={20} /> Logout dari Akun
         </button>
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-          MoneyApp v1.0.13 • Dibuat dengan ❤️ by Dappal
+          MoneyApp v1.0.14 • Dibuat dengan ❤️ by Dappal
         </p>
       </div>
 
