@@ -5,7 +5,7 @@ import type { Asset, Transaction, Category, UserProfile } from '../contexts/Mone
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 export interface SyncItem {
   id: string;
