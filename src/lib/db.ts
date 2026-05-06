@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { collection, doc, getDocs, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db as firestore, isFirebaseConfigured } from './firebase';
-import type { Asset, Transaction, Category, UserProfile } from '../contexts/MoneyContext';
+import type { Asset, Transaction, Category, UserProfile, Contact } from '../contexts/MoneyContext';
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
@@ -22,6 +22,7 @@ export interface MoneyAppDB {
   budgets: { key: string; value: any };
   debts: { key: string; value: any };
   recurring_transactions: { key: string; value: any };
+  contacts: { key: string; value: Contact };
   settings: { key: string; value: string | number | boolean | UserProfile | null };
   pending_sync: { key: string; value: SyncItem };
 }
@@ -38,6 +39,7 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('budgets')) db.createObjectStore('budgets', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('debts')) db.createObjectStore('debts', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('recurring_transactions')) db.createObjectStore('recurring_transactions', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('contacts')) db.createObjectStore('contacts', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
         if (!db.objectStoreNames.contains('pending_sync')) db.createObjectStore('pending_sync', { keyPath: 'id' });
       },
@@ -159,6 +161,7 @@ export const dbForceCloudSync = async (): Promise<{ total: number }> => {
       ['categories', 'categories'],
       ['debts', 'debts'],
       ['recurring_transactions', 'recurring_transactions'],
+      ['contacts', 'contacts'],
     ];
 
     for (const [fsCol, idbStore] of collections) {
@@ -381,6 +384,39 @@ export const dbDeleteRecurringTransaction = async (id: string) => {
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
   deleteDoc(doc(firestore, 'users', getUid(), 'recurring_transactions', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
+// ─── Contacts ─────────────────────────────────────────────────────────────────
+export const dbGetAllContacts = async (): Promise<Contact[]> => {
+  const local = await (await getDB()).getAll('contacts');
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
+  try {
+    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'contacts')));
+    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Contact));
+    const db = await getDB();
+    for (const item of cloud) await db.put('contacts', item);
+    return cloud;
+  } catch (e) { return local; }
+};
+
+export const dbPutContact = async (contact: Contact) => {
+  await (await getDB()).put('contacts', contact);
+  await recordPendingSync({ id: contact.id, collection: 'contacts', operation: 'PUT', data: contact });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'contacts', contact.id), sanitizeForFirestore(contact))
+    .then(() => removePendingSync(contact.id))
+    .catch(() => { });
+};
+
+export const dbDeleteContact = async (id: string) => {
+  await (await getDB()).delete('contacts', id);
+  await recordPendingSync({ id, collection: 'contacts', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'contacts', id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
