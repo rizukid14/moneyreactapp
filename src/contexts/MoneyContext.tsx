@@ -17,7 +17,7 @@ import { collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
 import SplashScreen from '../components/SplashScreen';
-import { getLocalDate, getLocalTime } from '../lib/utils';
+import { getLocalDate, getLocalTime, generateId, isPrincipalTx } from '../lib/utils';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 
@@ -97,6 +97,13 @@ export interface Transaction {
   relatedId?: string; // Links to Debt.id, etc.
 }
 
+export interface Contact {
+  id: string;
+  name: string;
+  phone?: string;
+  note?: string;
+}
+
 export interface RecurringTransaction {
   id: string;
   type: 'pengeluaran' | 'pendapatan' | 'transfer';
@@ -170,6 +177,10 @@ interface MoneyContextType {
   addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string) => void;
   updateDebt: (id: string, debt: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
+  contacts: Contact[];
+  addContact: (contact: Omit<Contact, 'id'>) => void;
+  updateContact: (id: string, contact: Partial<Contact>) => void;
+  deleteContact: (id: string) => void;
   addRecurringTransaction: (rt: Omit<RecurringTransaction, 'id'>) => void;
   updateRecurringTransaction: (id: string, rt: Partial<RecurringTransaction>) => void;
   deleteRecurringTransaction: (id: string) => void;
@@ -223,6 +234,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [debts, setDebts] = useState<Debt[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [pin, setPin] = useState<string | null>(null);
   const [isAppLocked, setIsAppLocked] = useState(false);
@@ -266,15 +278,17 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await migrateFromLocalStorage();
 
       // Load all data from IndexedDB
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRecurring] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRecurring, dbContacts] = await Promise.all([
         dbGetAllAssets(),
         dbGetAllTransactions(),
         dbGetAllCategories(),
         dbGetAllBudgets(),
         dbGetAllDebts(),
-        import('../lib/db').then(m => m.dbGetAllRecurringTransactions())
+        import('../lib/db').then(m => m.dbGetAllRecurringTransactions()),
+        import('../lib/db').then(m => m.dbGetAllContacts()),
       ]);
       setRecurringTransactions(dbRecurring);
+      setContacts(dbContacts);
 
       // Load contacts
       const dbContacts = await import('../lib/db').then(m => m.dbGetAllContacts());
@@ -400,7 +414,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Assets ──────────────────────────────────────────────────────────────
   const addAsset = useCallback((assetReq: Omit<Asset, 'id'>) => {
-    const newAsset: Asset = { ...assetReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    const newAsset: Asset = { ...assetReq, id: generateId() };
     setAssets(prev => [...prev, newAsset]);
     dbPutAsset(newAsset).then(refreshSyncCount);
   }, [refreshSyncCount]);
@@ -427,7 +441,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addTransaction = useCallback((txReq: Omit<Transaction, 'id'>) => {
     const newTx: Transaction = { 
       ...txReq, 
-      id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
+      id: generateId(),
       time: txReq.time || getLocalTime()
     };
     setTransactions(prev => [newTx, ...prev]);
@@ -440,22 +454,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!txToDelete) return;
 
     if (txToDelete.relatedId) {
-      const isPrincipal = (
-        txToDelete.note.includes('Penerimaan dana pinjaman') ||
-        txToDelete.note.includes('Pemberian pinjaman') ||
-        txToDelete.note.includes('Belanja via') ||
-        txToDelete.note.includes('Penambahan')
-      );
+      const isPrincipal = isPrincipalTx(txToDelete.note);
 
       if (isPrincipal) {
         const debtId = txToDelete.relatedId;
         const otherPrincipalTxs = transactions.filter(tx => 
           tx.relatedId === debtId && 
           tx.id !== id && 
-          (tx.note.includes('Penerimaan dana pinjaman') ||
-           tx.note.includes('Pemberian pinjaman') ||
-           tx.note.includes('Belanja via') ||
-           tx.note.includes('Penambahan'))
+          isPrincipalTx(tx.note)
         );
 
         if (otherPrincipalTxs.length === 0) {
@@ -477,11 +483,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             // Recalculate if it's paid after total decreased
             const history = transactions.filter(t => t.relatedId === debtId && t.id !== id);
             const paidAmt = history.reduce((sum, tx) => {
-              const isP = (tx.note.includes('Penerimaan dana pinjaman') ||
-                tx.note.includes('Pemberian pinjaman') ||
-                tx.note.includes('Belanja via') ||
-                tx.note.includes('Penambahan'));
-              return isP ? sum : sum + Number(tx.amount || 0);
+              return isPrincipalTx(tx.note) ? sum : sum + Number(tx.amount || 0);
             }, 0);
             const isPaid = newTotal > 0 && paidAmt >= newTotal;
 
@@ -498,10 +500,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const remainingPaymentCount = transactions.filter(t =>
           t.id !== id &&
           t.relatedId === txToDelete.relatedId &&
-          !(t.note.includes('Penerimaan dana pinjaman') ||
-            t.note.includes('Pemberian pinjaman') ||
-            t.note.includes('Belanja via') ||
-            t.note.includes('Penambahan'))
+          !isPrincipalTx(t.note)
         ).length;
 
         setDebts(prev => prev.map(d => {
@@ -510,11 +509,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           // Recalculate isPaid based on new transaction sum
           const history = transactions.filter(t => t.relatedId === d.id && t.id !== id);
           const paidAmt = history.reduce((sum, tx) => {
-            const isP = (tx.note.includes('Penerimaan dana pinjaman') ||
-              tx.note.includes('Pemberian pinjaman') ||
-              tx.note.includes('Belanja via') ||
-              tx.note.includes('Penambahan'));
-            return isP ? sum : sum + Number(tx.amount || 0);
+            return isPrincipalTx(tx.note) ? sum : sum + Number(tx.amount || 0);
           }, 0);
           const isPaid = Number(d.totalAmount || 0) > 0 && paidAmt >= Number(d.totalAmount || 0);
 
@@ -544,7 +539,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Categories ───────────────────────────────────────────────────────────
   const addCategory = useCallback((catReq: Omit<Category, 'id'>) => {
-    const newCat: Category = { ...catReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9), subcategories: [] };
+    const newCat: Category = { ...catReq, id: generateId(), subcategories: [] };
     setCategories(prev => [...prev, newCat]);
     dbPutCategory(newCat).then(refreshSyncCount);
   }, [refreshSyncCount]);
@@ -557,7 +552,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addSubCategory = useCallback((categoryId: string, name: string) => {
     setCategories(prev => prev.map(c => {
       if (c.id !== categoryId) return c;
-      const updated = { ...c, subcategories: [...(c.subcategories || []), { id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9), name }] };
+      const updated = { ...c, subcategories: [...(c.subcategories || []), { id: generateId(), name }] };
       dbPutCategory(updated);
       return updated;
     }));
@@ -574,7 +569,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Budgets ──────────────────────────────────────────────────────────────
   const addBudget = useCallback((budgetReq: Omit<Budget, 'id'>) => {
-    const newBudget: Budget = { ...budgetReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    const newBudget: Budget = { ...budgetReq, id: generateId() };
     setBudgets(prev => [...prev, newBudget]);
     dbPutBudget(newBudget).then(refreshSyncCount);
   }, [refreshSyncCount]);
@@ -595,7 +590,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Debts ──────────────────────────────────────────────────────────────
   const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryName?: string, subCategoryName?: string) => {
-    const newDebt: Debt = { ...debtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+    const newDebt: Debt = { ...debtReq, id: generateId() };
 
     // Generate initial transaction for the principal
     const createdAtDate = new Date(newDebt.createdAt);
@@ -659,9 +654,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact) {
         const principalTx = transactions.find(tx =>
           tx.relatedId === id &&
-          (tx.note.includes('Penerimaan dana pinjaman') ||
-           tx.note.includes('Pemberian pinjaman') ||
-           tx.note.includes('Belanja via'))
+          isPrincipalTx(tx.note)
         );
         if (principalTx) {
           const txUpdate: Partial<Transaction> = {};
@@ -698,7 +691,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const _createTx = (tx: Omit<Transaction, 'id'>) => {
     const newTx: Transaction = { 
       ...tx, 
-      id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
+      id: generateId(),
       time: tx.time || getLocalTime()
     };
     setTransactions(prev => [newTx, ...prev]);
@@ -708,7 +701,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ─── Recurring Transactions ───────────────────────────────────────────────
   const addRecurringTransaction = useCallback((rtReq: Omit<RecurringTransaction, 'id'>) => {
     import('../lib/db').then(m => {
-      const newRT: RecurringTransaction = { ...rtReq, id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9) };
+      const newRT: RecurringTransaction = { ...rtReq, id: generateId() };
       setRecurringTransactions(prev => [...prev, newRT]);
       m.dbPutRecurringTransaction(newRT);
     });
@@ -732,6 +725,32 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
+  // ─── Contacts ─────────────────────────────────────────────────────────────
+  const addContact = useCallback((contactReq: Omit<Contact, 'id'>) => {
+    import('../lib/db').then(m => {
+      const newContact: Contact = { ...contactReq, id: generateId() };
+      setContacts(prev => [...prev, newContact]);
+      m.dbPutContact(newContact);
+    });
+  }, []);
+
+  const updateContact = useCallback((id: string, updated: Partial<Contact>) => {
+    import('../lib/db').then(m => {
+      setContacts(prev => prev.map(c => {
+        if (c.id !== id) return c;
+        const next = { ...c, ...updated };
+        m.dbPutContact(next);
+        return next;
+      }));
+    });
+  }, []);
+
+  const deleteContact = useCallback((id: string) => {
+    import('../lib/db').then(m => {
+      setContacts(prev => prev.filter(c => c.id !== id));
+      m.dbDeleteContact(id);
+    });
+  }, []);
 
 
   /**
@@ -951,10 +970,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const debtsWithBal = contactDebts.map(d => {
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
-          tx.note.includes('Pemberian pinjaman') ||
-          tx.note.includes('Belanja via'));
-        return isPrincipal ? sum : sum + Number(tx.amount);
+        return isPrincipalTx(tx.note) ? sum : sum + Number(tx.amount);
       }, 0);
       return { ...d, remaining: Math.max(0, d.totalAmount - paidAmt) };
     });
@@ -987,7 +1003,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       hAmountToOffset -= payAmt;
 
       const newTx: Transaction = {
-        id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
+        id: generateId(),
         type: 'pengeluaran',
         amount: payAmt,
         category: 'Bayar Hutang',
@@ -1017,7 +1033,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       pAmountToOffset -= payAmt;
 
       const newTx: Transaction = {
-        id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
+        id: generateId(),
         type: 'pendapatan',
         amount: payAmt,
         category: 'Pelunasan Piutang',
@@ -1198,10 +1214,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const result = await dbForceCloudSync();
     if (result.total > 0) {
       // Reload all state from IDB (which now has the fresh cloud data)
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRec] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRec, dbContacts] = await Promise.all([
         dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(),
         dbGetAllBudgets(), dbGetAllDebts(),
-        import('../lib/db').then(m => m.dbGetAllRecurringTransactions())
+        import('../lib/db').then(m => m.dbGetAllRecurringTransactions()),
+        import('../lib/db').then(m => m.dbGetAllContacts())
       ]);
       setAssets(dbAssets);
       setTransactions(dbTxs);
@@ -1209,6 +1226,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setBudgets(dbBudgets);
       setDebts(dbDebts as Debt[]);
       setRecurringTransactions(dbRec);
+      setContacts(dbContacts);
       await refreshSyncCount();
     }
     return result;
@@ -1218,6 +1236,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, budgets, debts, contacts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
+    contacts, addContact, updateContact, deleteContact,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards,
@@ -1232,6 +1251,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }), [
     isReady, assets, transactions, categories, budgets, debts, contacts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
+    contacts, addContact, updateContact, deleteContact,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards,

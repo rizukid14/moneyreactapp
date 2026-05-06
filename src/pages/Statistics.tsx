@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
+import { formatCurrency } from '../lib/utils';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -21,7 +22,7 @@ const Statistics: React.FC = () => {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran', colorIndex: number} | null>(null);
 
-  const formatCurrency = useCallback((value: number) => `${currencySymbol}${value.toLocaleString('id-ID')}`, [currencySymbol]);
+  const fmt = useCallback((value: number) => formatCurrency(value, currencySymbol), [currencySymbol]);
 
   const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights } = useMemo((): {
     chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
@@ -272,7 +273,7 @@ const Statistics: React.FC = () => {
               <Tooltip 
                 cursor={{fill: 'var(--bg-main)'}} 
                 contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
-                formatter={(val: any) => formatCurrency(Number(val))}
+                formatter={(val: any) => fmt(Number(val))}
               />
               <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}/>
               <Bar dataKey="pendapatan" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pendapatan" />
@@ -296,7 +297,7 @@ const Statistics: React.FC = () => {
               boxShadow: '0 10px 25px var(--primary-glow)' 
             }}>
               <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pendapatan</div>
-              <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(currentMonthIncome)}</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmt(currentMonthIncome)}</div>
               {(currentMonthIncome > 0 || prevMonthIncome > 0) && (
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '6px',
@@ -325,7 +326,7 @@ const Statistics: React.FC = () => {
               boxShadow: '0 10px 25px var(--secondary-glow)'
             }}>
               <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</div>
-              <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatCurrency(currentMonthExpense)}</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmt(currentMonthExpense)}</div>
               {(currentMonthExpense > 0 || prevMonthExpense > 0) && (
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '6px',
@@ -352,7 +353,7 @@ const Statistics: React.FC = () => {
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Sisa Bersih</span>
           </div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
-            {insights.netSavings >= 0 ? '+' : ''}{formatCurrency(insights.netSavings)}
+            {insights.netSavings >= 0 ? '+' : ''}{fmt(insights.netSavings)}
           </div>
           {currentMonthIncome > 0 && (
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -370,7 +371,7 @@ const Statistics: React.FC = () => {
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Rata-rata/Hari</span>
           </div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--secondary)' }}>
-            {formatCurrency(insights.avgDailySpending)}
+            {fmt(insights.avgDailySpending)}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
             pengeluaran harian
@@ -404,7 +405,7 @@ const Statistics: React.FC = () => {
           {insights.topSpendingDay ? (
             <>
               <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--danger)' }}>
-                {formatCurrency(insights.topSpendingDay.amount)}
+                {fmt(insights.topSpendingDay.amount)}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                 {new Date(insights.topSpendingDay.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
@@ -429,7 +430,7 @@ const Statistics: React.FC = () => {
             </div>
           </div>
           <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--danger)', flexShrink: 0 }}>
-            {formatCurrency(insights.biggestExpenseTx.amount)}
+            {fmt(insights.biggestExpenseTx.amount)}
           </div>
         </div>
       )}
@@ -466,7 +467,7 @@ const Statistics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: any) => formatCurrency(Number(val))}
+                    formatter={(val: any) => fmt(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '12px', maxHeight: '120px', overflowY: 'auto' }}/>
@@ -498,7 +499,7 @@ const Statistics: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(val: any) => formatCurrency(Number(val))}
+                    formatter={(val: any) => fmt(Number(val))}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
@@ -543,7 +544,7 @@ const Statistics: React.FC = () => {
                   </div>
                 </div>
                 <div style={{ fontWeight: 700, color: cat.type === 'pendapatan' ? 'var(--primary)' : 'var(--secondary)' }}>
-                  {cat.type === 'pendapatan' ? '+' : '-'}{formatCurrency(cat.amount)}
+                  {cat.type === 'pendapatan' ? '+' : '-'}{fmt(cat.amount)}
                 </div>
               </div>
             ))}

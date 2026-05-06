@@ -17,7 +17,7 @@ interface DebtModalProps {
 }
 
 const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingDebt, assets, categories, currencySymbol }) => {
-  const { defaultAssetId } = useMoney();
+  const { defaultAssetId, contacts } = useMoney();
   const [type, setType]                           = useState<'hutang' | 'piutang'>('hutang');
   const [contact, setContact]                     = useState('');
   const [description, setDescription]             = useState('');
@@ -195,7 +195,25 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
                 {type === 'hutang' ? 'Hutang ke siapa / institusi' : 'Siapa yang berhutang ke kamu'}
               </label>
-              <input type="text" required placeholder="Nama kontak / Bank / dll." value={contact} onChange={e => setContact(e.target.value)} />
+              {contacts.length === 0 ? (
+                <div style={{ padding: '12px', background: 'var(--bg-neutral)', borderRadius: 10, border: '1px dashed var(--border-color)', marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 8 }}>
+                    Belum ada kontak. Tambahkan kontak di menu <strong>Lainnya → Kontak</strong> terlebih dahulu.
+                  </div>
+                </div>
+              ) : (
+                <select 
+                  required 
+                  value={contact} 
+                  onChange={e => setContact(e.target.value)}
+                  style={{ marginBottom: 16 }}
+                >
+                  <option value="">-- Pilih Kontak --</option>
+                  {contacts.map(c => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              )}
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Keterangan</label>
               <input type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} />

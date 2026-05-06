@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Check, ArrowRightLeft, Wallet, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getLocalDate, getLocalTime } from '../../lib/utils';
+import { getLocalDate, getLocalTime, formatCurrency } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
 import AssetSelectModal from './AssetSelectModal';
 
@@ -69,7 +69,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
     onConfirm(numAmount, selectedAssetId, date, time, finalNote, isFullSettle);
   };
 
-  const formatCurrency = (n: number) => `${currencySymbol}${n.toLocaleString('id-ID')}`;
+  const fmt = (n: number) => formatCurrency(n, currencySymbol);
 
   return (
     <AnimatePresence>
@@ -102,7 +102,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 Sisa Tagihan:
               </div>
               <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-main)' }}>
-                {formatCurrency(remaining)}
+                {fmt(remaining)}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                 Kontak: <strong>{debt.contact}</strong>
