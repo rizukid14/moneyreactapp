@@ -32,23 +32,33 @@ export default async function handler(req: any, res: any) {
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
 
     const prompt = `You are a receipt parser. Extract receipt data and return ONLY a valid JSON object with these fields:
-    - merchantName: string (store/restaurant name)
-    - amount: number (final TOTAL paid by customer, including all taxes and fees)
+    - merchantName: string (store/restaurant name, empty string if not found)
+    - amount: number (final TOTAL paid by customer, including all taxes and fees. Use 0 if not found.)
     - date: string (YYYY-MM-DD format, use today if not visible)
     - time: string (HH:mm format, extraction from receipt, use current time if not visible)
     - lineItems: array of objects {name: string, amount: number}.
       CRITICAL RULES FOR lineItems:
         1. List only the actual purchased items (food, products, services).
         2. Do NOT include rows for tax, PPN, service charge, subtotal, total, or change (kembalian).
-        3. Use the original base prices for the items.
+        3. Use the original base prices for the items BEFORE any tax/service/discount.
         4. Use the original item names from the receipt.
-    - taxAmount: number (Amount of tax1,tax, PPN, PB1, VAT, etc. 0 if none.)
-    - serviceChargeAmount: number (Amount of service charge, service fee, etc. 0 if none.)
-    - discountAmount: number (Amount of all discounts. Positive number. 0 if none.)
+        5. If an item price is not clearly visible or readable, use 0 for that item.
+        6. Do NOT guess or estimate prices. Only use numbers that are clearly visible.
+    - taxAmount: number (EXACT amount of tax/PPN/PB1/VAT or maybe it look like tax example tax1 , etc from receipt. Use 0 if not found or not clearly visible. Do NOT calculate or estimate.)
+    - serviceChargeAmount: number (EXACT amount of service charge/service fee from receipt. Use 0 if not found or not clearly visible. Do NOT calculate or estimate.)
+    - discountAmount: number (EXACT amount of all discounts from receipt. Positive number. Use 0 if not found or not clearly visible. Do NOT calculate or estimate.)
     - suggestedCategory: best match from [${categoryList}], or empty string
     - suggestedSubCategory: sub-category if applicable, or empty string
     - suggestedAsset: best match payment method from [${assetList}], or empty string
     - confidence: "high" | "medium" | "low"
+    
+    IMPORTANT RULES:
+    1. Only extract numbers that are CLEARLY VISIBLE in the receipt.
+    2. If a number is blurry, unclear, or not present, use 0 instead of guessing.
+    3. Do NOT calculate or estimate any values.
+    4. Do NOT assume standard tax rates (like 10% or 11%).
+    5. The sum of lineItems + taxAmount + serviceChargeAmount - discountAmount should equal the amount (total).
+    6. If the math doesn't add up, it means some values are missing or unclear - use 0 for those values.
     
     Context: Today is ${new Date().toISOString().split('T')[0]}, currency is Indonesian Rupiah (IDR).`;
 

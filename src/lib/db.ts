@@ -5,7 +5,7 @@ import type { Asset, Transaction, Category, UserProfile } from '../contexts/Mone
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 export interface SyncItem {
   id: string;
@@ -21,6 +21,7 @@ export interface MoneyAppDB {
   categories: { key: string; value: Category };
   budgets: { key: string; value: any };
   debts: { key: string; value: any };
+  contacts: { key: string; value: any };
   recurring_transactions: { key: string; value: any };
   settings: { key: string; value: string | number | boolean | UserProfile | null };
   pending_sync: { key: string; value: SyncItem };
@@ -37,6 +38,7 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('categories')) db.createObjectStore('categories', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('budgets')) db.createObjectStore('budgets', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('debts')) db.createObjectStore('debts', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('contacts')) db.createObjectStore('contacts', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('recurring_transactions')) db.createObjectStore('recurring_transactions', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
         if (!db.objectStoreNames.contains('pending_sync')) db.createObjectStore('pending_sync', { keyPath: 'id' });
@@ -347,6 +349,40 @@ export const dbDeleteDebt = async (id: string) => {
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
   deleteDoc(doc(firestore, 'users', getUid(), 'debts', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
+// ─── Contacts ─────────────────────────────────────────────────────────────────
+export const dbGetAllContacts = async (): Promise<any[]> => {
+  const local = await (await getDB()).getAll('contacts');
+  // IDB-first
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
+  try {
+    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'contacts')));
+    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const db = await getDB();
+    for (const item of cloud) await db.put('contacts', item);
+    return cloud;
+  } catch (e) { return local; }
+};
+
+export const dbPutContact = async (c: any) => {
+  await (await getDB()).put('contacts', c);
+  await recordPendingSync({ id: c.id, collection: 'contacts', operation: 'PUT', data: c });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'contacts', c.id), sanitizeForFirestore(c))
+    .then(() => removePendingSync(c.id))
+    .catch(() => { });
+};
+
+export const dbDeleteContact = async (id: string) => {
+  await (await getDB()).delete('contacts', id);
+  await recordPendingSync({ id, collection: 'contacts', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'contacts', id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
