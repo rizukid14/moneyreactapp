@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { text, image, categories, assets, currentDate } = req.body; 
+    const { text, image, categories, assets, currentDate } = req.body;
 
     if (!text && !image) {
       return res.status(400).json({ message: 'No text or image provided' });
@@ -28,7 +28,7 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ message: 'OPENAI_API_KEY is not configured on the server.' });
     }
 
-    const categoryWithSubs = categories?.length > 0 
+    const categoryWithSubs = categories?.length > 0
       ? categories.map((c: any) => `${c.name}${c.subcategories?.length > 0 ? ` (Sub: ${c.subcategories.map((s: any) => s.name).join(', ')})` : ''}`).join(' | ')
       : "None";
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
@@ -98,13 +98,13 @@ export default async function handler(req: any, res: any) {
 
     const responseText = response.choices[0].message.content;
     const parsedData = JSON.parse(responseText || '{"transactions": []}');
-    
+
     return res.status(200).json(parsedData);
   } catch (error: any) {
     console.error('Bulk Parse API Error:', error);
-    return res.status(500).json({ 
-      message: 'Bulk Parse Failed', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Bulk Parse Failed',
+      error: error.message
     });
   }
 }

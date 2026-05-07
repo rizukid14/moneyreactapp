@@ -28,6 +28,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   totalAmount,
   merchantName,
   date,
+  lineItems,
   onSave,
 }) => {
   const { contacts, currencySymbol } = useMoney();
