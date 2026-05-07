@@ -25,7 +25,7 @@ export interface OCRResult {
   debugLogs?: string[];
 }
 
-const resizeImage = (blob: Blob, maxWidth: number = 768): Promise<Blob> => {
+const resizeImage = (blob: Blob, maxWidth: number = 1024): Promise<Blob> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = URL.createObjectURL(blob);

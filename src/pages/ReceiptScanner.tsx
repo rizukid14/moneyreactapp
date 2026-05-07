@@ -376,6 +376,51 @@ const ReceiptScanner: React.FC = () => {
     }
   };
 
+  const handleSplitSave = (splits: any[]) => {
+    if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
+    
+    try {
+      const userSplit = splits.find(s => s.id === 'me');
+      
+      // 1. Save user's portion as a transaction
+      if (userSplit && userSplit.amount > 0) {
+        addTransaction({
+          type: 'pengeluaran',
+          amount: userSplit.amount,
+          category: selectedCategory || 'Belanja (OCR)',
+          subCategory: selectedSubCategory || undefined,
+          date: selectedDate,
+          time: selectedTime,
+          note: merchantName || 'Split Bill',
+          assetId: selectedAssetId,
+        });
+      }
+
+      // 2. Save others' portions as Piutang (Debts)
+      const others = splits.filter(s => s.id !== 'me' && s.amount > 0);
+      others.forEach(person => {
+        addDebt({
+          type: 'piutang',
+          contact: person.contactName,
+          description: `Split Bill: ${merchantName || 'Struk'}`,
+          totalAmount: person.amount,
+          isPaid: false,
+          createdAt: new Date().toISOString(),
+          paymentAssetId: selectedAssetId, // The asset used to "lend" (pay for them)
+          isInstallment: false,
+          paidInstallments: 0
+        }, 'none', selectedCategory || 'Lainnya');
+      });
+
+      showToast(`Split bill berhasil disimpan! (${others.length} piutang dibuat)`, 'success');
+      setIsSplitModalOpen(false);
+      reset();
+    } catch (e) {
+      showToast('Gagal menyimpan split bill.', 'error');
+      console.error(e);
+    }
+  };
+
   const toggleItem = (idx: number) => {
     setLineItems(prev => prev.map((item, i) => i === idx ? { ...item, selected: !item.selected } : item));
   };
@@ -400,89 +445,6 @@ const ReceiptScanner: React.FC = () => {
     setLineItems(prev => [{ name: 'Item Baru', amount: 0, selected: true }, ...prev]);
     setEditingItemIdx(0); 
     setEditingField('name');
-  };
-
-  const handleSplitBillSave = (splits: any[]) => {
-    if (!selectedAssetId) {
-      showToast('Pilih rekening terlebih dahulu', 'warning');
-      return;
-    }
-
-    try {
-      // Find the user's share (named 'Me', 'Saya', or similar)
-      const userSplit = splits.find(s => 
-        ['me', 'saya', 'i', 'myself', 'me '].includes(s.contactName.toLowerCase().trim())
-      );
-
-      // We assume User paid the bill using selectedAssetId
-      const payers = splits.filter(s => s.isPayer);
-      
-      // If User is among payers or no one is marked as payer (default case)
-      const isUserPayer = userSplit ? userSplit.isPayer : (payers.length === 0 || payers.some(p => ['me', 'saya'].includes(p.contactName.toLowerCase().trim())));
-
-      if (isUserPayer) {
-        // 1. User paid for everyone.
-        // Save User's own share as a regular transaction
-        const myShare = userSplit ? userSplit.amount : (splits.length > 0 ? (parseInt(editableAmount) - splits.filter(s => s !== userSplit).reduce((sum, s) => sum + s.amount, 0)) : parseInt(editableAmount));
-        
-        if (myShare > 0) {
-          addTransaction({
-            type: 'pengeluaran',
-            amount: myShare,
-            category: selectedCategory || 'Makan & Minum',
-            subCategory: selectedSubCategory || undefined,
-            date: selectedDate,
-            time: selectedTime,
-            note: `${merchantName} (Share Saya)`,
-            assetId: selectedAssetId,
-          });
-        }
-
-        // 2. Save others' shares as Piutang (Receivables)
-        splits.forEach(s => {
-          if (userSplit && s.id === userSplit.id) return;
-          if (!s.isPayer) {
-            // Friend owes user
-            addDebt({
-              type: 'piutang',
-              contact: s.contactName,
-              totalAmount: s.amount,
-              description: `Split Bill: ${merchantName}`,
-              createdAt: new Date(selectedDate + 'T' + selectedTime).toISOString(),
-              paymentAssetId: selectedAssetId,
-              isPaid: false,
-              isInstallment: false,
-              paidInstallments: 0
-            }, 'none');
-          }
-        });
-      } else {
-        // User is NOT the payer (someone else paid)
-        // User owes the payer
-        const payer = payers[0] || splits[0];
-        const mySplit = userSplit || { amount: 0 }; // If user not in list, they owe nothing?
-        
-        if (mySplit.amount > 0) {
-          addDebt({
-            type: 'hutang',
-            contact: payer.contactName,
-            totalAmount: mySplit.amount,
-            description: `Split Bill: ${merchantName}`,
-            createdAt: new Date(selectedDate + 'T' + selectedTime).toISOString(),
-            liabilityAssetId: selectedAssetId,
-            isPaid: false,
-            isInstallment: false,
-            paidInstallments: 0
-          }, 'credit', selectedCategory || 'Makan & Minum', selectedSubCategory);
-        }
-      }
-
-      showToast('Split bill berhasil disimpan!', 'success');
-      reset();
-    } catch (e) {
-      showToast('Gagal menyimpan split bill', 'error');
-      console.error(e);
-    }
   };
 
   const selCat = categories.find(c => c.name === selectedCategory && c.type === selectedType);
@@ -842,7 +804,8 @@ const ReceiptScanner: React.FC = () => {
         totalAmount={parseInt(editableAmount) || 0}
         merchantName={merchantName}
         date={selectedDate}
-        onSave={handleSplitBillSave}
+        lineItems={lineItems}
+        onSave={handleSplitSave}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import { X, Users, Plus, Trash2, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import ContactSelectModal from './ContactSelectModal';
+import { type LineItem } from '../../hooks/useReceiptOCR';
 
 interface SplitPerson {
   id: string;
@@ -17,6 +18,7 @@ interface SplitBillModalProps {
   totalAmount: number;
   merchantName: string;
   date: string;
+  lineItems?: LineItem[];
   onSave: (splits: SplitPerson[]) => void;
 }
 
@@ -31,14 +33,16 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const { contacts, currencySymbol } = useMoney();
   const [splits, setSplits] = useState<SplitPerson[]>([]);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [splitMethod, setSplitMethod] = useState<'equal' | 'custom'>('equal');
+  const [splitMethod, setSplitMethod] = useState<'equal' | 'custom' | 'items'>('equal');
+  const [itemAssignments, setItemAssignments] = useState<Record<number, string[]>>({});
 
   useEffect(() => {
     if (isOpen) {
-      setSplits([]);
-      setSplitMethod('equal');
+      setSplits([{ id: 'me', contactName: 'Saya', amount: totalAmount, isPayer: true }]);
+      setSplitMethod(lineItems && lineItems.length > 0 ? 'items' : 'equal');
+      setItemAssignments({});
     }
-  }, [isOpen]);
+  }, [isOpen, totalAmount, lineItems]);
 
   const addPerson = (contactName: string) => {
     const newPerson: SplitPerson = {
@@ -77,6 +81,50 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     setSplits(updated);
   };
 
+  const calculateItemSplit = (currentSplits: SplitPerson[], assignments: Record<number, string[]>) => {
+    if (!lineItems || currentSplits.length === 0) return;
+
+    const personAmounts: Record<string, number> = {};
+    currentSplits.forEach(p => { personAmounts[p.id] = 0; });
+
+    lineItems.forEach((item, idx) => {
+      const assignedIds = assignments[idx] || [];
+      if (assignedIds.length > 0) {
+        const share = Math.floor(item.amount / assignedIds.length);
+        const remainder = item.amount - (share * assignedIds.length);
+        assignedIds.forEach((id, i) => {
+          if (personAmounts[id] !== undefined) {
+            personAmounts[id] += i === 0 ? share + remainder : share;
+          }
+        });
+      } else {
+        // Unassigned items go to the first person (usually 'Saya')
+        const firstId = currentSplits[0].id;
+        personAmounts[firstId] += item.amount;
+      }
+    });
+
+    const updated = currentSplits.map(split => ({
+      ...split,
+      amount: personAmounts[split.id] || 0,
+    }));
+
+    setSplits(updated);
+  };
+
+  const toggleItemAssignment = (itemIdx: number, personId: string) => {
+    setItemAssignments(prev => {
+      const current = prev[itemIdx] || [];
+      const next = current.includes(personId)
+        ? current.filter(id => id !== personId)
+        : [...current, personId];
+      
+      const newAssignments = { ...prev, [itemIdx]: next };
+      calculateItemSplit(splits, newAssignments);
+      return newAssignments;
+    });
+  };
+
   const updateAmount = (id: string, amount: number) => {
     setSplits(splits.map(s => s.id === id ? { ...s, amount } : s));
   };
@@ -85,10 +133,12 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     setSplits(splits.map(s => s.id === id ? { ...s, isPayer: !s.isPayer } : s));
   };
 
-  const handleSplitMethodChange = (method: 'equal' | 'custom') => {
+  const handleSplitMethodChange = (method: 'equal' | 'custom' | 'items') => {
     setSplitMethod(method);
     if (method === 'equal') {
       calculateEqualSplit(splits);
+    } else if (method === 'items') {
+      calculateItemSplit(splits, itemAssignments);
     }
   };
 
@@ -186,6 +236,25 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                 >
                   Bagi Rata
                 </button>
+                {lineItems && lineItems.length > 0 && (
+                  <button
+                    onClick={() => handleSplitMethodChange('items')}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: splitMethod === 'items' ? 'var(--primary)' : 'transparent',
+                      color: splitMethod === 'items' ? 'white' : 'var(--text-muted)',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    Per Item
+                  </button>
+                )}
                 <button
                   onClick={() => handleSplitMethodChange('custom')}
                   style={{
@@ -207,7 +276,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
               <div
                 style={{
-                  maxHeight: 300,
+                  maxHeight: splitMethod === 'items' ? 200 : 300,
                   overflowY: 'auto',
                   marginBottom: 16,
                   paddingRight: 8,
@@ -290,28 +359,28 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                           </div>
                         </div>
 
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={split.amount === 0 ? '' : split.amount.toLocaleString('id-ID')}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, '');
-                            updateAmount(split.id, parseInt(raw) || 0);
-                          }}
-                          disabled={splitMethod === 'equal'}
-                          style={{
-                            width: 90,
-                            padding: '6px 8px',
-                            borderRadius: 8,
-                            border: '1.5px solid var(--border-color)',
-                            textAlign: 'right',
-                            fontWeight: 700,
-                            fontSize: 12,
-                            marginBottom: 0,
-                            background: splitMethod === 'equal' ? 'var(--bg-main)' : 'white',
-                          }}
-                          placeholder="0"
-                        />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={split.amount === 0 ? '' : split.amount.toLocaleString('id-ID')}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/\D/g, '');
+                              updateAmount(split.id, parseInt(raw) || 0);
+                            }}
+                            disabled={splitMethod !== 'custom'}
+                            style={{
+                              width: 90,
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              border: '1.5px solid var(--border-color)',
+                              textAlign: 'right',
+                              fontWeight: 700,
+                              fontSize: 12,
+                              marginBottom: 0,
+                              background: splitMethod !== 'custom' ? 'var(--bg-main)' : 'white',
+                            }}
+                            placeholder="0"
+                          />
 
                         <button
                           onClick={() => togglePayer(split.id)}
@@ -349,6 +418,49 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {splitMethod === 'items' && lineItems && lineItems.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Pilih Item untuk Orang</span>
+                    <span style={{ fontSize: 10, fontWeight: 500 }}>* Item belum dipilih otomatis ke Saya</span>
+                  </div>
+                  <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }} className="custom-scrollbar">
+                    {lineItems.map((item, idx) => (
+                      <div key={idx} style={{ background: 'var(--bg-main)', borderRadius: 10, padding: '8px 10px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600 }}>{item.name}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>{currencySymbol}{item.amount.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {splits.map(person => {
+                            const isAssigned = (itemAssignments[idx] || []).includes(person.id);
+                            return (
+                              <button
+                                key={person.id}
+                                onClick={() => toggleItemAssignment(idx, person.id)}
+                                style={{
+                                  padding: '4px 8px',
+                                  borderRadius: 6,
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  border: 'none',
+                                  background: isAssigned ? 'var(--primary)' : 'var(--bg-neutral)',
+                                  color: isAssigned ? 'white' : 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s'
+                                }}
+                              >
+                                {person.contactName}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {splits.length > 0 && (
                 <div

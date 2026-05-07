@@ -73,18 +73,19 @@ export default async function handler(req: any, res: any) {
               type: "image_url",
               image_url: {
                 url: `data:image/jpeg;base64,${image}`,
-                detail: "low"
+                detail: "high"
               },
             },
           ],
         },
       ],
       response_format: { type: "json_object" },
+      temperature: 0,
     });
 
     const text = response.choices[0].message.content;
     const parsedData = JSON.parse(text || '{}');
-    parsedData.rawText = "Optimized via OpenAI (Low Detail/65 tokens)";
+    parsedData.rawText = "Optimized via OpenAI (High Detail)";
 
     return res.status(200).json(parsedData);
   } catch (error: any) {

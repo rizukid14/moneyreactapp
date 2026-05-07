@@ -93,7 +93,7 @@ export default async function handler(req: any, res: any) {
         },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.2, // lowering temperature for better structural output and predictability
+      temperature: 0,
     });
 
     const responseText = response.choices[0].message.content;
