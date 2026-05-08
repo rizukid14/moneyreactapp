@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
 import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
@@ -24,7 +24,7 @@ const Statistics: React.FC = () => {
 
   const fmt = useCallback((value: number) => formatCurrency(value, currencySymbol), [currencySymbol]);
 
-  const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights } = useMemo((): {
+  const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights, dailyExpenseChart, heatmapData } = useMemo((): {
     chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
     currentMonthIncome: number; currentMonthExpense: number;
     prevMonthIncome: number; prevMonthExpense: number;
@@ -37,6 +37,8 @@ const Statistics: React.FC = () => {
       biggestExpenseTx: { note: string; amount: number; category: string } | null;
       topSpendingDay: { date: string; amount: number } | null;
     };
+    dailyExpenseChart: { day: number; label: string; amount: number; income: number }[];
+    heatmapData: { name: string; year: number; firstDow: number; cells: { date: string; day: number; amount: number; level: number }[] }[];
   } => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
@@ -79,6 +81,11 @@ const Statistics: React.FC = () => {
     let biggestExpenseTx: { note: string; amount: number; category: string } | null = null;
     const dailySpending: Record<string, number> = {}; // 'YYYY-MM-DD' -> total expense
 
+    const dailyIncome: Record<string, number> = {};
+    const heatmapSpending: Record<string, number> = {}; // Full calendar year (Jan-Dec) range
+    const heatmapStart = new Date(vY, 0, 1);
+    const heatmapEnd = new Date(vY, 11, 31, 23, 59, 59);
+
     transactions.forEach(tx => {
       const txDate = new Date(tx.date);
 
@@ -112,7 +119,15 @@ const Statistics: React.FC = () => {
             biggestExpenseTx = { note: tx.note || tx.category, amount: tx.amount, category: tx.category };
           }
         }
+        if (tx.type === 'pendapatan') {
+          dailyIncome[tx.date] = (dailyIncome[tx.date] || 0) + tx.amount;
+        }
         if (tx.type === 'transfer') txCountTransfer++;
+      }
+
+      // Track spending for full calendar year heatmap
+      if (tx.type === 'pengeluaran' && txDate >= heatmapStart && txDate <= heatmapEnd) {
+        heatmapSpending[tx.date] = (heatmapSpending[tx.date] || 0) + tx.amount;
       }
 
       // 2. Trend Data (Last 5 Periods)
@@ -213,8 +228,41 @@ const Statistics: React.FC = () => {
       expenseCategoryData: expenseData,
       incomeCategoryData: incomeData,
       topCategories: topCats,
-      insights: insightsData
+      insights: insightsData,
+      dailyExpenseChart: buildDailyChart(),
+      heatmapData: buildHeatmap(),
     };
+
+    function buildDailyChart() {
+      const daysInMonth = new Date(vY, vM + 1, 0).getDate();
+      const result: { day: number; label: string; amount: number; income: number }[] = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = `${vY}-${String(vM + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        result.push({ day: d, label: String(d), amount: dailySpending[key] || 0, income: dailyIncome[key] || 0 });
+      }
+      return result;
+    }
+
+    function buildHeatmap() {
+      const months = [];
+      for (let m = 0; m < 12; m++) {
+        const d = new Date(vY, m, 1);
+        const y = d.getFullYear();
+        const daysInMonth = new Date(y, m + 1, 0).getDate();
+        const firstDow = d.getDay();
+        const cells = Array.from({ length: daysInMonth }, (_, i) => {
+          const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
+          return { date: key, day: i + 1, amount: heatmapSpending[key] || 0, level: 0 };
+        });
+        months.push({ name: MONTH_NAMES[m], year: y, firstDow, cells });
+      }
+      // Normalize levels across all 12 months
+      const maxVal = Math.max(...months.flatMap(m => m.cells.map(c => c.amount)), 1);
+      return months.map(mo => ({
+        ...mo,
+        cells: mo.cells.map(c => ({ ...c, level: c.amount === 0 ? 0 : Math.ceil((c.amount / maxVal) * 4) }))
+      }));
+    }
   }, [transactions, viewDate, drillDownCategory]);
 
   const changeMonth = useCallback((offset: number) => {
@@ -351,6 +399,130 @@ const Statistics: React.FC = () => {
         })()}
       </div>
 
+      {/* ── 3-Month Spending Heatmap ─────────────────────────── */}
+      {(() => {
+        const allCells = heatmapData.flatMap(m => m.cells);
+        const activeDays = allCells.filter(c => c.amount > 0).length;
+        const maxAmount = Math.max(...allCells.map(c => c.amount), 1);
+        if (activeDays === 0) return null;
+
+        const CELL = 13;
+        const GAP = 4;
+
+        // Build ONE continuous flat grid
+        const firstDow = heatmapData[0].firstDow;
+        const totalCells = firstDow + allCells.length;
+        const numWeeks = Math.ceil(totalCells / 7);
+        const grid: (typeof allCells[0] | null)[][] = Array.from({ length: numWeeks }, () => Array(7).fill(null));
+        allCells.forEach((cell, i) => {
+          const pos = firstDow + i;
+          grid[Math.floor(pos / 7)][pos % 7] = cell;
+        });
+
+        // Which week column does each month's 1st day land on?
+        const monthLabelCols: Record<number, string> = {};
+        let offset = 0;
+        heatmapData.forEach(mo => {
+          const col = Math.floor((firstDow + offset) / 7);
+          monthLabelCols[col] = mo.name;
+          offset += mo.cells.length;
+        });
+
+        // Glow cell style per level
+        const cellStyle = (level: number): React.CSSProperties => {
+          if (level === 0) return {
+            background: 'var(--bg-main)',
+            border: '1px solid var(--border-color)',
+            boxShadow: 'none',
+          };
+          const bgs  = ['hsl(350,72%,76%)', 'hsl(350,75%,58%)', 'hsl(350,78%,40%)', 'hsl(350,82%,26%)'];
+          // Faint ambient outer glow (much reduced) + inset shine on cell surface
+          const ambients = [
+            'hsla(350,72%,76%,0.25)',
+            'hsla(350,75%,58%,0.35)',
+            'hsla(350,78%,42%,0.45)',
+            'hsla(350,82%,30%,0.55)',
+          ];
+          const insetOpacity = [0.30, 0.38, 0.45, 0.55][level - 1];
+          return {
+            background: bgs[level - 1],
+            border: 'none',
+            boxShadow: [
+              `0 0 4px 1px ${ambients[level - 1]}`,                         // subtle outer ambient
+              `inset 0 1px 3px rgba(255,255,255,${insetOpacity})`,           // bright surface shine
+              `inset 0 -1px 2px rgba(0,0,0,0.12)`,                          // bottom depth
+            ].join(', '),
+          };
+        };
+
+        return (
+          <div className="card glass" style={{ marginBottom: '24px', padding: '16px' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Aktivitas Pengeluaran</h2>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{activeDays} hari aktif</span>
+            </div>
+
+            {/* Scrollable container with modern scrollbar styling */}
+            <div 
+              className="custom-scrollbar"
+              style={{ 
+                overflowX: 'auto', 
+                WebkitOverflowScrolling: 'touch',
+                paddingBottom: '8px',
+                width: '100%'
+              }}
+            >
+              <div style={{ display: 'flex', gap: GAP, width: 'max-content', margin: '0 auto' }}>
+                {grid.map((week, wi) => (
+                  <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: GAP, flexShrink: 0 }}>
+                    {/* Month label row — shown only for the column where each month starts */}
+                    <div style={{ height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {monthLabelCols[wi] && (
+                        <span style={{ fontSize: '8px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+                          {monthLabelCols[wi]}
+                        </span>
+                      )}
+                    </div>
+                    {/* 7 day cells */}
+                    {week.map((cell, di) => (
+                      <div
+                        key={di}
+                        title={cell ? `${new Date(cell.date + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}: ${cell.amount > 0 ? fmt(cell.amount) : 'Tidak ada'}` : ''}
+                        style={{
+                          width: CELL, height: CELL, borderRadius: 3,
+                          transition: 'transform 0.12s, box-shadow 0.12s',
+                          flexShrink: 0,
+                          ...(cell ? cellStyle(cell.level) : { background: 'transparent', border: 'none' }),
+                        }}
+                        onMouseEnter={e => { if (cell?.amount) { const el = e.currentTarget as HTMLElement; el.style.transform = 'scale(1.4)'; el.style.zIndex = '10'; } }}
+                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = 'scale(1)'; el.style.zIndex = ''; }}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Maks: {fmt(maxAmount)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '10px', color: 'var(--text-muted)' }}>
+                <span>Sedikit</span>
+                {[0, 1, 2, 3, 4].map(l => (
+                  <div key={l} style={{
+                    width: CELL, height: CELL, borderRadius: 3,
+                    ...cellStyle(l),
+                  }} />
+                ))}
+                <span>Banyak</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+
       {/* ── Insights Section ────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
         {/* Net Savings */}
@@ -440,6 +612,52 @@ const Statistics: React.FC = () => {
           </div>
           <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--danger)', flexShrink: 0 }}>
             {fmt(insights.biggestExpenseTx.amount)}
+          </div>
+        </div>
+      )}
+
+      {/* ── Daily Expense Area Chart ──────────────────────────── */}
+      {currentMonthExpense > 0 && (
+        <div className="card glass" style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Pengeluaran Harian</h2>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
+            </span>
+          </div>
+          <div style={{ width: '100%', height: 200 }}>
+            <ResponsiveContainer>
+              <AreaChart data={dailyExpenseChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
+                <YAxis hide domain={[0, 'dataMax + 5000']} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
+                  formatter={(val: any, name: any) => [fmt(Number(val)), name === 'amount' ? 'Pengeluaran' : 'Pendapatan']}
+                  labelFormatter={(label: any) => `Tgl ${label}`}
+                />
+                <Area type="monotone" dataKey="income" stroke="var(--primary)" strokeWidth={1.5} fill="url(#incGrad)" dot={false} name="income" />
+                <Area type="monotone" dataKey="amount" stroke="var(--secondary)" strokeWidth={2} fill="url(#expGrad)" dot={false} name="amount" activeDot={{ r: 5, fill: 'var(--secondary)' }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+              <div style={{ width: 10, height: 3, borderRadius: 2, background: 'var(--secondary)' }} /> Pengeluaran
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+              <div style={{ width: 10, height: 3, borderRadius: 2, background: 'var(--primary)' }} /> Pendapatan
+            </div>
           </div>
         </div>
       )}

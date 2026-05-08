@@ -64,6 +64,26 @@
   scrollbar-width: none;
 }
 
+/* Sleek custom scrollbars for interactive scrollable content */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
 .dark {
   /* Dark Theme - Highly immersive oceanic obsidian */
   --bg-main: hsl(var(--n-h), 30%, 5%);
