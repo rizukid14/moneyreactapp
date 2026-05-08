@@ -13,7 +13,8 @@ interface BulkResultsEditorProps {
   categories: Category[];
   assets: Asset[];
   currencySymbol: string;
-  onSave: () => void;
+  onSave: (batchAssetId: string) => void;
+  initialAssetId?: string;
 }
 
 interface ModalState {
@@ -22,9 +23,11 @@ interface ModalState {
 }
 
 const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
-  results, setResults, categories, assets, currencySymbol, onSave
+  results, setResults, categories, assets, currencySymbol, onSave, initialAssetId
 }) => {
   const [modalState, setModalState] = useState<ModalState>({ type: null, itemId: null });
+  const [batchAssetId, setBatchAssetId] = useState(initialAssetId || '');
+  const [isGlobalAssetModalOpen, setIsGlobalAssetModalOpen] = useState(false);
 
   const updateResult = (id: string, field: keyof ParsedTransaction, value: any) => {
     setResults(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
@@ -80,10 +83,31 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-      <div className="card glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <CheckCircle size={24} color="var(--success)" />
-          <span style={{ fontWeight: 700 }}>{results.length} Data Terbaca</span>
+      <div className="card glass" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <CheckCircle size={24} color="var(--success)" />
+            <span style={{ fontWeight: 700 }}>{results.length} Data Terbaca</span>
+          </div>
+        </div>
+
+        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '4px' }}>
+          <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Rekening Sumber Mutasi</label>
+          <button 
+            style={{ ...btnStyle, padding: '12px' }} 
+            onClick={() => setIsGlobalAssetModalOpen(true)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Wallet size={20} color="var(--primary)" />
+              <span style={{ fontSize: '15px', fontWeight: batchAssetId ? 700 : 500 }}>
+                {getAssetLabel(batchAssetId)}
+              </span>
+            </div>
+            <ChevronRight size={18} color="var(--text-muted)" />
+          </button>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', fontStyle: 'italic' }}>
+            * Semua transaksi akan menggunakan rekening ini secara otomatis.
+          </p>
         </div>
       </div>
 
@@ -175,42 +199,20 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                       <ChevronRight size={14} color="var(--text-muted)" />
                     </button>
                   </div>
-
-                  {/* Asset - spans full width */}
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rekening/Dompet</label>
-                    <button style={btnStyle} onClick={() => openModal('asset', item.id)}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Wallet size={14} color="var(--primary)" />
-                        <span style={{ fontSize: '13px', fontWeight: item.asset ? 600 : 400, color: item.asset ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                          {getAssetLabel(item.asset)}
-                        </span>
-                      </div>
-                      <ChevronRight size={14} color="var(--text-muted)" />
-                    </button>
-                  </div>
                 </>
               ) : (
                 <>
-                  {/* From Asset */}
-                  <div>
-                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dari Rekening</label>
-                    <button style={btnStyle} onClick={() => openModal('fromAsset', item.id)}>
-                      <span style={{ fontSize: '13px', fontWeight: item.fromAsset ? 600 : 400, color: item.fromAsset ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {getAssetLabel(item.fromAsset, '-- Dari --')}
-                      </span>
-                      <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                    </button>
-                  </div>
-
-                  {/* To Asset */}
-                  <div>
-                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ke Rekening</label>
-                    <button style={btnStyle} onClick={() => openModal('toAsset', item.id)}>
-                      <span style={{ fontSize: '13px', fontWeight: item.toAsset ? 600 : 400, color: item.toAsset ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {getAssetLabel(item.toAsset, '-- Ke --')}
-                      </span>
-                      <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                  {/* Category Selection for Transfer (optional, but keep for consistency) */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Lawan Transaksi (Rekening Lain)</label>
+                    <button style={btnStyle} onClick={() => openModal(item.fromAsset && item.fromAsset !== batchAssetId ? 'fromAsset' : 'toAsset', item.id)}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Wallet size={14} color="var(--primary)" />
+                        <span style={{ fontSize: '13px', fontWeight: (item.fromAsset && item.fromAsset !== batchAssetId) || (item.toAsset && item.toAsset !== batchAssetId) ? 600 : 400, color: (item.fromAsset && item.fromAsset !== batchAssetId) || (item.toAsset && item.toAsset !== batchAssetId) ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                          {getAssetLabel(item.fromAsset && item.fromAsset !== batchAssetId ? item.fromAsset : item.toAsset, '-- Pilih Rekening Lawan --')}
+                        </span>
+                      </div>
+                      <ChevronRight size={14} color="var(--text-muted)" />
                     </button>
                   </div>
 
@@ -266,8 +268,8 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
 
         <button
           className="btn btn-primary"
-          onClick={onSave}
-          disabled={!results.some(r => r.selected) || results.filter(r => r.selected).some(r => !r.amount || !r.category || !r.asset)}
+          onClick={() => onSave(batchAssetId)}
+          disabled={!results.some(r => r.selected) || !batchAssetId || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.category))}
           style={{ width: '100%', marginTop: '16px', boxShadow: '0 4px 15px var(--primary-glow)' }}
         >
           Simpan Transaksi Terpilih
@@ -286,16 +288,20 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
       />
 
       <AssetSelectModal
-        isOpen={modalState.type === 'asset' || modalState.type === 'fromAsset' || modalState.type === 'toAsset'}
-        onClose={closeModal}
+        isOpen={modalState.type === 'asset' || modalState.type === 'fromAsset' || modalState.type === 'toAsset' || isGlobalAssetModalOpen}
+        onClose={() => { closeModal(); setIsGlobalAssetModalOpen(false); }}
         assets={activeAssets}
         selectedAssetId={
+          isGlobalAssetModalOpen ? batchAssetId :
           modalState.type === 'asset' ? activeItem?.asset :
           modalState.type === 'fromAsset' ? activeItem?.fromAsset :
           activeItem?.toAsset
         }
         onSelect={(assetId) => {
-          if (modalState.itemId && modalState.type) {
+          if (isGlobalAssetModalOpen) {
+            setBatchAssetId(assetId);
+            setIsGlobalAssetModalOpen(false);
+          } else if (modalState.itemId && modalState.type) {
             updateResult(modalState.itemId, modalState.type as keyof ParsedTransaction, assetId);
             closeModal();
           }

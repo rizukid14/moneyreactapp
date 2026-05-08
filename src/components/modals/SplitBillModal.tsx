@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, Plus, Trash2, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMoney } from '../../contexts/MoneyContext';
+import { useMoney, type Asset, type Category } from '../../contexts/MoneyContext';
 import ContactSelectModal from './ContactSelectModal';
 import { type LineItem } from '../../hooks/useReceiptOCR';
+import AssetSelectModal from './AssetSelectModal';
+import CategorySelectModal from './CategorySelectModal';
 
 interface SplitPerson {
   id: string;
@@ -19,7 +21,12 @@ interface SplitBillModalProps {
   merchantName: string;
   date: string;
   lineItems?: LineItem[];
-  onSave: (splits: SplitPerson[]) => void;
+  assets: Asset[];
+  categories: Category[];
+  initialAssetId?: string;
+  initialCategory?: string;
+  initialSubCategory?: string;
+  onSave: (splits: SplitPerson[], data: { assetId: string, category: string, subCategory: string }) => void;
 }
 
 const SplitBillModal: React.FC<SplitBillModalProps> = ({
@@ -29,6 +36,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   merchantName,
   date,
   lineItems,
+  assets,
+  categories,
+  initialAssetId,
+  initialCategory,
+  initialSubCategory,
   onSave,
 }) => {
   const { contacts, currencySymbol } = useMoney();
@@ -37,13 +49,22 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const [splitMethod, setSplitMethod] = useState<'equal' | 'custom' | 'items'>('equal');
   const [itemAssignments, setItemAssignments] = useState<Record<number, string[]>>({});
 
+  const [selectedAssetId, setSelectedAssetId] = useState(initialAssetId || '');
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
+  const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory || '');
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       setSplits([{ id: 'me', contactName: 'Saya', amount: totalAmount, isPayer: true }]);
       setSplitMethod(lineItems && lineItems.length > 0 ? 'items' : 'equal');
       setItemAssignments({});
+      setSelectedAssetId(initialAssetId || '');
+      setSelectedCategory(initialCategory || '');
+      setSelectedSubCategory(initialSubCategory || '');
     }
-  }, [isOpen, totalAmount, lineItems]);
+  }, [isOpen, totalAmount, lineItems, initialAssetId, initialCategory, initialSubCategory]);
 
   const addPerson = (contactName: string) => {
     const newPerson: SplitPerson = {
@@ -53,7 +74,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       isPayer: false,
     };
     setSplits([...splits, newPerson]);
-    
+
     if (splitMethod === 'equal') {
       calculateEqualSplit([...splits, newPerson]);
     }
@@ -62,7 +83,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const removePerson = (id: string) => {
     const newSplits = splits.filter(s => s.id !== id);
     setSplits(newSplits);
-    
+
     if (splitMethod === 'equal') {
       calculateEqualSplit(newSplits);
     }
@@ -70,15 +91,15 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
   const calculateEqualSplit = (currentSplits: SplitPerson[]) => {
     if (currentSplits.length === 0) return;
-    
+
     const amountPerPerson = Math.floor(totalAmount / currentSplits.length);
     const remainder = totalAmount - (amountPerPerson * currentSplits.length);
-    
+
     const updated = currentSplits.map((split, index) => ({
       ...split,
       amount: index === 0 ? amountPerPerson + remainder : amountPerPerson,
     }));
-    
+
     setSplits(updated);
   };
 
@@ -119,7 +140,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       const next = current.includes(personId)
         ? current.filter(id => id !== personId)
         : [...current, personId];
-      
+
       const newAssignments = { ...prev, [itemIdx]: next };
       calculateItemSplit(splits, newAssignments);
       return newAssignments;
@@ -157,7 +178,16 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       return;
     }
 
-    onSave(splits);
+    if (!selectedAssetId) {
+      alert('Pilih rekening terlebih dahulu');
+      return;
+    }
+
+    onSave(splits, {
+      assetId: selectedAssetId,
+      category: selectedCategory,
+      subCategory: selectedSubCategory
+    });
     onClose();
   };
 
@@ -207,6 +237,38 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--primary)' }}>
                     {currencySymbol}{totalAmount.toLocaleString('id-ID')}
                   </span>
+                </div>
+              </div>
+
+              {/* Asset & Category Pickers */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>REKENING</label>
+                  <button
+                    onClick={() => setIsAssetModalOpen(true)}
+                    style={{
+                      width: '100%', padding: '10px 8px', background: 'var(--bg-main)', border: '1.5px solid var(--border-color)',
+                      borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
+                    }}
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {selectedAssetId ? assets.find(a => a.id === selectedAssetId)?.name : 'Pilih...'}
+                    </span>
+                  </button>
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>KATEGORI</label>
+                  <button
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    style={{
+                      width: '100%', padding: '10px 8px', background: 'var(--bg-main)', border: '1.5px solid var(--border-color)',
+                      borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
+                    }}
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, color: selectedCategory ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {selectedCategory ? (selectedSubCategory ? `${selectedCategory} > ${selectedSubCategory}` : selectedCategory) : 'Pilih...'}
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -360,28 +422,29 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                           </div>
                         </div>
 
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={split.amount === 0 ? '' : split.amount.toLocaleString('id-ID')}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/\D/g, '');
-                              updateAmount(split.id, parseInt(raw) || 0);
-                            }}
-                            disabled={splitMethod !== 'custom'}
-                            style={{
-                              width: 90,
-                              padding: '6px 8px',
-                              borderRadius: 8,
-                              border: '1.5px solid var(--border-color)',
-                              textAlign: 'right',
-                              fontWeight: 700,
-                              fontSize: 12,
-                              marginBottom: 0,
-                              background: splitMethod !== 'custom' ? 'var(--bg-main)' : 'white',
-                            }}
-                            placeholder="0"
-                          />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={split.amount === 0 ? '' : split.amount.toLocaleString('id-ID')}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, '');
+                            updateAmount(split.id, parseInt(raw) || 0);
+                          }}
+                          disabled={splitMethod !== 'custom'}
+                          style={{
+                            width: 90,
+                            padding: '6px 8px',
+                            borderRadius: 8,
+                            border: '1.5px solid var(--border-color)',
+                            textAlign: 'right',
+                            fontWeight: 700,
+                            fontSize: 12,
+                            marginBottom: 0,
+                            background: splitMethod !== 'custom' ? 'var(--bg-main)' : 'var(--bg-card-solid)',
+                            color: 'var(--text-main)',
+                          }}
+                          placeholder="0"
+                        />
 
                         <button
                           onClick={() => togglePayer(split.id)}
@@ -583,6 +646,30 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         onSelect={(contactName) => {
           addPerson(contactName);
           setContactModalOpen(false);
+        }}
+      />
+
+      <AssetSelectModal
+        isOpen={isAssetModalOpen}
+        onClose={() => setIsAssetModalOpen(false)}
+        assets={assets.filter(a => !a.isDeleted)}
+        selectedAssetId={selectedAssetId}
+        onSelect={(id) => {
+          setSelectedAssetId(id);
+          setIsAssetModalOpen(false);
+        }}
+      />
+
+      <CategorySelectModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categories={categories}
+        type="pengeluaran"
+        initialCategory={selectedCategory}
+        initialSubCategory={selectedSubCategory}
+        onSelect={(cat, sub) => {
+          setSelectedCategory(cat);
+          setSelectedSubCategory(sub);
         }}
       />
     </>

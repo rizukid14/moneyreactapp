@@ -20,7 +20,7 @@ const ChatBot: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { categories, assets, addTransaction, currencySymbol, isChatOpen, setIsChatOpen } = useMoney();
+  const { categories, assets, transactions, getAssetBalance, addTransaction, currencySymbol, isChatOpen, setIsChatOpen } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +47,17 @@ const ChatBot: React.FC = () => {
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
           categories,
-          assets
+          assets: assets.map(a => ({
+            ...a,
+            balance: getAssetBalance(a.id)
+          })),
+          transactions: transactions.slice(0, 150).map(t => ({
+            type: t.type,
+            amount: t.amount,
+            category: t.category,
+            note: t.note,
+            date: t.date
+          }))
         })
       });
 

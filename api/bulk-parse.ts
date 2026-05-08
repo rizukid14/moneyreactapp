@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { text, image, categories, assets, currentDate } = req.body;
+    const { text, image, categories, assets, currentDate, defaultAssetId } = req.body;
 
     if (!text && !image) {
       return res.status(400).json({ message: 'No text or image provided' });
@@ -32,6 +32,8 @@ export default async function handler(req: any, res: any) {
       ? categories.map((c: any) => `${c.name}${c.subcategories?.length > 0 ? ` (Sub: ${c.subcategories.map((s: any) => s.name).join(', ')})` : ''}`).join(' | ')
       : "None";
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
+    const defaultAsset = assets?.find((a: any) => a.id === defaultAssetId);
+    const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
     const dateContext = currentDate || new Date().toISOString().split('T')[0];
 
     const prompt = `You are a fin-tech data extraction assistant. Parse the following unstructured textual transactions into a structured JSON array.
@@ -57,7 +59,7 @@ export default async function handler(req: any, res: any) {
     - note: concise description
     - category: best match from available categories (leave empty if transfer).
     - subCategory: best match if a subcategory is identified.
-    - asset: best match for payment method from [${assetList}] (for pengeluaran/pendapatan).
+    - asset: best match for payment method from [${assetList}] (for pengeluaran/pendapatan). ${defaultAssetHint ? `If not clearly mentioned, use "${defaultAsset.name}" as the default asset.` : ""}
     - fromAsset: best match for sender/source from [${assetList}] (only for transfer).
     - toAsset: best match for receiver/destination from [${assetList}] (only for transfer).
     - adminFee: numeric value (int) if there's a fee explicitly mentioned, otherwise 0.

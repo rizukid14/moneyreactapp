@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { image, categories, assets } = req.body;
+    const { image, categories, assets, defaultAssetId } = req.body;
 
     if (!image) {
       return res.status(400).json({ message: 'No image provided' });
@@ -30,6 +30,8 @@ export default async function handler(req: any, res: any) {
 
     const categoryList = categories?.length > 0 ? categories.map((c: any) => c.name).join(',') : "None";
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
+    const defaultAsset = assets?.find((a: any) => a.id === defaultAssetId);
+    const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
 
     const prompt = `You are a receipt parser. Extract receipt data and return ONLY a valid JSON object with these fields:
     - merchantName: string (store/restaurant name, empty string if not found)
@@ -49,7 +51,7 @@ export default async function handler(req: any, res: any) {
     - discountAmount: number (EXACT amount of all discounts from receipt. Positive number. Use 0 if not found or not clearly visible. Do NOT calculate or estimate.)
     - suggestedCategory: best match from [${categoryList}], or empty string
     - suggestedSubCategory: sub-category if applicable, or empty string
-    - suggestedAsset: best match payment method from [${assetList}], or empty string
+    - suggestedAsset: best match payment method from [${assetList}], or empty string. ${defaultAssetHint ? `If the payment method is not clearly stated, prefer "${defaultAsset.name}" as it is the user's default.` : ""}
     - confidence: "high" | "medium" | "low"
     
     IMPORTANT RULES:

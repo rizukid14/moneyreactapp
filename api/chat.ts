@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { messages, categories, assets } = req.body;
+    const { messages, categories, assets, transactions } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ message: 'Valid messages array is required' });
@@ -38,8 +38,12 @@ export default async function handler(req: any, res: any) {
       : "None";
     
     const assetList = assets?.length > 0 
-      ? assets.map((a: any) => `- ID: "${a.id}", Name: "${a.name}", Type: "${a.type}"`).join('\n') 
+      ? assets.map((a: any) => `- ID: "${a.id}", Name: "${a.name}", Type: "${a.type}", Balance: ${a.balance}`).join('\n') 
       : "None";
+
+    const transactionSummary = transactions?.length > 0
+      ? transactions.map((t: any) => `${t.date}: ${t.type} ${t.amount} [${t.category}] ${t.note}`).join('\n')
+      : "No recent transactions found.";
 
     const defaultAssetId = assets?.length > 0 ? assets[0].id : "";
 
@@ -80,10 +84,16 @@ CURRENT USER CONTEXT:
 Categories: ${categoryList}
 Assets: ${assetList}
 
+RECENT TRANSACTIONS (Last 150):
+${transactionSummary}
+
 BEHAVIOR RULES:
 1. When a user describes a transaction (e.g., "makan kfc 10k"), First, recommend category and asset name and ask for confirmation.
 2. ONLY call 'create_transaction' when the user explicitly agrees.
 3. For help/tutorial requests, use 'get_app_help'.
+4. Answer questions about spending summaries (e.g., "how much did I spend on food this month?") by analyzing the RECENT TRANSACTIONS provided.
+5. If the user asks about account balances, use the Balance info in the Assets list.
+6. If the user's question requires data beyond the provided 150 transactions, honestly state that you only have access to recent history.
 
 Keep responses concise and in Indonesian.`;
 

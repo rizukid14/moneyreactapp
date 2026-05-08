@@ -18,7 +18,7 @@ const CONFIDENCE_BADGE = {
 };
 
 const ReceiptScanner: React.FC = () => {
-  const { addTransaction, addDebt, assets, categories, currencySymbol } = useMoney();
+  const { addTransaction, addDebt, assets, categories, currencySymbol, defaultAssetId: contextDefaultAssetId } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { showToast } = useToast();
@@ -46,6 +46,9 @@ const ReceiptScanner: React.FC = () => {
   // Transaction customization
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [selectedType, setSelectedType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
+  const [taxAmount, setTaxAmount] = useState(0);
+  const [serviceAmount, setServiceAmount] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
   const [editableAmount, setEditableAmount] = useState('');
@@ -204,7 +207,7 @@ const ReceiptScanner: React.FC = () => {
     const activeAssets = assets.filter(a => !a.isDeleted);
 
     if (scanMode === 'mutasi') {
-      const parsed = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets });
+      const parsed = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets, defaultAssetId: contextDefaultAssetId || undefined });
       if (parsed && parsed.length > 0) {
         const augmented = parsed.map(tx => {
           const mapAsset = (assetName: string | undefined, defaultId = '') => {
@@ -213,10 +216,10 @@ const ReceiptScanner: React.FC = () => {
             return matched?.id || defaultId;
           };
 
-          const defaultAssetId = activeAssets[0]?.id || '';
-          const matchedAssetId = mapAsset(tx.asset, defaultAssetId);
-          const matchedFromAssetId = mapAsset(tx.fromAsset, defaultAssetId);
-          const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || defaultAssetId);
+          const fallbackAssetId = contextDefaultAssetId || activeAssets[0]?.id || '';
+          const matchedAssetId = mapAsset(tx.asset, fallbackAssetId);
+          const matchedFromAssetId = mapAsset(tx.fromAsset, fallbackAssetId);
+          const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || fallbackAssetId);
 
           let matchedCategory = '';
           let matchedSubCategory = '';
@@ -250,7 +253,7 @@ const ReceiptScanner: React.FC = () => {
       return;
     }
 
-    const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets);
+    const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets, contextDefaultAssetId || undefined);
 
     if (ocrResult) {
       if (ocrResult.amount === 0) {
@@ -271,10 +274,10 @@ const ReceiptScanner: React.FC = () => {
         if (matchedAsset) {
           setSelectedAssetId(matchedAsset.id);
         } else {
-          setSelectedAssetId(activeAssets[0]?.id || '');
+          setSelectedAssetId(contextDefaultAssetId || activeAssets[0]?.id || '');
         }
       } else {
-        setSelectedAssetId(activeAssets[0]?.id || '');
+        setSelectedAssetId(contextDefaultAssetId || activeAssets[0]?.id || '');
       }
 
       setSelectedType('pengeluaran');
@@ -283,6 +286,9 @@ const ReceiptScanner: React.FC = () => {
       setEditableAmount(ocrResult.amount > 0 ? ocrResult.amount.toString() : '');
       setMerchantName(ocrResult.merchantName || 'Scan Otomatis');
       setLineItems(ocrResult.lineItems);
+      setTaxAmount(ocrResult.taxAmount || 0);
+      setServiceAmount(ocrResult.serviceAmount || 0);
+      setDiscountAmount(ocrResult.discountAmount || 0);
 
       // 2. Category Matching
       if (ocrResult.suggestedCategory) {
@@ -305,6 +311,40 @@ const ReceiptScanner: React.FC = () => {
       setStage('crop');
     }
   }, [imageFile, scanReceipt, assets, categories, setError, selectedAssetId, selectedCategory, selectedDate, selectedTime, merchantName, editableAmount, selectedType]);
+
+  const handleDistributeCharges = () => {
+    const activeItems = lineItems.filter(i => i.selected);
+    const subtotal = activeItems.reduce((sum, item) => sum + item.amount, 0);
+    
+    if (subtotal === 0) {
+      showToast('Pilih minimal satu item dengan nominal untuk distribusi', 'warning');
+      return;
+    }
+
+    const totalAdjustment = taxAmount + serviceAmount - discountAmount;
+    const factor = (subtotal + totalAdjustment) / subtotal;
+
+    const newLineItems = lineItems.map(item => {
+      if (!item.selected) return item;
+      return {
+        ...item,
+        amount: Math.round(item.amount * factor)
+      };
+    });
+
+    setLineItems(newLineItems);
+    
+    // Clear the adjustment fields as they are now in the items
+    setTaxAmount(0);
+    setServiceAmount(0);
+    setDiscountAmount(0);
+    
+    // Update grand total
+    const newTotal = newLineItems.reduce((sum, i) => sum + (i.selected ? i.amount : 0), 0);
+    setEditableAmount(newTotal.toString());
+    
+    showToast('Biaya berhasil didistribusikan ke item!', 'success');
+  };
 
   // ── Handle file select ─────────────────────────────────────────────────────
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -376,23 +416,21 @@ const ReceiptScanner: React.FC = () => {
     }
   };
 
-  const handleSplitSave = (splits: any[]) => {
-    if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
-    
+  const handleSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
     try {
       const userSplit = splits.find(s => s.id === 'me');
-      
+
       // 1. Save user's portion as a transaction
       if (userSplit && userSplit.amount > 0) {
         addTransaction({
           type: 'pengeluaran',
           amount: userSplit.amount,
-          category: selectedCategory || 'Belanja (OCR)',
-          subCategory: selectedSubCategory || undefined,
+          category: data.category || 'Belanja (OCR)',
+          subCategory: data.subCategory || undefined,
           date: selectedDate,
           time: selectedTime,
           note: merchantName || 'Split Bill',
-          assetId: selectedAssetId,
+          assetId: data.assetId,
         });
       }
 
@@ -443,7 +481,7 @@ const ReceiptScanner: React.FC = () => {
 
   const addItem = () => {
     setLineItems(prev => [{ name: 'Item Baru', amount: 0, selected: true }, ...prev]);
-    setEditingItemIdx(0); 
+    setEditingItemIdx(0);
     setEditingField('name');
   };
 
@@ -566,6 +604,51 @@ const ReceiptScanner: React.FC = () => {
               </div>
 
               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+
+              <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>PAJAK</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={taxAmount ? taxAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setTaxAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>SERVICE</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={serviceAmount ? serviceAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setServiceAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DISKON</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={discountAmount ? discountAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setDiscountAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0, color: 'var(--danger)' }}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <button 
+                  className="btn" 
+                  onClick={handleDistributeCharges}
+                  style={{ width: '100%', fontSize: '12px', padding: '8px', background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)' }}
+                >
+                  Hitung Ulang & Distribusi ke Item
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
@@ -743,31 +826,36 @@ const ReceiptScanner: React.FC = () => {
           categories={categories}
           assets={assets}
           currencySymbol={currencySymbol}
-          onSave={() => {
+          initialAssetId={contextDefaultAssetId || undefined}
+          onSave={(batchAssetId) => {
             const toSave = mutasiResults.filter(r => r.selected);
-            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category || !r.asset))) {
-              showToast('Pastikan semua transaksi reguler memiliki Nominal, Kategori, dan Rekening!', 'warning');
+            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category))) {
+              showToast('Pastikan semua transaksi reguler memiliki Nominal dan Kategori!', 'warning');
               return;
             }
-            if (toSave.some(r => r.type === 'transfer' && (!r.amount || !r.fromAsset || !r.toAsset))) {
-              showToast('Pastikan semua transaksi transfer memiliki Nominal, Dari Rekening, dan Ke Rekening!', 'warning');
+            if (toSave.some(r => r.type === 'transfer' && (!r.amount || (!r.fromAsset && !r.toAsset)))) {
+              showToast('Pastikan semua transaksi transfer memiliki Nominal dan Rekening Lawan!', 'warning');
               return;
             }
 
             toSave.forEach(tx => {
               if (tx.type === 'transfer') {
+                // Ensure one side is the batch asset
+                const finalFrom = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : batchAssetId;
+                const finalTo = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : batchAssetId;
+
                 const newTx = addTransaction({
                   type: 'transfer',
                   amount: tx.amount,
                   date: tx.date,
                   note: tx.note || 'Transfer',
                   category: 'Transfer',
-                  fromAssetId: tx.fromAsset,
-                  toAssetId: tx.toAsset
+                  fromAssetId: finalFrom,
+                  toAssetId: finalTo
                 });
 
                 if (tx.adminFee && tx.adminFee > 0) {
-                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? tx.toAsset : tx.fromAsset;
+                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? finalTo : finalFrom;
                   const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
                   addTransaction({
                     type: 'pengeluaran',
@@ -787,7 +875,7 @@ const ReceiptScanner: React.FC = () => {
                   note: tx.note,
                   category: tx.category,
                   subCategory: tx.subCategory || undefined,
-                  assetId: tx.asset
+                  assetId: batchAssetId
                 });
               }
             });
@@ -805,6 +893,11 @@ const ReceiptScanner: React.FC = () => {
         merchantName={merchantName}
         date={selectedDate}
         lineItems={lineItems}
+        assets={assets}
+        categories={categories}
+        initialAssetId={selectedAssetId}
+        initialCategory={selectedCategory}
+        initialSubCategory={selectedSubCategory}
         onSave={handleSplitSave}
       />
     </div>

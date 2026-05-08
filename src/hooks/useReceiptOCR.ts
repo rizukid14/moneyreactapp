@@ -82,7 +82,8 @@ export const useReceiptOCR = () => {
   const scanReceipt = useCallback(async (
     imageBlob: Blob, 
     categories?: any[], 
-    assets?: any[]
+    assets?: any[],
+    defaultAssetId?: string
   ): Promise<OCRResult | null> => {
     const logs: string[] = [];
     const addLog = (m: string) => { 
@@ -112,7 +113,8 @@ export const useReceiptOCR = () => {
         body: JSON.stringify({ 
           image: base64,
           categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s:any) => s.name) })),
-          assets: assets?.map(a => ({ name: a.name })),
+          assets: assets?.map(a => ({ name: a.name, id: a.id })),
+          defaultAssetId,
         }),
       });
 

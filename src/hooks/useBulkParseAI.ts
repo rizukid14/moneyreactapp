@@ -68,12 +68,14 @@ export const useBulkParseAI = () => {
     text,
     imageBlob,
     categories,
-    assets
+    assets,
+    defaultAssetId
   }: {
     text?: string;
     imageBlob?: Blob;
     categories?: any[];
     assets?: any[];
+    defaultAssetId?: string
   }): Promise<ParsedTransaction[] | null> => {
     setIsParsing(true);
     setError(null);
@@ -94,7 +96,8 @@ export const useBulkParseAI = () => {
           text: text || '',
           image: imageBase64,
           categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s: any) => ({ name: s.name })) })),
-          assets: assets?.map(a => ({ name: a.name })),
+          assets: assets?.map(a => ({ name: a.name, id: a.id })),
+          defaultAssetId,
           currentDate: getLocalDate()
         }),
       });
