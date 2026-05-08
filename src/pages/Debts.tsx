@@ -254,7 +254,7 @@ const DebtCard: React.FC<{
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{tx.note}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{tx.date}</div>
                     </div>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-main)' }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: tx.type === 'pendapatan' ? 'var(--success)' : 'var(--text-main)' }}>
                       {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}{fmt(tx.amount, currencySymbol)}
                     </div>
                   </div>
@@ -399,14 +399,15 @@ const Debts: React.FC = () => {
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
           borderRadius: 12, marginBottom: 12,
-          background: summary.net >= 0 ? 'var(--success-glow)' : 'var(--bg-expense)',
-          border: `1px solid ${summary.net >= 0 ? 'hsla(145, 65%, 43%, 0.25)' : 'hsla(355, 75%, 54%, 0.25)'}`,
+          background: summary.net >= 0 ? 'var(--success-glow)' : 'var(--danger)',
+          border: `1px solid ${summary.net >= 0 ? 'hsla(145, 65%, 43%, 0.25)' : 'var(--danger)'}`,
+          boxShadow: summary.net >= 0 ? 'none' : '0 4px 12px var(--danger-glow)',
         }}>
-          <ChevronRight size={14} color={summary.net >= 0 ? 'var(--success)' : 'var(--danger)'} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: summary.net >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+          <ChevronRight size={14} color={summary.net >= 0 ? 'var(--success)' : '#ffffff'} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: summary.net >= 0 ? 'var(--success)' : '#ffffff' }}>
             {summary.net >= 0
                ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
-               : `Neto: kamu berhutang lebih banyak ${fmt(summary.net, currencySymbol)}`}
+               : `Neto: kamu berhutang lebih banyak ${fmt(Math.abs(summary.net), currencySymbol)}`}
           </span>
         </div>
       )}
@@ -463,7 +464,9 @@ const Debts: React.FC = () => {
               fontSize: 12,
               cursor: 'pointer',
               background: 'transparent',
-              color: filter === key ? 'var(--text-main)' : 'var(--text-muted)',
+              color: filter === key
+                ? (key === 'hutang' ? 'var(--danger)' : key === 'piutang' ? 'var(--success)' : key === 'lunas' ? 'var(--success)' : 'var(--primary)')
+                : 'var(--text-muted)',
               position: 'relative',
               transition: 'color 0.2s ease',
             }}
@@ -503,9 +506,9 @@ const Debts: React.FC = () => {
             </div>
             {filter !== 'lunas' && (
               <button onClick={openAdd} style={{
-                background: 'var(--danger)', color: '#fff', border: 'none',
+                background: filter === 'piutang' ? 'var(--success)' : 'var(--danger)', color: '#fff', border: 'none',
                 borderRadius: 12, padding: '12px 24px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                boxShadow: '0 4px 12px var(--danger-glow)',
+                boxShadow: filter === 'piutang' ? '0 4px 12px var(--success-glow)' : '0 4px 12px var(--danger-glow)',
               }}>+ Tambah Sekarang</button>
             )}
           </div>
@@ -549,6 +552,7 @@ const Debts: React.FC = () => {
         assets={assets}
         categories={categories.filter(c => c.type === 'pengeluaran')}
         currencySymbol={currencySymbol}
+        defaultType={filter === 'piutang' ? 'piutang' : 'hutang'}
       />
 
       {payingDebt && (
@@ -616,15 +620,21 @@ const Debts: React.FC = () => {
         />
       )}
 
-      {/* Floating Action Button (FAB) matching Transactions page (Red Theme for Debts) */}
-      <button
-        className="fab"
-        onClick={openAdd}
-        style={{ zIndex: 1000, background: 'var(--danger)', boxShadow: '0 4px 16px var(--danger-glow)' }}
-        aria-label="Tambah Hutang/Piutang"
-      >
-        <Plus size={32} strokeWidth={3} />
-      </button>
+      {/* Floating Action Button (FAB) matching Transactions page (Dynamic Theme & Visibility) */}
+      {filter !== 'lunas' && (
+        <button
+          className="fab"
+          onClick={openAdd}
+          style={{
+            zIndex: 1000,
+            background: filter === 'piutang' ? 'var(--success)' : 'var(--danger)',
+            boxShadow: filter === 'piutang' ? '0 4px 16px var(--success-glow)' : '0 4px 16px var(--danger-glow)'
+          }}
+          aria-label="Tambah Hutang/Piutang"
+        >
+          <Plus size={32} strokeWidth={3} />
+        </button>
+      )}
     </div>
   );
 };
