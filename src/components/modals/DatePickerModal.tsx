@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { X, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -9,9 +9,10 @@ interface DatePickerModalProps {
   onClose: () => void;
   viewDate: Date;
   onSelectDate: (date: Date) => void;
+  onToday?: () => void;
 }
 
-const DatePickerModal: React.FC<DatePickerModalProps> = ({ isOpen, onClose, viewDate, onSelectDate }) => {
+const DatePickerModal: React.FC<DatePickerModalProps> = ({ isOpen, onClose, viewDate, onSelectDate, onToday }) => {
   const [pickerMode, setPickerMode] = useState<'month' | 'year'>('month');
 
   const yearList = useMemo(() => {
@@ -73,7 +74,22 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({ isOpen, onClose, view
                     fontWeight: 700, fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s'
                   }}>Tahun</button>
               </div>
-              <button className="close-btn" onClick={onClose}><X size={20} /></button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {onToday && (
+                  <button
+                    onClick={() => { onToday(); onClose(); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                      padding: '6px 12px', borderRadius: '20px', border: 'none',
+                      background: 'var(--primary-glow)', color: 'var(--primary)',
+                      fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >
+                    <CalendarDays size={14} /> Hari Ini
+                  </button>
+                )}
+                <button className="close-btn" onClick={onClose}><X size={20} /></button>
+              </div>
             </div>
 
             <div style={{ marginTop: '12px' }}>

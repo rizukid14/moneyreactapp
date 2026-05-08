@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -128,6 +128,7 @@ const Transactions: React.FC = () => {
   const navigate = useNavigate();
   const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping, setIsChatOpen } = useMoney();
   const { showToast } = useToast();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isCopyMode, setIsCopyMode] = useState(false);
@@ -329,41 +330,40 @@ const Transactions: React.FC = () => {
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={resetToToday} style={{
-            display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
-            borderRadius: '24px', border: 'none', background: 'var(--primary-glow)',
-            fontSize: '13px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer',
-            boxShadow: '0 2px 10px var(--primary-glow)'
-          }}>
-            <CalendarDays size={16} /> Hari Ini
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {isSearchOpen && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              background: 'var(--bg-card)', border: '1.5px solid var(--border-color)',
+              borderRadius: '20px', padding: '6px 12px'
+            }}>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Cari transaksi..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{
+                  background: 'none', border: 'none', outline: 'none',
+                  fontSize: '14px', color: 'var(--text-main)', width: '160px', marginBottom: 0
+                }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          )}
+          <button
+            onClick={() => { setIsSearchOpen(o => !o); if (isSearchOpen) setSearchQuery(''); }}
+            className="btn-icon"
+            aria-label={isSearchOpen ? 'Tutup pencarian' : 'Cari transaksi'}
+            style={{ color: isSearchOpen ? 'var(--primary)' : 'var(--text-muted)' }}
+          >
+            {isSearchOpen ? <X size={20} /> : <Search size={20} />}
           </button>
         </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="card glass shadow-soft" style={{
-        display: 'flex', alignItems: 'center', gap: '10px',
-        padding: '8px 16px', marginBottom: '16px', border: 'none',
-        background: 'var(--bg-card-solid)'
-      }}>
-        <Search size={20} color="var(--text-muted)" />
-        <input
-          type="text"
-          placeholder="Cari catatan, kategori, atau jumlah..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          style={{
-            background: 'none', border: 'none', padding: '8px 0',
-            fontSize: '14px', flex: 1, color: 'var(--text-main)',
-            outline: 'none', marginBottom: 0
-          }}
-        />
-        {searchQuery && (
-          <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
-            <X size={18} />
-          </button>
-        )}
       </div>
 
       {/* Month Switcher */}
@@ -756,6 +756,7 @@ const Transactions: React.FC = () => {
         onClose={() => setIsDatePickerOpen(false)}
         viewDate={viewDate}
         onSelectDate={setViewDate}
+        onToday={resetToToday}
       />
 
       {isFabOpen && (

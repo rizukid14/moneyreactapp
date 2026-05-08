@@ -128,7 +128,7 @@ const Statistics: React.FC = () => {
       if (data.length <= 5) return data;
       const top4 = data.slice(0, 4);
       const othersValue = data.slice(4).reduce((sum, item) => sum + item.value, 0);
-      return [...top4, { name: 'Lainnya', value: othersValue }];
+      return [...top4, { name: 'Lainnya', value: othersValue, __isOthers: true }];
     };
 
     const expenseDataRaw = drillDownCategory?.type === 'pengeluaran' 
@@ -467,7 +467,9 @@ const Statistics: React.FC = () => {
                     paddingAngle={5}
                     dataKey="value"
                     onClick={(data, index) => {
-                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                      if (!drillDownCategory && !(data as any).__isOthers) {
+                        setDrillDownCategory({ name: data.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                      }
                     }}
                     style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
                   >
@@ -499,7 +501,9 @@ const Statistics: React.FC = () => {
                     paddingAngle={5}
                     dataKey="value"
                     onClick={(data, index) => {
-                      if (!drillDownCategory) setDrillDownCategory({ name: data.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                      if (!drillDownCategory && !(data as any).__isOthers) {
+                        setDrillDownCategory({ name: data.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                      }
                     }}
                     style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
                   >
@@ -529,12 +533,15 @@ const Statistics: React.FC = () => {
               <div 
                 key={cat.id} 
                 onClick={() => {
-                  if (!drillDownCategory) setDrillDownCategory({ name: cat.category, type: cat.type, colorIndex: cat.colorIndex });
+                  if (!drillDownCategory && cat.category !== 'Lainnya') {
+                    setDrillDownCategory({ name: cat.category, type: cat.type, colorIndex: cat.colorIndex });
+                  }
                 }}
                 style={{ 
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
                   padding: '12px', background: 'var(--bg-main)', borderRadius: '12px',
-                  cursor: drillDownCategory ? 'default' : 'pointer'
+                  cursor: drillDownCategory || cat.category === 'Lainnya' ? 'default' : 'pointer',
+                  opacity: cat.category === 'Lainnya' ? 0.7 : 1
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
