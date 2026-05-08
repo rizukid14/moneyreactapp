@@ -512,20 +512,29 @@ const Statistics: React.FC = () => {
           }
 
           // Interpolate amount to normalized parameter t (0 to 1) based on user landmarks:
-          // 1,000 -> t = 0 (gray-ish)
-          // 10,000 -> t = 0.25
-          // 100,000 -> t = 0.50
-          // 1,000,000 -> t = 0.75
-          // 5,000,000 -> t = 1.00 (burning red)
+          // 1K -> t = 0
+          // 5K -> t = 0.14
+          // 10K -> t = 0.28
+          // 50K -> t = 0.42
+          // 100K -> t = 0.57
+          // 250K -> t = 0.71
+          // 500K -> t = 0.85
+          // >1JT -> t = 1.00
           let t = 0;
-          if (amount <= 10000) {
-            t = 0.25 * ((amount - 1000) / 9000);
+          if (amount <= 5000) {
+            t = 0.14 * ((amount - 1000) / 4000);
+          } else if (amount <= 10000) {
+            t = 0.14 + 0.14 * ((amount - 5000) / 5000);
+          } else if (amount <= 50000) {
+            t = 0.28 + 0.14 * ((amount - 10000) / 40000);
           } else if (amount <= 100000) {
-            t = 0.25 + 0.25 * ((amount - 10000) / 90000);
-          } else if (amount <= 1000000) {
-            t = 0.50 + 0.25 * ((amount - 100000) / 900000);
+            t = 0.42 + 0.15 * ((amount - 50000) / 50000);
+          } else if (amount <= 250000) {
+            t = 0.57 + 0.14 * ((amount - 100000) / 150000);
+          } else if (amount <= 500000) {
+            t = 0.71 + 0.14 * ((amount - 250000) / 250000);
           } else {
-            t = 0.75 + 0.25 * ((amount - 1000000) / 4000000);
+            t = 0.85 + 0.15 * (Math.min(amount - 500000, 500000) / 500000);
           }
 
           const interpolate = (start: number, end: number, ratio: number) => start + (end - start) * ratio;
@@ -674,22 +683,25 @@ const Statistics: React.FC = () => {
             {/* Range-based continuous Legend with accurate ticks */}
             {(() => {
               const stop0 = theme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 1)';
-              const stop1rb = getHeatmapColorStyle(1000, theme).background;
-              const stop5rb = getHeatmapColorStyle(5000, theme).background;
-              const stop10rb = getHeatmapColorStyle(10000, theme).background;
-              const stop50rb = getHeatmapColorStyle(50000, theme).background;
-              const stop500rb = getHeatmapColorStyle(500000, theme).background;
+              const stop1K = getHeatmapColorStyle(1000, theme).background;
+              const stop5K = getHeatmapColorStyle(5000, theme).background;
+              const stop10K = getHeatmapColorStyle(10000, theme).background;
+              const stop50K = getHeatmapColorStyle(50000, theme).background;
+              const stop100K = getHeatmapColorStyle(100000, theme).background;
+              const stop250K = getHeatmapColorStyle(250000, theme).background;
+              const stop500K = getHeatmapColorStyle(500000, theme).background;
               const stop1M = getHeatmapColorStyle(1000000, theme).background;
 
-              const gradientStops = `${stop0} 0%, ${stop1rb} 10%, ${stop5rb} 35%, ${stop10rb} 50%, ${stop50rb} 70%, ${stop500rb} 84%, ${stop1M} 100%`;
+              const gradientStops = `${stop0} 0%, ${stop1K} 0%, ${stop5K} 14%, ${stop10K} 28%, ${stop50K} 42%, ${stop100K} 57%, ${stop250K} 71%, ${stop500K} 85%, ${stop1M} 100%`;
 
               const ticks = [
-                { label: '<1rb', pos: 0 },
-                { label: '1rb', pos: 10 },
-                { label: '5rb', pos: 35 },
-                { label: '10rb', pos: 50 },
-                { label: '50rb', pos: 70 },
-                { label: '500rb', pos: 84 },
+                { label: '1K', pos: 0 },
+                { label: '5K', pos: 14 },
+                { label: '10K', pos: 28 },
+                { label: '50K', pos: 42 },
+                { label: '100K', pos: 57 },
+                { label: '250K', pos: 71 },
+                { label: '500K', pos: 85 },
                 { label: '>1Jt', pos: 100 },
               ];
 

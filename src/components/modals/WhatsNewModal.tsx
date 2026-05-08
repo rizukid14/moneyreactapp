@@ -13,6 +13,16 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
   const features = [
     {
       icon: <CheckCircle2 className="text-primary" size={24} />,
+      title: 'Toast "Berhasil!" Instan',
+      description: 'Mendapatkan notifikasi visual premium setiap kali berhasil menambahkan atau memperbarui transaksi baik manual, split bill, maupun hasil input AI/scan struk.'
+    },
+    {
+      icon: <TrendingUp className="text-emerald-500" size={24} />,
+      title: 'Kalibrasi Skala Heatmap Presisi',
+      description: 'Skala warna grafik kontribusi heatmap pengeluaran bulanan kini terkalibrasi presisi dengan rentang nominal: 1K, 5K, 10K, 50K, 100K, 250K, 500K, dan >1JT.'
+    },
+    {
+      icon: <CheckCircle2 className="text-primary" size={24} />,
       title: 'MoneyBot AI: Transfer & Hutang',
       description: 'MoneyBot kini lebih pintar! Kamu bisa mencatat transfer antar rekening dan membuat catatan hutang/piutang hanya dengan mengobrol.'
     },
@@ -41,7 +51,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 800, margin: 0, background: 'var(--primary-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              What's New v16
+              What's New v17
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Fitur terbaru untuk pengalaman lebih baik</p>
           </div>

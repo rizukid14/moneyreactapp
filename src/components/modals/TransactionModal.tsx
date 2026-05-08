@@ -362,6 +362,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     } else {
       submitActionRef.current = 'close'; // reset
     }
+
+    if (editingTransaction && updateTransaction && !isCopyMode) {
+      showToast('Transaksi berhasil diperbarui!', 'success');
+    } else {
+      showToast('Transaksi berhasil ditambahkan!', 'success');
+    }
   };
 
   return (
