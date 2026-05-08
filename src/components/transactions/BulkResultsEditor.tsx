@@ -30,6 +30,13 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
   const [batchAssetId, setBatchAssetId] = useState(initialAssetId || '');
   const [isGlobalAssetModalOpen, setIsGlobalAssetModalOpen] = useState(false);
 
+  // Sync with initialAssetId if it changes
+  React.useEffect(() => {
+    if (initialAssetId && !batchAssetId) {
+      setBatchAssetId(initialAssetId);
+    }
+  }, [initialAssetId]);
+
   const updateResult = (id: string, field: keyof ParsedTransaction, value: any) => {
     setResults(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
@@ -100,7 +107,11 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Wallet size={20} color="var(--primary)" />
-              <span style={{ fontSize: '15px', fontWeight: batchAssetId ? 700 : 500 }}>
+              <span style={{ 
+                fontSize: '15px', 
+                fontWeight: batchAssetId ? 700 : 500,
+                color: batchAssetId ? 'var(--text-main)' : 'var(--text-muted)'
+              }}>
                 {getAssetLabel(batchAssetId)}
               </span>
             </div>
