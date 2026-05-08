@@ -184,7 +184,7 @@ interface MoneyContextType {
   updateRecurringTransaction: (id: string, rt: Partial<RecurringTransaction>) => void;
   deleteRecurringTransaction: (id: string) => void;
   payInstallment: (debtId: string) => void;
-  settleDebt: (debtId: string, assetId?: string, date?: string, time?: string) => void;
+  settleDebt: (debtId: string, assetId?: string, date?: string, time?: string, amount?: number) => void;
   addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   addDebtPrincipal: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   offsetDebt: (contactName: string, customDate?: string) => void;
