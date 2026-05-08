@@ -178,7 +178,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, pullFromCloud, contacts, addContact, updateContact, deleteContact } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -790,6 +790,24 @@ const Settings: React.FC = () => {
               >
                 <option value="date">Kelompokkan per Tanggal</option>
                 <option value="category">Kelompokkan per Kategori</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Moon size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Gaya Grafik Transaksi Harian</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Pilih jenis grafik yang digunakan untuk menampilkan aktivitas pengeluaran harian Anda.
+              </p>
+              <select
+                value={chartStyle}
+                onChange={(e) => setChartStyle(e.target.value as 'area' | 'line')}
+                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
+              >
+                <option value="area">Area Chart (Gradasi & Isian)</option>
+                <option value="line">Line Chart (Garis Glowing Premium)</option>
               </select>
             </div>
 

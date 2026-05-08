@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart, LineChart, Line } from 'recharts';
 import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
@@ -11,7 +11,7 @@ const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
 
 const Statistics: React.FC = () => {
-  const { transactions, currencySymbol, startOfMonthDay, theme } = useMoney();
+  const { transactions, currencySymbol, startOfMonthDay, theme, chartStyle } = useMoney();
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date();
     if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
@@ -409,7 +409,7 @@ const Statistics: React.FC = () => {
       {/* ── 3-Month Spending Heatmap ─────────────────────────── */}
       {(() => {
         const allCells = heatmapData.flatMap(m => m.cells);
-        const activeDays = allCells.filter(c => c.amount > 0).length;
+        const activeDays = allCells.filter(c => c.amount >= 1000).length;
         const maxAmount = Math.max(...allCells.map(c => c.amount), 1);
         if (activeDays === 0) return null;
 
@@ -439,7 +439,7 @@ const Statistics: React.FC = () => {
         const getHeatmapColorStyle = (amount: number, currentTheme?: 'light' | 'dark'): React.CSSProperties => {
           const isDark = currentTheme === 'dark';
           
-          if (amount === 0) {
+          if (amount < 1000) {
             return isDark
               ? {
                   background: 'rgba(255, 255, 255, 0.06)', // gray with opacity in dark mode
@@ -453,25 +453,39 @@ const Statistics: React.FC = () => {
                 };
           }
 
+          // Golden Tier (> 10 Million Rupiah)
+          if (amount > 10000000) {
+            return {
+              background: 'linear-gradient(135deg, #ffe066 0%, #f5c200 50%, #b38600 100%)',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid rgba(179, 134, 0, 0.4)',
+              boxShadow: '0 0 12px 3px rgba(245, 194, 0, 0.7)',
+            };
+          }
+
+          // Silver Tier (> 5 Million Rupiah)
+          if (amount > 5000000) {
+            return {
+              background: 'linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 50%, #64748b 100%)',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid rgba(100, 116, 139, 0.4)',
+              boxShadow: '0 0 10px 2.5px rgba(203, 213, 225, 0.6)',
+            };
+          }
+
           // Interpolate amount to normalized parameter t (0 to 1) based on user landmarks:
-          // 1,000 -> t = 0.10 (gray)
-          // 5,000 -> t = 0.35 (gray-ish red)
-          // 10,000 -> t = 0.50 (still slightly red)
-          // 50,000 -> t = 0.70 (mid-ish)
-          // 1,000,000 -> t = 1.00 (burning red)
+          // 1,000 -> t = 0 (gray-ish)
+          // 10,000 -> t = 0.25
+          // 100,000 -> t = 0.50
+          // 1,000,000 -> t = 0.75
+          // 5,000,000 -> t = 1.00 (burning red)
           let t = 0;
-          if (amount <= 1000) {
-            t = 0.1 * (amount / 1000);
-          } else if (amount <= 5000) {
-            t = 0.1 + 0.25 * ((amount - 1000) / 4000);
-          } else if (amount <= 10000) {
-            t = 0.35 + 0.15 * ((amount - 5000) / 5000);
-          } else if (amount <= 50000) {
-            t = 0.50 + 0.20 * ((amount - 10000) / 40000);
+          if (amount <= 10000) {
+            t = 0.25 * ((amount - 1000) / 9000);
+          } else if (amount <= 100000) {
+            t = 0.25 + 0.25 * ((amount - 10000) / 90000);
           } else if (amount <= 1000000) {
-            t = 0.70 + 0.30 * ((amount - 50000) / 950000);
+            t = 0.50 + 0.25 * ((amount - 100000) / 900000);
           } else {
-            t = 1.0;
+            t = 0.75 + 0.25 * ((amount - 1000000) / 4000000);
           }
 
           const interpolate = (start: number, end: number, ratio: number) => start + (end - start) * ratio;
@@ -621,22 +635,22 @@ const Statistics: React.FC = () => {
             {(() => {
               const stop0 = theme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 1)';
               const stop1rb = getHeatmapColorStyle(1000, theme).background;
-              const stop5rb = getHeatmapColorStyle(5000, theme).background;
               const stop10rb = getHeatmapColorStyle(10000, theme).background;
-              const stop50rb = getHeatmapColorStyle(50000, theme).background;
-              const stop500rb = getHeatmapColorStyle(500000, theme).background;
+              const stop100rb = getHeatmapColorStyle(100000, theme).background;
               const stop1M = getHeatmapColorStyle(1000000, theme).background;
+              const stop5M = '#cbd5e1'; // silver representer
+              const stop10M = '#f5c200'; // gold representer
 
-              const gradientStops = `${stop0} 0%, ${stop1rb} 10%, ${stop5rb} 35%, ${stop10rb} 50%, ${stop50rb} 70%, ${stop500rb} 84%, ${stop1M} 100%`;
+              const gradientStops = `${stop0} 0%, ${stop1rb} 10%, ${stop10rb} 28%, ${stop100rb} 46%, ${stop1M} 64%, ${stop5M} 82%, ${stop10M} 100%`;
 
               const ticks = [
-                { label: '0', pos: 0 },
+                { label: '<1rb', pos: 0 },
                 { label: '1rb', pos: 10 },
-                { label: '5rb', pos: 35 },
-                { label: '10rb', pos: 50 },
-                { label: '50rb', pos: 70 },
-                { label: '500rb', pos: 84 },
-                { label: '>1Jt', pos: 100 },
+                { label: '10rb', pos: 28 },
+                { label: '100rb', pos: 46 },
+                { label: '1Jt', pos: 64 },
+                { label: '5Jt (Slvr)', pos: 82 },
+                { label: '>10Jt (Gld)', pos: 100 },
               ];
 
               return (
@@ -852,28 +866,43 @@ const Statistics: React.FC = () => {
           </div>
           <div style={{ width: '100%', height: 200 }}>
             <ResponsiveContainer>
-              <AreaChart data={dailyExpenseChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                <YAxis hide domain={[0, 'dataMax + 5000']} />
-                <Tooltip
-                  contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                  formatter={(val: any, name: any) => [fmt(Number(val)), name === 'amount' ? 'Pengeluaran' : 'Pendapatan']}
-                  labelFormatter={(label: any) => `Tgl ${label}`}
-                />
-                <Area type="monotone" dataKey="income" stroke="var(--primary)" strokeWidth={1.5} fill="url(#incGrad)" dot={false} name="income" />
-                <Area type="monotone" dataKey="amount" stroke="var(--secondary)" strokeWidth={2} fill="url(#expGrad)" dot={false} name="amount" activeDot={{ r: 5, fill: 'var(--secondary)' }} />
-              </AreaChart>
+              {chartStyle === 'line' ? (
+                <LineChart data={dailyExpenseChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
+                  <YAxis hide domain={[0, 'dataMax + 5000']} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
+                    formatter={(val: any, name: any) => [fmt(Number(val)), name === 'amount' ? 'Pengeluaran' : 'Pendapatan']}
+                    labelFormatter={(label: any) => `Tgl ${label}`}
+                  />
+                  <Line type="monotone" dataKey="income" stroke="var(--primary)" strokeWidth={2.5} dot={false} name="income" activeDot={{ r: 4 }} style={{ filter: 'drop-shadow(0px 3px 6px rgba(16, 185, 129, 0.25))' }} />
+                  <Line type="monotone" dataKey="amount" stroke="var(--secondary)" strokeWidth={3} dot={false} name="amount" activeDot={{ r: 6, fill: 'var(--secondary)', stroke: theme === 'dark' ? '#14141d' : 'white', strokeWidth: 1.5 }} style={{ filter: 'drop-shadow(0px 4px 8px rgba(239, 68, 68, 0.35))' }} />
+                </LineChart>
+              ) : (
+                <AreaChart data={dailyExpenseChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
+                  <YAxis hide domain={[0, 'dataMax + 5000']} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
+                    formatter={(val: any, name: any) => [fmt(Number(val)), name === 'amount' ? 'Pengeluaran' : 'Pendapatan']}
+                    labelFormatter={(label: any) => `Tgl ${label}`}
+                  />
+                  <Area type="monotone" dataKey="income" stroke="var(--primary)" strokeWidth={1.5} fill="url(#incGrad)" dot={false} name="income" />
+                  <Area type="monotone" dataKey="amount" stroke="var(--secondary)" strokeWidth={2} fill="url(#expGrad)" dot={false} name="amount" activeDot={{ r: 5, fill: 'var(--secondary)' }} />
+                </AreaChart>
+              )}
             </ResponsiveContainer>
           </div>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '8px' }}>

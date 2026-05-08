@@ -206,6 +206,8 @@ interface MoneyContextType {
   setDefaultTransactionGrouping: (grouping: 'date' | 'category') => void;
   assetCarouselCards: string[];
   setAssetCarouselCards: (cards: string[]) => void;
+  chartStyle: 'area' | 'line';
+  setChartStyle: (style: 'area' | 'line') => void;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
   logOut: () => Promise<void>;
@@ -244,6 +246,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [authChecked, setAuthChecked] = useState(!isFirebaseConfigured);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [assetCarouselCards, setAssetCarouselCardsState] = useState<string[]>(['net_worth']);
+  const [chartStyle, setChartStyleState] = useState<'area' | 'line'>('area');
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -341,6 +344,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedGrouping) setDefaultTransactionGroupingState(savedGrouping);
       const savedCarousel = await dbGetSetting('assetCarouselCards') as string[] | undefined;
       if (savedCarousel && Array.isArray(savedCarousel) && savedCarousel.length > 0) setAssetCarouselCardsState(savedCarousel);
+      const savedChartStyle = await dbGetSetting('chartStyle') as 'area' | 'line' | undefined;
+      if (savedChartStyle) setChartStyleState(savedChartStyle);
 
       // --- Migration: budgets collection -> settings/budgets ---
       if (isFirebaseConfigured && auth.currentUser) {
@@ -1179,6 +1184,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbPutSetting('assetCarouselCards', cards);
   }, []);
 
+  const setChartStyle = useCallback((style: 'area' | 'line') => {
+    setChartStyleState(style);
+    dbPutSetting('chartStyle', style);
+  }, []);
+
   // ─── Export / Import ─────────────────────────────────────────────────────
   const exportData = useCallback(async () => {
     const data = await dbExportAll();
@@ -1250,7 +1260,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addContact, updateContact, deleteContact,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
-    assetCarouselCards, setAssetCarouselCards,
+    assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
@@ -1264,7 +1274,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addContact, updateContact, deleteContact,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
-    assetCarouselCards, setAssetCarouselCards,
+    assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, addSubCategory, deleteSubCategory,
