@@ -511,54 +511,63 @@ const Statistics: React.FC = () => {
             };
           }
 
-          // Interpolate amount to normalized parameter t (0 to 1) based on user landmarks:
-          // 1K -> t = 0
-          // 5K -> t = 0.14
-          // 10K -> t = 0.28
-          // 50K -> t = 0.42
-          // 100K -> t = 0.57
-          // 250K -> t = 0.71
-          // 500K -> t = 0.85
-          // >1JT -> t = 1.00
-          let t = 0;
-          if (amount <= 5000) {
-            t = 0.14 * ((amount - 1000) / 4000);
-          } else if (amount <= 10000) {
-            t = 0.14 + 0.14 * ((amount - 5000) / 5000);
-          } else if (amount <= 50000) {
-            t = 0.28 + 0.14 * ((amount - 10000) / 40000);
-          } else if (amount <= 100000) {
-            t = 0.42 + 0.15 * ((amount - 50000) / 50000);
-          } else if (amount <= 250000) {
-            t = 0.57 + 0.14 * ((amount - 100000) / 150000);
-          } else if (amount <= 500000) {
-            t = 0.71 + 0.14 * ((amount - 250000) / 250000);
-          } else {
-            t = 0.85 + 0.15 * (Math.min(amount - 500000, 500000) / 500000);
-          }
-
           const interpolate = (start: number, end: number, ratio: number) => start + (end - start) * ratio;
 
-          // Compute HSL properties:
-          // Hue: 355 (warm crimson red from theme's --danger variable)
-          const hue = 355;
-          
-          // Saturation: starts gray (0%) and interpolates up to burning red (100%)
-          const saturation = Math.round(interpolate(0, 100, t));
-          
-          // Lightness: balanced for light/dark modes
-          const baseLightness = isDark ? 45 : 55;
-          const lightness = Math.round(interpolate(baseLightness, 48, t));
-          
-          // Opacity: starts from translucent (0.25) to solid (1.0)
-          const opacity = interpolate(0.25, 1.0, t);
+          let saturation = 0;
+          let lightness = 0;
+          let opacity = 0;
+          const hue = 355; // Warm crimson red from theme's danger color
+
+          if (amount <= 50000) {
+            // Under 50K: "still a lil bit white" (clean pale pink/whitish, NOT grayish)
+            const ratio = (amount - 1000) / 49000;
+            
+            if (isDark) {
+              // In dark mode: a bright, clean, semi-translucent frosted off-white/rose
+              saturation = Math.round(interpolate(8, 20, ratio));
+              lightness = Math.round(interpolate(88, 82, ratio));
+              opacity = interpolate(0.2, 0.45, ratio);
+            } else {
+              // In light mode: a bright, beautiful clean pastel pink (whitish red)
+              saturation = Math.round(interpolate(12, 30, ratio));
+              lightness = Math.round(interpolate(97, 93, ratio));
+              opacity = interpolate(0.45, 0.75, ratio);
+            }
+          } else if (amount <= 100000) {
+            // Between 50K and 100K: Transition zone
+            const ratio = (amount - 50000) / 50000;
+            
+            if (isDark) {
+              saturation = Math.round(interpolate(20, 65, ratio));
+              lightness = Math.round(interpolate(82, 52, ratio));
+              opacity = interpolate(0.45, 0.8, ratio);
+            } else {
+              saturation = Math.round(interpolate(30, 70, ratio));
+              lightness = Math.round(interpolate(93, 62, ratio));
+              opacity = interpolate(0.75, 0.9, ratio);
+            }
+          } else {
+            // Above 100K: "start to get brighter red" (vibrant, rich red with ambient glow)
+            const ratio = Math.min((amount - 100000) / 900000, 1.0); // caps at 1M for full intensity
+            
+            if (isDark) {
+              saturation = Math.round(interpolate(65, 100, ratio));
+              lightness = Math.round(interpolate(52, 45, ratio));
+              opacity = interpolate(0.8, 1.0, ratio);
+            } else {
+              saturation = Math.round(interpolate(70, 100, ratio));
+              lightness = Math.round(interpolate(62, 48, ratio));
+              opacity = interpolate(0.9, 1.0, ratio);
+            }
+          }
 
           const bgStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${opacity})`;
 
-          // Premium ambient outer glow for high values (above mid-way, e.g. t > 0.5)
+          // Premium ambient outer glow for values above 100K
           let boxShadow = 'none';
-          if (t > 0.5) {
-            const glowOpacity = (t - 0.5) * 0.4; // max 0.20 glow opacity
+          if (amount > 100000) {
+            const glowRatio = Math.min((amount - 100000) / 900000, 1.0);
+            const glowOpacity = glowRatio * 0.25; // max 0.25 glow opacity
             boxShadow = `0 0 6px 1.5px hsla(${hue}, 95%, 50%, ${glowOpacity})`;
           }
 
