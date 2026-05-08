@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, Sparkles, LayoutPanelTop, Users, CheckCircle2 } from 'lucide-react';
+import { X, Sparkles, LayoutPanelTop, CheckCircle2 } from 'lucide-react';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
