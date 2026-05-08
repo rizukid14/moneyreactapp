@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
+import { isPrincipalTx } from '../lib/utils';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
+import DebtOffsetModal from '../components/modals/DebtOffsetModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
@@ -45,29 +48,20 @@ const DebtCard: React.FC<{
       : null;
 
     const paidAmount = history.reduce((sum, tx) => {
-      // Only count transactions that move money IN for piutang or OUT for hutang
-      // Actually, for linkedId, we treat all as payments/installments vs the principal
-      // Except the principal itself (which might be in history too)
-
-      // Check if it's the principal transaction (the one created during addDebt)
-      const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
-        tx.note.includes('Pemberian pinjaman') ||
-        tx.note.includes('Belanja via'));
-
-      if (isPrincipal) return sum;
-      return sum + tx.amount;
+      if (isPrincipalTx(tx.note, tx.category)) return sum;
+      return sum + Number(tx.amount || 0);
     }, 0);
 
-    const remainingAmount = debt.totalAmount - paidAmount;
+    const remainingAmount = Number(debt.totalAmount || 0) - paidAmount;
 
-    const borderColor = debt.isPaid ? 'var(--success)' : isOverdue ? 'var(--danger)' : isDueSoon ? '#f59e0b' : 'var(--border-color)';
+    const borderColor = debt.isPaid ? 'var(--success)' : isOverdue ? 'var(--danger)' : isDueSoon ? 'var(--secondary)' : 'var(--border-color)';
 
     return (
       <div style={{
-        background: 'var(--bg-card)', borderRadius: 18, padding: 16,
+        background: 'var(--bg-card)', borderRadius: 18, padding: '16px 20px',
         border: `1.5px solid ${borderColor}`,
-        boxShadow: debt.isPaid ? 'none' : isOverdue ? '0 4px 16px rgba(239,68,68,0.1)' : '0 2px 8px rgba(0,0,0,0.04)',
-        opacity: debt.isPaid ? 0.7 : 1,
+        boxShadow: debt.isPaid ? 'none' : isOverdue ? '0 4px 16px var(--danger-glow)' : '0 4px 20px rgba(0,0,0,0.02)',
+        opacity: debt.isPaid ? 0.65 : 1,
         position: 'relative',
         cursor: 'pointer',
         transition: 'all 0.2s ease'
@@ -77,9 +71,9 @@ const DebtCard: React.FC<{
           {/* Icon */}
           <div style={{
             width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-            background: isHutang ? 'var(--bg-expense)' : 'var(--bg-income)',
+            background: isHutang ? 'var(--bg-expense)' : 'var(--success-glow)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: isHutang ? 'var(--danger)' : 'var(--primary)',
+            color: isHutang ? 'var(--danger)' : 'var(--success)',
           }}>
             {isHutang ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
           </div>
@@ -89,13 +83,13 @@ const DebtCard: React.FC<{
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
               <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>{debt.contact}</span>
               {debt.isPaid && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)', background: 'hsla(152,70%,42%,0.12)', padding: '1px 7px', borderRadius: 20 }}>LUNAS</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--success)', background: 'var(--success-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>LUNAS</span>
               )}
               {isOverdue && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', background: 'var(--bg-expense)', padding: '1px 7px', borderRadius: 20 }}>JATUH TEMPO</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--danger)', background: 'var(--danger-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>JATUH TEMPO</span>
               )}
               {isDueSoon && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: 'hsla(38,90%,60%,0.12)', padding: '1px 7px', borderRadius: 20 }}>SEGERA</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--secondary)', background: 'var(--secondary-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>SEGERA</span>
               )}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{debt.description || (isHutang ? 'Hutang' : 'Piutang')}</div>
@@ -126,19 +120,23 @@ const DebtCard: React.FC<{
         </div>
 
         {/* Amount */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: debt.isInstallment ? 12 : 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: (debt.isInstallment || paidAmount > 0) ? 12 : 0 }}>
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>
               {isHutang ? 'Total Hutang' : 'Total Piutang'}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--primary)', letterSpacing: '-0.5px' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--success)', letterSpacing: '-0.5px' }}>
               {fmt(debt.totalAmount, currencySymbol)}
             </div>
           </div>
-          {debt.isInstallment && (
+          {paidAmount > 0 && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>SISA SALDO</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>
+                {remainingAmount <= 0 ? 'Status' : (isHutang ? 'Sisa Hutang' : 'Sisa Piutang')}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: remainingAmount <= 0 ? 'var(--success)' : (isHutang ? 'var(--danger)' : 'var(--success)'), letterSpacing: '-0.5px' }}>
+                {remainingAmount > 0 ? fmt(remainingAmount, currencySymbol) : (remainingAmount < 0 ? `Surplus ${fmt(remainingAmount, currencySymbol)}` : 'LUNAS')}
+              </div>
             </div>
           )}
         </div>
@@ -150,7 +148,7 @@ const DebtCard: React.FC<{
               <div style={{
                 height: '100%', borderRadius: 3,
                 width: `${progressPct ?? 0}%`,
-                background: debt.isPaid ? 'var(--success)' : 'var(--primary)',
+                background: debt.isPaid ? 'var(--success)' : (isHutang ? 'var(--danger)' : 'var(--success)'),
                 transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
               }} />
             </div>
@@ -162,12 +160,13 @@ const DebtCard: React.FC<{
         )}
 
         {/* Footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-          <div style={{ display: 'flex', gap: 10, fontSize: 11, color: 'var(--text-muted)' }}>
+        <div style={{ marginTop: 10 }}>
+          {/* Info row — wraps on mobile */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
             {debt.dueDate && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Clock size={11} />
-                <span style={{ color: isOverdue ? 'var(--danger)' : isDueSoon ? '#f59e0b' : 'inherit' }}>
+                <span style={{ color: isOverdue ? 'var(--danger)' : isDueSoon ? 'var(--secondary)' : 'inherit' }}>
                   {isOverdue
                     ? `Telat ${Math.abs(daysLeft!)} hari`
                     : daysLeft === 0 ? 'Jatuh tempo hari ini'
@@ -197,21 +196,21 @@ const DebtCard: React.FC<{
                 <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                   <ArrowRightLeft size={10} />
                   <span style={{ opacity: 0.7 }}>Terima ke:</span>
-                  <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{receiveName}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--success)' }}>{receiveName}</span>
                 </div>
               )
             )}
           </div>
 
-          {/* Pay installment button */}
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* Action buttons row */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             {!debt.isPaid && (
               <button
                 onClick={(e) => { e.stopPropagation(); onPay(); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 10,
-                  background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                  boxShadow: '0 3px 10px var(--primary-glow)',
+                  background: isHutang ? 'var(--danger)' : 'var(--success)', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                  boxShadow: isHutang ? '0 3px 10px var(--danger-glow)' : '0 3px 10px var(--success-glow)', whiteSpace: 'nowrap',
                 }}
               >
                 <PlayCircle size={14} /> Cicil / Lunas
@@ -269,7 +268,7 @@ const DebtCard: React.FC<{
   };
 
 const Debts: React.FC = () => {
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, currencySymbol } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
@@ -279,6 +278,8 @@ const Debts: React.FC = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [principalModalDebtId, setPrincipalModalDebtId] = useState<string | null>(null);
+  const [offsetTarget, setOffsetTarget] = useState<{ contact: string; h: number; p: number; amt: number } | null>(null);
+  const [isOffsetModalOpen, setIsOffsetModalOpen] = useState(false);
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
@@ -295,17 +296,40 @@ const Debts: React.FC = () => {
       if (d.isPaid) return;
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
-          tx.note.includes('Pemberian pinjaman') ||
-          tx.note.includes('Belanja via'));
-        return isPrincipal ? sum : sum + tx.amount;
+        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
       }, 0);
 
-      const remaining = Math.max(0, d.totalAmount - paidAmt);
+      const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
       if (d.type === 'hutang') totalHutang += remaining;
       else totalPiutang += remaining;
     });
     return { totalHutang, totalPiutang, net: totalPiutang - totalHutang };
+  }, [debts, transactions]);
+
+  const offsetPotentials = useMemo(() => {
+    const contactMap: Record<string, { h: number; p: number }> = {};
+    debts.forEach(d => {
+      if (d.isPaid) return;
+      const history = transactions.filter(t => t.relatedId === d.id);
+      const paidAmt = history.reduce((sum, tx) => {
+        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+      }, 0);
+      const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
+      if (remaining <= 0) return;
+
+      if (!contactMap[d.contact]) contactMap[d.contact] = { h: 0, p: 0 };
+      if (d.type === 'hutang') contactMap[d.contact].h += remaining;
+      else contactMap[d.contact].p += remaining;
+    });
+
+    return Object.entries(contactMap)
+      .filter(([_, vals]) => vals.h > 0 && vals.p > 0)
+      .map(([name, vals]) => ({
+        contact: name,
+        h: vals.h,
+        p: vals.p,
+        amt: Math.min(vals.h, vals.p)
+      }));
   }, [debts, transactions]);
 
   const filtered = useMemo(() => {
@@ -325,34 +349,48 @@ const Debts: React.FC = () => {
   return (
     <div className="page">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 className="title" style={{ margin: 0 }}>Hutang & Piutang</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Kelola semua catatan hutang & piutangmu</p>
-        </div>
-        <button
-          onClick={openAdd}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--primary-gradient)', color: '#fff',
-            border: 'none', borderRadius: 14, padding: '10px 16px',
-            fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            boxShadow: '0 4px 16px var(--primary-glow)',
-          }}
-        >
-          <Plus size={16} /> Tambah
-        </button>
+      <div style={{ marginBottom: 20 }}>
+        <h1 className="title" style={{ margin: 0 }}>Hutang & Piutang</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Kelola semua catatan hutang & piutangmu</p>
       </div>
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-        <div style={{ background: 'hsla(350,80%,58%,0.18)', borderRadius: 16, padding: '14px 16px' }}>
+        <div style={{
+          background: 'var(--bg-card)',
+          borderRadius: 16,
+          padding: '16px',
+          border: '1.5px solid var(--border-color)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            position: 'absolute',
+            left: 0, top: 0, bottom: 0,
+            width: 4,
+            background: 'var(--danger)'
+          }} />
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Hutang</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)' }}>{fmt(summary.totalHutang, currencySymbol)}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(summary.totalHutang, currencySymbol)}</div>
         </div>
-        <div style={{ background: 'hsla(215,85%,58%,0.18)', borderRadius: 16, padding: '14px 16px' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Piutang</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--primary)' }}>{fmt(summary.totalPiutang, currencySymbol)}</div>
+        <div style={{
+          background: 'var(--bg-card)',
+          borderRadius: 16,
+          padding: '16px',
+          border: '1.5px solid var(--border-color)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            position: 'absolute',
+            left: 0, top: 0, bottom: 0,
+            width: 4,
+            background: 'var(--success)'
+          }} />
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Piutang</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(summary.totalPiutang, currencySymbol)}</div>
         </div>
       </div>
 
@@ -360,34 +398,91 @@ const Debts: React.FC = () => {
       {(summary.totalHutang > 0 || summary.totalPiutang > 0) && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
-          borderRadius: 12, marginBottom: 20,
-          background: summary.net >= 0 ? 'var(--bg-income)' : 'var(--bg-expense)',
-          border: `1px solid ${summary.net >= 0 ? 'hsla(215, 69%, 50%, 0.67)' : 'hsla(350, 80%, 58%, 0.78)'}`,
+          borderRadius: 12, marginBottom: 12,
+          background: summary.net >= 0 ? 'var(--success-glow)' : 'var(--bg-expense)',
+          border: `1px solid ${summary.net >= 0 ? 'hsla(145, 65%, 43%, 0.25)' : 'hsla(355, 75%, 54%, 0.25)'}`,
         }}>
-          <ChevronRight size={14} color={summary.net >= 0 ? 'var(--primary)' : 'var(--danger)'} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: summary.net >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
+          <ChevronRight size={14} color={summary.net >= 0 ? 'var(--success)' : 'var(--danger)'} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: summary.net >= 0 ? 'var(--success)' : 'var(--danger)' }}>
             {summary.net >= 0
-              ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
-              : `Neto: kamu berhutang lebih banyak ${fmt(summary.net, currencySymbol)}`}
+               ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
+               : `Neto: kamu berhutang lebih banyak ${fmt(summary.net, currencySymbol)}`}
           </span>
         </div>
       )}
 
+      {/* Offset Banner */}
+      {offsetPotentials.length > 0 && (
+        <div style={{
+          marginBottom: 20, padding: '14px', borderRadius: '16px',
+          background: 'linear-gradient(135deg, hsl(145, 65%, 43%), hsl(145, 65%, 33%))', color: 'white',
+          boxShadow: '0 8px 20px var(--success-glow)',
+          display: 'flex', alignItems: 'center', gap: '12px'
+        }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '12px',
+            background: 'rgba(255,255,255,0.2)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center'
+          }}>
+            <ArrowRightLeft size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '13px', fontWeight: 800 }}>Tersedia Potong Silang (Offset)</div>
+            <div style={{ fontSize: '11px', opacity: 0.9, fontWeight: 600 }}>
+              Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif.
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setOffsetTarget(offsetPotentials[0]);
+              setIsOffsetModalOpen(true);
+            }}
+            style={{
+              padding: '8px 16px', borderRadius: '10px', background: 'white',
+              color: 'var(--success)', border: 'none', fontWeight: 800,
+              fontSize: '12px', cursor: 'pointer'
+            }}
+          >
+            Selesaikan
+          </button>
+        </div>
+      )}
+
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, background: 'var(--bg-neutral)', borderRadius: 12, padding: 4 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, background: 'var(--bg-neutral)', borderRadius: 12, padding: 4, position: 'relative' }}>
         {([['all', 'Aktif'], ['hutang', 'Hutang'], ['piutang', 'Piutang'], ['lunas', 'Lunas']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setFilter(key)}
             style={{
-              flex: 1, padding: '7px 0', borderRadius: 9, border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-              background: filter === key ? 'var(--bg-card)' : 'transparent',
+              flex: 1,
+              padding: '8px 0',
+              borderRadius: 8,
+              border: 'none',
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: 'pointer',
+              background: 'transparent',
               color: filter === key ? 'var(--text-main)' : 'var(--text-muted)',
-              boxShadow: filter === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-              transition: 'all 0.15s',
+              position: 'relative',
+              transition: 'color 0.2s ease',
             }}
           >
-            {label}
+            {filter === key && (
+              <motion.div
+                layoutId="activeDebtFilter"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'var(--bg-card)',
+                  borderRadius: 8,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                  zIndex: 1,
+                }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <span style={{ position: 'relative', zIndex: 2 }}>{label}</span>
           </button>
         ))}
       </div>
@@ -408,8 +503,9 @@ const Debts: React.FC = () => {
             </div>
             {filter !== 'lunas' && (
               <button onClick={openAdd} style={{
-                background: 'var(--primary-gradient)', color: '#fff', border: 'none',
-                borderRadius: 12, padding: '10px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                background: 'var(--danger)', color: '#fff', border: 'none',
+                borderRadius: 12, padding: '12px 24px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                boxShadow: '0 4px 12px var(--danger-glow)',
               }}>+ Tambah Sekarang</button>
             )}
           </div>
@@ -463,14 +559,11 @@ const Debts: React.FC = () => {
           assets={assets}
           currencySymbol={currencySymbol}
           paidAmountFromTxs={transactions.filter(t => t.relatedId === payingDebt.id).reduce((sum, tx) => {
-            const isPrincipal = (tx.note.includes('Penerimaan dana pinjaman') ||
-              tx.note.includes('Pemberian pinjaman') ||
-              tx.note.includes('Belanja via'));
-            return isPrincipal ? sum : sum + tx.amount;
+            return isPrincipalTx(tx.note, tx.category) ? sum : sum + tx.amount;
           }, 0)}
           onConfirm={(amt, assetId, date, time, note, isFull) => {
             if (isFull) {
-              settleDebt(payingDebt.id, assetId, date, time);
+              settleDebt(payingDebt.id, assetId, date, time, amt);
             } else {
               addDebtPayment(payingDebt.id, amt, assetId, date, time, note);
             }
@@ -503,8 +596,35 @@ const Debts: React.FC = () => {
           if (deletingId) deleteDebt(deletingId);
         }}
         title="Hapus Catatan"
-        message="Apakah Anda yakin ingin menghapus catatan hutang/piutang ini? Histori transaksi terkait akan tetap ada."
+        message="Apakah Anda yakin ingin menghapus catatan hutang/piutang ini? Semua transaksi terkait juga akan ikut terhapus."
       />
+
+      {offsetTarget && (
+        <DebtOffsetModal
+          isOpen={isOffsetModalOpen}
+          onClose={() => setIsOffsetModalOpen(false)}
+          onConfirm={(date) => {
+            offsetDebt(offsetTarget.contact, date);
+            setIsOffsetModalOpen(false);
+            setOffsetTarget(null);
+          }}
+          contactName={offsetTarget.contact}
+          totalHutang={offsetTarget.h}
+          totalPiutang={offsetTarget.p}
+          offsetAmount={offsetTarget.amt}
+          currencySymbol={currencySymbol}
+        />
+      )}
+
+      {/* Floating Action Button (FAB) matching Transactions page (Red Theme for Debts) */}
+      <button
+        className="fab"
+        onClick={openAdd}
+        style={{ zIndex: 1000, background: 'var(--danger)', boxShadow: '0 4px 16px var(--danger-glow)' }}
+        aria-label="Tambah Hutang/Piutang"
+      >
+        <Plus size={32} strokeWidth={3} />
+      </button>
     </div>
   );
 };

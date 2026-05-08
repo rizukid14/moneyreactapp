@@ -5,6 +5,8 @@ import { useMoney, type Debt, type Asset, type Category } from '../../contexts/M
 import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
+import ContactSelectModal from './ContactSelectModal';
+import { User } from 'lucide-react';
 
 interface DebtModalProps {
   isOpen: boolean;
@@ -17,7 +19,7 @@ interface DebtModalProps {
 }
 
 const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingDebt, assets, categories, currencySymbol }) => {
-  const { defaultAssetId } = useMoney();
+  const { defaultAssetId, contacts } = useMoney();
   const [type, setType]                           = useState<'hutang' | 'piutang'>('hutang');
   const [contact, setContact]                     = useState('');
   const [description, setDescription]             = useState('');
@@ -33,6 +35,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   const [receiveAssetId, setReceiveAssetId]       = useState('');
   // Hutang recording mode (new)
   const [hutangMode, setHutangMode]               = useState<'none' | 'cash' | 'credit'>('none');
+  const [createdAt, setCreatedAt]                 = useState(new Date().toISOString().split('T')[0]);
 
   const activeAssets = assets.filter(a => !a.isDeleted);
 
@@ -40,6 +43,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   type AssetTarget = 'liability' | 'payment' | 'receive' | null;
   const [calcOpen, setCalcOpen] = useState<'total' | 'installment' | null>(null);
   const [catModalOpen, setCatModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
   const [assetModalTarget, setAssetModalTarget] = useState<AssetTarget>(null);
   const [creditCatName, setCreditCatName] = useState('');
   const [creditSubCatName, setCreditSubCatName] = useState('');
@@ -64,6 +68,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setHutangMode('none');
       setCreditCatName('');
       setCreditSubCatName('');
+      setCreatedAt(editingDebt.createdAt.split('T')[0]);
     } else {
       setType('hutang');
       setContact('');
@@ -80,6 +85,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setHutangMode('none');
       setCreditCatName('');
       setCreditSubCatName('');
+      setCreatedAt(new Date().toISOString().split('T')[0]);
     }
   }, [isOpen, editingDebt, defaultAssetId]);
 
@@ -119,7 +125,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
         totalAmount:  parseNum(totalAmount),
         dueDate:      dueDate || undefined,
         isPaid:       editingDebt?.isPaid || false,
-        createdAt:    editingDebt?.createdAt || new Date().toISOString(),
+        createdAt:    editingDebt ? editingDebt.createdAt : new Date(createdAt).toISOString(),
         isInstallment,
         installmentAmount:  isInstallment ? parseNum(installmentAmount) : undefined,
         installmentDay:     isInstallment ? Number(installmentDay) : undefined,
@@ -136,7 +142,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
     onClose();
   };
 
-  const typeColor = type === 'hutang' ? 'var(--danger)' : 'var(--primary)';
+  const typeColor = type === 'hutang' ? 'var(--danger)' : 'var(--success)';
 
   const modeOptions: { key: 'none' | 'cash' | 'credit'; emoji: string; title: string; desc: string }[] = [
     { key: 'none',   emoji: '📝', title: 'Hanya Catatan',    desc: 'Tidak buat transaksi (hutang lama / sudah tercatat)' },
@@ -179,9 +185,9 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                     onClick={() => setType(t)}
                     style={{
                       flex: 1, padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                      border: type === t ? `2px solid ${t === 'hutang' ? 'var(--danger)' : 'var(--primary)'}` : '1px solid var(--border-color)',
-                      background: type === t ? (t === 'hutang' ? 'var(--bg-expense)' : 'var(--bg-income)') : 'var(--bg-card)',
-                      color: type === t ? (t === 'hutang' ? 'var(--danger)' : 'var(--primary)') : 'var(--text-muted)',
+                      border: type === t ? `2px solid ${t === 'hutang' ? 'var(--danger)' : 'var(--success)'}` : '1px solid var(--border-color)',
+                      background: type === t ? (t === 'hutang' ? 'var(--bg-expense)' : 'var(--success-glow)') : 'var(--bg-card)',
+                      color: type === t ? (t === 'hutang' ? 'var(--danger)' : 'var(--success)') : 'var(--text-muted)',
                     }}
                   >
                     {t === 'hutang' ? '🔴 Saya Berhutang' : '🟢 Piutang Saya'}
@@ -192,7 +198,30 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
                 {type === 'hutang' ? 'Hutang ke siapa / institusi' : 'Siapa yang berhutang ke kamu'}
               </label>
-              <input type="text" required placeholder="Nama kontak / Bank / dll." value={contact} onChange={e => setContact(e.target.value)} />
+              <button
+                type="button"
+                onClick={() => setContactModalOpen(true)}
+                style={{
+                  width: '100%', padding: '12px 14px',
+                  background: 'var(--bg-card-solid)',
+                  border: '2px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  marginBottom: 16, cursor: 'pointer'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <User size={16} color={typeColor} />
+                  <span style={{
+                    fontSize: 13,
+                    fontWeight: contact ? 600 : 400,
+                    color: contact ? 'var(--text-main)' : 'var(--text-muted)'
+                  }}>
+                    {contact || '-- Pilih Kontak --'}
+                  </span>
+                </div>
+                <ChevronRight size={16} color="var(--text-muted)" />
+              </button>
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Keterangan</label>
               <input type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} />
@@ -211,14 +240,28 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                 <button
                   type="button"
                   onClick={() => setCalcOpen('total')}
-                  style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg-income)', border: '1px solid var(--primary-glow)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                  style={{ 
+                    width: 48, height: 48, borderRadius: 12, 
+                    background: type === 'hutang' ? 'var(--bg-expense)' : 'var(--success-glow)', 
+                    border: `1px solid ${type === 'hutang' ? 'var(--danger-glow)' : 'var(--success-glow)'}`, 
+                    color: typeColor, 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 
+                  }}
                 >
                   <Calculator size={20} />
                 </button>
               </div>
 
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Jatuh Tempo (opsional)</label>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Tanggal Pinjam</label>
+                  <input type="date" required value={createdAt} onChange={e => setCreatedAt(e.target.value)} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Jatuh Tempo (opsional)</label>
+                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                </div>
+              </div>
 
               {type === 'hutang' && !editingDebt && (
                 <div style={{ background: 'hsla(350,80%,58%,0.08)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid hsla(350,80%,58%,0.18)' }}>
@@ -264,7 +307,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏷️ Kategori Pengeluaran</label>
                       <button type="button" onClick={() => setCatModalOpen(true)} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, cursor: 'pointer' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Folder size={16} color="var(--primary)" />
+                          <Folder size={16} color={typeColor} />
                           <span style={{ fontSize: 13, fontWeight: creditCatName ? 600 : 400, color: creditCatName ? 'var(--text-main)' : 'var(--text-muted)' }}>
                             {creditCatName ? (creditSubCatName ? `${creditCatName} > ${creditSubCatName}` : creditCatName) : '-- Pilih Kategori --'}
                           </span>
@@ -276,7 +319,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>💳 {hutangMode === 'credit' ? 'Bayar pakai (Kartu Kredit / Paylater)' : 'Tempat hutangnya (misal: ShopeePay Later)'}</label>
                   <button type="button" onClick={() => setAssetModalTarget('liability')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: hutangMode === 'cash' ? 10 : 16, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: liabilityAssetId ? 600 : 400, color: liabilityAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{liabilityAssetId ? getAssetName(liabilityAssetId) : '-- Tidak ada / Tunai --'}</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: liabilityAssetId ? 600 : 400, color: liabilityAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{liabilityAssetId ? getAssetName(liabilityAssetId) : '-- Tidak ada / Tunai --'}</span></div>
                     <ChevronRight size={16} color="var(--text-muted)" />
                   </button>
 
@@ -284,7 +327,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                     <>
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏦 Uang masuk ke rekening mana</label>
                       <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
                         <ChevronRight size={16} color="var(--text-muted)" />
                       </button>
                     </>
@@ -294,7 +337,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                     <>
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginTop: 10, display: 'block' }}>🏦 Bayar dari rekening (misal: BCA)</label>
                       <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
                         <ChevronRight size={16} color="var(--text-muted)" />
                       </button>
                     </>
@@ -303,19 +346,19 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               )}
 
               {type === 'piutang' && (
-                <div style={{ background: 'hsla(215,85%,58%,0.08)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid hsla(215,85%,58%,0.18)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <div style={{ background: 'var(--success-glow)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid hsla(145,65%,43%,0.18)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--success)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                     Pengaturan Rekening
                   </div>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>💰 Pinjamkan dari rekening (Dana keluar)</label>
                   <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada (Hanya catatan) --'}</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada (Hanya catatan) --'}</span></div>
                     <ChevronRight size={16} color="var(--text-muted)" />
                   </button>
 
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏦 Terima cicilan ke rekening mana (Dana masuk)</label>
                   <button type="button" onClick={() => setAssetModalTarget('receive')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color="var(--primary)" /><span style={{ fontSize: 13, fontWeight: receiveAssetId ? 600 : 400, color: receiveAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{receiveAssetId ? getAssetName(receiveAssetId) : '-- Tidak ada --'}</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: receiveAssetId ? 600 : 400, color: receiveAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{receiveAssetId ? getAssetName(receiveAssetId) : '-- Tidak ada --'}</span></div>
                     <ChevronRight size={16} color="var(--text-muted)" />
                   </button>
                 </div>
@@ -336,7 +379,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                 </div>
                 <div style={{
                   width: 40, height: 22, borderRadius: 11, padding: '0 2px',
-                  background: isInstallment ? 'var(--primary)' : 'var(--border-color)',
+                  background: isInstallment ? typeColor : 'var(--border-color)',
                   display: 'flex', alignItems: 'center', transition: 'background 0.2s',
                 }}>
                   <div style={{
@@ -348,11 +391,21 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               </div>
 
               {isInstallment && (
-                <div style={{ background: 'hsla(215,85%,58%,0.08)', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid hsla(215,85%,58%,0.18)' }}>
-                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Nominal Per Cicilan ({currencySymbol}) - <span style={{ color: 'var(--primary)', fontStyle: 'italic' }}>Otomatis Terisi</span></label>
+                <div style={{ background: 'var(--success-glow)', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid hsla(145,65%,43%,0.18)' }}>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Nominal Per Cicilan ({currencySymbol}) - <span style={{ color: typeColor, fontStyle: 'italic' }}>Otomatis Terisi</span></label>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                     <input type="text" inputMode="numeric" required={isInstallment} placeholder="0" value={installmentAmount} onChange={e => formatNum(e, setInstallmentAmount)} style={{ flex: 1, marginBottom: 0 }} />
-                    <button type="button" onClick={() => setCalcOpen('installment')} style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg-income)', border: '1px solid var(--primary-glow)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                    <button 
+                      type="button" 
+                      onClick={() => setCalcOpen('installment')} 
+                      style={{ 
+                        width: 48, height: 48, borderRadius: 12, 
+                        background: type === 'hutang' ? 'var(--bg-expense)' : 'var(--success-glow)', 
+                        border: `1px solid ${type === 'hutang' ? 'var(--danger-glow)' : 'var(--success-glow)'}`, 
+                        color: typeColor, 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 
+                      }}
+                    >
                       <Calculator size={20} />
                     </button>
                   </div>
@@ -417,6 +470,14 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
         else if (assetModalTarget === 'receive') setReceiveAssetId(id);
         else setPaymentAssetId(id);
       }}
+    />
+
+    <ContactSelectModal
+      isOpen={contactModalOpen}
+      onClose={() => setContactModalOpen(false)}
+      contacts={contacts}
+      selectedContactName={contact}
+      onSelect={(name) => setContact(name)}
     />
     </>
   );

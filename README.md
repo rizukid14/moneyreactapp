@@ -2,7 +2,7 @@
 
 > **A premium, full-featured personal finance manager** — built with React, TypeScript, Firebase, and a focus on beautiful mobile UX.
 
-![Version](https://img.shields.io/badge/version-1.0.12-blue)
+![Version](https://img.shields.io/badge/version-1.0.15-blue)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20TypeScript%20%7C%20Firebase-informational)
 ![Deployment](https://img.shields.io/badge/deploy-Vercel-black)
 ![PWA](https://img.shields.io/badge/PWA-ready-brightgreen)
@@ -59,7 +59,74 @@ MoneyApp is a Progressive Web App (PWA) for personal finance management. It supp
 
 ## Changelog
 
-### v10 — Firestore Quota Fallback + Smart Sync Queue *(LATEST)*
+### v15 — UI/UX Pro Max & Split Bill (OCR) *(LATEST)*
+> Branch: `money-v15`
+
+**UI/UX Pro Max Audit Implementation**
+- **Aksesibilitas (WCAG)**: Penambahan `aria-label` di seluruh tombol ikon interaktif dan implementasi dukungan `prefers-reduced-motion` untuk aksesibilitas yang lebih baik.
+- **Bento Card Dark Mode**: Komponen Bento (AI Scanner & MoneyBot) kini menggunakan variabel warna CSS global yang sepenuhnya mendukung mode terang & gelap.
+- **Undo Toast Notification**: Tombol aksi langsung (Undo) kini tersedia ketika pengguna tidak sengaja menghapus transaksi.
+- **Chart Optimization**: Kategori di Pie Chart Statistics kini dibatasi 5 slice teratas, menggabungkan sisanya ke "Lainnya" untuk antarmuka seluler yang lebih bersih.
+
+**Split Bill via Struk OCR**
+- Pengguna dapat membagi tagihan barang belanjaan langsung dari hasil scan AI.
+
+---
+
+### v14 — Split Bill (OCR) & Overpayment Handling
+> Branch: `money-v14`
+
+**Split Bill by Item via OCR**
+- **Detailed Item Extraction**: Split receipts and bills into item-by-item allocations directly from scanned AI text.
+- **Dynamic Fee/Tax Distribution**: Tax, service charges, and discounts are proportionally distributed across divided items automatically.
+- **UI Refresh**: Modernized designs for the Split Bill modal, Receipt Scanner, ChatBot, and Bulk AI Results Editor.
+
+**Debt & Overpayment Improvements**
+- **Overpayment Support**: Settle debts with support for paying more than the remaining principal, displaying the surplus or overpaid balances cleanly.
+- **DB v6 Upgrade**: Major IndexedDB version upgrade to restore the missing contacts store and support more complex structures.
+
+---
+
+### v13 — Debt Balance Engine & ChatBot Redesign
+> Branch: `money-v13`
+
+**Debt Module Stability**
+- **Transaction/Debt Recalculation**: Addressed edge-case calculation bugs for partial settlements, principal deletions, and installment tracking.
+- **Layout Restoration**: Re-implemented standard layout containing total debt on the left and remaining balances on the right.
+
+**ChatBot Redesign**
+- **Premium Input & Actions**: Upgraded the input box and send buttons for highly premium micro-animations.
+- **FAB Relocation**: Positioned the MoneyBot shortcut button directly below the "Pengeluaran" trigger in the primary FAB speed dial.
+
+---
+
+### v12 — Auto-Collapse & Synchronization Engine
+> Branch: `money-v12`
+
+**Daftar Transaksi Collapsible**
+- **Smart Collapsible Groups**: Automatically groups and collapses older transactions while keeping today's history expanded to streamline performance and scroll fatigue.
+
+**Security & Cloud Stability**
+- **Forgot Password**: Fully integrated recovery and password-reset workflows directly into the login screen.
+- **Zombie Sync Cleanup**: Intelligently auto-removes orphaned local transactions that were deleted from other logged-in devices.
+- **Tax Model Splitting**: Split raw tax values into distinct `taxAmount` and `serviceChargeAmount` fields to stop AI calculation inaccuracies.
+
+---
+
+### v11 — Subcategory Debts & Server-Side Cron
+> Branch: `money-v11`
+
+**Subcategory Support**
+- **Granular Debts**: You can now attach fine-grained subcategories to both Debts and Bulk AI inputs.
+- **Scanned Notes Extraction**: Scanned receipts automatically pre-fill the merchant name as editable text in the transaction's description notes.
+
+**Backend Cron Processing**
+- **Centralized Scheduled Actions**: Moved recurring and scheduled financial operations to a centralized cron script in Serverless Functions, preventing offline desyncs.
+- **Premium Select Pickers**: Swapped out browser-native select pickers for premium bespoke dropdowns.
+
+---
+
+### v10 — Firestore Quota Fallback + Smart Sync Queue
 > Branch: `money-v10`
 
 **Firestore Quota Fallback**

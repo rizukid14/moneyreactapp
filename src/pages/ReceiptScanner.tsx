@@ -1,10 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus } from 'lucide-react';
+import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal, ChevronLeft } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
+import SplitBillModal from '../components/modals/SplitBillModal';
+import { useNavigate } from 'react-router-dom';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -17,7 +19,8 @@ const CONFIDENCE_BADGE = {
 };
 
 const ReceiptScanner: React.FC = () => {
-  const { addTransaction, assets, categories, currencySymbol } = useMoney();
+  const navigate = useNavigate();
+  const { addTransaction, addDebt, assets, categories, currencySymbol, defaultAssetId: contextDefaultAssetId } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { showToast } = useToast();
@@ -45,7 +48,11 @@ const ReceiptScanner: React.FC = () => {
   // Transaction customization
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [selectedType, setSelectedType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
+  const [taxAmount, setTaxAmount] = useState(0);
+  const [serviceAmount, setServiceAmount] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedTime, setSelectedTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
   const [editableAmount, setEditableAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
@@ -53,6 +60,7 @@ const ReceiptScanner: React.FC = () => {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<'name' | 'amount' | null>(null);
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +79,7 @@ const ReceiptScanner: React.FC = () => {
     setSelectedCategory('');
     setSelectedSubCategory('');
     setMerchantName('');
+    setSelectedTime(new Date().toTimeString().split(' ')[0].slice(0, 5));
   }, [previewUrl, setError]);
 
   // ── Draw canvas when entering crop stage ────────────────────────────────────
@@ -200,18 +209,23 @@ const ReceiptScanner: React.FC = () => {
     const activeAssets = assets.filter(a => !a.isDeleted);
 
     if (scanMode === 'mutasi') {
-      const parsed = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets });
+      const parsed = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets, defaultAssetId: contextDefaultAssetId || undefined });
       if (parsed && parsed.length > 0) {
         const augmented = parsed.map(tx => {
-          let matchedAssetId = activeAssets[0]?.id || '';
-          if (tx.asset) {
-            const matched = activeAssets.find(a => a.name.toLowerCase().includes(tx.asset.toLowerCase()) || tx.asset.toLowerCase().includes(a.name.toLowerCase()));
-            if (matched) matchedAssetId = matched.id;
-          }
+          const mapAsset = (assetName: string | undefined, defaultId = '') => {
+            if (!assetName) return defaultId;
+            const matched = activeAssets.find(a => a.name.toLowerCase().includes(assetName.toLowerCase()) || assetName.toLowerCase().includes(a.name.toLowerCase()));
+            return matched?.id || defaultId;
+          };
+
+          const fallbackAssetId = contextDefaultAssetId || activeAssets[0]?.id || '';
+          const matchedAssetId = mapAsset(tx.asset, fallbackAssetId);
+          const matchedFromAssetId = mapAsset(tx.fromAsset, fallbackAssetId);
+          const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || fallbackAssetId);
 
           let matchedCategory = '';
           let matchedSubCategory = '';
-          if (tx.category) {
+          if (tx.category && tx.type !== 'transfer') {
             const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type);
             if (matchedCat) {
               matchedCategory = matchedCat.name;
@@ -225,7 +239,9 @@ const ReceiptScanner: React.FC = () => {
           return {
             ...tx,
             asset: matchedAssetId,
-            category: matchedCategory || (tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
+            fromAsset: matchedFromAssetId,
+            toAsset: matchedToAssetId,
+            category: matchedCategory || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
             subCategory: matchedSubCategory || ''
           };
         });
@@ -239,7 +255,7 @@ const ReceiptScanner: React.FC = () => {
       return;
     }
 
-    const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets);
+    const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets, contextDefaultAssetId || undefined);
 
     if (ocrResult) {
       if (ocrResult.amount === 0) {
@@ -260,17 +276,21 @@ const ReceiptScanner: React.FC = () => {
         if (matchedAsset) {
           setSelectedAssetId(matchedAsset.id);
         } else {
-          setSelectedAssetId(activeAssets[0]?.id || '');
+          setSelectedAssetId(contextDefaultAssetId || activeAssets[0]?.id || '');
         }
       } else {
-        setSelectedAssetId(activeAssets[0]?.id || '');
+        setSelectedAssetId(contextDefaultAssetId || activeAssets[0]?.id || '');
       }
 
       setSelectedType('pengeluaran');
       setSelectedDate(ocrResult.date);
+      setSelectedTime(ocrResult.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
       setEditableAmount(ocrResult.amount > 0 ? ocrResult.amount.toString() : '');
       setMerchantName(ocrResult.merchantName || 'Scan Otomatis');
       setLineItems(ocrResult.lineItems);
+      setTaxAmount(ocrResult.taxAmount || 0);
+      setServiceAmount(ocrResult.serviceAmount || 0);
+      setDiscountAmount(ocrResult.discountAmount || 0);
 
       // 2. Category Matching
       if (ocrResult.suggestedCategory) {
@@ -292,7 +312,41 @@ const ReceiptScanner: React.FC = () => {
     } else {
       setStage('crop');
     }
-  }, [imageFile, scanReceipt, assets, categories, setError]);
+  }, [imageFile, scanReceipt, assets, categories, setError, selectedAssetId, selectedCategory, selectedDate, selectedTime, merchantName, editableAmount, selectedType]);
+
+  const handleDistributeCharges = () => {
+    const activeItems = lineItems.filter(i => i.selected);
+    const subtotal = activeItems.reduce((sum, item) => sum + item.amount, 0);
+    
+    if (subtotal === 0) {
+      showToast('Pilih minimal satu item dengan nominal untuk distribusi', 'warning');
+      return;
+    }
+
+    const totalAdjustment = taxAmount + serviceAmount - discountAmount;
+    const factor = (subtotal + totalAdjustment) / subtotal;
+
+    const newLineItems = lineItems.map(item => {
+      if (!item.selected) return item;
+      return {
+        ...item,
+        amount: Math.round(item.amount * factor)
+      };
+    });
+
+    setLineItems(newLineItems);
+    
+    // Clear the adjustment fields as they are now in the items
+    setTaxAmount(0);
+    setServiceAmount(0);
+    setDiscountAmount(0);
+    
+    // Update grand total
+    const newTotal = newLineItems.reduce((sum, i) => sum + (i.selected ? i.amount : 0), 0);
+    setEditableAmount(newTotal.toString());
+    
+    showToast('Biaya berhasil didistribusikan ke item!', 'success');
+  };
 
   // ── Handle file select ─────────────────────────────────────────────────────
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,13 +365,23 @@ const ReceiptScanner: React.FC = () => {
     if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
 
     try {
+      // Build note and description with line items if they exist
+      const selectedItems = lineItems.filter(i => i.selected);
+      const finalNote = merchantName || 'Scan Otomatis';
+      let finalDescription = '';
+      if (selectedItems.length > 0) {
+        finalDescription = selectedItems.map(i => i.name).join(', ');
+      }
+
       addTransaction({
         type: selectedType,
         amount: finalAmount,
         category: selectedCategory || 'Belanja (OCR)',
         subCategory: selectedSubCategory || undefined,
         date: selectedDate,
-        note: merchantName || 'Scan Otomatis',
+        time: selectedTime,
+        note: finalNote,
+        description: finalDescription || undefined,
         assetId: selectedAssetId,
       });
       showToast('Transaksi berhasil disimpan!', 'success');
@@ -330,8 +394,8 @@ const ReceiptScanner: React.FC = () => {
 
   const handleSaveLineItems = () => {
     if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
-    const toSave = lineItems.filter(i => i.selected && i.amount > 0);
-    if (toSave.length === 0) { showToast('Pilih minimal 1 item dengan nominal > 0', 'warning'); return; }
+    const toSave = lineItems.filter(i => i.selected && i.amount !== 0);
+    if (toSave.length === 0) { showToast('Pilih minimal 1 item dengan nominal selain 0', 'warning'); return; }
 
     try {
       toSave.forEach(item => {
@@ -341,6 +405,7 @@ const ReceiptScanner: React.FC = () => {
           category: selectedCategory || 'Belanja (OCR)',
           subCategory: selectedSubCategory || undefined,
           date: selectedDate,
+          time: selectedTime,
           note: item.name,
           assetId: selectedAssetId,
         });
@@ -353,6 +418,49 @@ const ReceiptScanner: React.FC = () => {
     }
   };
 
+  const handleSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
+    try {
+      const userSplit = splits.find(s => s.id === 'me');
+
+      // 1. Save user's portion as a transaction
+      if (userSplit && userSplit.amount > 0) {
+        addTransaction({
+          type: 'pengeluaran',
+          amount: userSplit.amount,
+          category: data.category || 'Belanja (OCR)',
+          subCategory: data.subCategory || undefined,
+          date: selectedDate,
+          time: selectedTime,
+          note: merchantName || 'Split Bill',
+          assetId: data.assetId,
+        });
+      }
+
+      // 2. Save others' portions as Piutang (Debts)
+      const others = splits.filter(s => s.id !== 'me' && s.amount > 0);
+      others.forEach(person => {
+        addDebt({
+          type: 'piutang',
+          contact: person.contactName,
+          description: `Split Bill: ${merchantName || 'Struk'}`,
+          totalAmount: person.amount,
+          isPaid: false,
+          createdAt: new Date().toISOString(),
+          paymentAssetId: selectedAssetId, // The asset used to "lend" (pay for them)
+          isInstallment: false,
+          paidInstallments: 0
+        }, 'none', selectedCategory || 'Lainnya');
+      });
+
+      showToast(`Split bill berhasil disimpan! (${others.length} piutang dibuat)`, 'success');
+      setIsSplitModalOpen(false);
+      reset();
+    } catch (e) {
+      showToast('Gagal menyimpan split bill.', 'error');
+      console.error(e);
+    }
+  };
+
   const toggleItem = (idx: number) => {
     setLineItems(prev => prev.map((item, i) => i === idx ? { ...item, selected: !item.selected } : item));
   };
@@ -361,8 +469,9 @@ const ReceiptScanner: React.FC = () => {
     setLineItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
       if (field === 'amount') {
+        const isNegative = value.startsWith('-');
         const num = parseInt(value.replace(/\D/g, '')) || 0;
-        return { ...item, amount: num };
+        return { ...item, amount: isNegative ? -num : num };
       }
       return { ...item, name: value };
     }));
@@ -374,7 +483,7 @@ const ReceiptScanner: React.FC = () => {
 
   const addItem = () => {
     setLineItems(prev => [{ name: 'Item Baru', amount: 0, selected: true }, ...prev]);
-    setEditingItemIdx(0); 
+    setEditingItemIdx(0);
     setEditingField('name');
   };
 
@@ -382,13 +491,16 @@ const ReceiptScanner: React.FC = () => {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
+          <ChevronLeft size={20} />
+        </button>
         <h1 className="title" style={{ margin: 0 }}>Scan Struk</h1>
       </div>
       <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />
 
       {stage === 'upload' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '10px' }}>
 
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)', marginBottom: '16px', width: '100%', maxWidth: '300px' }}>
             <button onClick={() => setScanMode('struk')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'struk' ? 'var(--primary)' : 'transparent', color: scanMode === 'struk' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Struk (1 Tx)</button>
@@ -410,8 +522,9 @@ const ReceiptScanner: React.FC = () => {
               <Camera size={40} />
             </div>
             <div style={{ fontWeight: 800, fontSize: '22px' }}>Ambil Foto Struk</div>
-            <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
-              💡 Tips: Pastikan foto struk terlihat jelas dan terang
+            <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <Lightbulb size={16} style={{ color: 'var(--secondary)' }} />
+              <span>Tips: Pastikan foto struk terlihat jelas dan terang</span>
             </div>
           </button>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', maxWidth: '300px', lineHeight: 1.5 }}>
@@ -497,17 +610,68 @@ const ReceiptScanner: React.FC = () => {
               </div>
 
               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+
+              <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>PAJAK</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={taxAmount ? taxAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setTaxAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>SERVICE</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={serviceAmount ? serviceAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setServiceAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DISKON</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={discountAmount ? discountAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setDiscountAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0, color: 'var(--danger)' }}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <button 
+                  className="btn" 
+                  onClick={handleDistributeCharges}
+                  style={{ width: '100%', fontSize: '12px', padding: '8px', background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)' }}
+                >
+                  Hitung Ulang & Distribusi ke Item
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
               <button className="btn" style={{ flex: 1 }} onClick={reset}>Batal</button>
+              <button className="btn" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => setIsSplitModalOpen(true)}>
+                <Users size={16} /> Split Bill
+              </button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSaveMain}>Simpan Total</button>
             </div>
           </div>
 
           <div className="card glass">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>🧾 Rincian Item ({lineItems.length})</h3>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Receipt size={16} style={{ color: 'var(--primary)' }} />
+                <span>Rincian Item ({lineItems.length})</span>
+              </h3>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: true })))} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>Pilih Semua</button>
                 <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: false })))} style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Reset</button>
@@ -520,20 +684,23 @@ const ReceiptScanner: React.FC = () => {
               ) : lineItems.map((item, idx) => (
                 <div
                   key={idx}
+                  onClick={() => toggleItem(idx)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '8px 10px',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '10px 12px',
                     background: item.selected ? 'var(--bg-income)' : 'var(--bg-main)',
-                    borderRadius: '10px',
-                    border: `1px solid ${item.selected ? 'var(--primary)40' : 'var(--border-color)'}`,
-                    transition: 'background 0.15s',
+                    borderRadius: '12px',
+                    border: `1.5px solid ${item.selected ? 'hsla(var(--p-h), 85%, 58%, 0.3)' : 'var(--border-color)'}`,
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={item.selected}
                     onChange={() => toggleItem(idx)}
-                    style={{ width: '16px', height: '16px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer', marginBottom: 0 }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: '18px', height: '18px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer', marginBottom: 0 }}
                   />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -543,18 +710,20 @@ const ReceiptScanner: React.FC = () => {
                         value={item.name}
                         onChange={e => editItem(idx, 'name', e.target.value)}
                         onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
+                        onClick={(e) => e.stopPropagation()}
                         onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
-                        style={{ width: '100%', fontSize: '13px', padding: '2px 6px', borderRadius: '6px', marginBottom: 0 }}
+                        style={{ width: '100%', fontSize: '13px', padding: '4px 8px', borderRadius: '6px', marginBottom: 0 }}
                       />
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
                         <span
-                          onClick={() => { setEditingItemIdx(idx); setEditingField('name'); }}
+                          onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('name'); }}
                           title={item.name}
                           style={{
-                            fontSize: '13px', fontWeight: 500, cursor: 'text',
+                            fontSize: '13px', fontWeight: 600, cursor: 'text',
                             display: 'block', whiteSpace: 'nowrap',
                             overflow: 'hidden', textOverflow: 'ellipsis',
+                            color: 'var(--text-main)'
                           }}
                         >
                           {item.name}
@@ -572,12 +741,13 @@ const ReceiptScanner: React.FC = () => {
                         value={item.amount === 0 ? '' : item.amount.toLocaleString('id-ID')}
                         onChange={e => editItem(idx, 'amount', e.target.value)}
                         onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
+                        onClick={(e) => e.stopPropagation()}
                         onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
-                        style={{ width: '80px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '2px 4px', borderRadius: '6px', marginBottom: 0 }}
+                        style={{ width: '80px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '4px 8px', borderRadius: '6px', marginBottom: 0 }}
                       />
                     ) : (
                       <span
-                        onClick={() => { setEditingItemIdx(idx); setEditingField('amount'); }}
+                        onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('amount'); }}
                         style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'text' }}
                         title="Tap untuk edit nominal"
                       >
@@ -587,14 +757,60 @@ const ReceiptScanner: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => deleteItem(idx)}
-                    style={{ flexShrink: 0, color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', opacity: 0.7, padding: '2px', lineHeight: 1 }}
+                    onClick={(e) => { e.stopPropagation(); deleteItem(idx); }}
+                    style={{
+                      flexShrink: 0,
+                      color: 'var(--danger)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-expense)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               ))}
             </div>
+
+            {/* Tax, Service, Discount Breakdown */}
+            {(result.taxAmount! > 0 || result.serviceAmount! > 0 || result.discountAmount! > 0) && (
+              <div style={{
+                marginTop: '12px', padding: '10px 12px', background: 'var(--bg-main)',
+                borderRadius: '10px', border: '1px solid var(--border-color)',
+                display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px'
+              }}>
+                {result.taxAmount! > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Pajak (PPN/PB1)</span>
+                    <span style={{ fontWeight: 600 }}>{currencySymbol}{result.taxAmount?.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                {result.serviceAmount! > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Service Charge</span>
+                    <span style={{ fontWeight: 600 }}>{currencySymbol}{result.serviceAmount?.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                {result.discountAmount! > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Diskon</span>
+                    <span style={{ fontWeight: 600, color: 'var(--primary)' }}>-{currencySymbol}{result.discountAmount?.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.7, marginTop: '2px', fontStyle: 'italic' }}>
+                  * Nilai di atas sudah didistribusikan secara proporsional ke harga item di bawah.
+                </div>
+              </div>
+            )}
 
             <div style={{ marginTop: '10px', padding: '8px 10px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
               <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
@@ -602,6 +818,7 @@ const ReceiptScanner: React.FC = () => {
                 {currencySymbol}{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
               </span>
             </div>
+
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
               <button
@@ -621,7 +838,10 @@ const ReceiptScanner: React.FC = () => {
       {result && scanMode === 'struk' && (
         <div style={{ marginTop: '24px' }}>
           <details className="card" style={{ padding: '12px 16px' }}>
-            <summary style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 700 }}>🔍 Diagnostik & Teks Mentah</summary>
+            <summary style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Terminal size={14} />
+              <span>Diagnostik & Teks Mentah</span>
+            </summary>
             {result.debugLogs && (
               <div style={{ padding: '8px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '10px', marginBottom: '12px', maxHeight: '100px', overflowY: 'auto' }}>
                 {result.debugLogs.map((l, i) => <div key={i}>{l}</div>)}
@@ -639,23 +859,59 @@ const ReceiptScanner: React.FC = () => {
           categories={categories}
           assets={assets}
           currencySymbol={currencySymbol}
-          onSave={() => {
+          initialAssetId={contextDefaultAssetId || undefined}
+          isMutation={true}
+          onSave={(batchAssetId) => {
             const toSave = mutasiResults.filter(r => r.selected);
-            if (toSave.some(r => !r.amount || !r.category || !r.asset)) {
-              showToast('Pastikan semua transaksi yang dicentang memiliki Nominal, Kategori, dan Rekening!', 'warning');
+            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category))) {
+              showToast('Pastikan semua transaksi reguler memiliki Nominal dan Kategori!', 'warning');
+              return;
+            }
+            if (toSave.some(r => r.type === 'transfer' && (!r.amount || (!r.fromAsset && !r.toAsset)))) {
+              showToast('Pastikan semua transaksi transfer memiliki Nominal dan Rekening Lawan!', 'warning');
               return;
             }
 
             toSave.forEach(tx => {
-              addTransaction({
-                type: tx.type,
-                amount: tx.amount,
-                date: tx.date,
-                note: tx.note,
-                category: tx.category,
-                subCategory: tx.subCategory || undefined,
-                assetId: tx.asset
-              });
+              if (tx.type === 'transfer') {
+                // Ensure one side is the batch asset
+                const finalFrom = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : batchAssetId;
+                const finalTo = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : batchAssetId;
+
+                const newTx = addTransaction({
+                  type: 'transfer',
+                  amount: tx.amount,
+                  date: tx.date,
+                  note: tx.note || 'Transfer',
+                  category: 'Transfer',
+                  fromAssetId: finalFrom,
+                  toAssetId: finalTo
+                });
+
+                if (tx.adminFee && tx.adminFee > 0) {
+                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? finalTo : finalFrom;
+                  const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+                  addTransaction({
+                    type: 'pengeluaran',
+                    amount: tx.adminFee,
+                    category: 'Biaya Admin',
+                    date: tx.date,
+                    note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+                    assetId: feeAssetId,
+                    relatedId: newTx.id,
+                  });
+                }
+              } else {
+                addTransaction({
+                  type: tx.type,
+                  amount: tx.amount,
+                  date: tx.date,
+                  note: tx.note,
+                  category: tx.category,
+                  subCategory: tx.subCategory || undefined,
+                  assetId: batchAssetId
+                });
+              }
             });
 
             showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
@@ -663,6 +919,21 @@ const ReceiptScanner: React.FC = () => {
           }}
         />
       )}
+
+      <SplitBillModal
+        isOpen={isSplitModalOpen}
+        onClose={() => setIsSplitModalOpen(false)}
+        totalAmount={parseInt(editableAmount) || 0}
+        merchantName={merchantName}
+        date={selectedDate}
+        lineItems={lineItems}
+        assets={assets}
+        categories={categories}
+        initialAssetId={selectedAssetId}
+        initialCategory={selectedCategory}
+        initialSubCategory={selectedSubCategory}
+        onSave={handleSplitSave}
+      />
     </div>
   );
 };

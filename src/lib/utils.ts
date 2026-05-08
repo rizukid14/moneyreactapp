@@ -23,13 +23,37 @@ export const getLocalTime = (date: Date = new Date()): string => {
 };
 
 /**
- * Formats a number as IDR currency
+ * Formats a number as currency with a given symbol prefix.
+ * Falls back to IDR Intl formatting when no symbol is provided.
  */
-export const formatCurrency = (amount: number): string => {
+export const formatCurrency = (amount: number, symbol?: string): string => {
+  if (symbol) return `${symbol}${amount.toLocaleString('id-ID')}`;
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
+};
+
+/**
+ * Generates a unique ID using timestamp + random suffix.
+ */
+export const generateId = (): string =>
+  Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
+
+/**
+ * Returns true if a debt-related transaction is a principal (loan creation) tx,
+ * not a payment. Used to exclude it when calculating how much has been paid.
+ */
+export const isPrincipalTx = (note: string, category?: string): boolean => {
+  const n = note.toLowerCase();
+  const c = category ? category.toLowerCase() : '';
+  return n.includes('penerimaan dana pinjaman') ||
+         n.includes('pemberian pinjaman') ||
+         n.includes('belanja via') ||
+         n.includes('penambahan') ||
+         c === 'pinjaman & piutang' ||
+         c === 'penerimaan dana pinjaman' ||
+         c === 'pemberian pinjaman';
 };

@@ -11,16 +11,21 @@ export interface OCRResult {
   merchantName?: string;
   amount: number;
   date: string;
+  time?: string;
   rawText: string;
   suggestedCategory: string;
   suggestedSubCategory?: string;
   suggestedAsset?: string; // New field for context matching
   lineItems: LineItem[];
+  taxInfo?: string; // Summary of tax/service/discount (not a line item)
+  taxAmount?: number;
+  serviceAmount?: number;
+  discountAmount?: number;
   confidence: 'high' | 'medium' | 'low';
   debugLogs?: string[];
 }
 
-const resizeImage = (blob: Blob, maxWidth: number = 768): Promise<Blob> => {
+const resizeImage = (blob: Blob, maxWidth: number = 1024): Promise<Blob> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = URL.createObjectURL(blob);
@@ -77,7 +82,8 @@ export const useReceiptOCR = () => {
   const scanReceipt = useCallback(async (
     imageBlob: Blob, 
     categories?: any[], 
-    assets?: any[]
+    assets?: any[],
+    defaultAssetId?: string
   ): Promise<OCRResult | null> => {
     const logs: string[] = [];
     const addLog = (m: string) => { 
@@ -107,7 +113,8 @@ export const useReceiptOCR = () => {
         body: JSON.stringify({ 
           image: base64,
           categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s:any) => s.name) })),
-          assets: assets?.map(a => ({ name: a.name })),
+          assets: assets?.map(a => ({ name: a.name, id: a.id })),
+          defaultAssetId,
         }),
       });
 
@@ -122,60 +129,89 @@ export const useReceiptOCR = () => {
 
       setProgress(100);
       
-      // Tax keyword detection
-      const TAX_KEYWORDS = /pajak|ppn|pb1|tax|vat|service charge|surcharge|biaya layanan|service fee|subtotal/i;
+      // Items come from AI with their base prices
+      const validItems = (result.lineItems || []).filter((item: any) => {
+        const amt = typeof item.amount === 'number' ? item.amount : 0;
+        return amt > 0 && item.name;
+      });
 
-      // Raw items from AI
-      const rawItems: Array<{ name: string; amount: number; isTax?: boolean }> =
-        (result.lineItems || []).map((item: any) => ({
-          name: item.name || '',
-          amount: typeof item.amount === 'number' ? item.amount : 0,
-          isTax: item.isTax === true || TAX_KEYWORDS.test(item.name || ''),
-        }));
-
-      // Separate regular items vs tax/fee rows
-      const regularItems = rawItems.filter(i => !i.isTax && i.amount > 0);
-      const taxItems = rawItems.filter(i => i.isTax || i.amount < 0); // negative = discount
-
-      // Distribute tax + discounts proportionally into regular items
-      const regularSubtotal = regularItems.reduce((s, i) => s + i.amount, 0);
-      const totalTax = taxItems.reduce((s, i) => s + i.amount, 0); // discounts already negative
-
+      const itemsSubtotal = validItems.reduce((sum: number, i: any) => sum + i.amount, 0);
+      const grandTotal = typeof result.amount === 'number' ? result.amount : 0;
+      
       let mappedLineItems: LineItem[];
 
-      if (taxItems.length > 0 && regularSubtotal > 0) {
-        // Distribute proportionally — last item absorbs rounding
+      // Calculate the net difference confirmed as tax/service minus discount
+      const tax = typeof result.taxAmount === 'number' ? result.taxAmount : 0;
+      const service = typeof result.serviceChargeAmount === 'number' ? result.serviceChargeAmount : 0;
+      const discount = typeof result.discountAmount === 'number' ? result.discountAmount : 0;
+      const netTaxOrDiscount = (tax + service) - discount; // Can be negative if discount is larger
+      
+
+
+      if (netTaxOrDiscount !== 0 && itemsSubtotal > 0) {
+        // Distribute the net tax/discount proportionally
         let distributed = 0;
-        mappedLineItems = regularItems.map((item, idx) => {
-          const isLast = idx === regularItems.length - 1;
+        mappedLineItems = validItems.map((item: any, idx: number) => {
+          const isLast = idx === validItems.length - 1;
           const share = isLast
-            ? totalTax - distributed
-            : Math.round((item.amount / regularSubtotal) * totalTax);
+            ? netTaxOrDiscount - distributed
+            : Math.round((item.amount / itemsSubtotal) * netTaxOrDiscount);
           distributed += share;
+          
           return {
             name: item.name,
-            amount: item.amount + share,
+            amount: Math.max(0, Math.round(item.amount + share)), // Ensure no item drops below 0
             selected: true,
           };
         });
       } else {
-        // No tax rows — use items as-is
-        mappedLineItems = regularItems.map(item => ({
+        mappedLineItems = validItems.map((item: any) => ({
           name: item.name,
-          amount: item.amount,
+          amount: Math.round(item.amount),
           selected: true,
         }));
       }
+
+      // Check if there's still a gap between the mapped items and the grand total
+      // This indicates missing items OR unread discounts by the OCR
+      const finalItemsSum = mappedLineItems.reduce((sum, i) => sum + i.amount, 0);
+      const missingAmount = grandTotal - finalItemsSum;
+      
+      if (missingAmount > 100) { // +100 for rounding safety
+        mappedLineItems.push({
+          name: "Item Tidak Terbaca (Scan Kurang Jelas)",
+          amount: missingAmount,
+          selected: true,
+        });
+      } else if (missingAmount < -100) { // If grandTotal is significantly lower
+        mappedLineItems.push({
+          name: "Diskon/Potongan Harga (Tidak Terbaca)",
+          amount: missingAmount, // Will be negative
+          selected: true,
+        });
+      }
+
+      // Build tax info summary string
+      let summaryParts: string[] = [];
+      if (tax > 0) summaryParts.push(`Pajak: Rp${tax.toLocaleString('id-ID')}`);
+      if (service > 0) summaryParts.push(`Service: Rp${service.toLocaleString('id-ID')}`);
+      if (discount > 0) summaryParts.push(`Diskon: -Rp${discount.toLocaleString('id-ID')}`);
+      const taxInfo = summaryParts.length > 0 ? summaryParts.join(' · ') : undefined;
 
       return {
         merchantName: result.merchantName || "",
         amount: result.amount || 0,
         date: result.date || getLocalDate(),
+        time: result.time || "",
         rawText: result.rawText || "Parsed via Cloud AI",
         suggestedCategory: result.suggestedCategory || "",
         suggestedSubCategory: result.suggestedSubCategory || "",
         suggestedAsset: result.suggestedAsset || "",
         lineItems: mappedLineItems,
+        taxInfo,
+        taxAmount: tax,
+        serviceAmount: service,
+        discountAmount: discount,
         confidence: result.confidence || 'medium',
         debugLogs: logs
       };

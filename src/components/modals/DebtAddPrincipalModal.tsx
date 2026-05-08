@@ -48,7 +48,8 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
     const numAmount = Number(amount);
     if (numAmount <= 0) return;
 
-    const finalNote = note || `Tambah ${isHutang ? 'Hutang' : 'Piutang'} Baru`;
+    const prefix = `Penambahan ${isHutang ? 'Hutang' : 'Piutang'}`;
+    const finalNote = note ? `${prefix}: ${note}` : `${prefix} Baru`;
     onConfirm(numAmount, selectedAssetId, date, time, finalNote);
   };
 

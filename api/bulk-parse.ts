@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { text, image, categories, assets, currentDate } = req.body; 
+    const { text, image, categories, assets, currentDate, defaultAssetId } = req.body;
 
     if (!text && !image) {
       return res.status(400).json({ message: 'No text or image provided' });
@@ -28,10 +28,12 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ message: 'OPENAI_API_KEY is not configured on the server.' });
     }
 
-    const categoryWithSubs = categories?.length > 0 
+    const categoryWithSubs = categories?.length > 0
       ? categories.map((c: any) => `${c.name}${c.subcategories?.length > 0 ? ` (Sub: ${c.subcategories.map((s: any) => s.name).join(', ')})` : ''}`).join(' | ')
       : "None";
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
+    const defaultAsset = assets?.find((a: any) => a.id === defaultAssetId);
+    const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
     const dateContext = currentDate || new Date().toISOString().split('T')[0];
 
     const prompt = `You are a fin-tech data extraction assistant. Parse the following unstructured textual transactions into a structured JSON array.
@@ -51,13 +53,17 @@ export default async function handler(req: any, res: any) {
     - Relative dates: If "kemarin", "tadi", or day names are used, calculate the date relative to ${dateContext}.
 
     For each transaction, extract:
-    - type: "pengeluaran" or "pendapatan"
+    - type: "pengeluaran", "pendapatan", or "transfer"
     - amount: numeric value (int)
     - date: YYYY-MM-DD (fallback to ${dateContext})
     - note: concise description
-    - category: best match from available categories.
-    - subCategory: best match if a subcategory is identified within the chosen category.
-    - asset: best match for payment method from [${assetList}].
+    - category: best match from available categories (leave empty if transfer).
+    - subCategory: best match if a subcategory is identified.
+    - asset: best match for payment method from [${assetList}] (for pengeluaran/pendapatan). ${defaultAssetHint ? `If not clearly mentioned, use "${defaultAsset.name}" as the default asset.` : ""}
+    - fromAsset: best match for sender/source from [${assetList}] (only for transfer).
+    - toAsset: best match for receiver/destination from [${assetList}] (only for transfer).
+    - adminFee: numeric value (int) if there's a fee explicitly mentioned, otherwise 0.
+    - adminFeeTarget: "sender" or "receiver" (only if adminFee > 0).
 
     Available Categories & Subcategories:
     ${categoryWithSubs}
@@ -67,7 +73,7 @@ export default async function handler(req: any, res: any) {
     ${text || "Data provided via image"}
     """
     
-    Respond STRICTLY in JSON: { "transactions": [{ "type": "...", "amount": 0, "date": "...", "note": "...", "category": "...", "subCategory": "...", "asset": "..." }] }`;
+    Respond STRICTLY in JSON: { "transactions": [{ "type": "...", "amount": 0, "date": "...", "note": "...", "category": "...", "subCategory": "...", "asset": "...", "fromAsset": "...", "toAsset": "...", "adminFee": 0, "adminFeeTarget": "sender" }] }`;
 
     const messageContent: any[] = [{ type: "text", text: prompt }];
     if (image) {
@@ -89,18 +95,18 @@ export default async function handler(req: any, res: any) {
         },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.2, // lowering temperature for better structural output and predictability
+      temperature: 0,
     });
 
     const responseText = response.choices[0].message.content;
     const parsedData = JSON.parse(responseText || '{"transactions": []}');
-    
+
     return res.status(200).json(parsedData);
   } catch (error: any) {
     console.error('Bulk Parse API Error:', error);
-    return res.status(500).json({ 
-      message: 'Bulk Parse Failed', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Bulk Parse Failed',
+      error: error.message
     });
   }
 }

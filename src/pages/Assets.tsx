@@ -61,27 +61,56 @@ const AssetDetailDrawer: React.FC<{
   onEditTx: (tx: Transaction) => void;
 }> = ({ asset, balance, transactions, allAssets, isPrivateMode, currencySymbol, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
 
   const assetTxs = useMemo(() => {
     return transactions
-      .filter(tx =>
-        tx.assetId === asset.id ||
-        tx.fromAssetId === asset.id ||
-        tx.toAssetId === asset.id
-      )
+      .filter(tx => {
+        const isRelated = tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id;
+        if (!isRelated) return false;
+
+        if (filterType === 'all') return true;
+        
+        const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
+        const isOutgoing = tx.type === 'pengeluaran' || tx.fromAssetId === asset.id;
+
+        if (filterType === 'income') return isIncoming;
+        if (filterType === 'expense') return isOutgoing;
+        
+        return true;
+      })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, asset.id]);
+  }, [transactions, asset.id, filterType]);
 
   const stats = useMemo(() => {
     let income = 0, expense = 0;
-    assetTxs.forEach(tx => {
-      if (tx.type === 'pendapatan') income += tx.amount;
-      else if (tx.type === 'pengeluaran') expense += tx.amount;
+    // Calculate stats based on ALL asset transactions, not just filtered ones
+    transactions.forEach(tx => {
+      const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
+      const isOutgoing = tx.type === 'pengeluaran' || tx.fromAssetId === asset.id;
+      
+      if (tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id) {
+        if (isIncoming && tx.type !== 'transfer') income += tx.amount;
+        else if (isOutgoing && tx.type !== 'transfer') expense += tx.amount;
+        // Note: For transfers, we usually don't count them in income/expense summary 
+        // but we show them in the filtered list.
+      }
     });
-    return { income, expense, count: assetTxs.length };
-  }, [assetTxs]);
+    
+    // Recalculate to match how they are displayed in the list if needed
+    // But usually income/expense stats are for pendapatan/pengeluaran types.
+    // Let's stick to the simpler logic for now to match the user's expectation of "Masuk" and "Keluar"
+    let simpleIncome = 0, simpleExpense = 0;
+    const allRelated = transactions.filter(tx => tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id);
+    allRelated.forEach(tx => {
+      if (tx.type === 'pendapatan' || tx.toAssetId === asset.id) simpleIncome += tx.amount;
+      if (tx.type === 'pengeluaran' || tx.fromAssetId === asset.id) simpleExpense += tx.amount;
+    });
+
+    return { income: simpleIncome, expense: simpleExpense, count: allRelated.length };
+  }, [transactions, asset.id]);
 
   const getAssetName = (id?: string) =>
     allAssets.find(a => a.id === id)?.name || '';
@@ -151,7 +180,19 @@ const AssetDetailDrawer: React.FC<{
 
             {/* Stats row */}
             <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-              <div style={{ flex: 1, background: 'var(--bg-income)', borderRadius: 12, padding: '10px 12px' }}>
+              <div 
+                onClick={() => setFilterType(filterType === 'income' ? 'all' : 'income')}
+                style={{ 
+                  flex: 1, 
+                  background: 'var(--bg-income)', 
+                  borderRadius: 12, 
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                  border: filterType === 'income' ? '2px solid var(--primary)' : '2px solid transparent',
+                  transition: 'all 0.2s ease',
+                  boxShadow: filterType === 'income' ? '0 4px 12px var(--primary-glow)' : 'none'
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                   <ArrowUpRight size={12} color="var(--primary)" />
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Masuk</span>
@@ -160,7 +201,19 @@ const AssetDetailDrawer: React.FC<{
                   {isPrivateMode ? '••••' : fmt(stats.income, currencySymbol)}
                 </div>
               </div>
-              <div style={{ flex: 1, background: 'var(--bg-expense)', borderRadius: 12, padding: '10px 12px' }}>
+              <div 
+                onClick={() => setFilterType(filterType === 'expense' ? 'all' : 'expense')}
+                style={{ 
+                  flex: 1, 
+                  background: 'var(--bg-expense)', 
+                  borderRadius: 12, 
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                  border: filterType === 'expense' ? '2px solid var(--danger)' : '2px solid transparent',
+                  transition: 'all 0.2s ease',
+                  boxShadow: filterType === 'expense' ? '0 4px 12px rgba(239, 68, 68, 0.2)' : 'none'
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                   <ArrowDownRight size={12} color="var(--danger)" />
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase' }}>Keluar</span>
@@ -169,7 +222,18 @@ const AssetDetailDrawer: React.FC<{
                   {isPrivateMode ? '••••' : fmt(stats.expense, currencySymbol)}
                 </div>
               </div>
-              <div style={{ flex: 1, background: 'var(--bg-neutral)', borderRadius: 12, padding: '10px 12px' }}>
+              <div 
+                onClick={() => setFilterType('all')}
+                style={{ 
+                  flex: 1, 
+                  background: 'var(--bg-neutral)', 
+                  borderRadius: 12, 
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                  border: filterType === 'all' ? '2px solid var(--text-muted)' : '2px solid transparent',
+                  transition: 'all 0.2s ease'
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                   <ArrowRightLeft size={12} color="var(--text-muted)" />
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Transaksi</span>
@@ -261,7 +325,7 @@ const AssetDetailDrawer: React.FC<{
 
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
-  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol, assetCarouselCards } = useMoney();
+  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, deleteTransaction, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol, assetCarouselCards } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -522,6 +586,7 @@ const Assets: React.FC = () => {
         assets={assets.filter(a => !a.isDeleted)}
         addTransaction={addTransaction}
         updateTransaction={updateTransaction}
+        deleteTransaction={deleteTransaction}
         editingTransaction={editingTx}
       />
     </div>

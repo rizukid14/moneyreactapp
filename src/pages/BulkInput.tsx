@@ -25,23 +25,24 @@ const BulkInput: React.FC = () => {
     const parsed = await parseData({ text: inputText, categories, assets: activeAssets });
     if (parsed && parsed.length > 0) {
       const augmented = parsed.map(tx => {
-        let matchedAssetId = activeAssets[0]?.id || '';
-        if (tx.asset) {
-          const aiAsset = tx.asset.toLowerCase();
-          // 1. Exact match first
-          const exactMatch = activeAssets.find(a => a.name.toLowerCase() === aiAsset);
-          // 2. AI output is fully contained in asset name (e.g. "blu" → "BLU Saving" — only if no exact)
-          // 3. Asset name fully contained in AI output
+        const mapAsset = (assetName: string | undefined, defaultId = '') => {
+          if (!assetName) return defaultId;
+          const lowerName = assetName.toLowerCase();
+          const exactMatch = activeAssets.find(a => a.name.toLowerCase() === lowerName);
           const partialMatch = activeAssets.find(a =>
-            a.name.toLowerCase().includes(aiAsset) || aiAsset.includes(a.name.toLowerCase())
+            a.name.toLowerCase().includes(lowerName) || lowerName.includes(a.name.toLowerCase())
           );
-          const matched = exactMatch || partialMatch;
-          if (matched) matchedAssetId = matched.id;
-        }
+          return (exactMatch || partialMatch)?.id || defaultId;
+        };
+
+        const defaultAssetId = activeAssets[0]?.id || '';
+        const matchedAssetId = mapAsset(tx.asset, defaultAssetId);
+        const matchedFromAssetId = mapAsset(tx.fromAsset, defaultAssetId);
+        const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || defaultAssetId);
 
         let matchedCategory = '';
         let matchedSubCategory = '';
-        if (tx.category) {
+        if (tx.category && tx.type !== 'transfer') {
           const matchedCat = categories.find(c =>
             c.type === tx.type &&
             (c.name.toLowerCase() === tx.category.toLowerCase() ||
@@ -64,7 +65,9 @@ const BulkInput: React.FC = () => {
         return {
           ...tx,
           asset: matchedAssetId,
-          category: matchedCategory || (tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
+          fromAsset: matchedFromAssetId,
+          toAsset: matchedToAssetId,
+          category: matchedCategory || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
           subCategory: matchedSubCategory || ''
         };
       });
@@ -141,23 +144,53 @@ const BulkInput: React.FC = () => {
           categories={categories}
           assets={assets}
           currencySymbol={currencySymbol}
+          isMutation={false}
           onSave={() => {
             const toSave = results.filter(r => r.selected);
-            if (toSave.some(r => !r.amount || !r.category || !r.asset)) {
-              showToast('Pastikan semua transaksi yang dicentang memiliki Nominal, Kategori, dan Rekening!', 'warning');
+            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category || !r.asset))) {
+              showToast('Pastikan semua transaksi reguler memiliki Nominal, Kategori, dan Rekening!', 'warning');
+              return;
+            }
+            if (toSave.some(r => r.type === 'transfer' && (!r.amount || !r.fromAsset || !r.toAsset))) {
+              showToast('Pastikan semua transaksi transfer memiliki Nominal, Dari Rekening, dan Ke Rekening!', 'warning');
               return;
             }
 
             toSave.forEach(tx => {
-              addTransaction({
-                type: tx.type,
-                amount: tx.amount,
-                date: tx.date,
-                note: tx.note,
-                category: tx.category,
-                subCategory: tx.subCategory || undefined,
-                assetId: tx.asset
-              });
+              if (tx.type === 'transfer') {
+                addTransaction({
+                  type: 'transfer',
+                  amount: tx.amount,
+                  date: tx.date,
+                  note: tx.note || 'Transfer',
+                  category: 'Transfer',
+                  fromAssetId: tx.fromAsset,
+                  toAssetId: tx.toAsset
+                });
+
+                if (tx.adminFee && tx.adminFee > 0) {
+                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? tx.toAsset : tx.fromAsset;
+                  const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+                  addTransaction({
+                    type: 'pengeluaran',
+                    amount: tx.adminFee,
+                    category: 'Biaya Admin',
+                    date: tx.date,
+                    note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+                    assetId: feeAssetId,
+                  });
+                }
+              } else {
+                addTransaction({
+                  type: tx.type,
+                  amount: tx.amount,
+                  date: tx.date,
+                  note: tx.note,
+                  category: tx.category,
+                  subCategory: tx.subCategory || undefined,
+                  assetId: tx.asset
+                });
+              }
             });
 
             showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');

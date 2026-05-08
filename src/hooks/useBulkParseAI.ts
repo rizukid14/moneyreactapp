@@ -3,7 +3,7 @@ import { getLocalDate } from '../lib/utils';
 
 export interface ParsedTransaction {
   id: string; // temporary id for frontend listing
-  type: 'pengeluaran' | 'pendapatan';
+  type: 'pengeluaran' | 'pendapatan' | 'transfer';
   amount: number;
   date: string;
   note: string;
@@ -11,6 +11,10 @@ export interface ParsedTransaction {
   asset: string;
   subCategory?: string;
   selected: boolean;
+  fromAsset?: string;
+  toAsset?: string;
+  adminFee?: number;
+  adminFeeTarget?: 'sender' | 'receiver';
 }
 
 const resizeImage = (blob: Blob, maxWidth: number = 768): Promise<Blob> => {
@@ -64,12 +68,14 @@ export const useBulkParseAI = () => {
     text,
     imageBlob,
     categories,
-    assets
+    assets,
+    defaultAssetId
   }: {
     text?: string;
     imageBlob?: Blob;
     categories?: any[];
     assets?: any[];
+    defaultAssetId?: string
   }): Promise<ParsedTransaction[] | null> => {
     setIsParsing(true);
     setError(null);
@@ -90,7 +96,8 @@ export const useBulkParseAI = () => {
           text: text || '',
           image: imageBase64,
           categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s: any) => ({ name: s.name })) })),
-          assets: assets?.map(a => ({ name: a.name })),
+          assets: assets?.map(a => ({ name: a.name, id: a.id })),
+          defaultAssetId,
           currentDate: getLocalDate()
         }),
       });
@@ -107,17 +114,27 @@ export const useBulkParseAI = () => {
       }
 
       // Map raw result to frontend model, guaranteeing 'selected' property
-      const mappedTransactions: ParsedTransaction[] = result.transactions.map((item: any, index: number) => ({
-        id: `bulk-${Date.now()}-${index}`,
-        type: item.type === 'pendapatan' ? 'pendapatan' : 'pengeluaran',
-        amount: item.amount || 0,
-        date: item.date || getLocalDate(),
-        note: item.note || '',
-        category: item.category || '',
-        subCategory: item.subCategory || '',
-        asset: item.asset || '',
-        selected: true
-      }));
+      const mappedTransactions: ParsedTransaction[] = result.transactions.map((item: any, index: number) => {
+        let type: 'pengeluaran' | 'pendapatan' | 'transfer' = 'pengeluaran';
+        if (item.type === 'pendapatan') type = 'pendapatan';
+        if (item.type === 'transfer') type = 'transfer';
+
+        return {
+          id: `bulk-${Date.now()}-${index}`,
+          type,
+          amount: item.amount || 0,
+          date: item.date || getLocalDate(),
+          note: item.note || '',
+          category: item.category || '',
+          subCategory: item.subCategory || '',
+          asset: item.asset || '',
+          fromAsset: item.fromAsset || '',
+          toAsset: item.toAsset || '',
+          adminFee: item.adminFee || 0,
+          adminFeeTarget: item.adminFeeTarget === 'receiver' ? 'receiver' : 'sender',
+          selected: true
+        };
+      });
 
       return mappedTransactions;
 

@@ -10,10 +10,11 @@ interface Toast {
   id: string;
   message: string;
   type: ToastType;
+  action?: { label: string; onClick: () => void };
 }
 
 interface ToastContextValue {
-  showToast: (message: string, type?: ToastType) => void;
+  showToast: (message: string, type?: ToastType, action?: { label: string; onClick: () => void }) => void;
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -102,6 +103,28 @@ const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = (
       }}>
         {toast.message}
       </span>
+      {toast.action && (
+        <button
+          onClick={() => {
+            if (toast.action) toast.action.onClick();
+            onDismiss(toast.id);
+          }}
+          style={{
+             background: 'var(--primary)',
+             color: 'white',
+             border: 'none',
+             borderRadius: '6px',
+             padding: '6px 12px',
+             fontSize: '12px',
+             fontWeight: 700,
+             cursor: 'pointer',
+             flexShrink: 0,
+             marginRight: '8px'
+          }}
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         onClick={() => onDismiss(toast.id)}
         style={{
@@ -133,10 +156,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+  const showToast = useCallback((message: string, type: ToastType = 'info', action?: { label: string; onClick: () => void }) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
-    setToasts(prev => [...prev, { id, message, type }]);
-    timers.current[id] = setTimeout(() => dismiss(id), 3500);
+    setToasts(prev => [...prev, { id, message, type, action }]);
+    // Longer timeout if there's an action so the user can click it
+    timers.current[id] = setTimeout(() => dismiss(id), action ? 6000 : 3500);
   }, [dismiss]);
 
   return (
