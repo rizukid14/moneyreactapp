@@ -12,19 +12,19 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
 
   const features = [
     {
-      icon: <Users className="text-blue-500" size={24} />,
-      title: 'Penggabungan Hutang Otomatis',
-      description: 'Tambah piutang ke kontak yang sama otomatis digabung. Tips: Kosongkan aset saat buat hutang agar pembayaran tercatat sebagai Pengeluaran.'
+      icon: <Sparkles className="text-amber-500" size={24} />,
+      title: 'UI/UX Pro Max & Dark Mode',
+      description: 'Warna Bento Card (AI Scanner & MoneyBot) kini otomatis adaptasi di Dark Mode. Ditambah perbaikan aksesibilitas (WCAG).'
+    },
+    {
+      icon: <CheckCircle2 className="text-green-500" size={24} />,
+      title: 'Undo Hapus Transaksi',
+      description: 'Tidak sengaja menghapus transaksi? Sekarang ada tombol "Undo" di notifikasi untuk mengembalikannya dalam 6 detik.'
     },
     {
       icon: <LayoutPanelTop className="text-purple-500" size={24} />,
-      title: 'Auto-Collapse Transaksi',
-      description: 'Tampilan daftar transaksi lebih rapi, otomatis menutup riwayat lama dan hanya membuka hari ini.'
-    },
-    {
-      icon: <Sparkles className="text-amber-500" size={24} />,
-      title: 'Split Bill (OCR)',
-      description: 'Bagi tagihan belanja ke banyak orang sekaligus langsung dari hasil scan struk.'
+      title: 'Statistik Lebih Rapi',
+      description: 'Pie chart kategori pengeluaran/pendapatan kini dibatasi maksimal 5 potongan agar lebih mudah dibaca, sisanya digabung di "Lainnya".'
     }
   ];
 
@@ -41,7 +41,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 800, margin: 0, background: 'var(--primary-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              What's New v14
+              What's New v15
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Fitur terbaru untuk pengalaman lebih baik</p>
           </div>

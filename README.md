@@ -2,7 +2,7 @@
 
 > **A premium, full-featured personal finance manager** — built with React, TypeScript, Firebase, and a focus on beautiful mobile UX.
 
-![Version](https://img.shields.io/badge/version-1.0.8-blue)
+![Version](https://img.shields.io/badge/version-1.0.15-blue)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20TypeScript%20%7C%20Firebase-informational)
 ![Deployment](https://img.shields.io/badge/deploy-Vercel-black)
 ![PWA](https://img.shields.io/badge/PWA-ready-brightgreen)
@@ -59,7 +59,21 @@ MoneyApp is a Progressive Web App (PWA) for personal finance management. It supp
 
 ## Changelog
 
-### v10 — Firestore Quota Fallback + Smart Sync Queue *(LATEST)*
+### v15 — UI/UX Pro Max & Split Bill (OCR) *(LATEST)*
+> Branch: `money-v15`
+
+**UI/UX Pro Max Audit Implementation**
+- **Aksesibilitas (WCAG)**: Penambahan `aria-label` di seluruh tombol ikon interaktif dan implementasi dukungan `prefers-reduced-motion` untuk aksesibilitas yang lebih baik.
+- **Bento Card Dark Mode**: Komponen Bento (AI Scanner & MoneyBot) kini menggunakan variabel warna CSS global yang sepenuhnya mendukung mode terang & gelap.
+- **Undo Toast Notification**: Tombol aksi langsung (Undo) kini tersedia ketika pengguna tidak sengaja menghapus transaksi.
+- **Chart Optimization**: Kategori di Pie Chart Statistics kini dibatasi 5 slice teratas, menggabungkan sisanya ke "Lainnya" untuk antarmuka seluler yang lebih bersih.
+
+**Split Bill via Struk OCR**
+- Pengguna dapat membagi tagihan barang belanjaan langsung dari hasil scan AI.
+
+---
+
+### v10 — Firestore Quota Fallback + Smart Sync Queue
 > Branch: `money-v10`
 
 **Firestore Quota Fallback**

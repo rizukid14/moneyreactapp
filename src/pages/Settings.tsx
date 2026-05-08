@@ -1408,7 +1408,7 @@ const Settings: React.FC = () => {
           <LogOut size={20} /> Logout dari Akun
         </button>
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-          MoneyApp v1.0.14 • Dibuat dengan ❤️ by Dappal
+          MoneyApp v1.0.15 • Dibuat dengan ❤️ by Dappal
         </p>
       </div>
 
