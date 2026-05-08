@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, Sparkles, LayoutPanelTop, CheckCircle2 } from 'lucide-react';
+import { X, CheckCircle2, Calendar, TrendingUp, Search } from 'lucide-react';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -12,19 +12,19 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
 
   const features = [
     {
-      icon: <Sparkles className="text-amber-500" size={24} />,
-      title: 'UI/UX Pro Max & Dark Mode',
-      description: 'Warna Bento Card (AI Scanner & MoneyBot) kini otomatis adaptasi di Dark Mode. Ditambah perbaikan aksesibilitas (WCAG).'
+      icon: <Calendar className="text-rose-500" size={24} />,
+      title: 'Heatmap Aktivitas Pengeluaran (1 Tahun)',
+      description: 'Lacak konsistensi pengeluaran kamu seperti grafik kontribusi GitHub! Dilengkapi glow-block premium, swipeable di mobile, dan label bulan yang rapi.'
     },
     {
-      icon: <CheckCircle2 className="text-green-500" size={24} />,
-      title: 'Undo Hapus Transaksi',
-      description: 'Tidak sengaja menghapus transaksi? Sekarang ada tombol "Undo" di notifikasi untuk mengembalikannya dalam 6 detik.'
+      icon: <TrendingUp className="text-emerald-500" size={24} />,
+      title: 'Grafik Pengeluaran Harian',
+      description: 'Pantau tren keluar-masuk uang per hari lewat Area Chart interaktif dengan dual gradient fill & tooltip instan.'
     },
     {
-      icon: <LayoutPanelTop className="text-purple-500" size={24} />,
-      title: 'Statistik Lebih Rapi',
-      description: 'Pie chart kategori pengeluaran/pendapatan kini dibatasi maksimal 5 potongan agar lebih mudah dibaca, sisanya digabung di "Lainnya".'
+      icon: <Search className="text-amber-500" size={24} />,
+      title: 'UI Pencarian & Kalender Baru',
+      description: 'Kolom pencarian kini lebih bersih berbentuk ikon collapsible. Ditambah jalan pintas "Hari Ini" langsung di dalam kalender tanggal.'
     }
   ];
 
