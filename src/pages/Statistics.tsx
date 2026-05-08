@@ -241,12 +241,25 @@ const Statistics: React.FC = () => {
     };
 
     function buildDailyChart() {
-      const daysInMonth = new Date(vY, vM + 1, 0).getDate();
       const result: { day: number; label: string; amount: number; income: number }[] = [];
-      for (let d = 1; d <= daysInMonth; d++) {
-        const key = `${vY}-${String(vM + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        result.push({ day: d, label: String(d), amount: dailySpending[key] || 0, income: dailyIncome[key] || 0 });
+      const current = new Date(vPeriodStart);
+      
+      while (current < vPeriodEnd) {
+        const y = current.getFullYear();
+        const m = current.getMonth();
+        const d = current.getDate();
+        const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        
+        result.push({
+          day: d,
+          label: `${d}`,
+          amount: dailySpending[key] || 0,
+          income: dailyIncome[key] || 0
+        });
+        
+        current.setDate(current.getDate() + 1);
       }
+      
       return result;
     }
 
