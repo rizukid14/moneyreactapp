@@ -635,22 +635,22 @@ const Statistics: React.FC = () => {
             {(() => {
               const stop0 = theme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 1)';
               const stop1rb = getHeatmapColorStyle(1000, theme).background;
+              const stop5rb = getHeatmapColorStyle(5000, theme).background;
               const stop10rb = getHeatmapColorStyle(10000, theme).background;
-              const stop100rb = getHeatmapColorStyle(100000, theme).background;
+              const stop50rb = getHeatmapColorStyle(50000, theme).background;
+              const stop500rb = getHeatmapColorStyle(500000, theme).background;
               const stop1M = getHeatmapColorStyle(1000000, theme).background;
-              const stop5M = '#cbd5e1'; // silver representer
-              const stop10M = '#f5c200'; // gold representer
 
-              const gradientStops = `${stop0} 0%, ${stop1rb} 10%, ${stop10rb} 28%, ${stop100rb} 46%, ${stop1M} 64%, ${stop5M} 82%, ${stop10M} 100%`;
+              const gradientStops = `${stop0} 0%, ${stop1rb} 10%, ${stop5rb} 35%, ${stop10rb} 50%, ${stop50rb} 70%, ${stop500rb} 84%, ${stop1M} 100%`;
 
               const ticks = [
                 { label: '<1rb', pos: 0 },
                 { label: '1rb', pos: 10 },
-                { label: '10rb', pos: 28 },
-                { label: '100rb', pos: 46 },
-                { label: '1Jt', pos: 64 },
-                { label: '5Jt (Slvr)', pos: 82 },
-                { label: '>10Jt (Gld)', pos: 100 },
+                { label: '5rb', pos: 35 },
+                { label: '10rb', pos: 50 },
+                { label: '50rb', pos: 70 },
+                { label: '500rb', pos: 84 },
+                { label: '>1Jt', pos: 100 },
               ];
 
               return (
