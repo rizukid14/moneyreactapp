@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle, Trash2, Plus, Folder, Wallet, Calculator, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { ParsedTransaction } from '../../hooks/useBulkParseAI';
 import type { Category, Asset } from '../../contexts/MoneyContext';
 import CategorySelectModal from '../modals/CategorySelectModal';
@@ -136,20 +137,43 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                 />
               </div>
               
-              <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)', position: 'relative' }}>
                 {(['pengeluaran', 'pendapatan', 'transfer'] as const).map(t => (
                   <button
                     key={t}
                     onClick={() => updateResult(item.id, 'type', t)}
                     style={{
-                      flex: 1, padding: '4px 8px', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                      background: item.type === t ? 'var(--bg-card)' : 'transparent',
+                      flex: 1,
+                      padding: '4px 10px',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: 'transparent',
                       color: item.type === t ? (t === 'pengeluaran' ? 'var(--danger)' : t === 'pendapatan' ? 'var(--success)' : 'var(--primary)') : 'var(--text-muted)',
-                      boxShadow: item.type === t ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                      textTransform: 'capitalize'
+                      textTransform: 'capitalize',
+                      position: 'relative',
+                      transition: 'color 0.2s ease',
                     }}
                   >
-                    {t === 'pengeluaran' ? 'Keluar' : t === 'pendapatan' ? 'Masuk' : 'TF'}
+                    {item.type === t && (
+                      <motion.div
+                        layoutId={`bulkActiveType-${item.id}`}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'var(--bg-card)',
+                          borderRadius: '6px',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                          zIndex: 1,
+                        }}
+                        transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                      />
+                    )}
+                    <span style={{ position: 'relative', zIndex: 2 }}>
+                      {t === 'pengeluaran' ? 'Keluar' : t === 'pendapatan' ? 'Masuk' : 'TF'}
+                    </span>
                   </button>
                 ))}
               </div>

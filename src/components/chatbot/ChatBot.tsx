@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Loader2, Check, AlertCircle } from 'lucide-react';
+import { MessageCircle, X, Send, Check, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
@@ -276,8 +276,41 @@ const ChatBot: React.FC = () => {
             ))}
             
             {isLoading && (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-muted)', fontSize: '13px', padding: '8px' }}>
-                <Loader2 size={16} className="spin" /> <span>Mengetik...</span>
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'center',
+                padding: '12px 16px',
+                background: 'var(--bg-main)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '16px',
+                borderBottomLeftRadius: '4px',
+                alignSelf: 'flex-start',
+                maxWidth: '85%'
+              }}>
+                <div style={{ display: 'flex', gap: '5px', alignItems: 'center', height: '10px' }} aria-label="MoneyBot sedang mengetik">
+                  {[0, 1, 2].map((i) => (
+                    <motion.span
+                      key={i}
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: 'var(--primary)',
+                        display: 'inline-block',
+                      }}
+                      animate={{
+                        y: ['0px', '-5px', '0px'],
+                      }}
+                      transition={{
+                        duration: 0.6,
+                        repeat: Infinity,
+                        delay: i * 0.15,
+                        ease: 'easeInOut',
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />
