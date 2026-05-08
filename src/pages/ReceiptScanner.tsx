@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal } from 'lucide-react';
+import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal, ChevronLeft } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
 import SplitBillModal from '../components/modals/SplitBillModal';
+import { useNavigate } from 'react-router-dom';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -18,6 +19,7 @@ const CONFIDENCE_BADGE = {
 };
 
 const ReceiptScanner: React.FC = () => {
+  const navigate = useNavigate();
   const { addTransaction, addDebt, assets, categories, currencySymbol, defaultAssetId: contextDefaultAssetId } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
@@ -489,7 +491,10 @@ const ReceiptScanner: React.FC = () => {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
+          <ChevronLeft size={20} />
+        </button>
         <h1 className="title" style={{ margin: 0 }}>Scan Struk</h1>
       </div>
       <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />

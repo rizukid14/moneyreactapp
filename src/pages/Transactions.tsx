@@ -333,24 +333,25 @@ const Transactions: React.FC = () => {
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {isSearchOpen && (
             <div style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
+              display: 'flex', alignItems: 'center', gap: '6px',
               background: 'var(--bg-card)', border: '1.5px solid var(--border-color)',
-              borderRadius: '20px', padding: '6px 12px'
+              borderRadius: '20px', padding: '0 10px', height: '28px', boxSizing: 'border-box'
             }}>
               <input
                 autoFocus
                 type="text"
-                placeholder="Cari transaksi..."
+                placeholder="Cari..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 style={{
                   background: 'none', border: 'none', outline: 'none',
-                  fontSize: '14px', color: 'var(--text-main)', width: '160px', marginBottom: 0
+                  fontSize: '13px', color: 'var(--text-main)', width: '100px', marginBottom: 0,
+                  height: '100%', padding: 0
                 }}
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                  <X size={16} />
+                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
+                  <X size={14} />
                 </button>
               )}
             </div>
@@ -511,9 +512,9 @@ const Transactions: React.FC = () => {
             minHeight: '100px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', height: '24px' }}>
             <SparklingIcon />
-            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Scanner</span>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '1' }}>AI Scanner</span>
           </div>
           <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
             <motion.button
@@ -599,15 +600,17 @@ const Transactions: React.FC = () => {
             minHeight: '100px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '100%' }}>
               <span style={{ position: 'relative', display: 'flex', height: '7px', width: '7px', marginRight: '5px' }}>
                 <span style={{ animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite', position: 'absolute', display: 'inline-flex', height: '7px', width: '7px', borderRadius: '50%', background: 'var(--success)', opacity: 0.75 }} />
                 <span style={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', height: '7px', width: '7px', background: 'var(--success)' }} />
               </span>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>MoneyBot</span>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '1' }}>MoneyBot</span>
             </div>
-            <MagicRobotSVG size={46} />
+            <div style={{ height: '0px', display: 'flex', alignItems: 'center', overflow: 'visible' }}>
+              <MagicRobotSVG size={46} />
+            </div>
           </div>
           <div>
             <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1px' }}>Tanya Bot Asisten</div>
