@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Plus, Trash2, DollarSign } from 'lucide-react';
+import { X, Users, Plus, Trash2, DollarSign, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Asset, type Category } from '../../contexts/MoneyContext';
 import ContactSelectModal from './ContactSelectModal';
@@ -289,15 +289,29 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                     padding: '8px 12px',
                     borderRadius: 8,
                     border: 'none',
-                    background: splitMethod === 'equal' ? 'var(--primary)' : 'transparent',
+                    background: 'transparent',
                     color: splitMethod === 'equal' ? 'white' : 'var(--text-muted)',
                     fontWeight: 600,
                     fontSize: 13,
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
+                    position: 'relative',
+                    transition: 'color 0.2s ease',
                   }}
                 >
-                  Bagi Rata
+                  {splitMethod === 'equal' && (
+                    <motion.div
+                      layoutId="activeSplitMethod"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'var(--primary)',
+                        borderRadius: 8,
+                        zIndex: 1,
+                      }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span style={{ position: 'relative', zIndex: 2 }}>Bagi Rata</span>
                 </button>
                 {lineItems && lineItems.length > 0 && (
                   <button
@@ -307,15 +321,29 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                       padding: '8px 12px',
                       borderRadius: 8,
                       border: 'none',
-                      background: splitMethod === 'items' ? 'var(--primary)' : 'transparent',
+                      background: 'transparent',
                       color: splitMethod === 'items' ? 'white' : 'var(--text-muted)',
                       fontWeight: 600,
                       fontSize: 13,
                       cursor: 'pointer',
-                      transition: 'all 0.2s',
+                      position: 'relative',
+                      transition: 'color 0.2s ease',
                     }}
                   >
-                    Per Item
+                    {splitMethod === 'items' && (
+                      <motion.div
+                        layoutId="activeSplitMethod"
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'var(--primary)',
+                          borderRadius: 8,
+                          zIndex: 1,
+                        }}
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <span style={{ position: 'relative', zIndex: 2 }}>Per Item</span>
                   </button>
                 )}
                 <button
@@ -325,15 +353,29 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                     padding: '8px 12px',
                     borderRadius: 8,
                     border: 'none',
-                    background: splitMethod === 'custom' ? 'var(--primary)' : 'transparent',
+                    background: 'transparent',
                     color: splitMethod === 'custom' ? 'white' : 'var(--text-muted)',
                     fontWeight: 600,
                     fontSize: 13,
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
+                    position: 'relative',
+                    transition: 'color 0.2s ease',
                   }}
                 >
-                  Custom
+                  {splitMethod === 'custom' && (
+                    <motion.div
+                      layoutId="activeSplitMethod"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'var(--primary)',
+                        borderRadius: 8,
+                        zIndex: 1,
+                      }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span style={{ position: 'relative', zIndex: 2 }}>Custom</span>
                 </button>
               </div>
 
@@ -376,25 +418,26 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                           alignItems: 'center',
                           gap: 10,
                           padding: '10px 12px',
-                          background: split.isPayer ? 'var(--bg-income)' : 'var(--bg-expense)',
-                          border: `1.5px solid ${split.isPayer ? 'var(--primary)' : 'var(--danger)'}`,
+                          background: split.isPayer ? 'var(--bg-income)' : 'var(--bg-main)',
+                          border: `1.5px solid ${split.isPayer ? 'hsla(var(--p-h), 85%, 58%, 0.3)' : 'var(--border-color)'}`,
                           borderRadius: 12,
                         }}
                       >
                         <div
                           style={{
-                            width: 40,
-                            height: 40,
+                            width: 36,
+                            height: 36,
                             borderRadius: 10,
                             background: split.isPayer
-                              ? 'hsla(215,85%,58%,0.2)'
-                              : 'hsla(350,80%,58%,0.2)',
+                              ? 'hsla(var(--p-h), 85%, 58%, 0.15)'
+                              : 'hsla(var(--n-h), 15%, 85%, 0.3)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0,
                             fontWeight: 700,
-                            fontSize: 14,
+                            fontSize: 13,
+                            color: split.isPayer ? 'var(--primary)' : 'var(--text-main)'
                           }}
                         >
                           {split.contactName.charAt(0).toUpperCase()}
@@ -403,7 +446,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
-                              fontWeight: 600,
+                              fontWeight: 700,
                               fontSize: 13,
                               color: 'var(--text-main)',
                               marginBottom: 2,
@@ -414,11 +457,24 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                           <div
                             style={{
                               fontSize: 11,
-                              color: split.isPayer ? 'var(--primary)' : 'var(--danger)',
+                              color: split.isPayer ? 'var(--primary)' : 'var(--text-muted)',
                               fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
                             }}
                           >
-                            {split.isPayer ? '💰 Yang Bayar (Piutang)' : '💸 Yang Hutang'}
+                            {split.isPayer ? (
+                              <>
+                                <ArrowUpRight size={12} />
+                                <span>Pemberi Dana (Piutang)</span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowDownLeft size={12} style={{ color: 'var(--danger)' }} />
+                                <span style={{ color: 'var(--text-muted)' }}>Penerima Dana (Hutang)</span>
+                              </>
+                            )}
                           </div>
                         </div>
 
@@ -449,31 +505,42 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                         <button
                           onClick={() => togglePayer(split.id)}
                           style={{
-                            padding: '6px 10px',
+                            width: 32,
+                            height: 32,
                             borderRadius: 8,
                             border: 'none',
-                            background: split.isPayer ? 'var(--primary)' : 'var(--danger)',
-                            color: 'white',
-                            fontSize: 11,
-                            fontWeight: 700,
+                            background: split.isPayer ? 'hsla(var(--p-h), 85%, 58%, 0.15)' : 'hsla(var(--n-h), 10%, 50%, 0.1)',
+                            color: split.isPayer ? 'var(--primary)' : 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             cursor: 'pointer',
                             flexShrink: 0,
+                            transition: 'all 0.2s',
                           }}
-                          title="Toggle pembayar/hutang"
+                          title="Ubah peran pembayar/penerima"
                         >
-                          {split.isPayer ? '💰' : '💸'}
+                          {split.isPayer ? <ArrowUpRight size={16} /> : <ArrowDownLeft size={16} />}
                         </button>
 
                         <button
                           onClick={() => removePerson(split.id)}
                           style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
                             background: 'none',
                             border: 'none',
                             color: 'var(--danger)',
                             cursor: 'pointer',
-                            padding: 4,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s',
                             flexShrink: 0,
                           }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-expense)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                         >
                           <Trash2 size={16} />
                         </button>
@@ -504,15 +571,17 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                                 key={person.id}
                                 onClick={() => toggleItemAssignment(idx, person.id)}
                                 style={{
-                                  padding: '4px 8px',
-                                  borderRadius: 6,
+                                  padding: '5px 10px',
+                                  borderRadius: 12,
                                   fontSize: 10,
                                   fontWeight: 700,
-                                  border: 'none',
-                                  background: isAssigned ? 'var(--primary)' : 'var(--bg-neutral)',
-                                  color: isAssigned ? 'white' : 'var(--text-muted)',
+                                  border: isAssigned ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                                  background: isAssigned ? 'var(--primary-glow)' : 'var(--bg-main)',
+                                  color: isAssigned ? 'var(--primary)' : 'var(--text-muted)',
                                   cursor: 'pointer',
-                                  transition: 'all 0.15s'
+                                  transition: 'all 0.2s',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
                                 }}
                               >
                                 {person.contactName}

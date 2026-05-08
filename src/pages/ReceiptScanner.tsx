@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users } from 'lucide-react';
+import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
@@ -517,8 +517,9 @@ const ReceiptScanner: React.FC = () => {
               <Camera size={40} />
             </div>
             <div style={{ fontWeight: 800, fontSize: '22px' }}>Ambil Foto Struk</div>
-            <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
-              💡 Tips: Pastikan foto struk terlihat jelas dan terang
+            <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <Lightbulb size={16} style={{ color: 'var(--secondary)' }} />
+              <span>Tips: Pastikan foto struk terlihat jelas dan terang</span>
             </div>
           </button>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', maxWidth: '300px', lineHeight: 1.5 }}>
@@ -662,7 +663,10 @@ const ReceiptScanner: React.FC = () => {
 
           <div className="card glass">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>🧾 Rincian Item ({lineItems.length})</h3>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Receipt size={16} style={{ color: 'var(--primary)' }} />
+                <span>Rincian Item ({lineItems.length})</span>
+              </h3>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: true })))} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>Pilih Semua</button>
                 <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: false })))} style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Reset</button>
@@ -675,20 +679,23 @@ const ReceiptScanner: React.FC = () => {
               ) : lineItems.map((item, idx) => (
                 <div
                   key={idx}
+                  onClick={() => toggleItem(idx)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '8px 10px',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '10px 12px',
                     background: item.selected ? 'var(--bg-income)' : 'var(--bg-main)',
-                    borderRadius: '10px',
-                    border: `1px solid ${item.selected ? 'var(--primary)40' : 'var(--border-color)'}`,
-                    transition: 'background 0.15s',
+                    borderRadius: '12px',
+                    border: `1.5px solid ${item.selected ? 'hsla(var(--p-h), 85%, 58%, 0.3)' : 'var(--border-color)'}`,
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={item.selected}
                     onChange={() => toggleItem(idx)}
-                    style={{ width: '16px', height: '16px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer', marginBottom: 0 }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: '18px', height: '18px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer', marginBottom: 0 }}
                   />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -698,18 +705,20 @@ const ReceiptScanner: React.FC = () => {
                         value={item.name}
                         onChange={e => editItem(idx, 'name', e.target.value)}
                         onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
+                        onClick={(e) => e.stopPropagation()}
                         onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
-                        style={{ width: '100%', fontSize: '13px', padding: '2px 6px', borderRadius: '6px', marginBottom: 0 }}
+                        style={{ width: '100%', fontSize: '13px', padding: '4px 8px', borderRadius: '6px', marginBottom: 0 }}
                       />
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
                         <span
-                          onClick={() => { setEditingItemIdx(idx); setEditingField('name'); }}
+                          onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('name'); }}
                           title={item.name}
                           style={{
-                            fontSize: '13px', fontWeight: 500, cursor: 'text',
+                            fontSize: '13px', fontWeight: 600, cursor: 'text',
                             display: 'block', whiteSpace: 'nowrap',
                             overflow: 'hidden', textOverflow: 'ellipsis',
+                            color: 'var(--text-main)'
                           }}
                         >
                           {item.name}
@@ -727,12 +736,13 @@ const ReceiptScanner: React.FC = () => {
                         value={item.amount === 0 ? '' : item.amount.toLocaleString('id-ID')}
                         onChange={e => editItem(idx, 'amount', e.target.value)}
                         onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
+                        onClick={(e) => e.stopPropagation()}
                         onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
-                        style={{ width: '80px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '2px 4px', borderRadius: '6px', marginBottom: 0 }}
+                        style={{ width: '80px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '4px 8px', borderRadius: '6px', marginBottom: 0 }}
                       />
                     ) : (
                       <span
-                        onClick={() => { setEditingItemIdx(idx); setEditingField('amount'); }}
+                        onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('amount'); }}
                         style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'text' }}
                         title="Tap untuk edit nominal"
                       >
@@ -742,10 +752,25 @@ const ReceiptScanner: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => deleteItem(idx)}
-                    style={{ flexShrink: 0, color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', opacity: 0.7, padding: '2px', lineHeight: 1 }}
+                    onClick={(e) => { e.stopPropagation(); deleteItem(idx); }}
+                    style={{
+                      flexShrink: 0,
+                      color: 'var(--danger)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-expense)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               ))}
@@ -808,7 +833,10 @@ const ReceiptScanner: React.FC = () => {
       {result && scanMode === 'struk' && (
         <div style={{ marginTop: '24px' }}>
           <details className="card" style={{ padding: '12px 16px' }}>
-            <summary style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 700 }}>🔍 Diagnostik & Teks Mentah</summary>
+            <summary style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Terminal size={14} />
+              <span>Diagnostik & Teks Mentah</span>
+            </summary>
             {result.debugLogs && (
               <div style={{ padding: '8px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '10px', marginBottom: '12px', maxHeight: '100px', overflowY: 'auto' }}>
                 {result.debugLogs.map((l, i) => <div key={i}>{l}</div>)}
