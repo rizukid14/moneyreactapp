@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Home, LineChart, Wallet, Settings, PanelLeftClose, PanelLeftOpen, BadgeDollarSign } from 'lucide-react';
+import { Home, LineChart, Wallet, Settings, PanelLeftClose, PanelLeftOpen, BadgeDollarSign, PiggyBank } from 'lucide-react';
 import ChatBot from './chatbot/ChatBot';
 
 const Layout: React.FC = () => {
@@ -47,7 +47,7 @@ const Layout: React.FC = () => {
         </button>
 
         <div className="sidebar-logo">
-          <Wallet size={36} strokeWidth={2.5} color="var(--primary)" />
+          <PiggyBank size={36} strokeWidth={2.5} color="var(--primary)" />
           <span>MoneyApp</span>
         </div>
         <NavItems includeDebts={true} />

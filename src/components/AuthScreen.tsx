@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { auth } from '../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { motion } from 'framer-motion';
+import { PiggyBank } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -50,9 +51,7 @@ export const AuthScreen: React.FC = () => {
     >
       <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', justifyContent: 'center' }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: 20 }}>
-              $
-            </div>
+            <PiggyBank size={36} strokeWidth={2.5} color="var(--primary)" />
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>MoneyApp</h1>
         </div>
         
