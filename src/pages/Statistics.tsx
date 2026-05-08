@@ -28,6 +28,22 @@ const Statistics: React.FC = () => {
     x: number;
     y: number;
   } | null>(null);
+  const [chartScale, setChartScale] = useState<'linear' | 'log' | 'dual'>(() => {
+    try {
+      const saved = localStorage.getItem('moneyapp-chart-scale');
+      if (saved === 'linear' || saved === 'log' || saved === 'dual') {
+        return saved;
+      }
+    } catch {}
+    return 'dual'; // default to dual (independent scales) as requested to make small expenses significant
+  });
+
+  const changeChartScale = useCallback((scale: 'linear' | 'log' | 'dual') => {
+    setChartScale(scale);
+    try {
+      localStorage.setItem('moneyapp-chart-scale', scale);
+    } catch {}
+  }, []);
 
   const fmt = useCallback((value: number) => formatCurrency(value, currencySymbol), [currencySymbol]);
 
@@ -284,6 +300,17 @@ const Statistics: React.FC = () => {
       }));
     }
   }, [transactions, viewDate, drillDownCategory]);
+
+  const scaledDailyChart = useMemo(() => {
+    if (chartScale === 'log') {
+      return dailyExpenseChart.map(d => ({
+        ...d,
+        incomeScaled: d.income > 0 ? Math.log10(d.income) : 0,
+        amountScaled: d.amount > 0 ? Math.log10(d.amount) : 0,
+      }));
+    }
+    return dailyExpenseChart;
+  }, [dailyExpenseChart, chartScale]);
 
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -871,29 +898,86 @@ const Statistics: React.FC = () => {
       {/* ── Daily Expense Area Chart ──────────────────────────── */}
       {currentMonthExpense > 0 && (
         <div className="card glass" style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Pengeluaran Harian</h2>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
-            </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
+            <div>
+              <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Pengeluaran &amp; Pendapatan Harian</h2>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
+                {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '12px', padding: '2px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+              {(['linear', 'dual', 'log'] as const).map(scale => (
+                <button
+                  key={scale}
+                  onClick={() => changeChartScale(scale)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: chartScale === scale ? 'var(--bg-card-solid)' : 'transparent',
+                    color: chartScale === scale ? 'var(--text-main)' : 'var(--text-muted)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: chartScale === scale ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+                  }}
+                >
+                  {scale === 'linear' ? 'Gabungan' : scale === 'dual' ? 'Mandiri' : 'Log'}
+                </button>
+              ))}
+            </div>
           </div>
           <div style={{ width: '100%', height: 200 }}>
             <ResponsiveContainer>
               {chartStyle === 'line' ? (
-                <LineChart data={dailyExpenseChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+                <LineChart data={scaledDailyChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                  <YAxis hide domain={[0, 'dataMax + 5000']} />
+                  {chartScale === 'dual' ? (
+                    <>
+                      <YAxis yAxisId="left" hide domain={[0, 'dataMax + 5000']} />
+                      <YAxis yAxisId="right" hide domain={[0, 'dataMax + 5000']} />
+                    </>
+                  ) : (
+                    <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
+                  )}
                   <Tooltip
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                    formatter={(val: any, name: any) => [fmt(Number(val)), name === 'amount' ? 'Pengeluaran' : 'Pendapatan']}
+                    formatter={(val: any, name: any, props: any) => {
+                      const item = props?.payload || {};
+                      const realVal = name === 'amount' || name === 'amountScaled' ? (item.amount ?? val) : (item.income ?? val);
+                      const formattedVal = chartScale === 'log' ? fmt(Number(realVal)) : fmt(Number(val));
+                      return [formattedVal, name === 'amount' || name === 'amountScaled' ? 'Pengeluaran' : 'Pendapatan'];
+                    }}
                     labelFormatter={(label: any) => `Tgl ${label}`}
                   />
-                  <Line type="monotone" dataKey="income" stroke="var(--primary)" strokeWidth={2.5} dot={false} name="income" activeDot={{ r: 4 }} style={{ filter: 'drop-shadow(0px 3px 6px rgba(16, 185, 129, 0.25))' }} />
-                  <Line type="monotone" dataKey="amount" stroke="var(--secondary)" strokeWidth={3} dot={false} name="amount" activeDot={{ r: 6, fill: 'var(--secondary)', stroke: theme === 'dark' ? '#14141d' : 'white', strokeWidth: 1.5 }} style={{ filter: 'drop-shadow(0px 4px 8px rgba(239, 68, 68, 0.35))' }} />
+                  <Line
+                    type="monotone"
+                    dataKey={chartScale === 'log' ? 'incomeScaled' : 'income'}
+                    yAxisId={chartScale === 'dual' ? 'left' : undefined}
+                    stroke="var(--primary)"
+                    strokeWidth={2.5}
+                    dot={false}
+                    name="income"
+                    activeDot={{ r: 4 }}
+                    style={{ filter: 'drop-shadow(0px 3px 6px rgba(16, 185, 129, 0.25))' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
+                    yAxisId={chartScale === 'dual' ? 'right' : undefined}
+                    stroke="var(--secondary)"
+                    strokeWidth={3}
+                    dot={false}
+                    name="amount"
+                    activeDot={{ r: 6, fill: 'var(--secondary)', stroke: theme === 'dark' ? '#14141d' : 'white', strokeWidth: 1.5 }}
+                    style={{ filter: 'drop-shadow(0px 4px 8px rgba(239, 68, 68, 0.35))' }}
+                  />
                 </LineChart>
               ) : (
-                <AreaChart data={dailyExpenseChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+                <AreaChart data={scaledDailyChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
                   <defs>
                     <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
@@ -906,14 +990,45 @@ const Statistics: React.FC = () => {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                  <YAxis hide domain={[0, 'dataMax + 5000']} />
+                  {chartScale === 'dual' ? (
+                    <>
+                      <YAxis yAxisId="left" hide domain={[0, 'dataMax + 5000']} />
+                      <YAxis yAxisId="right" hide domain={[0, 'dataMax + 5000']} />
+                    </>
+                  ) : (
+                    <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
+                  )}
                   <Tooltip
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                    formatter={(val: any, name: any) => [fmt(Number(val)), name === 'amount' ? 'Pengeluaran' : 'Pendapatan']}
+                    formatter={(val: any, name: any, props: any) => {
+                      const item = props?.payload || {};
+                      const realVal = name === 'amount' || name === 'amountScaled' ? (item.amount ?? val) : (item.income ?? val);
+                      const formattedVal = chartScale === 'log' ? fmt(Number(realVal)) : fmt(Number(val));
+                      return [formattedVal, name === 'amount' || name === 'amountScaled' ? 'Pengeluaran' : 'Pendapatan'];
+                    }}
                     labelFormatter={(label: any) => `Tgl ${label}`}
                   />
-                  <Area type="monotone" dataKey="income" stroke="var(--primary)" strokeWidth={1.5} fill="url(#incGrad)" dot={false} name="income" />
-                  <Area type="monotone" dataKey="amount" stroke="var(--secondary)" strokeWidth={2} fill="url(#expGrad)" dot={false} name="amount" activeDot={{ r: 5, fill: 'var(--secondary)' }} />
+                  <Area
+                    type="monotone"
+                    dataKey={chartScale === 'log' ? 'incomeScaled' : 'income'}
+                    yAxisId={chartScale === 'dual' ? 'left' : undefined}
+                    stroke="var(--primary)"
+                    strokeWidth={1.5}
+                    fill="url(#incGrad)"
+                    dot={false}
+                    name="income"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
+                    yAxisId={chartScale === 'dual' ? 'right' : undefined}
+                    stroke="var(--secondary)"
+                    strokeWidth={2}
+                    fill="url(#expGrad)"
+                    dot={false}
+                    name="amount"
+                    activeDot={{ r: 5, fill: 'var(--secondary)' }}
+                  />
                 </AreaChart>
               )}
             </ResponsiveContainer>
