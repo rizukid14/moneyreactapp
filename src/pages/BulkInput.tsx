@@ -144,6 +144,7 @@ const BulkInput: React.FC = () => {
           categories={categories}
           assets={assets}
           currencySymbol={currencySymbol}
+          isMutation={false}
           onSave={() => {
             const toSave = results.filter(r => r.selected);
             if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category || !r.asset))) {

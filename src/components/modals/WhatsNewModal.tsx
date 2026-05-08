@@ -12,19 +12,19 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
 
   const features = [
     {
-      icon: <Calendar className="text-rose-500" size={24} />,
-      title: 'Heatmap Aktivitas Pengeluaran (1 Tahun)',
-      description: 'Lacak konsistensi pengeluaran kamu seperti grafik kontribusi GitHub! Dilengkapi glow-block premium, swipeable di mobile, dan label bulan yang rapi.'
+      icon: <CheckCircle2 className="text-primary" size={24} />,
+      title: 'MoneyBot AI: Transfer & Hutang',
+      description: 'MoneyBot kini lebih pintar! Kamu bisa mencatat transfer antar rekening dan membuat catatan hutang/piutang hanya dengan mengobrol.'
     },
     {
       icon: <TrendingUp className="text-emerald-500" size={24} />,
-      title: 'Grafik Pengeluaran Harian',
-      description: 'Pantau tren keluar-masuk uang per hari lewat Area Chart interaktif dengan dual gradient fill & tooltip instan.'
+      title: 'Input Sekaligus: Multi-Aset',
+      description: 'Kini kamu bisa memilih rekening/aset yang berbeda untuk setiap baris transaksi pada menu Input Sekaligus. Lebih fleksibel!'
     },
     {
-      icon: <Search className="text-amber-500" size={24} />,
-      title: 'UI Pencarian & Kalender Baru',
-      description: 'Kolom pencarian kini lebih bersih berbentuk ikon collapsible. Ditambah jalan pintas "Hari Ini" langsung di dalam kalender tanggal.'
+      icon: <Calendar className="text-rose-500" size={24} />,
+      title: 'Heatmap Aktivitas (1 Tahun)',
+      description: 'Lacak konsistensi pengeluaran kamu seperti grafik kontribusi GitHub! Dilengkapi glow-block premium dan label bulan yang rapi.'
     }
   ];
 
@@ -41,7 +41,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 800, margin: 0, background: 'var(--primary-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              What's New v15
+              What's New v16
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Fitur terbaru untuk pengalaman lebih baik</p>
           </div>

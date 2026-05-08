@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { messages, categories, assets, transactions } = req.body;
+    const { messages, categories, assets, transactions, contacts, currentDate, currentTime } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ message: 'Valid messages array is required' });
@@ -41,40 +41,19 @@ export default async function handler(req: any, res: any) {
       ? assets.map((a: any) => `- ID: "${a.id}", Name: "${a.name}", Type: "${a.type}", Balance: ${a.balance}`).join('\n') 
       : "None";
 
+    const contactList = contacts?.length > 0
+      ? contacts.map((c: any) => `- Name: "${c.name}"`).join('\n')
+      : "No existing contacts.";
+
     const transactionSummary = transactions?.length > 0
       ? transactions.map((t: any) => `${t.date}: ${t.type} ${t.amount} [${t.category}] ${t.note}`).join('\n')
       : "No recent transactions found.";
 
-    const defaultAssetId = assets?.length > 0 ? assets[0].id : "";
-
-    const APP_TUTORIAL = `
-1. Transaksi (Transactions):
-   - Cara Tambah: Klik tombol '+' di pojok kanan bawah, pilih 'Tambah Pengeluaran' atau 'Pendapatan'.
-   - Transfer: Gunakan menu 'Transfer' untuk memindahkan uang antar rekening.
-   - Edit/Hapus: Klik pada item transaksi di daftar.
-   - Copy: Di menu edit transaksi, klik tombol 'Copy'.
-   - Pencarian: Gunakan ikon kaca pembesar di atas daftar transaksi.
-   - Auto-Collapse: Daftar hanya membuka hari ini. Klik baris tanggal untuk melihat riwayat lainnya.
-
-2. Aset & Kekayaan (Assets):
-   - Kelola Aset: Tambah akun bank/cash di menu Aset.
-   - Gacha Tier System: Total kekayaanmu menentukan tingkat 'Gacha' (Bronze -> Sultan 👑). 
-   - Pesan Motivasi: Setiap tier punya pesan motivasi berbeda.
-
-3. Hutang & Piutang (Debts):
-   - Bayar/Cicil: Klik pada catatan hutang untuk membayar sebagian atau lunas.
-   - Offset (Potong Silang): Gunakan banner di atas halaman Hutang untuk potong saldo hutang vs piutang ke orang yang sama.
-   - Tips Profesional: Kosongkan "Aset" saat buat hutang agar pembayaran nanti tercatat sebagai Pengeluaran (Expense). Jika pilih aset, pembayaran akan tercatat sebagai Transfer.
-   - Merge Otomatis: Hutang ke kontak yang sama otomatis digabung jika belum lunas.
-
-4. Anggaran (Budgets): Set di Pengaturan -> Anggaran & Target per kategori.
-5. Scan Struk (OCR) & Split Bill: Scan struk, lalu klik "Split Bill" untuk bagi belanjaan ke teman-teman (otomatis jadi piutang).
-6. Pengaturan: PIN keamanan, Backup (Ekspor/Impor), Sinkronisasi Cloud, dan Custom Mata Uang/Tanggal mulai bulan.
-7. Statistik: Analisis pie chart dan perbandingan bulan lalu.
-`;
-
     const systemPrompt = `You are MoneyBot, a helpful AI assistant for MoneyApp.
 Your primary purpose is to help users manage their finances and categorize transactions.
+
+CURRENT DATE & TIME: ${currentDate || "Unknown"} ${currentTime || ""}
+Use this as the reference for "today", "yesterday", or other relative dates.
 
 STRICT GUARDRAILS:
 1. ONLY answer questions related to MoneyApp, personal finance, or budgeting. Decline all other topics.
@@ -83,19 +62,18 @@ STRICT GUARDRAILS:
 CURRENT USER CONTEXT:
 Categories: ${categoryList}
 Assets: ${assetList}
+Contacts: ${contactList}
 
 RECENT TRANSACTIONS (Last 150):
 ${transactionSummary}
 
 BEHAVIOR RULES:
 1. When a user describes a transaction (e.g., "makan kfc 10k"), First, recommend category and asset name and ask for confirmation.
-2. ONLY call 'create_transaction' when the user explicitly agrees.
+2. ONLY call 'create_transaction' or 'create_debt' when the user explicitly agrees.
 3. For help/tutorial requests, use 'get_app_help'.
-4. Answer questions about spending summaries (e.g., "how much did I spend on food this month?") by analyzing the RECENT TRANSACTIONS provided.
-5. If the user asks about account balances, use the Balance info in the Assets list.
-6. If the user's question requires data beyond the provided 150 transactions, honestly state that you only have access to recent history.
-
-Keep responses concise and in Indonesian.`;
+4. For transfers between assets, use 'create_transaction' with 'type': 'transfer'.
+5. For debts (hutang) or receivables (piutang), use 'create_debt'.
+6. Keep responses concise and in Indonesian.`;
 
     const tools = [
       {
@@ -110,11 +88,38 @@ Keep responses concise and in Indonesian.`;
               amount: { type: "number" },
               category: { type: "string" },
               subCategory: { type: "string" },
-              assetId: { type: "string" },
+              assetId: { type: "string", description: "Used for 'pengeluaran' or 'pendapatan'" },
+              fromAssetId: { type: "string", description: "Source asset for 'transfer'" },
+              toAssetId: { type: "string", description: "Destination asset for 'transfer'" },
               note: { type: "string" },
-              date: { type: "string" }
+              date: { type: "string", description: "YYYY-MM-DD" },
+              adminFee: { type: "number" },
+              adminFeeTarget: { type: "string", enum: ["sender", "receiver"] }
             },
-            required: ["type", "amount", "category", "subCategory", "assetId", "note", "date"]
+            required: ["type", "amount", "category", "note", "date"]
+          }
+        }
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "create_debt",
+          description: "Draft a debt (hutang) or receivable (piutang) record for the user.",
+          parameters: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["hutang", "piutang"] },
+              contactName: { type: "string" },
+              amount: { type: "number" },
+              description: { type: "string" },
+              date: { type: "string", description: "YYYY-MM-DD" },
+              category: { type: "string" },
+              subCategory: { type: "string" },
+              assetId: { type: "string", description: "For hutang: liability asset or receiving asset. For piutang: asset used to lend money." },
+              isInstallment: { type: "boolean" },
+              totalInstallments: { type: "number" }
+            },
+            required: ["type", "contactName", "amount", "date"]
           }
         }
       },
@@ -122,7 +127,7 @@ Keep responses concise and in Indonesian.`;
         type: "function" as const,
         function: {
           name: "get_app_help",
-          description: "Retrieve the comprehensive user manual and tutorial for all app features. Call this when the user asks 'how to', 'help', or about specific features.",
+          description: "Retrieve the comprehensive user manual and tutorial for all app features.",
           parameters: { type: "object", properties: {} }
         }
       }
@@ -143,6 +148,38 @@ Keep responses concise and in Indonesian.`;
     const choice = response.choices[0];
     const message = choice.message;
 
+    const APP_TUTORIAL = `
+1. Transaksi (Transactions):
+   - Cara Tambah: Klik tombol '+' di pojok kanan bawah, pilih 'Tambah Pengeluaran' atau 'Pendapatan'.
+   - Transfer: Gunakan menu 'Transfer' untuk memindahkan uang antar rekening.
+   - Input Sekaligus: Mendukung banyak transaksi sekaligus. Kini bisa memilih rekening berbeda untuk tiap baris transaksi (Multi-Asset support).
+   - Edit/Hapus: Klik pada item transaksi di daftar.
+   - Copy: Di menu edit transaksi, klik tombol 'Copy'.
+   - Pencarian: Gunakan ikon kaca pembesar di atas daftar transaksi.
+   - Auto-Collapse: Daftar hanya membuka hari ini. Klik baris tanggal untuk melihat riwayat lainnya.
+
+2. Aset & Kekayaan (Assets):
+   - Kelola Aset: Tambah akun bank/cash di menu Aset.
+   - Gacha Tier System: Total kekayaanmu menentukan tingkat 'Gacha' (Bronze -> Sultan 👑). 
+   - Pesan Motivasi: Setiap tier punya pesan motivasi berbeda.
+
+3. Hutang & Piutang (Debts):
+   - Bayar/Cicil: Klik pada catatan hutang untuk membayar sebagian atau lunas.
+   - Offset (Potong Silang): Gunakan banner di atas halaman Hutang untuk potong saldo hutang vs piutang ke orang yang sama.
+   - Tips Profesional: Kosongkan "Aset" saat buat hutang agar pembayaran nanti tercatat sebagai Pengeluaran (Expense). Jika pilih aset, pembayaran akan tercatat sebagai Transfer.
+   - Merge Otomatis: Hutang ke kontak yang sama otomatis digabung jika belum lunas.
+
+4. MoneyBot AI:
+   - Chatbot canggih yang bisa diajak diskusi keuangan.
+   - Kini bisa mencatat Transfer antar rekening dan membuat catatan Hutang/Piutang otomatis.
+   - Cukup ketik seperti: "Transfer dari BCA ke Gopay 50rb" atau "Hutang ke Budi 100rb buat makan".
+
+5. Anggaran (Budgets): Set di Pengaturan -> Anggaran & Target per kategori.
+6. Scan Struk (OCR) & Split Bill: Scan struk, lalu klik "Split Bill" untuk bagi belanjaan ke teman-teman (otomatis jadi piutang).
+7. Pengaturan: PIN keamanan, Backup (Ekspor/Impor), Sinkronisasi Cloud, dan Custom Mata Uang/Tanggal mulai bulan.
+8. Statistik: Analisis pie chart dan perbandingan bulan lalu.
+`;
+
     // Check if the AI decided to call the tool
     if (message.tool_calls && message.tool_calls.length > 0) {
       const toolCall = message.tool_calls[0] as any;
@@ -157,10 +194,10 @@ Keep responses concise and in Indonesian.`;
           });
         }
 
-        if (functionName === 'create_transaction') {
+        if (functionName === 'create_transaction' || functionName === 'create_debt') {
           return res.status(200).json({
             role: "assistant",
-            content: message.content || "Ini draft transaksinya, silakan dikonfirmasi ya!",
+            content: message.content || "Ini draft datanya, silakan dikonfirmasi ya!",
             toolCall: {
               name: functionName,
               arguments: JSON.parse(toolCall.function.arguments)

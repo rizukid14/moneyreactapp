@@ -855,6 +855,7 @@ const ReceiptScanner: React.FC = () => {
           assets={assets}
           currencySymbol={currencySymbol}
           initialAssetId={contextDefaultAssetId || undefined}
+          isMutation={true}
           onSave={(batchAssetId) => {
             const toSave = mutasiResults.filter(r => r.selected);
             if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category))) {

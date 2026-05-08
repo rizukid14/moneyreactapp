@@ -3,6 +3,7 @@ import { MessageCircle, X, Send, Check, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
+import { getLocalDate, getLocalTime } from '../../lib/utils';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -20,7 +21,7 @@ const ChatBot: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { categories, assets, transactions, getAssetBalance, addTransaction, currencySymbol, isChatOpen, setIsChatOpen } = useMoney();
+  const { categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, currencySymbol, isChatOpen, setIsChatOpen } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -57,7 +58,10 @@ const ChatBot: React.FC = () => {
             category: t.category,
             note: t.note,
             date: t.date
-          }))
+          })),
+          contacts: contacts.map(c => ({ name: c.name })),
+          currentDate: getLocalDate(),
+          currentTime: getLocalTime()
         })
       });
 
@@ -81,17 +85,49 @@ const ChatBot: React.FC = () => {
 
   const handleConfirmTransaction = (msgIndex: number, toolArgs: any) => {
     try {
-      addTransaction({
-        type: toolArgs.type,
-        amount: Number(toolArgs.amount),
-        category: toolArgs.category,
-        subCategory: toolArgs.subCategory || undefined,
-        assetId: toolArgs.assetId,
-        note: toolArgs.note || 'Dari AI Chat',
-        date: toolArgs.date || new Date().toISOString().split('T')[0],
-      });
+      if (toolArgs.type === 'transfer') {
+        const fromId = toolArgs.fromAssetId;
+        const toId = toolArgs.toAssetId;
 
-      // Update message to remove tool call and show success
+        if (!fromId || !toId) {
+          showToast('Rekening asal atau tujuan tidak ditemukan', 'warning');
+          return;
+        }
+
+        const newTx = addTransaction({
+          type: 'transfer',
+          amount: Number(toolArgs.amount),
+          date: toolArgs.date || getLocalDate(),
+          note: toolArgs.note || 'Transfer via AI Chat',
+          category: 'Transfer',
+          fromAssetId: fromId,
+          toAssetId: toId,
+        });
+
+        if (toolArgs.adminFee && toolArgs.adminFee > 0) {
+          const feeAssetId = toolArgs.adminFeeTarget === 'receiver' ? toId : fromId;
+          addTransaction({
+            type: 'pengeluaran',
+            amount: Number(toolArgs.adminFee),
+            category: 'Biaya Admin',
+            date: toolArgs.date || getLocalDate(),
+            note: `Biaya admin transfer`,
+            assetId: feeAssetId,
+            relatedId: newTx.id,
+          });
+        }
+      } else {
+        addTransaction({
+          type: toolArgs.type,
+          amount: Number(toolArgs.amount),
+          category: toolArgs.category,
+          subCategory: toolArgs.subCategory || undefined,
+          assetId: toolArgs.assetId,
+          note: toolArgs.note || 'Dari AI Chat',
+          date: toolArgs.date || getLocalDate(),
+        });
+      }
+
       setMessages(prev => prev.map((m, i) => 
         i === msgIndex ? { ...m, toolCall: undefined, content: '✅ Transaksi berhasil dicatat!' } : m
       ));
@@ -99,6 +135,32 @@ const ChatBot: React.FC = () => {
       showToast('Transaksi berhasil ditambahkan via AI!', 'success');
     } catch (err: any) {
       showToast(err.message || 'Gagal menambahkan transaksi', 'error');
+    }
+  };
+
+  const handleConfirmDebt = (msgIndex: number, toolArgs: any) => {
+    try {
+      addDebt({
+        type: toolArgs.type,
+        contact: toolArgs.contactName,
+        description: toolArgs.description || '',
+        totalAmount: Number(toolArgs.amount),
+        isPaid: false,
+        createdAt: toolArgs.date ? `${toolArgs.date}T${getLocalTime()}:00` : new Date().toISOString(),
+        isInstallment: toolArgs.isInstallment || false,
+        totalInstallments: toolArgs.totalInstallments,
+        paidInstallments: 0,
+        liabilityAssetId: toolArgs.type === 'hutang' ? toolArgs.assetId : undefined,
+        paymentAssetId: toolArgs.type === 'piutang' ? toolArgs.assetId : undefined
+      }, toolArgs.type === 'hutang' ? 'cash' : 'none', toolArgs.category, toolArgs.subCategory);
+
+      setMessages(prev => prev.map((m, i) => 
+        i === msgIndex ? { ...m, toolCall: undefined, content: `✅ ${toolArgs.type === 'hutang' ? 'Hutang' : 'Piutang'} berhasil dicatat!` } : m
+      ));
+      
+      showToast(`${toolArgs.type === 'hutang' ? 'Hutang' : 'Piutang'} berhasil ditambahkan!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menambahkan catatan hutang', 'error');
     }
   };
 
@@ -194,7 +256,7 @@ const ChatBot: React.FC = () => {
                   </div>
                 )}
 
-                {msg.toolCall && msg.toolCall.name === 'create_transaction' && (
+                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt') && (
                   <div style={{
                     marginTop: '8px',
                     width: '100%',
@@ -206,41 +268,110 @@ const ChatBot: React.FC = () => {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
                       <AlertCircle size={16} />
-                      <span style={{ fontSize: '12px', fontWeight: 700 }}>Draft Transaksi</span>
+                      <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : 'Draft Catatan Hutang'}
+                      </span>
                     </div>
                     
                     <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
-                        <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
-                        <span style={{ fontWeight: 700, color: msg.toolCall.arguments.type === 'pendapatan' ? 'var(--success)' : 'var(--danger)' }}>
-                          {currencySymbol}{msg.toolCall.arguments.amount?.toLocaleString('id-ID')}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                        <span style={{ fontWeight: 500 }}>
-                          {msg.toolCall.arguments.category}{msg.toolCall.arguments.subCategory ? ` > ${msg.toolCall.arguments.subCategory}` : ''}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Aset:</span>
-                        <span style={{ fontWeight: 500 }}>
-                          {assets.find(a => a.id === msg.toolCall?.arguments.assetId)?.name || 'Tidak diketahui'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
-                        <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.note}</span>
-                      </div>
+                      {msg.toolCall.name === 'create_transaction' ? (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
+                            <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
+                            <span style={{ fontWeight: 700, color: msg.toolCall.arguments.type === 'pendapatan' ? 'var(--success)' : 'var(--danger)' }}>
+                              {currencySymbol}{msg.toolCall.arguments.amount?.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                          {msg.toolCall.arguments.type !== 'transfer' && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                              <span style={{ fontWeight: 500 }}>
+                                {msg.toolCall.arguments.category}{msg.toolCall.arguments.subCategory ? ` > ${msg.toolCall.arguments.subCategory}` : ''}
+                              </span>
+                            </div>
+                          )}
+                          {msg.toolCall.arguments.type === 'transfer' ? (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Dari:</span>
+                                <span style={{ fontWeight: 500 }}>
+                                  {assets.find(a => a.id === msg.toolCall?.arguments.fromAssetId)?.name || 'Tidak diketahui'}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Ke:</span>
+                                <span style={{ fontWeight: 500 }}>
+                                  {assets.find(a => a.id === msg.toolCall?.arguments.toAssetId)?.name || 'Tidak diketahui'}
+                                </span>
+                              </div>
+                              {msg.toolCall.arguments.adminFee > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ color: 'var(--text-muted)' }}>Biaya Admin:</span>
+                                  <span style={{ fontWeight: 600, color: 'var(--danger)' }}>
+                                    {currencySymbol}{msg.toolCall.arguments.adminFee.toLocaleString('id-ID')} ({msg.toolCall.arguments.adminFeeTarget})
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Aset:</span>
+                              <span style={{ fontWeight: 500 }}>
+                                {assets.find(a => a.id === msg.toolCall?.arguments.assetId)?.name || 'Tidak diketahui'}
+                              </span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
+                            <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.note}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
+                            <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Kontak:</span>
+                            <span style={{ fontWeight: 600 }}>{msg.toolCall.arguments.contactName}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
+                            <span style={{ fontWeight: 700, color: msg.toolCall.arguments.type === 'piutang' ? 'var(--success)' : 'var(--danger)' }}>
+                              {currencySymbol}{msg.toolCall.arguments.amount?.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                            <span style={{ fontWeight: 500 }}>
+                              {msg.toolCall.arguments.category || 'Lainnya'}
+                            </span>
+                          </div>
+                          {msg.toolCall.arguments.assetId && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Aset Terkait:</span>
+                              <span style={{ fontWeight: 500 }}>
+                                {assets.find(a => a.id === msg.toolCall?.arguments.assetId)?.name || 'Tidak diketahui'}
+                              </span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Keterangan:</span>
+                            <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.description || '-'}</span>
+                          </div>
+                        </>
+                      )}
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: 'var(--text-muted)' }}>Tanggal:</span>
                         <input 
                           type="date" 
-                          value={msg.toolCall.arguments.date || new Date().toISOString().split('T')[0]}
+                          value={msg.toolCall.arguments.date || getLocalDate()}
                           onChange={(e) => handleUpdateDraftDate(idx, e.target.value)}
                           style={{ 
                             background: 'var(--bg-neutral)', 
@@ -264,7 +395,13 @@ const ChatBot: React.FC = () => {
                         Batal
                       </button>
                       <button 
-                        onClick={() => handleConfirmTransaction(idx, msg.toolCall!.arguments)}
+                        onClick={() => {
+                          if (msg.toolCall?.name === 'create_transaction') {
+                            handleConfirmTransaction(idx, msg.toolCall.arguments);
+                          } else {
+                            handleConfirmDebt(idx, msg.toolCall!.arguments);
+                          }
+                        }}
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                       >
                         <Check size={16} /> Konfirmasi
