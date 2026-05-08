@@ -21,6 +21,13 @@ const Statistics: React.FC = () => {
   });
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [drillDownCategory, setDrillDownCategory] = useState<{name: string, type: 'pendapatan'|'pengeluaran', colorIndex: number} | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<{
+    date: string;
+    day: number;
+    amount: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const fmt = useCallback((value: number) => formatCurrency(value, currencySymbol), [currencySymbol]);
 
@@ -500,7 +507,24 @@ const Statistics: React.FC = () => {
         };
 
         return (
-          <div className="card glass" style={{ marginBottom: '24px', padding: '16px' }}>
+          <div 
+            className="card glass" 
+            style={{ marginBottom: '24px', padding: '16px', position: 'relative' }}
+            onClick={() => setHoveredCell(null)}
+          >
+            {/* Scoped animations */}
+            <style>{`
+              @keyframes fadeInScale {
+                from {
+                  opacity: 0;
+                  transform: translate(-50%, -92%) scale(0.95);
+                }
+                to {
+                  opacity: 1;
+                  transform: translate(-50%, -100%) scale(1);
+                }
+              }
+            `}</style>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Aktivitas Pengeluaran</h2>
@@ -529,20 +553,65 @@ const Statistics: React.FC = () => {
                       )}
                     </div>
                     {/* 7 day cells */}
-                    {week.map((cell, di) => (
-                      <div
-                        key={di}
-                        title={cell ? `${new Date(cell.date + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}: ${cell.amount > 0 ? fmt(cell.amount) : 'Tidak ada'}` : ''}
-                        style={{
-                          width: CELL, height: CELL, borderRadius: 3,
-                          transition: 'transform 0.12s, box-shadow 0.12s',
-                          flexShrink: 0,
-                          ...(cell ? getHeatmapColorStyle(cell.amount, theme) : { background: 'transparent', border: 'none' }),
-                        }}
-                        onMouseEnter={e => { if (cell?.amount) { const el = e.currentTarget as HTMLElement; el.style.transform = 'scale(1.4)'; el.style.zIndex = '10'; } }}
-                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = 'scale(1)'; el.style.zIndex = ''; }}
-                      />
-                    ))}
+                    {week.map((cell, di) => {
+                      const isHovered = hoveredCell && cell && hoveredCell.date === cell.date;
+                      return (
+                        <div
+                          key={di}
+                          title="" // Disable browser default tooltip
+                          style={{
+                            width: CELL, height: CELL, borderRadius: 3,
+                            transition: 'transform 0.12s, box-shadow 0.12s, border-color 0.12s',
+                            flexShrink: 0,
+                            cursor: cell ? 'pointer' : 'default',
+                            ...(cell ? getHeatmapColorStyle(cell.amount, theme) : { background: 'transparent', border: 'none' }),
+                            ...(isHovered && {
+                              transform: 'scale(1.3)',
+                              zIndex: 10,
+                              filter: cell.amount === 0 ? 'none' : 'brightness(1.15)',
+                              ...(cell.amount === 0 ? {
+                                background: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.12)',
+                              } : {}),
+                              border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.6)' : '1px solid rgba(0, 0, 0, 0.4)',
+                            }),
+                          }}
+                          onMouseEnter={e => {
+                            if (cell) {
+                              const cellRect = e.currentTarget.getBoundingClientRect();
+                              const container = e.currentTarget.closest('.card.glass');
+                              if (container) {
+                                const containerRect = container.getBoundingClientRect();
+                                setHoveredCell({
+                                  date: cell.date,
+                                  day: cell.day,
+                                  amount: cell.amount,
+                                  x: cellRect.left - containerRect.left + cellRect.width / 2,
+                                  y: cellRect.top - containerRect.top,
+                                });
+                              }
+                            }
+                          }}
+                          onMouseLeave={() => setHoveredCell(null)}
+                          onClick={e => {
+                            if (cell) {
+                              e.stopPropagation();
+                              const cellRect = e.currentTarget.getBoundingClientRect();
+                              const container = e.currentTarget.closest('.card.glass');
+                              if (container) {
+                                const containerRect = container.getBoundingClientRect();
+                                setHoveredCell({
+                                  date: cell.date,
+                                  day: cell.day,
+                                  amount: cell.amount,
+                                  x: cellRect.left - containerRect.left + cellRect.width / 2,
+                                  y: cellRect.top - containerRect.top,
+                                });
+                              }
+                            }
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                 ))}
               </div>
@@ -609,6 +678,71 @@ const Statistics: React.FC = () => {
                 </div>
               );
             })()}
+
+            {/* Premium Dynamic Floating Overlay Popup (Web Hover + Mobile Tap) */}
+            {hoveredCell && (
+              <div style={{
+                position: 'absolute',
+                left: `${hoveredCell.x}px`,
+                top: `${hoveredCell.y - 10}px`, // 10px above cell
+                transform: 'translate(-50%, -100%)',
+                background: theme === 'dark' ? 'rgba(20, 20, 30, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '12px',
+                padding: '10px 14px',
+                boxShadow: theme === 'dark' ? '0 8px 32px rgba(0, 0, 0, 0.5)' : '0 8px 24px rgba(0, 0, 0, 0.12)',
+                zIndex: 1000,
+                pointerEvents: 'none',
+                animation: 'fadeInScale 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                width: 'max-content',
+                maxWidth: '220px',
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {new Date(hoveredCell.date + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long' })}
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>
+                    {new Date(hoveredCell.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                  <div style={{ 
+                    marginTop: '4px',
+                    paddingTop: '4px',
+                    borderTop: '1px solid var(--border-color)',
+                    fontSize: '13px', 
+                    fontWeight: 800, 
+                    color: hoveredCell.amount > 0 ? 'var(--secondary)' : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    {hoveredCell.amount > 0 ? (
+                      <>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--secondary)' }} />
+                        {fmt(hoveredCell.amount)}
+                      </>
+                    ) : (
+                      'Tidak ada pengeluaran'
+                    )}
+                  </div>
+                </div>
+                
+                {/* Speech bubble arrow */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-6px',
+                  left: '50%',
+                  transform: 'translateX(-50%) rotate(45deg)',
+                  width: '10px',
+                  height: '10px',
+                  background: theme === 'dark' ? 'rgba(20, 20, 30, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+                  borderRight: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid rgba(0, 0, 0, 0.08)',
+                  borderBottom: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid rgba(0, 0, 0, 0.08)',
+                  zIndex: -1,
+                }} />
+              </div>
+            )}
           </div>
         );
       })()}
