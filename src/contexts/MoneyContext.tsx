@@ -804,7 +804,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
-  const settleDebt = useCallback((debtId: string, overrideAssetId?: string, overrideDate?: string, overrideTime?: string) => {
+  const settleDebt = useCallback((debtId: string, overrideAssetId?: string, overrideDate?: string, overrideTime?: string, overrideAmount?: number) => {
     const debt = debts.find(d => d.id === debtId);
     if (!debt || debt.isPaid) return;
 
@@ -813,16 +813,25 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       _paidInstallmentKeys.add(txKey);
       const today = overrideDate || getLocalDate();
       const time = overrideTime || getLocalTime();
-      const paidSoFar = debt.isInstallment ? (debt.paidInstallments * (debt.installmentAmount || 0)) : 0;
-      const remaining = Math.max(0, debt.totalAmount - paidSoFar);
-      const note = `Pelunasan ${debt.type === 'hutang' ? 'hutang' : 'piutang'} - ${debt.contact}`;
+      
+      const history = transactions.filter(t => t.relatedId === debtId);
+      const paidAmt = history.reduce((sum, tx) => {
+        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+      }, 0);
 
-      if (remaining > 0) {
+      const remaining = Math.max(0, Number(debt.totalAmount || 0) - paidAmt);
+      const amountToRecord = overrideAmount !== undefined ? overrideAmount : remaining;
+      
+      const note = amountToRecord > remaining 
+        ? `Pelunasan ${debt.type === 'hutang' ? 'hutang' : 'piutang'} (Kelebihan Bayar) - ${debt.contact}`
+        : `Pelunasan ${debt.type === 'hutang' ? 'hutang' : 'piutang'} - ${debt.contact}`;
+
+      if (amountToRecord > 0) {
         if (debt.type === 'hutang') {
           if (debt.liabilityAssetId) {
             _createTx({
               type: 'transfer',
-              amount: remaining,
+              amount: amountToRecord,
               category: 'Transfer',
               date: today,
               time,
@@ -834,7 +843,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           } else {
             _createTx({
               type: 'pengeluaran',
-              amount: remaining,
+              amount: amountToRecord,
               category: 'Bayar Hutang',
               date: today,
               time,
@@ -846,7 +855,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         } else {
           _createTx({
             type: 'pendapatan',
-            amount: remaining,
+            amount: amountToRecord,
             category: 'Pelunasan Piutang',
             date: today,
             time,
@@ -909,8 +918,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
     }
 
+    const totalPaid = transactions
+      .filter(t => t.relatedId === debtId)
+      .reduce((sum, tx) => isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0), 0) + amount;
+
     const nextPaid = (debt.paidInstallments || 0) + 1;
-    const isPaid = debt.isInstallment && debt.totalInstallments ? nextPaid >= debt.totalInstallments : false;
+    const isPaid = debt.isInstallment && debt.totalInstallments 
+      ? nextPaid >= debt.totalInstallments 
+      : totalPaid >= Number(debt.totalAmount || 0);
 
     const updatedDebt = {
       ...debt,
@@ -920,7 +935,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     dbPutDebt(updatedDebt);
     setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
-  }, [debts]);
+  }, [debts, transactions]);
 
   const addDebtPrincipal = useCallback((debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => {
     const debt = debts.find(d => d.id === debtId);

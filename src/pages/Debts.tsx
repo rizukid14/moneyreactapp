@@ -128,16 +128,14 @@ const DebtCard: React.FC<{
               {fmt(debt.totalAmount, currencySymbol)}
             </div>
           </div>
-          {paidAmount > 0 && !debt.isInstallment && (
+          {paidAmount > 0 && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>{isHutang ? 'Sisa Hutang' : 'Sisa Piutang'}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--primary)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
-            </div>
-          )}
-          {debt.isInstallment && (
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>{isHutang ? 'Sisa Hutang' : 'Sisa Piutang'}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--primary)', letterSpacing: '-0.5px' }}>{fmt(remainingAmount, currencySymbol)}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>
+                {remainingAmount <= 0 ? 'Status' : (isHutang ? 'Sisa Hutang' : 'Sisa Piutang')}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: remainingAmount <= 0 ? 'var(--success)' : (isHutang ? 'var(--danger)' : 'var(--primary)'), letterSpacing: '-0.5px' }}>
+                {remainingAmount > 0 ? fmt(remainingAmount, currencySymbol) : (remainingAmount < 0 ? `Surplus ${fmt(remainingAmount, currencySymbol)}` : 'LUNAS')}
+              </div>
             </div>
           )}
         </div>
@@ -529,7 +527,7 @@ const Debts: React.FC = () => {
           }, 0)}
           onConfirm={(amt, assetId, date, time, note, isFull) => {
             if (isFull) {
-              settleDebt(payingDebt.id, assetId, date, time);
+              settleDebt(payingDebt.id, assetId, date, time, amt);
             } else {
               addDebtPayment(payingDebt.id, amt, assetId, date, time, note);
             }
