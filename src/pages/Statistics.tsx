@@ -11,7 +11,7 @@ const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
 
 const Statistics: React.FC = () => {
-  const { transactions, currencySymbol, startOfMonthDay } = useMoney();
+  const { transactions, currencySymbol, startOfMonthDay, theme } = useMoney();
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date();
     if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
@@ -428,30 +428,74 @@ const Statistics: React.FC = () => {
           offset += mo.cells.length;
         });
 
-        // Glow cell style per level
-        const cellStyle = (level: number): React.CSSProperties => {
-          if (level === 0) return {
-            background: 'var(--bg-main)',
-            border: '1px solid var(--border-color)',
-            boxShadow: 'none',
-          };
-          const bgs  = ['hsl(350,72%,76%)', 'hsl(350,75%,58%)', 'hsl(350,78%,40%)', 'hsl(350,82%,26%)'];
-          // Faint ambient outer glow (much reduced) + inset shine on cell surface
-          const ambients = [
-            'hsla(350,72%,76%,0.25)',
-            'hsla(350,75%,58%,0.35)',
-            'hsla(350,78%,42%,0.45)',
-            'hsla(350,82%,30%,0.55)',
-          ];
-          const insetOpacity = [0.30, 0.38, 0.45, 0.55][level - 1];
+        // Dynamically compute the exact heatmap cell color based on Rupiah amount
+        const getHeatmapColorStyle = (amount: number, currentTheme?: 'light' | 'dark'): React.CSSProperties => {
+          const isDark = currentTheme === 'dark';
+          
+          if (amount === 0) {
+            return isDark
+              ? {
+                  background: 'rgba(255, 255, 255, 0.06)', // gray with opacity in dark mode
+                  border: '1px solid rgba(255, 255, 255, 0.03)',
+                  boxShadow: 'none',
+                }
+              : {
+                  background: 'rgba(255, 255, 255, 1)', // pure white in light mode
+                  border: '1px solid rgba(0, 0, 0, 0.08)',
+                  boxShadow: 'none',
+                };
+          }
+
+          // Interpolate amount to normalized parameter t (0 to 1) based on user landmarks:
+          // 1,000 -> t = 0.10 (gray)
+          // 5,000 -> t = 0.35 (gray-ish red)
+          // 10,000 -> t = 0.50 (still slightly red)
+          // 50,000 -> t = 0.70 (mid-ish)
+          // 1,000,000 -> t = 1.00 (burning red)
+          let t = 0;
+          if (amount <= 1000) {
+            t = 0.1 * (amount / 1000);
+          } else if (amount <= 5000) {
+            t = 0.1 + 0.25 * ((amount - 1000) / 4000);
+          } else if (amount <= 10000) {
+            t = 0.35 + 0.15 * ((amount - 5000) / 5000);
+          } else if (amount <= 50000) {
+            t = 0.50 + 0.20 * ((amount - 10000) / 40000);
+          } else if (amount <= 1000000) {
+            t = 0.70 + 0.30 * ((amount - 50000) / 950000);
+          } else {
+            t = 1.0;
+          }
+
+          const interpolate = (start: number, end: number, ratio: number) => start + (end - start) * ratio;
+
+          // Compute HSL properties:
+          // Hue: 355 (warm crimson red from theme's --danger variable)
+          const hue = 355;
+          
+          // Saturation: starts gray (0%) and interpolates up to burning red (100%)
+          const saturation = Math.round(interpolate(0, 100, t));
+          
+          // Lightness: balanced for light/dark modes
+          const baseLightness = isDark ? 45 : 55;
+          const lightness = Math.round(interpolate(baseLightness, 48, t));
+          
+          // Opacity: starts from translucent (0.25) to solid (1.0)
+          const opacity = interpolate(0.25, 1.0, t);
+
+          const bgStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${opacity})`;
+
+          // Premium ambient outer glow for high values (above mid-way, e.g. t > 0.5)
+          let boxShadow = 'none';
+          if (t > 0.5) {
+            const glowOpacity = (t - 0.5) * 0.4; // max 0.20 glow opacity
+            boxShadow = `0 0 6px 1.5px hsla(${hue}, 95%, 50%, ${glowOpacity})`;
+          }
+
           return {
-            background: bgs[level - 1],
-            border: 'none',
-            boxShadow: [
-              `0 0 4px 1px ${ambients[level - 1]}`,                         // subtle outer ambient
-              `inset 0 1px 3px rgba(255,255,255,${insetOpacity})`,           // bright surface shine
-              `inset 0 -1px 2px rgba(0,0,0,0.12)`,                          // bottom depth
-            ].join(', '),
+            background: bgStyle,
+            border: isDark ? '1px solid rgba(255, 255, 255, 0.03)' : '1px solid rgba(0, 0, 0, 0.04)',
+            boxShadow,
           };
         };
 
@@ -493,7 +537,7 @@ const Statistics: React.FC = () => {
                           width: CELL, height: CELL, borderRadius: 3,
                           transition: 'transform 0.12s, box-shadow 0.12s',
                           flexShrink: 0,
-                          ...(cell ? cellStyle(cell.level) : { background: 'transparent', border: 'none' }),
+                          ...(cell ? getHeatmapColorStyle(cell.amount, theme) : { background: 'transparent', border: 'none' }),
                         }}
                         onMouseEnter={e => { if (cell?.amount) { const el = e.currentTarget as HTMLElement; el.style.transform = 'scale(1.4)'; el.style.zIndex = '10'; } }}
                         onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = 'scale(1)'; el.style.zIndex = ''; }}
@@ -504,20 +548,67 @@ const Statistics: React.FC = () => {
               </div>
             </div>
 
-            {/* Legend */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Maks: {fmt(maxAmount)}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '10px', color: 'var(--text-muted)' }}>
-                <span>Sedikit</span>
-                {[0, 1, 2, 3, 4].map(l => (
-                  <div key={l} style={{
-                    width: CELL, height: CELL, borderRadius: 3,
-                    ...cellStyle(l),
-                  }} />
-                ))}
-                <span>Banyak</span>
-              </div>
-            </div>
+            {/* Range-based continuous Legend with accurate ticks */}
+            {(() => {
+              const stop0 = theme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 1)';
+              const stop1rb = getHeatmapColorStyle(1000, theme).background;
+              const stop5rb = getHeatmapColorStyle(5000, theme).background;
+              const stop10rb = getHeatmapColorStyle(10000, theme).background;
+              const stop50rb = getHeatmapColorStyle(50000, theme).background;
+              const stop500rb = getHeatmapColorStyle(500000, theme).background;
+              const stop1M = getHeatmapColorStyle(1000000, theme).background;
+
+              const gradientStops = `${stop0} 0%, ${stop1rb} 10%, ${stop5rb} 35%, ${stop10rb} 50%, ${stop50rb} 70%, ${stop500rb} 84%, ${stop1M} 100%`;
+
+              const ticks = [
+                { label: '0', pos: 0 },
+                { label: '1rb', pos: 10 },
+                { label: '5rb', pos: 35 },
+                { label: '10rb', pos: 50 },
+                { label: '50rb', pos: 70 },
+                { label: '500rb', pos: 84 },
+                { label: '>1Jt', pos: 100 },
+              ];
+
+              return (
+                <div style={{ marginTop: '18px', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>Skala Akurasi Pengeluaran (Rupiah)</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Maks: {fmt(maxAmount)}</span>
+                  </div>
+                  
+                  {/* The continuous gradient bar */}
+                  <div style={{ position: 'relative', padding: '0 4px', marginBottom: '6px' }}>
+                    <div style={{
+                      height: '10px',
+                      borderRadius: '5px',
+                      background: `linear-gradient(to right, ${gradientStops})`,
+                      border: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                    }} />
+                    
+                    {/* Ticks and Labels */}
+                    <div style={{ position: 'relative', height: '24px', marginTop: '4px' }}>
+                      {ticks.map((tick, idx) => (
+                        <div key={idx} style={{
+                          position: 'absolute',
+                          left: `${tick.pos}%`,
+                          transform: 'translateX(-50%)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                        }}>
+                          <div style={{ width: '1px', height: '4px', background: 'var(--text-muted)', opacity: 0.5, marginBottom: '2px' }} />
+                          <span style={{ whiteSpace: 'nowrap' }}>{tick.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
