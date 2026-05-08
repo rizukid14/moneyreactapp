@@ -1,37 +1,42 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
 
 :root {
-  /* Premium HSL Color Palette - Blue, Orange, Gray */
+  /* Premium HSL Color Palette - Indigo-Blue, Warm Amber, Harmonious Slate */
   --p-h: 215;
-  /* Primary Hue (Blue) */
-  --s-h: 35;
-  /* Secondary Hue (Orange) */
+  /* Primary Hue (Indigo Blue) */
+  --s-h: 38;
+  /* Secondary Hue (Warm Amber/Gold) */
   --n-h: 220;
-  /* Neutral Hue (Gray) */
+  /* Neutral Hue (Sleek Slate Gray) */
 
-  --primary: hsl(var(--p-h), 85%, 58%);
-  --primary-glow: hsla(var(--p-h), 85%, 58%, 0.2);
-  --primary-gradient: linear-gradient(135deg, hsl(var(--p-h), 85%, 58%), hsl(var(--p-h), 85%, 48%));
-  --secondary: hsl(var(--s-h), 90%, 52%);
-  --secondary-glow: hsla(var(--s-h), 90%, 52%, 0.2);
-  --secondary-gradient: linear-gradient(135deg, hsl(var(--s-h), 90%, 52%), hsl(var(--s-h), 90%, 42%));
-  --success: hsl(152, 70%, 42%);
-  --danger: hsl(350, 80%, 58%);
+  --primary: hsl(var(--p-h), 80%, 54%);
+  --primary-glow: hsla(var(--p-h), 80%, 54%, 0.15);
+  --primary-gradient: linear-gradient(135deg, hsl(var(--p-h), 80%, 54%), hsl(var(--p-h), 80%, 44%));
+  
+  --secondary: hsl(var(--s-h), 85%, 50%);
+  --secondary-glow: hsla(var(--s-h), 85%, 50%, 0.15);
+  --secondary-gradient: linear-gradient(135deg, hsl(var(--s-h), 85%, 50%), hsl(var(--s-h), 85%, 40%));
+  
+  --success: hsl(145, 65%, 43%);
+  --success-glow: hsla(145, 65%, 43%, 0.15);
+  --danger: hsl(355, 75%, 54%);
+  --danger-glow: hsla(355, 75%, 54%, 0.15);
 
-  --bg-main: hsl(var(--n-h), 15%, 97%);
-  --bg-card: hsl(0, 0%, 100%);
-  --bg-card-solid: hsl(0, 0%, 100%);
+  /* Light Theme - Harmonized slate background and tinted cards */
+  --bg-main: hsl(var(--n-h), 22%, 96.5%);
+  --bg-card: hsl(var(--n-h), 20%, 99.2%);
+  --bg-card-solid: hsl(var(--n-h), 20%, 99.2%);
 
-  --text-main: hsl(var(--n-h), 30%, 15%);
-  --text-muted: hsl(var(--n-h), 12%, 55%);
+  --text-main: hsl(var(--n-h), 35%, 15%);
+  --text-muted: hsl(var(--n-h), 15%, 42%); /* Darkened from 52% → 42% for 4.5:1 WCAG contrast */
 
-  --border-color: hsl(var(--n-h), 15%, 92%);
-  --glass-bg: hsla(0, 0%, 100%, 0.8);
-  --glass-border: hsl(var(--n-h), 15%, 92%);
+  --border-color: hsl(var(--n-h), 18%, 91%);
+  --glass-bg: hsla(var(--n-h), 20%, 99.2%, 0.85);
+  --glass-border: hsl(var(--n-h), 18%, 91%);
 
-  --bg-expense: hsla(350, 80%, 58%, 0.08);
-  --bg-income: hsla(var(--p-h), 85%, 58%, 0.08);
-  --bg-neutral: hsla(var(--n-h), 10%, 50%, 0.06);
+  --bg-expense: hsla(355, 75%, 54%, 0.06);
+  --bg-income: hsla(var(--p-h), 80%, 54%, 0.06);
+  --bg-neutral: hsla(var(--n-h), 15%, 50%, 0.05);
 
   --radius-sm: 14px;
   --radius-md: 18px;
@@ -60,18 +65,19 @@
 }
 
 .dark {
+  /* Dark Theme - Highly immersive oceanic obsidian */
   --bg-main: hsl(var(--n-h), 30%, 5%);
-  --bg-card: hsl(var(--n-h), 25%, 10%);
-  --bg-card-solid: hsl(var(--n-h), 25%, 10%);
-  --text-main: hsl(var(--n-h), 10%, 95%);
-  --text-muted: hsl(var(--n-h), 10%, 55%);
-  --border-color: hsl(var(--n-h), 20%, 18%);
-  --glass-bg: hsla(var(--n-h), 25%, 10%, 0.9);
-  --glass-border: hsl(var(--n-h), 20%, 18%);
+  --bg-card: hsl(var(--n-h), 22%, 10%);
+  --bg-card-solid: hsl(var(--n-h), 22%, 10%);
+  --text-main: hsl(var(--n-h), 15%, 95%);
+  --text-muted: hsl(var(--n-h), 10%, 58%);
+  --border-color: hsl(var(--n-h), 18%, 17%);
+  --glass-bg: hsla(var(--n-h), 22%, 10%, 0.85);
+  --glass-border: hsl(var(--n-h), 18%, 17%);
 
-  --bg-expense: hsla(350, 80%, 58%, 0.12);
-  --bg-income: hsla(var(--p-h), 85%, 58%, 0.12);
-  --bg-neutral: hsla(0, 0%, 100%, 0.05);
+  --bg-expense: hsla(355, 75%, 54%, 0.12);
+  --bg-income: hsla(var(--p-h), 80%, 54%, 0.12);
+  --bg-neutral: hsla(var(--n-h), 15%, 90%, 0.05);
 }
 
 * {
@@ -80,8 +86,22 @@
   padding: 0;
 }
 
+button, a, [role="button"] {
+  touch-action: manipulation; /* Removes 300ms tap delay on mobile (UX audit T4) */
+}
+
 button, .card, .nav-item, .fab-mini, .close-btn, .btn-icon, .budget-card-v2 {
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Respect OS accessibility setting: prefers-reduced-motion (UX audit A4) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 html, body, #root {
@@ -91,6 +111,7 @@ html, body, #root {
 
 body {
   font-family: var(--font-family);
+  line-height: 1.5; /* Global readable line-height (UX audit C3) */
   background-color: var(--bg-main);
   background-image: 
     radial-gradient(at 0% 0%, hsla(var(--p-h), 85%, 58%, 0.05) 0px, transparent 50%),
@@ -339,18 +360,20 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  gap: 3px;
   color: var(--text-muted);
   text-decoration: none;
-  font-size: 9px;
+  font-size: 11px; /* Increased from 9px → 11px for readability (UX audit C2) */
   font-weight: 600;
   transition: color 0.15s ease;
-  padding: 0 2px;
+  padding: 6px 2px; /* Added vertical padding for touch target (UX audit T1) */
+  min-height: 44px; /* Minimum touch target height (UX audit T1) */
 }
 
 .nav-item svg {
-  width: 18px;
-  height: 18px;
+  width: 20px; /* Slightly larger icon to match increased label size */
+  height: 20px;
 }
 
 .nav-item.active {
@@ -670,8 +693,8 @@ textarea:focus {
   box-shadow: 0 4px 24px rgba(0,0,0,0.06);
   transition: border-color 0.3s;
 }
-.budget-hero-card.warning { border-color: #f59e0b; box-shadow: 0 4px 24px rgba(245,158,11,0.12); }
-.budget-hero-card.danger  { border-color: var(--danger); box-shadow: 0 4px 24px rgba(239,68,68,0.12); }
+.budget-hero-card.warning { border-color: var(--secondary); box-shadow: 0 4px 24px var(--secondary-glow); }
+.budget-hero-card.danger  { border-color: var(--danger); box-shadow: 0 4px 24px var(--danger-glow); }
 
 .budget-card-v2 {
   background: var(--bg-card);
@@ -752,14 +775,14 @@ textarea:focus {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  background: linear-gradient(135deg, hsla(350, 80%, 58%, 0.12), hsla(350, 80%, 58%, 0.05));
-  border: 1.5px solid hsla(350, 80%, 58%, 0.25);
+  background: linear-gradient(135deg, hsla(355, 75%, 54%, 0.12), hsla(355, 75%, 54%, 0.05));
+  border: 1.5px solid hsla(355, 75%, 54%, 0.25);
   backdrop-filter: blur(8px);
   border-radius: 18px;
   padding: 16px;
   margin-bottom: 20px;
   animation: slideInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.08);
+  box-shadow: 0 8px 24px hsla(355, 75%, 54%, 0.08);
 }
 .budget-alert-banner .ba-icon { 
   color: var(--danger); 
@@ -808,8 +831,8 @@ textarea:focus {
 }
 
 .quota-banner.success {
-  background: hsla(152, 70%, 42%, 0.1);
-  border-color: hsla(152, 70%, 42%, 0.3);
+  background: var(--bg-income);
+  border-color: hsla(145, 65%, 43%, 0.3);
 }
 
 .quota-banner-content {
@@ -887,4 +910,52 @@ textarea:focus {
 
 .fade-in {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* ── Bento Grid Responsive SVG Rules ── */
+.bento-topo-container {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  pointer-events: none;
+}
+
+.bento-topo-container svg {
+  width: 90px;
+  height: auto;
+  transition: all 0.2s ease;
+}
+
+.bento-robot-container {
+  position: absolute;
+  right: -8px;
+  top: 12px;
+  pointer-events: none;
+}
+
+.bento-robot-container svg {
+  width: 105px;
+  height: auto;
+  transform: scale(1.15);
+  transform-origin: top right;
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 480px) {
+  .bento-topo-container {
+    right: -12px;
+    bottom: -12px;
+  }
+  .bento-topo-container svg {
+    width: 68px; /* Beautifully compact on mobile */
+  }
+
+  .bento-robot-container {
+    right: -10px;
+    top: 18px;
+  }
+  .bento-robot-container svg {
+    width: 75px; /* Fits comfortably inside smaller cards on mobile */
+    transform: scale(1);
+  }
 }

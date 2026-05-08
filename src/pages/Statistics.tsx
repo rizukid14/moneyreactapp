@@ -124,14 +124,23 @@ const Statistics: React.FC = () => {
       });
     });
 
-    // Sort logic for pie chart slices
-    const expenseData = drillDownCategory?.type === 'pengeluaran' 
+    const limitSlices = (data: {name: string, value: number}[]) => {
+      if (data.length <= 5) return data;
+      const top4 = data.slice(0, 4);
+      const othersValue = data.slice(4).reduce((sum, item) => sum + item.value, 0);
+      return [...top4, { name: 'Lainnya', value: othersValue }];
+    };
+
+    const expenseDataRaw = drillDownCategory?.type === 'pengeluaran' 
       ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })).sort((a,b) => b.value - a.value)
       : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a,b) => b.value - a.value);
       
-    const incomeData = drillDownCategory?.type === 'pendapatan'
+    const incomeDataRaw = drillDownCategory?.type === 'pendapatan'
       ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] })).sort((a,b) => b.value - a.value)
       : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a,b) => b.value - a.value);
+
+    const expenseData = limitSlices(expenseDataRaw);
+    const incomeData = limitSlices(incomeDataRaw);
     
     // Prepare the list for the bottom section
     let allCategories: { id: string, category: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
@@ -448,7 +457,7 @@ const Statistics: React.FC = () => {
         {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
           <div className="card glass">
             <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
-            <div style={{ width: '100%', height: 400 }}>
+            <div style={{ width: '100%', height: 260 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie
@@ -480,7 +489,7 @@ const Statistics: React.FC = () => {
         {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
           <div className="card glass">
             <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
-            <div style={{ width: '100%', height: 400 }}>
+            <div style={{ width: '100%', height: 260 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie

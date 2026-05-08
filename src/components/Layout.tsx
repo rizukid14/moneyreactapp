@@ -8,25 +8,25 @@ const Layout: React.FC = () => {
 
   const NavItems = ({ includeDebts = false }: { includeDebts?: boolean }) => (
     <>
-      <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+      <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} aria-label="Halaman Transaksi" {...(window.location.pathname === '/' ? {'aria-current': 'page'} : {})}>
         <Home size={24} />
         <span>Transaksi</span>
       </NavLink>
-      <NavLink to="/stats" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+      <NavLink to="/stats" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} aria-label="Halaman Statistik" {...(window.location.pathname === '/stats' ? {'aria-current': 'page'} : {})}>
         <LineChart size={24} />
         <span>Statistik</span>
       </NavLink>
-      <NavLink to="/assets" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+      <NavLink to="/assets" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} aria-label="Halaman Aset" {...(window.location.pathname === '/assets' ? {'aria-current': 'page'} : {})}>
         <Wallet size={24} />
         <span>Aset</span>
       </NavLink>
       {includeDebts && (
-        <NavLink to="/debts" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <NavLink to="/debts" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} aria-label="Halaman Hutang" {...(window.location.pathname === '/debts' ? {'aria-current': 'page'} : {})}>
           <BadgeDollarSign size={24} />
           <span>Hutang</span>
         </NavLink>
       )}
-      <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+      <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} aria-label="Halaman Pengaturan" {...(window.location.pathname === '/settings' ? {'aria-current': 'page'} : {})}>
         <Settings size={24} />
         <span>Lainnya</span>
       </NavLink>
@@ -36,11 +36,12 @@ const Layout: React.FC = () => {
   return (
     <div className="app-container">
       {/* Sidebar for Desktop */}
-      <aside className={`sidebar-nav desktop-only ${isCollapsed ? 'collapsed' : ''}`}>
+      <aside className={`sidebar-nav desktop-only ${isCollapsed ? 'collapsed' : ''}`} role="navigation" aria-label="Navigasi Utama Desktop">
         <button 
           className="sidebar-toggle desktop-only" 
           onClick={() => setIsCollapsed(!isCollapsed)}
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          aria-label={isCollapsed ? "Tampilkan Sidebar" : "Sembunyikan Sidebar"}
         >
           {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </button>
@@ -60,7 +61,7 @@ const Layout: React.FC = () => {
       </main>
       
       {/* Bottom Nav for Mobile — includes all 6 items */}
-      <nav className="bottom-nav mobile-only">
+      <nav className="bottom-nav mobile-only" aria-label="Navigasi Utama Mobile">
         <NavItems includeDebts={true} />
       </nav>
 

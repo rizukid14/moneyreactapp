@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
 import { isPrincipalTx } from '../lib/utils';
 import DebtModal from '../components/modals/DebtModal';
@@ -53,14 +54,14 @@ const DebtCard: React.FC<{
 
     const remainingAmount = Number(debt.totalAmount || 0) - paidAmount;
 
-    const borderColor = debt.isPaid ? 'var(--success)' : isOverdue ? 'var(--danger)' : isDueSoon ? '#f59e0b' : 'var(--border-color)';
+    const borderColor = debt.isPaid ? 'var(--success)' : isOverdue ? 'var(--danger)' : isDueSoon ? 'var(--secondary)' : 'var(--border-color)';
 
     return (
       <div style={{
-        background: 'var(--bg-card)', borderRadius: 18, padding: 16,
+        background: 'var(--bg-card)', borderRadius: 18, padding: '16px 20px',
         border: `1.5px solid ${borderColor}`,
-        boxShadow: debt.isPaid ? 'none' : isOverdue ? '0 4px 16px rgba(239,68,68,0.1)' : '0 2px 8px rgba(0,0,0,0.04)',
-        opacity: debt.isPaid ? 0.7 : 1,
+        boxShadow: debt.isPaid ? 'none' : isOverdue ? '0 4px 16px var(--danger-glow)' : '0 4px 20px rgba(0,0,0,0.02)',
+        opacity: debt.isPaid ? 0.65 : 1,
         position: 'relative',
         cursor: 'pointer',
         transition: 'all 0.2s ease'
@@ -82,13 +83,13 @@ const DebtCard: React.FC<{
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
               <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>{debt.contact}</span>
               {debt.isPaid && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)', background: 'hsla(152,70%,42%,0.12)', padding: '1px 7px', borderRadius: 20 }}>LUNAS</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--success)', background: 'var(--success-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>LUNAS</span>
               )}
               {isOverdue && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', background: 'var(--bg-expense)', padding: '1px 7px', borderRadius: 20 }}>JATUH TEMPO</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--danger)', background: 'var(--danger-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>JATUH TEMPO</span>
               )}
               {isDueSoon && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: 'hsla(38,90%,60%,0.12)', padding: '1px 7px', borderRadius: 20 }}>SEGERA</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--secondary)', background: 'var(--secondary-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>SEGERA</span>
               )}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{debt.description || (isHutang ? 'Hutang' : 'Piutang')}</div>
@@ -165,7 +166,7 @@ const DebtCard: React.FC<{
             {debt.dueDate && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Clock size={11} />
-                <span style={{ color: isOverdue ? 'var(--danger)' : isDueSoon ? '#f59e0b' : 'inherit' }}>
+                <span style={{ color: isOverdue ? 'var(--danger)' : isDueSoon ? 'var(--secondary)' : 'inherit' }}>
                   {isOverdue
                     ? `Telat ${Math.abs(daysLeft!)} hari`
                     : daysLeft === 0 ? 'Jatuh tempo hari ini'
@@ -369,13 +370,41 @@ const Debts: React.FC = () => {
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-        <div style={{ background: 'hsla(350,80%,58%,0.18)', borderRadius: 16, padding: '14px 16px' }}>
+        <div style={{
+          background: 'var(--bg-card)',
+          borderRadius: 16,
+          padding: '16px',
+          border: '1.5px solid var(--border-color)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            position: 'absolute',
+            left: 0, top: 0, bottom: 0,
+            width: 4,
+            background: 'var(--danger)'
+          }} />
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Hutang</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)' }}>{fmt(summary.totalHutang, currencySymbol)}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(summary.totalHutang, currencySymbol)}</div>
         </div>
-        <div style={{ background: 'hsla(215,85%,58%,0.18)', borderRadius: 16, padding: '14px 16px' }}>
+        <div style={{
+          background: 'var(--bg-card)',
+          borderRadius: 16,
+          padding: '16px',
+          border: '1.5px solid var(--border-color)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            position: 'absolute',
+            left: 0, top: 0, bottom: 0,
+            width: 4,
+            background: 'var(--primary)'
+          }} />
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Piutang</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--primary)' }}>{fmt(summary.totalPiutang, currencySymbol)}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(summary.totalPiutang, currencySymbol)}</div>
         </div>
       </div>
 
@@ -385,13 +414,13 @@ const Debts: React.FC = () => {
           display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
           borderRadius: 12, marginBottom: 12,
           background: summary.net >= 0 ? 'var(--bg-income)' : 'var(--bg-expense)',
-          border: `1px solid ${summary.net >= 0 ? 'hsla(215, 69%, 50%, 0.67)' : 'hsla(350, 80%, 58%, 0.78)'}`,
+          border: `1px solid ${summary.net >= 0 ? 'hsla(var(--p-h), 80%, 54%, 0.25)' : 'hsla(355, 75%, 54%, 0.25)'}`,
         }}>
           <ChevronRight size={14} color={summary.net >= 0 ? 'var(--primary)' : 'var(--danger)'} />
           <span style={{ fontSize: 13, fontWeight: 700, color: summary.net >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
             {summary.net >= 0
-              ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
-              : `Neto: kamu berhutang lebih banyak ${fmt(summary.net, currencySymbol)}`}
+               ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
+               : `Neto: kamu berhutang lebih banyak ${fmt(summary.net, currencySymbol)}`}
           </span>
         </div>
       )}
@@ -434,20 +463,40 @@ const Debts: React.FC = () => {
       )}
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, background: 'var(--bg-neutral)', borderRadius: 12, padding: 4 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, background: 'var(--bg-neutral)', borderRadius: 12, padding: 4, position: 'relative' }}>
         {([['all', 'Aktif'], ['hutang', 'Hutang'], ['piutang', 'Piutang'], ['lunas', 'Lunas']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setFilter(key)}
             style={{
-              flex: 1, padding: '7px 0', borderRadius: 9, border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-              background: filter === key ? 'var(--bg-card)' : 'transparent',
+              flex: 1,
+              padding: '8px 0',
+              borderRadius: 8,
+              border: 'none',
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: 'pointer',
+              background: 'transparent',
               color: filter === key ? 'var(--text-main)' : 'var(--text-muted)',
-              boxShadow: filter === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-              transition: 'all 0.15s',
+              position: 'relative',
+              transition: 'color 0.2s ease',
             }}
           >
-            {label}
+            {filter === key && (
+              <motion.div
+                layoutId="activeDebtFilter"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'var(--bg-card)',
+                  borderRadius: 8,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                  zIndex: 1,
+                }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <span style={{ position: 'relative', zIndex: 2 }}>{label}</span>
           </button>
         ))}
       </div>
