@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ArrowRightLeft, AlertTriangle, Calculator, Folder, ChevronRight, Wallet } from 'lucide-react';
+import { X, ArrowRightLeft, AlertTriangle, Calculator, Folder, ChevronRight, Wallet, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Asset, RecurringTransaction, Transaction } from '../../contexts/MoneyContext';
 import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
+import GoalSelectModal from './GoalSelectModal';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
 
@@ -26,7 +27,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories, budgets, transactions, defaultAssetId, currencySymbol } = useMoney();
+  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals } = useMoney();
   const { showToast } = useToast();
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [amount, setAmount] = useState('');
@@ -39,10 +40,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [assetSelectingField, setAssetSelectingField] = useState<'assetId' | 'fromAssetId' | 'toAssetId'>('assetId');
   const [assetId, setAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [fromAssetId, setFromAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
+  const [goalId, setGoalId] = useState<string | undefined>(undefined);
 
   // Recurring state
   const [isRecurring, setIsRecurring] = useState(false);
@@ -78,6 +81,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setAssetId(editingTransaction.assetId || activeAssets[0]?.id || '');
       setFromAssetId(editingTransaction.fromAssetId || activeAssets[0]?.id || '');
       setToAssetId(editingTransaction.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
+      setGoalId(editingTransaction.goalId);
 
       // Initialize admin fee state for transfers
       if (editingTransaction.type === 'transfer') {
@@ -121,6 +125,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setAssetId(defaultAssetId || activeAssets[0]?.id || '');
         setFromAssetId(defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
+        setGoalId(undefined);
         setIsRecurring(false);
         setRecurringEndDate('');
       }
@@ -159,7 +164,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     if (isOpen && !editingTransaction && !isSavingRef.current) {
       const currentDraft = {
         type, amount, category, subCategory, date, time, note, description,
-        assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate
+        assetId, fromAssetId, toAssetId, goalId, isRecurring, frequency, recurringEndDate
       };
       setAllDrafts(prev => {
         const next = { ...prev, [type]: currentDraft };
@@ -261,11 +266,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       subCategory: type === 'transfer' ? undefined : (subCategory || undefined),
       date,
       time,
-      note,
-      description: description || undefined,
+      note: note.trim(),
+      description: description.trim() || undefined,
       assetId: type !== 'transfer' ? assetId : undefined,
       fromAssetId: type === 'transfer' ? fromAssetId : undefined,
       toAssetId: type === 'transfer' ? toAssetId : undefined,
+      goalId,
     };
 
     if (editingTransaction && updateTransaction && !isCopyMode) {
@@ -339,6 +345,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setSubCategory('');
       setNote('');
       setIsRecurring(false);
+      setGoalId(undefined);
       setAdminFee('');
       setAdminFeeTarget('sender');
 
@@ -515,6 +522,33 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             </button>
                           );
                         })()}
+
+                        {/* Goal Selector (for pendapatan / pengeluaran) */}
+                        {goals.length > 0 && (
+                          <div style={{ marginBottom: '16px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block', letterSpacing: '0.04em' }}>
+                              Hubungkan ke Tabungan (Opsional)
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setIsGoalModalOpen(true)}
+                              style={{
+                                width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
+                                border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Target size={18} color="var(--primary)" />
+                                <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
+                                  {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
+                                </span>
+                              </div>
+                              <ChevronRight size={18} color="var(--text-muted)" />
+                            </button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
@@ -571,6 +605,33 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           );
                         })()}
                       </div>
+
+                      {/* Goal Selector (within transfer) */}
+                      {goals.length > 0 && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block', letterSpacing: '0.04em' }}>
+                            Hubungkan ke Tabungan (Opsional)
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsGoalModalOpen(true)}
+                            style={{
+                              width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
+                              border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <Target size={18} color="var(--primary)" />
+                              <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
+                                {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
+                              </span>
+                            </div>
+                            <ChevronRight size={18} color="var(--text-muted)" />
+                          </button>
+                        </div>
+                      )}
 
                       {/* Admin Fee Section */}
                       <div style={{
@@ -806,6 +867,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           else if (assetSelectingField === 'fromAssetId') setFromAssetId(id);
           else setToAssetId(id);
         }}
+      />
+
+      <GoalSelectModal
+        isOpen={isGoalModalOpen}
+        onClose={() => setIsGoalModalOpen(false)}
+        goals={goals}
+        selectedGoalId={goalId}
+        onSelect={(id) => setGoalId(id)}
       />
     </>
   );

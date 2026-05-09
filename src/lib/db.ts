@@ -1,11 +1,11 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { collection, doc, getDocs, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db as firestore, isFirebaseConfigured } from './firebase';
-import type { Asset, Transaction, Category, UserProfile, Contact } from '../contexts/MoneyContext';
+import type { Asset, Transaction, Category, UserProfile, Contact, Goal } from '../contexts/MoneyContext';
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 6;
+const DB_VERSION = 8;
 
 export interface SyncItem {
   id: string;
@@ -23,6 +23,7 @@ export interface MoneyAppDB {
   debts: { key: string; value: any };
   recurring_transactions: { key: string; value: any };
   contacts: { key: string; value: Contact };
+  goals: { key: string; value: Goal };
   settings: { key: string; value: string | number | boolean | UserProfile | null };
   pending_sync: { key: string; value: SyncItem };
 }
@@ -40,6 +41,7 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('debts')) db.createObjectStore('debts', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('recurring_transactions')) db.createObjectStore('recurring_transactions', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('contacts')) db.createObjectStore('contacts', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('goals')) db.createObjectStore('goals', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
         if (!db.objectStoreNames.contains('pending_sync')) db.createObjectStore('pending_sync', { keyPath: 'id' });
       },
@@ -52,6 +54,7 @@ export const localDbGetAllAssets = async (): Promise<Asset[]> => (await getDB())
 export const localDbGetAllTransactions = async (): Promise<Transaction[]> => (await getDB()).getAll('transactions');
 export const localDbGetAllCategories = async (): Promise<Category[]> => (await getDB()).getAll('categories');
 export const localDbGetAllBudgets = async (): Promise<any[]> => (await getDB()).getAll('budgets');
+export const localDbGetAllGoals = async (): Promise<Goal[]> => (await getDB()).getAll('goals');
 export const localDbGetSetting = async (key: string) => (await getDB()).get('settings', key);
 
 // ─── FIRESTORE (Cloud Sync) ──────────────────────────────────────────────────
@@ -162,6 +165,7 @@ export const dbForceCloudSync = async (): Promise<{ total: number }> => {
       ['debts', 'debts'],
       ['recurring_transactions', 'recurring_transactions'],
       ['contacts', 'contacts'],
+      ['goals', 'goals'],
     ];
 
     for (const [fsCol, idbStore] of collections) {
@@ -421,6 +425,39 @@ export const dbDeleteContact = async (id: string) => {
     .catch(() => { });
 };
 
+// ─── Goals ────────────────────────────────────────────────────────────────────
+export const dbGetAllGoals = async (): Promise<Goal[]> => {
+  const local = await localDbGetAllGoals();
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
+  try {
+    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'goals')));
+    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Goal));
+    const db = await getDB();
+    for (const item of cloud) await db.put('goals', item);
+    return cloud;
+  } catch (e) { return local; }
+};
+
+export const dbPutGoal = async (goal: Goal) => {
+  await (await getDB()).put('goals', goal);
+  await recordPendingSync({ id: goal.id, collection: 'goals', operation: 'PUT', data: goal });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'goals', goal.id), sanitizeForFirestore(goal))
+    .then(() => removePendingSync(goal.id))
+    .catch(() => { });
+};
+
+export const dbDeleteGoal = async (id: string) => {
+  await (await getDB()).delete('goals', id);
+  await recordPendingSync({ id, collection: 'goals', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'goals', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 export const dbGetSetting = async (key: string) => {
   const local = await localDbGetSetting(key);
@@ -458,14 +495,14 @@ export const dbDeleteSetting = async (key: string) => {
 
 // ─── Export/Import ───────────────────────────────────────────────────────────
 export const dbExportAll = async () => {
-  const [assets, transactions, categories, budgets, recurring, debts] = await Promise.all([
+  const [assets, transactions, categories, budgets, recurring, debts, goals] = await Promise.all([
     dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(),
-    dbGetAllBudgets(), dbGetAllRecurringTransactions(), dbGetAllDebts()
+    dbGetAllBudgets(), dbGetAllRecurringTransactions(), dbGetAllDebts(), dbGetAllGoals()
   ]);
   const user = await dbGetSetting('user');
   const pin = await dbGetSetting('pin');
   const theme = await dbGetSetting('theme');
-  return { assets, transactions, categories, budgets, recurring, debts, user, pin, theme, exportedAt: new Date().toISOString() };
+  return { assets, transactions, categories, budgets, recurring, debts, goals, user, pin, theme, exportedAt: new Date().toISOString() };
 };
 
 export const dbImportAll = async (data: any) => {
@@ -475,6 +512,7 @@ export const dbImportAll = async (data: any) => {
   if (data.debts) for (const d of data.debts) await dbPutDebt(d);
   if (data.recurring) for (const r of data.recurring) await dbPutRecurringTransaction(r);
   if (data.budgets) for (const b of data.budgets) await dbPutBudget(b);
+  if (data.goals) for (const g of data.goals) await dbPutGoal(g);
   if (data.user) await dbPutSetting('user', data.user);
   if (data.pin) await dbPutSetting('pin', data.pin);
 };
@@ -512,9 +550,10 @@ export const migrateFromIndexedDBToFirebase = async (): Promise<boolean> => {
   try {
     const isMigrated = await dbGetSetting('idb_to_firebase_migrated');
     if (isMigrated) return false;
-    const [assets, txs, cats, budgets, debts, recurring] = await Promise.all([
+    const [assets, txs, cats, budgets, debts, recurring, goals] = await Promise.all([
       localDbGetAllAssets(), localDbGetAllTransactions(), localDbGetAllCategories(),
-      localDbGetAllBudgets(), localDbGetAllDebts(), (await getDB()).getAll('recurring_transactions')
+      localDbGetAllBudgets(), localDbGetAllDebts(), (await getDB()).getAll('recurring_transactions'),
+      localDbGetAllGoals()
     ]);
     const promises: Promise<any>[] = [];
     assets.forEach(a => promises.push(dbPutAsset(a)));
@@ -523,6 +562,7 @@ export const migrateFromIndexedDBToFirebase = async (): Promise<boolean> => {
     budgets.forEach(b => promises.push(dbPutBudget(b)));
     debts.forEach(d => promises.push(dbPutDebt(d)));
     recurring.forEach(r => promises.push(dbPutRecurringTransaction(r)));
+    goals.forEach(g => promises.push(dbPutGoal(g)));
     await Promise.all(promises);
     await dbPutSetting('idb_to_firebase_migrated', true);
     return true;

@@ -10,6 +10,7 @@ import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
 import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/excelImport';
 import { BudgetManagement } from '../components/BudgetManagement';
+import { GoalManagement } from '../components/GoalManagement';
 import { QuotaBanner } from '../components/QuotaBanner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
@@ -241,6 +242,7 @@ const Settings: React.FC = () => {
   const [newContactNote, setNewContactNote] = useState('');
   const [editingContact, setEditingContact] = useState<string | null>(null);
   const [contactSearchQuery, setContactSearchQuery] = useState('');
+  const [budgetTab, setBudgetTab] = useState<'budget' | 'goal'>('budget');
 
   const profileStats = React.useMemo(() => {
     const netWorth = assets.filter(a => !a.isDeleted).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
@@ -290,7 +292,7 @@ const Settings: React.FC = () => {
     { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
     { id: 'contacts', icon: BookUser, label: 'Kontak' },
     { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
-    { id: 'budgets', icon: Target, label: 'Anggaran & Target' },
+    { id: 'budgets', icon: Target, label: 'Budgeting & Goals' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
     { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
     { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
@@ -1448,11 +1450,41 @@ const Settings: React.FC = () => {
       case 'budgets':
         return (
           <>
-            <div className="modal-header">
-              <h2 className="subtitle">Anggaran & Target</h2>
+            <div className="modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <h2 className="subtitle">Budgeting & Goals</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            <BudgetManagement />
+
+            <div style={{ display: 'flex', gap: '8px', margin: '16px 0', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setBudgetTab('budget')}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13px',
+                  background: budgetTab === 'budget' ? 'var(--bg-card)' : 'transparent',
+                  color: budgetTab === 'budget' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: budgetTab === 'budget' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  cursor: 'pointer', transition: 'all 0.2s'
+                }}
+              >
+                Anggaran
+              </button>
+              <button
+                type="button"
+                onClick={() => setBudgetTab('goal')}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13px',
+                  background: budgetTab === 'goal' ? 'var(--bg-card)' : 'transparent',
+                  color: budgetTab === 'goal' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: budgetTab === 'goal' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  cursor: 'pointer', transition: 'all 0.2s'
+                }}
+              >
+                Tabungan
+              </button>
+            </div>
+
+            {budgetTab === 'budget' ? <BudgetManagement /> : <GoalManagement />}
           </>
         );
 

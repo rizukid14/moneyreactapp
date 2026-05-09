@@ -6,6 +6,7 @@ import {
   dbGetAllCategories, dbPutCategory, dbDeleteCategory,
   dbGetAllBudgets, dbPutBudget, dbDeleteBudget,
   dbGetAllDebts, dbPutDebt, dbDeleteDebt,
+  dbGetAllGoals, dbPutGoal, dbDeleteGoal,
   dbGetSetting, dbPutSetting, dbDeleteSetting,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
@@ -81,6 +82,16 @@ export interface Debt {
   sourceAssetId?: string;        // DEPRECATED - prefer paymentAssetId for simplicity; added for schema compatibility if needed
 }
 
+export interface Goal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  targetDate: string; // YYYY-MM-DD
+  createdAt: string;
+  assetId?: string;
+  isCompleted: boolean;
+}
+
 export interface Transaction {
   id: string;
   type: 'pengeluaran' | 'pendapatan' | 'transfer';
@@ -95,6 +106,7 @@ export interface Transaction {
   fromAssetId?: string;
   toAssetId?: string;
   relatedId?: string; // Links to Debt.id, etc.
+  goalId?: string; // Links to Goal.id
 }
 
 export interface Contact {
@@ -152,6 +164,7 @@ interface MoneyContextType {
   categories: Category[];
   budgets: Budget[];
   debts: Debt[];
+  goals: Goal[];
   contacts: Contact[];
   recurringTransactions: RecurringTransaction[];
   user: UserProfile;
@@ -186,6 +199,9 @@ interface MoneyContextType {
   updateRecurringTransaction: (id: string, rt: Partial<RecurringTransaction>) => void;
   deleteRecurringTransaction: (id: string) => void;
   payInstallment: (debtId: string) => void;
+  addGoal: (goal: Omit<Goal, 'id' | 'createdAt' | 'isCompleted'>) => void;
+  updateGoal: (id: string, goal: Partial<Goal>) => void;
+  deleteGoal: (id: string) => void;
   settleDebt: (debtId: string, assetId?: string, date?: string, time?: string, amount?: number) => void;
   addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   addDebtPrincipal: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
@@ -232,6 +248,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [categories, setCategories] = useState<Category[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
@@ -278,15 +295,17 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await migrateFromLocalStorage();
 
       // Load all data from IndexedDB
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRecurring, dbContacts] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals, dbRecurring, dbContacts] = await Promise.all([
         dbGetAllAssets(),
         dbGetAllTransactions(),
         dbGetAllCategories(),
         dbGetAllBudgets(),
         dbGetAllDebts(),
+        dbGetAllGoals(),
         import('../lib/db').then(m => m.dbGetAllRecurringTransactions()),
         import('../lib/db').then(m => m.dbGetAllContacts()),
       ]);
+      setGoals(dbGoals);
       setRecurringTransactions(dbRecurring);
       setContacts(dbContacts);
 
@@ -308,6 +327,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       setBudgets(dbBudgets);
       setDebts(dbDebts as Debt[]);
+      setGoals(dbGoals as Goal[]);
       setTransactions(dbTxs);
 
       // Load settings
@@ -398,14 +418,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const results = await dbSyncPendingItems();
     if (results.success > 0) {
       // Reload data if anything was synced
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts] = await Promise.all([
-        dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(), dbGetAllBudgets(), dbGetAllDebts(),
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals] = await Promise.all([
+        dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(), dbGetAllBudgets(), dbGetAllDebts(), dbGetAllGoals(),
       ]);
       setAssets(dbAssets);
       setTransactions(dbTxs);
       setCategories(dbCats);
       setBudgets(dbBudgets);
       setDebts(dbDebts as Debt[]);
+      setGoals(dbGoals as Goal[]);
     }
     await refreshSyncCount();
     return results;
@@ -647,6 +668,41 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setBudgets(prev => prev.filter(b => b.id !== id));
     dbDeleteBudget(id);
   }, []);
+
+  // ─── Goals ──────────────────────────────────────────────────────────────
+  const addGoal = useCallback((goalReq: Omit<Goal, 'id' | 'createdAt' | 'isCompleted'>) => {
+    const newGoal: Goal = { 
+      ...goalReq, 
+      id: generateId(), 
+      createdAt: new Date().toISOString(), 
+      isCompleted: false 
+    };
+    setGoals(prev => [...prev, newGoal]);
+    dbPutGoal(newGoal).then(refreshSyncCount);
+  }, [refreshSyncCount]);
+
+  const updateGoal = useCallback((id: string, updatedGoal: Partial<Goal>) => {
+    setGoals(prev => prev.map(g => {
+      if (g.id !== id) return g;
+      const updated = { ...g, ...updatedGoal } as Goal;
+      dbPutGoal(updated).then(refreshSyncCount);
+      return updated;
+    }));
+  }, [refreshSyncCount]);
+
+  const deleteGoal = useCallback((id: string) => {
+    // Unlink transactions
+    setTransactions(prev => prev.map(tx => {
+      if (tx.goalId === id) {
+        const updated = { ...tx, goalId: undefined };
+        dbPutTransaction(updated);
+        return updated;
+      }
+      return tx;
+    }));
+    setGoals(prev => prev.filter(g => g.id !== id));
+    dbDeleteGoal(id).then(refreshSyncCount);
+  }, [refreshSyncCount]);
 
   // ─── Debts ──────────────────────────────────────────────────────────────
   const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryName?: string, subCategoryName?: string) => {
@@ -1307,9 +1363,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
-    isReady, assets, transactions, categories, budgets, debts, contacts,
+    isReady, assets, transactions, categories, budgets, debts, contacts, goals,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    addContact, updateContact, deleteContact,
+    addContact, updateContact, deleteContact, addGoal, updateGoal, deleteGoal,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle,
@@ -1321,9 +1377,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
   }), [
-    isReady, assets, transactions, categories, budgets, debts, contacts,
+    isReady, assets, transactions, categories, budgets, debts, contacts, goals,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
-    addContact, updateContact, deleteContact,
+    addContact, updateContact, deleteContact, addGoal, updateGoal, deleteGoal,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle,
