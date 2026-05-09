@@ -3,6 +3,7 @@ import { X, Trash2, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getLocalDate } from '../../lib/utils';
 import type { Asset, AssetType, Transaction } from '../../contexts/MoneyContext';
+import { useToast } from '../common/Toast';
 import ConfirmDialog from '../common/ConfirmDialog';
 
 interface AssetModalProps {
@@ -15,9 +16,14 @@ interface AssetModalProps {
   addTransaction?: (tx: Omit<Transaction, 'id'>) => void;
   onDelete?: (id: string) => void;
   currencySymbol: string;
+  existingAssets: Asset[];
 }
 
-const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, updateAsset, editingAsset, currentBalance, addTransaction, onDelete, currencySymbol }) => {
+const AssetModal: React.FC<AssetModalProps> = ({ 
+  isOpen, onClose, addAsset, updateAsset, editingAsset, 
+  currentBalance, addTransaction, onDelete, currencySymbol, existingAssets 
+}) => {
+  const { showToast } = useToast();
   const [name, setName] = useState('');
   const [type, setType] = useState<AssetType>('Cash');
   const [initialBalance, setInitialBalance] = useState('');
@@ -78,8 +84,21 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return;
+
+    // Validation: Check if name already exists (case-insensitive)
+    const isDuplicate = existingAssets.some(a => 
+      a.name.toLowerCase() === name.trim().toLowerCase() && 
+      (!editingAsset || a.id !== editingAsset.id)
+    );
+
+    if (isDuplicate) {
+      showToast('Nama rekening sudah ada!', 'warning');
+      return;
+    }
+
     const assetData = {
-      name,
+      name: name.trim(),
       type,
       initialBalance: parseNumber(initialBalance),
       isHidden,
@@ -119,6 +138,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
+            style={{ zIndex: 4000 }}
           >
             <motion.div 
               className="modal-content" 

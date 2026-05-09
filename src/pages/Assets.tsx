@@ -557,6 +557,7 @@ const Assets: React.FC = () => {
         addTransaction={addTransaction}
         onDelete={deleteAsset}
         currencySymbol={currencySymbol}
+        existingAssets={assets}
       />
 
       {/* Asset detail drawer */}

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Target, Calculator } from 'lucide-react';
+import { X, Target, Calculator, Folder, ChevronRight } from 'lucide-react';
 import { type Category, type Budget } from '../../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalculatorModal from './CalculatorModal';
+import CategorySelectModal from './CategorySelectModal';
 import { useToast } from '../common/Toast';
 
 interface BudgetModalProps {
@@ -25,6 +26,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
   const [categoryId, setCategoryId] = useState<string | 'total'>('total');
   const [limit, setLimit] = useState('');
   const [isCalcOpen, setIsCalcOpen] = useState(false);
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
 
   useEffect(() => {
     if (editingBudget) {
@@ -79,6 +81,8 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
     onClose();
   };
 
+  const selectedCategory = categoryId === 'total' ? null : categories.find(c => c.id === categoryId);
+
   return (
     <>
       <AnimatePresence>
@@ -111,17 +115,47 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
                   Pilih Target Anggaran
                 </label>
-                <select 
-                  required 
-                  value={categoryId} 
-                  onChange={e => setCategoryId(e.target.value)}
-                  disabled={!!editingBudget}
-                >
-                  <option value="total">-- Total Anggaran (Global) --</option>
-                  {categories.filter(c => c.type === 'pengeluaran').map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryId('total')}
+                    style={{
+                      width: '100%', padding: '12px 16px', borderRadius: '12px',
+                      background: categoryId === 'total' ? 'var(--bg-income)' : 'var(--bg-main)',
+                      border: `1.5px solid ${categoryId === 'total' ? 'var(--primary)' : 'var(--border-color)'}`,
+                      color: categoryId === 'total' ? 'var(--primary)' : 'var(--text-main)',
+                      fontWeight: categoryId === 'total' ? 700 : 500, fontSize: '14px', textAlign: 'left',
+                      cursor: editingBudget ? 'not-allowed' : 'pointer'
+                    }}
+                    disabled={!!editingBudget}
+                  >
+                    -- Total Anggaran (Global) --
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCatModalOpen(true)}
+                    disabled={!!editingBudget}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', background: categoryId !== 'total' ? 'var(--bg-income)' : 'var(--bg-main)',
+                      border: `1.5px solid ${categoryId !== 'total' ? 'var(--primary)' : 'var(--border-color)'}`,
+                      borderRadius: '12px', cursor: editingBudget ? 'not-allowed' : 'pointer', textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Folder size={18} color={categoryId !== 'total' ? 'var(--primary)' : 'var(--text-muted)'} />
+                      <span style={{ 
+                        fontWeight: categoryId !== 'total' ? 700 : 500, 
+                        color: categoryId !== 'total' ? 'var(--text-main)' : 'var(--text-muted)' 
+                      }}>
+                        {categoryId !== 'total' && selectedCategory ? selectedCategory.name : 'Pilih Kategori Spesifik...'}
+                      </span>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </button>
+                </div>
 
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
                   Batas Maksimal ({currencySymbol})
@@ -150,7 +184,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                   Anda akan diperingatkan jika pengeluaran mendekati atau melebihi batas ini.
                 </p>
 
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '56px', borderRadius: '16px', fontWeight: 800 }}>
                   {editingBudget ? 'Simpan Perubahan' : 'Mulai Anggaran'}
                 </button>
               </form>
@@ -164,6 +198,18 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
         onClose={() => setIsCalcOpen(false)}
         initialValue={limit}
         onConfirm={(val) => setLimit(val.toLocaleString('id-ID'))}
+      />
+
+      <CategorySelectModal
+        isOpen={isCatModalOpen}
+        onClose={() => setIsCatModalOpen(false)}
+        categories={categories}
+        type="pengeluaran"
+        initialCategory={selectedCategory?.name}
+        onSelect={(catName) => {
+          const cat = categories.find(c => c.name === catName);
+          if (cat) setCategoryId(cat.id);
+        }}
       />
     </>
   );

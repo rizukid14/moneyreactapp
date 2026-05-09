@@ -569,7 +569,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Categories ───────────────────────────────────────────────────────────
   const addCategory = useCallback((catReq: Omit<Category, 'id'>) => {
-    const newCat: Category = { ...catReq, id: generateId(), subcategories: [] };
+    const newCat: Category = { ...catReq, id: generateId(), subcategories: catReq.subcategories || [] };
     setCategories(prev => [...prev, newCat]);
     dbPutCategory(newCat).then(refreshSyncCount);
   }, [refreshSyncCount]);

@@ -1,11 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal, ChevronLeft } from 'lucide-react';
+import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal, ChevronLeft, ChevronRight, Folder, Wallet } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
 import SplitBillModal from '../components/modals/SplitBillModal';
+import AssetSelectModal from '../components/modals/AssetSelectModal';
+import CategorySelectModal from '../components/modals/CategorySelectModal';
 import { useNavigate } from 'react-router-dom';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
@@ -20,7 +22,7 @@ const CONFIDENCE_BADGE = {
 
 const ReceiptScanner: React.FC = () => {
   const navigate = useNavigate();
-  const { addTransaction, addDebt, assets, categories, currencySymbol, defaultAssetId: contextDefaultAssetId } = useMoney();
+  const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { showToast } = useToast();
@@ -61,7 +63,8 @@ const ReceiptScanner: React.FC = () => {
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<'name' | 'amount' | null>(null);
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
-
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -487,8 +490,6 @@ const ReceiptScanner: React.FC = () => {
     setEditingField('name');
   };
 
-  const selCat = categories.find(c => c.name === selectedCategory && c.type === selectedType);
-
   return (
     <div className="page">
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
@@ -582,22 +583,52 @@ const ReceiptScanner: React.FC = () => {
                 <input type="text" inputMode="numeric" value={editableAmount ? parseInt(editableAmount).toLocaleString('id-ID') : ''} onChange={e => setEditableAmount(e.target.value.replace(/\D/g, ''))} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
               </div>
 
-              <select value={selectedCategory} onChange={e => { setSelectedCategory(e.target.value); setSelectedSubCategory(''); }} style={{ marginBottom: '10px' }}>
-                <option value="">-- Pilih Kategori --</option>
-                {categories.filter(c => c.type === selectedType).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                {/* Category Selection */}
+                <button
+                  type="button"
+                  onClick={() => setIsCatModalOpen(true)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                    borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Folder size={18} color="var(--primary)" />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Kategori</span>
+                      <span style={{ fontWeight: 700, color: selectedCategory ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {selectedCategory || 'Pilih Kategori'}
+                        {selectedSubCategory && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> • {selectedSubCategory}</span>}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="var(--text-muted)" />
+                </button>
 
-              {selCat?.subcategories && selCat.subcategories.length > 0 && (
-                <select value={selectedSubCategory} onChange={e => setSelectedSubCategory(e.target.value)} style={{ marginBottom: '10px' }}>
-                  <option value="">-- Sub Kategori --</option>
-                  {selCat.subcategories.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
-                </select>
-              )}
-
-              <select value={selectedAssetId} onChange={e => setSelectedAssetId(e.target.value)} style={{ marginBottom: '12px' }}>
-                <option value="">-- Pilih Rekening --</option>
-                {assets.filter(a => !a.isDeleted).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+                {/* Asset Selection */}
+                <button
+                  type="button"
+                  onClick={() => setIsAssetModalOpen(true)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                    borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Wallet size={18} color="var(--primary)" />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Rekening</span>
+                      <span style={{ fontWeight: 700, color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="var(--text-muted)" />
+                </button>
+              </div>
 
               <div style={{ marginBottom: '12px' }}>
                 <input
@@ -934,6 +965,28 @@ const ReceiptScanner: React.FC = () => {
         initialSubCategory={selectedSubCategory}
         onSave={handleSplitSave}
       />
+
+      <AssetSelectModal
+        isOpen={isAssetModalOpen}
+        onClose={() => setIsAssetModalOpen(false)}
+        assets={assets}
+        selectedAssetId={selectedAssetId}
+        onSelect={setSelectedAssetId}
+      />
+
+      <CategorySelectModal
+        isOpen={isCatModalOpen}
+        onClose={() => setIsCatModalOpen(false)}
+        categories={categories}
+        type={selectedType}
+        initialCategory={selectedCategory}
+        initialSubCategory={selectedSubCategory}
+        onSelect={(cat, sub) => {
+          setSelectedCategory(cat);
+          setSelectedSubCategory(sub);
+        }}
+      />
+
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -126,7 +126,7 @@ const SparklingIcon = () => (
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping, setIsChatOpen } = useMoney();
+  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
   const { showToast } = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -328,6 +328,67 @@ const Transactions: React.FC = () => {
 
   return (
     <div className="page">
+      {/* Subscription Alert */}
+      {(() => {
+        const upcomingSubs = subscriptions.filter(s => {
+          if (!s.isActive || !s.nextBillingDate) return false;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const billingDate = new Date(s.nextBillingDate);
+          billingDate.setHours(0, 0, 0, 0);
+          const diffTime = billingDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 3;
+        });
+
+        if (upcomingSubs.length === 0) return null;
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              marginBottom: '16px',
+              padding: '12px 16px',
+              background: 'linear-gradient(135deg, #fff3cd, #ffeeba)',
+              border: '1px solid #ffeeba',
+              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+            }}
+          >
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'rgba(133, 100, 4, 0.1)', color: '#856404',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <AlertCircle size={20} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#856404' }}>Langganan Segera Berakhir</div>
+              <div style={{ fontSize: '11px', color: '#856404', opacity: 0.8, fontWeight: 600 }}>
+                {upcomingSubs.length === 1 
+                  ? `"${upcomingSubs[0].name}" akan jatuh tempo dalam ${Math.ceil((new Date(upcomingSubs[0].nextBillingDate).getTime() - new Date().setHours(0,0,0,0)) / (1000*60*60*24))} hari.`
+                  : `${upcomingSubs.length} langganan akan jatuh tempo dalam 3 hari ke depan.`
+                }
+              </div>
+            </div>
+            <button 
+              onClick={() => navigate('/settings')}
+              style={{
+                background: '#856404', color: 'white', border: 'none',
+                padding: '6px 12px', borderRadius: '8px', fontSize: '11px',
+                fontWeight: 700, cursor: 'pointer'
+              }}
+            >
+              Lihat
+            </button>
+          </motion.div>
+        );
+      })()}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

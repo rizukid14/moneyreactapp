@@ -3,7 +3,7 @@ import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search, CreditCard, Calendar
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search, CreditCard, Calendar, ChevronLeft, Folder, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -15,6 +15,8 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
 import { useToast } from '../components/common/Toast';
 import { changelogData, changelogTypeMeta } from '../data/changelog';
+import AssetSelectModal from '../components/modals/AssetSelectModal';
+import CategorySelectModal from '../components/modals/CategorySelectModal';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
@@ -179,7 +181,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -276,7 +278,7 @@ const Settings: React.FC = () => {
       tierColor = 'linear-gradient(135deg, #ea580c 0%, #9a3412 100%)'; // Orange
       shadowColor = 'rgba(154, 52, 18, 0.35)';
     } else if (netWorth < 0) {
-      tierLabel = 'Pejuang Finansial ⚡';
+            tierLabel = 'Pejuang Finansial ⚡';
       tierColor = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)'; // Red
       shadowColor = 'rgba(153, 27, 27, 0.35)';
     }
@@ -292,6 +294,11 @@ const Settings: React.FC = () => {
   const [newSubCat, setNewSubCat] = useState('');
   const [newSubAsset, setNewSubAsset] = useState(defaultAssetId || '');
   const [editingSub, setEditingSub] = useState<string | null>(null);
+
+  // Modals
+  const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
+  const [isSubAssetSelectOpen, setIsSubAssetSelectOpen] = useState(false);
+  const [isSubCatSelectOpen, setIsSubCatSelectOpen] = useState(false);
 
   const menuItems = [
     // ... existing menuItems ...
@@ -401,8 +408,76 @@ const Settings: React.FC = () => {
   const handleAddCat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
+
+    // Validation: Check if name already exists (case-insensitive, within the same type)
+    const isDuplicate = categories.some(c => 
+      c.type === catTab &&
+      c.name.toLowerCase() === newCatName.trim().toLowerCase()
+    );
+
+    if (isDuplicate) {
+      showToast('Nama kategori sudah ada!', 'warning');
+      return;
+    }
+
     addCategory({ name: newCatName.trim(), type: catTab });
     setNewCatName('');
+  };
+
+  const handleUpdateCat = (id: string, name: string) => {
+    if (!name.trim()) return;
+
+    // Validation: Check if name already exists (case-insensitive, within the same type)
+    const isDuplicate = categories.some(c => 
+      c.type === catTab &&
+      c.name.toLowerCase() === name.trim().toLowerCase() &&
+      c.id !== id
+    );
+
+    if (isDuplicate) {
+      showToast('Nama kategori sudah ada!', 'warning');
+      return;
+    }
+
+    updateCategory(id, name.trim());
+    setEditingCatId(null);
+  };
+
+  const handleAddSubCat = (catId: string, name: string) => {
+    if (!name.trim()) return;
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+
+    const isDuplicate = cat.subcategories?.some(s => 
+      s.name.toLowerCase() === name.trim().toLowerCase()
+    );
+
+    if (isDuplicate) {
+      showToast('Nama sub-kategori sudah ada!', 'warning');
+      return;
+    }
+
+    addSubCategory(catId, name.trim());
+    setNewSubCatName('');
+  };
+
+  const handleUpdateSubCat = (catId: string, subId: string, name: string) => {
+    if (!name.trim()) return;
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+
+    const isDuplicate = cat.subcategories?.some(s => 
+      s.name.toLowerCase() === name.trim().toLowerCase() &&
+      s.id !== subId
+    );
+
+    if (isDuplicate) {
+      showToast('Nama sub-kategori sudah ada!', 'warning');
+      return;
+    }
+
+    updateSubCategory(catId, subId, name.trim());
+    setEditingSubCatId(null);
   };
 
   const { recurringTransactions, deleteRecurringTransaction, updateRecurringTransaction } = useMoney();
@@ -660,233 +735,173 @@ const Settings: React.FC = () => {
               </button>
             </div>
 
-            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
-              {filteredCats.map(c => (
-                <div key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <div
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', cursor: 'pointer' }}
-                    onClick={() => setExpandedCat(expandedCat === c.id ? null : c.id)}
-                  >
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}
-                      onClick={(e) => {
-                        if (editingCatId === c.id) {
-                          e.stopPropagation();
-                        }
+            <div style={{ 
+              display: 'flex', 
+              height: '400px', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '16px', 
+              overflow: 'hidden',
+              marginBottom: '16px',
+              background: 'var(--bg-main)'
+            }}>
+              {/* Left Panel: Categories */}
+              <div style={{ 
+                flex: 1, 
+                borderRight: '1px solid var(--border-color)', 
+                overflowY: 'auto',
+                padding: '8px 0'
+              }}>
+                {filteredCats.map(c => {
+                  const isActive = expandedCat === c.id;
+                  return (
+                    <div 
+                      key={c.id}
+                      onClick={() => setExpandedCat(c.id)}
+                      style={{ 
+                        padding: '12px 16px',
+                        cursor: 'pointer',
+                        background: isActive ? 'var(--bg-card)' : 'transparent',
+                        borderLeft: `4px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'all 0.2s'
                       }}
                     >
-                      <ChevronRight size={18} style={{ transform: expandedCat === c.id ? 'rotate(90deg)' : 'none', transition: 'all 0.2s', marginRight: '8px', color: 'var(--text-muted)' }} />
                       {editingCatId === c.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }} onClick={e => e.stopPropagation()}>
-                          <input
-                            type="text"
-                            value={editingCatName}
-                            onChange={e => setEditingCatName(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                if (editingCatName.trim()) {
-                                  updateCategory(c.id, editingCatName.trim());
-                                  setEditingCatId(null);
-                                }
-                              } else if (e.key === 'Escape') {
-                                setEditingCatId(null);
-                              }
-                            }}
-                            autoFocus
-                            style={{
-                              margin: 0, padding: '4px 8px', fontSize: '13px', fontWeight: 600,
-                              background: 'var(--bg-main)', border: '1.5px solid var(--primary)', borderRadius: '8px',
-                              color: 'var(--text-main)', width: '100%', maxWidth: '160px'
-                            }}
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (editingCatName.trim()) {
-                                updateCategory(c.id, editingCatName.trim());
-                                setEditingCatId(null);
-                              }
-                            }}
-                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--primary)', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            title="Simpan"
-                          >
-                            <Save size={14} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingCatId(null);
-                            }}
-                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            title="Batal"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
+                        <input
+                          type="text"
+                          value={editingCatName}
+                          onChange={e => setEditingCatName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleUpdateCat(c.id, editingCatName);
+                            else if (e.key === 'Escape') setEditingCatId(null);
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          autoFocus
+                          style={{ margin: 0, padding: '4px 8px', fontSize: '13px', background: 'var(--bg-main)', border: '1px solid var(--primary)', borderRadius: '6px', width: '100%' }}
+                        />
                       ) : (
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</span>
+                        <>
+                          <span style={{ fontSize: '14px', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--text-main)' : 'var(--text-muted)' }}>{c.name}</span>
+                          <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                            <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                              <Edit2 size={12} />
+                            </button>
+                            <button onClick={() => showConfirm('Hapus Kategori', `Hapus "${c.name}"?`, () => deleteCategory(c.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </>
                       )}
                     </div>
-                    {editingCatId !== c.id && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingCatId(c.id);
-                          setEditingCatName(c.name);
-                        }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }} title="Edit Kategori">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={(e) => {
-                          e.stopPropagation();
-                          showConfirm(
-                            'Hapus Kategori',
-                            `Hapus kategori "${c.name}"? Semua data transaksi kategori ini akan kehilangan referensi kategorinya.`,
-                            () => deleteCategory(c.id)
-                          );
-                        }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '6px' }} title="Hapus Kategori">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  );
+                })}
+              </div>
 
-                  {expandedCat === c.id && (
-                    <div style={{ padding: '0 12px 12px 36px', background: 'var(--bg-main)', borderRadius: '0 0 8px 8px' }}>
-                      {(c.subcategories || []).map(sub => (
-                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-color)', fontSize: '13px' }}>
+              {/* Right Panel: Sub-categories */}
+              <div style={{ 
+                flex: 1.2, 
+                overflowY: 'auto', 
+                background: 'var(--bg-card-solid)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                {expandedCat ? (
+                  <>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.05)' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        Sub-kategori: {categories.find(c => c.id === expandedCat)?.name}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
+                      {(categories.find(c => c.id === expandedCat)?.subcategories || []).map(sub => (
+                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-color)' }}>
                           {editingSubCatId === sub.id ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
-                              <input
-                                type="text"
-                                value={editingSubCatName}
-                                onChange={e => setEditingSubCatName(e.target.value)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') {
-                                    if (editingSubCatName.trim()) {
-                                      updateSubCategory(c.id, sub.id, editingSubCatName.trim());
-                                      setEditingSubCatId(null);
-                                    }
-                                  } else if (e.key === 'Escape') {
-                                    setEditingSubCatId(null);
-                                  }
-                                }}
-                                autoFocus
-                                style={{
-                                  margin: 0, padding: '4px 8px', fontSize: '12px', fontWeight: 600,
-                                  background: 'var(--bg-card)', border: '1.5px solid var(--primary)', borderRadius: '8px',
-                                  color: 'var(--text-main)', width: '100%', maxWidth: '140px'
-                                }}
-                              />
-                              <button
-                                onClick={() => {
-                                  if (editingSubCatName.trim()) {
-                                    updateSubCategory(c.id, sub.id, editingSubCatName.trim());
-                                    setEditingSubCatId(null);
-                                  }
-                                }}
-                                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--primary)', cursor: 'pointer', padding: '3px 5px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Simpan"
-                              >
-                                <Save size={12} />
-                              </button>
-                              <button
-                                onClick={() => setEditingSubCatId(null)}
-                                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', padding: '3px 5px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Batal"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
+                            <input
+                              type="text"
+                              value={editingSubCatName}
+                              onChange={e => setEditingSubCatName(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleUpdateSubCat(expandedCat, sub.id, editingSubCatName);
+                                else if (e.key === 'Escape') setEditingSubCatId(null);
+                              }}
+                              autoFocus
+                              style={{ margin: 0, padding: '4px 8px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--primary)', borderRadius: '6px', width: '100%' }}
+                            />
                           ) : (
-                            <span style={{ color: 'var(--text-main)' }}>{sub.name}</span>
-                          )}
-
-                          {editingSubCatId !== sub.id && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <button onClick={() => {
-                                setEditingSubCatId(sub.id);
-                                setEditingSubCatName(sub.name);
-                              }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }} title="Edit Sub-kategori">
-                                <Edit2 size={12} />
-                              </button>
-                              <button onClick={() => {
-                                showConfirm(
-                                  'Hapus Sub-kategori',
-                                  `Apakah Anda yakin ingin menghapus sub-kategori "${sub.name}"?`,
-                                  () => deleteSubCategory(c.id, sub.id)
-                                );
-                              }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }} title="Hapus Sub-kategori">
-                                <X size={14} />
-                              </button>
-                            </div>
+                            <>
+                              <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{sub.name}</span>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                                  <Edit2 size={12} />
+                                </button>
+                                <button onClick={() => showConfirm('Hapus Sub-kategori', `Hapus "${sub.name}"?`, () => deleteSubCategory(expandedCat, sub.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
                       ))}
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    </div>
+                    {/* Add Sub-category Input */}
+                    <div style={{ padding: '12px', borderTop: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.1)' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <input
                           type="text"
                           value={newSubCatName}
                           onChange={e => setNewSubCatName(e.target.value)}
-                          placeholder="Sub-kategori..."
-                          style={{ flex: 1, marginBottom: 0, padding: '6px 10px', fontSize: '13px' }}
+                          onKeyDown={e => { if (e.key === 'Enter') handleAddSubCat(expandedCat, newSubCatName); }}
+                          placeholder="Tambah sub..."
+                          style={{ flex: 1, marginBottom: 0, padding: '8px 12px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                         />
-                        <button
-                          onClick={() => {
-                            if (newSubCatName.trim()) {
-                              addSubCategory(c.id, newSubCatName.trim());
-                              setNewSubCatName('');
-                            }
-                          }}
-                          className="btn btn-primary" style={{ padding: '0 12px', margin: 0, fontSize: '13px' }}>
-                          Tambah
+                        <button onClick={() => handleAddSubCat(expandedCat, newSubCatName)} className="btn btn-primary" style={{ padding: '0 12px', margin: 0, borderRadius: '8px' }}>
+                          <Plus size={16} />
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              ))}
-              {filteredCats.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Belum ada kategori.</div>
-              )}
+                  </>
+                ) : (
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
+                    Pilih kategori di kiri untuk mengelola sub-kategori.
+                  </div>
+                )}
+              </div>
             </div>
 
-            <form onSubmit={handleAddCat} style={{ display: 'flex', gap: '8px' }}>
+            <form onSubmit={handleAddCat} style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              padding: '6px', 
+              background: 'rgba(0,0,0,0.1)', 
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              marginTop: '8px'
+            }}>
               <input
                 type="text"
                 value={newCatName}
                 onChange={e => setNewCatName(e.target.value)}
-                placeholder="Nama kategori baru..."
-                style={{ flex: 1, marginBottom: 0 }}
+                placeholder="Buat kategori baru..."
+                style={{ 
+                  flex: 1, 
+                  marginBottom: 0,
+                  padding: '10px 14px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  fontSize: '14px'
+                }}
                 required
               />
-              <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
-                <Plus size={20} />
+              <button type="submit" className="btn btn-primary" style={{ width: '50px', padding: 0, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }}>
+                <Plus size={22} />
               </button>
             </form>
           </>
         );
       case 'subscriptions':
-        const handleAddSub = (e: React.FormEvent) => {
-          e.preventDefault();
-          if (!newSubName.trim() || !newSubAmount) return;
-          const subData = {
-            name: newSubName.trim(),
-            amount: parseFloat(newSubAmount),
-            billingCycle: newSubCycle,
-            nextBillingDate: newSubDate,
-            category: newSubCat || 'Lainnya',
-            assetId: newSubAsset,
-            isActive: true,
-          };
-          if (editingSub) {
-            updateSubscription(editingSub, subData);
-            setEditingSub(null);
-          } else {
-            addSubscription(subData);
-          }
-          setNewSubName(''); setNewSubAmount(''); setNewSubCat('');
-        };
-
         const totalMonthly = subscriptions
           .filter(s => s.isActive)
           .reduce((sum, s) => sum + (s.billingCycle === 'monthly' ? s.amount : s.amount / 12), 0);
@@ -895,7 +910,27 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Kelola Langganan</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button 
+                  onClick={() => {
+                    setEditingSub(null);
+                    setNewSubName('');
+                    setNewSubAmount('');
+                    setNewSubDate(new Date().toISOString().split('T')[0]);
+                    setNewSubCycle('monthly');
+                    setNewSubAsset(defaultAssetId || '');
+                    setActiveModal('subscription_form');
+                  }}
+                  style={{
+                    padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)',
+                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={14} /> Tambah
+                </button>
+                <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+              </div>
             </div>
 
             <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingBottom: 20 }}>
@@ -912,70 +947,6 @@ const Settings: React.FC = () => {
                 <div style={{ fontSize: '11px', opacity: 0.7 }}>
                   Berdasarkan {subscriptions.length} layanan aktif
                 </div>
-              </div>
-
-              {/* Add/Edit Form */}
-              <div style={{ padding: '0 20px 20px', borderBottom: '1px solid var(--border-color)', marginBottom: 20 }}>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {editingSub ? <Edit2 size={16} /> : <Plus size={16} />}
-                  {editingSub ? 'Edit Langganan' : 'Tambah Langganan Baru'}
-                </div>
-                <form onSubmit={handleAddSub} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <div style={{ flex: 2 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Nama Layanan</label>
-                      <input
-                        type="text" placeholder="misal: Netflix"
-                        value={newSubName} onChange={e => setNewSubName(e.target.value)}
-                        style={{ width: '100%', marginBottom: 0 }} required
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Harga</label>
-                      <input
-                        type="number" placeholder="0"
-                        value={newSubAmount} onChange={e => setNewSubAmount(e.target.value)}
-                        style={{ width: '100%', marginBottom: 0 }} required
-                      />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Siklus</label>
-                      <select
-                        value={newSubCycle} onChange={e => setNewSubCycle(e.target.value as any)}
-                        style={{ width: '100%', padding: '10px', borderRadius: '12px' }}
-                      >
-                        <option value="monthly">Bulanan</option>
-                        <option value="yearly">Tahunan</option>
-                      </select>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Tgl Perpanjang</label>
-                      <input
-                        type="date" value={newSubDate} onChange={e => setNewSubDate(e.target.value)}
-                        style={{ width: '100%', marginBottom: 0 }} required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Bayar Pake Dompet</label>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <select
-                        value={newSubAsset} onChange={e => setNewSubAsset(e.target.value)}
-                        style={{ flex: 1, padding: '10px', borderRadius: '12px' }}
-                      >
-                        <option value="">Pilih Dompet...</option>
-                        {assets.filter(a => !a.isDeleted).map(a => (
-                          <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                      </select>
-                      <button type="submit" className="btn btn-primary" style={{ flex: 1, margin: 0 }}>
-                        {editingSub ? 'Simpan' : 'Tambah'}
-                      </button>
-                    </div>
-                  </div>
-                </form>
               </div>
 
               {/* List */}
@@ -1017,8 +988,7 @@ const Settings: React.FC = () => {
                           setNewSubCycle(s.billingCycle);
                           setNewSubDate(s.nextBillingDate);
                           setNewSubAsset(s.assetId);
-                          // scroll to top
-                          document.querySelector('.modal-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+                          setActiveModal('subscription_form');
                         }}
                         className="btn-icon"
                         style={{ color: 'var(--primary)', padding: 6 }}
@@ -1057,22 +1027,43 @@ const Settings: React.FC = () => {
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <Wallet size={18} color="var(--primary)" />
-                <span style={{ fontWeight: 700, fontSize: 14 }}>Dompet Default</span>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Dompet Utama</span>
               </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-                Pilih dompet yang akan otomatis terpilih saat Anda menambah transaksi baru.
-              </p>
-
-              <select
-                value={defaultAssetId || ''}
-                onChange={(e) => setDefaultAssetId(e.target.value || null)}
-                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
+              <button
+                type="button"
+                onClick={() => setIsAssetSelectOpen(true)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                  borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                }}
               >
-                <option value="">-- Gunakan Paling Atas (Default) --</option>
-                {assets.filter(a => !a.isDeleted).map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {(() => {
+                    const asset = assets.find(a => a.id === defaultAssetId);
+                    if (!asset) return <Wallet size={18} color="var(--primary)" />;
+                    // Import icons or use a local helper. 
+                    // Since we already have Wallet, Landmark, etc. imported or available.
+                    let Icon = Wallet;
+                    let color = 'var(--primary)';
+                    switch (asset.type) {
+                      case 'Cash': Icon = Wallet; color = 'var(--secondary)'; break;
+                      case 'Bank Account': Icon = Landmark; color = 'var(--primary)'; break;
+                      case 'Credit Card': Icon = CreditCard; color = 'var(--danger)'; break;
+                      case 'eWallet': Icon = Smartphone; color = 'var(--success)'; break;
+                      case 'Savings': Icon = PiggyBank; color = '#3b82f6'; break;
+                      case 'Investment': Icon = TrendingUp; color = '#10b981'; break;
+                      case 'Loan': Icon = HandCoins; color = 'var(--danger)'; break;
+                    }
+                    return <Icon size={18} color={color} />;
+                  })()}
+                  <span style={{ fontWeight: 600, color: defaultAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                    {assets.find(a => a.id === defaultAssetId)?.name || 'Pilih Dompet Utama...'}
+                  </span>
+                </div>
+                <ChevronRight size={18} color="var(--text-muted)" />
+              </button>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 8 }}>Digunakan sebagai pilihan otomatis saat mencatat transaksi baru.</p>
             </div>
 
             <div style={{ marginBottom: 20 }}>
@@ -1138,23 +1129,6 @@ const Settings: React.FC = () => {
               />
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Tags size={18} color="var(--primary)" />
-                <span style={{ fontWeight: 700, fontSize: 14 }}>Grouping Transaksi Default</span>
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-                Cara default daftar transaksi dikelompokkan saat pertama kali dibuka.
-              </p>
-              <select
-                value={defaultTransactionGrouping}
-                onChange={(e) => setDefaultTransactionGrouping(e.target.value as 'date' | 'category')}
-                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
-              >
-                <option value="date">Kelompokkan per Tanggal</option>
-                <option value="category">Kelompokkan per Kategori</option>
-              </select>
-            </div>
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -1552,6 +1526,138 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Hidden inputs handled in parent to keep render clean */}
+          </>
+        );
+
+      case 'subscription_form':
+        const handleSubFormSubmit = (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!newSubName.trim() || !newSubAmount) return;
+          const subData = {
+            name: newSubName.trim(),
+            amount: parseFloat(newSubAmount),
+            billingCycle: newSubCycle,
+            nextBillingDate: newSubDate,
+            category: newSubCat || 'Lainnya',
+            assetId: newSubAsset,
+            isActive: true,
+          };
+          if (editingSub) {
+            updateSubscription(editingSub, subData);
+          } else {
+            addSubscription(subData);
+          }
+          setActiveModal('subscriptions');
+          setEditingSub(null);
+          setNewSubName(''); setNewSubAmount(''); setNewSubCat('');
+        };
+
+        return (
+          <>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button className="btn-icon" onClick={() => setActiveModal('subscriptions')} style={{ padding: 0 }}>
+                  <ChevronLeft size={20} />
+                </button>
+                <h2 className="subtitle" style={{ margin: 0 }}>{editingSub ? 'Edit Langganan' : 'Tambah Langganan'}</h2>
+              </div>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+            </div>
+
+            <div style={{ padding: '20px' }}>
+              <form onSubmit={handleSubFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Nama Layanan</label>
+                  <input
+                    type="text" placeholder="misal: Netflix, Spotify..."
+                    value={newSubName} onChange={e => setNewSubName(e.target.value)}
+                    style={{ width: '100%', marginBottom: 0 }} required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Harga</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'var(--text-muted)', fontWeight: 700 }}>{currencySymbol}</span>
+                      <input
+                        type="number" placeholder="0"
+                        value={newSubAmount} onChange={e => setNewSubAmount(e.target.value)}
+                        style={{ width: '100%', paddingLeft: 36, marginBottom: 0 }} required
+                      />
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Siklus</label>
+                    <select
+                      value={newSubCycle} onChange={e => setNewSubCycle(e.target.value as any)}
+                      style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: 14, fontWeight: 600 }}
+                    >
+                      <option value="monthly">Bulanan</option>
+                      <option value="yearly">Tahunan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tgl Perpanjang Berikutnya</label>
+                    <input
+                      type="date" value={newSubDate} onChange={e => setNewSubDate(e.target.value)}
+                      style={{ width: '100%', marginBottom: 0 }} required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Kategori</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsSubCatSelectOpen(true)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                      borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Folder size={18} color="var(--primary)" />
+                      <span style={{ fontWeight: 600, color: newSubCat ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {newSubCat || 'Pilih Kategori...'}
+                      </span>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Bayar Menggunakan</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsSubAssetSelectOpen(true)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                      borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Wallet size={18} color="var(--primary)" />
+                      <span style={{ fontWeight: 600, color: newSubAsset ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {assets.find(a => a.id === newSubAsset)?.name || 'Pilih Dompet...'}
+                      </span>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '14px', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <Save size={18} /> {editingSub ? 'Simpan Perubahan' : 'Tambah Langganan'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </>
         );
 
@@ -1958,6 +2064,30 @@ const Settings: React.FC = () => {
         message={confirmDialog.message}
         type={confirmDialog.type}
         confirmText={confirmDialog.confirmText}
+      />
+      <AssetSelectModal
+        isOpen={isAssetSelectOpen}
+        onClose={() => setIsAssetSelectOpen(false)}
+        assets={assets}
+        selectedAssetId={defaultAssetId || ''}
+        onSelect={id => setDefaultAssetId(id || null)}
+      />
+
+      <AssetSelectModal
+        isOpen={isSubAssetSelectOpen}
+        onClose={() => setIsSubAssetSelectOpen(false)}
+        assets={assets}
+        selectedAssetId={newSubAsset}
+        onSelect={setNewSubAsset}
+      />
+
+      <CategorySelectModal
+        isOpen={isSubCatSelectOpen}
+        onClose={() => setIsSubCatSelectOpen(false)}
+        categories={categories}
+        type="pengeluaran"
+        initialCategory={newSubCat}
+        onSelect={(cat) => setNewSubCat(cat)}
       />
     </div>
   );
