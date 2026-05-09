@@ -14,6 +14,7 @@ import { QuotaBanner } from '../components/QuotaBanner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
 import { useToast } from '../components/common/Toast';
+import { changelogData, changelogTypeMeta } from '../data/changelog';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
@@ -178,7 +179,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -228,12 +229,60 @@ const Settings: React.FC = () => {
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [newSubCatName, setNewSubCatName] = useState('');
 
+  // Category & Subcategory Edit State
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState('');
+  const [editingSubCatId, setEditingSubCatId] = useState<string | null>(null);
+  const [editingSubCatName, setEditingSubCatName] = useState('');
+
   // Contact State
   const [newContactName, setNewContactName] = useState('');
   const [newContactPhone, setNewContactPhone] = useState('');
   const [newContactNote, setNewContactNote] = useState('');
   const [editingContact, setEditingContact] = useState<string | null>(null);
   const [contactSearchQuery, setContactSearchQuery] = useState('');
+
+  const profileStats = React.useMemo(() => {
+    const netWorth = assets.filter(a => !a.isDeleted).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+    const thisMonthTxs = transactions.filter(t => {
+      if (!t.date) return false;
+      const txDate = new Date(t.date);
+      const now = new Date();
+      return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
+    });
+    const txCount = thisMonthTxs.length;
+
+    let tierLabel = 'Pemula Mandiri 🌱';
+    let tierColor = 'linear-gradient(135deg, #78716c 0%, #44403c 100%)'; // Dark Stone
+    let shadowColor = 'rgba(68, 64, 60, 0.25)';
+    if (netWorth >= 100000000) {
+      tierLabel = 'Sultan Darat 👑';
+      tierColor = 'linear-gradient(135deg, #ca8a04 0%, #854d0e 100%)'; // Rich Gold
+      shadowColor = 'rgba(133, 77, 14, 0.35)';
+    } else if (netWorth >= 50000000) {
+      tierLabel = 'Konglomerat Muda 💎';
+      tierColor = 'linear-gradient(135deg, #0284c7 0%, #075985 100%)'; // Sky
+      shadowColor = 'rgba(7, 89, 133, 0.35)';
+    } else if (netWorth >= 10000000) {
+      tierLabel = 'Investor Cerdas 📈';
+      tierColor = 'linear-gradient(135deg, #16a34a 0%, #166534 100%)'; // Green
+      shadowColor = 'rgba(22, 101, 52, 0.35)';
+    } else if (netWorth >= 5000000) {
+      tierLabel = 'Penyimpan Bijak 🛡️';
+      tierColor = 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)'; // Purple
+      shadowColor = 'rgba(91, 33, 182, 0.35)';
+    } else if (netWorth >= 1000000) {
+      tierLabel = 'Raja Hemat 💰';
+      tierColor = 'linear-gradient(135deg, #ea580c 0%, #9a3412 100%)'; // Orange
+      shadowColor = 'rgba(154, 52, 18, 0.35)';
+    } else if (netWorth < 0) {
+      tierLabel = 'Pejuang Finansial ⚡';
+      tierColor = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)'; // Red
+      shadowColor = 'rgba(153, 27, 27, 0.35)';
+    }
+
+    return { netWorth, txCount, tierLabel, tierColor, shadowColor };
+  }, [assets, transactions, getAssetBalance]);
 
   // Subscription State
   const [newSubName, setNewSubName] = useState('');
@@ -391,12 +440,12 @@ const Settings: React.FC = () => {
             </div>
 
             <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingBottom: '20px' }}>
-              
+
               {/* Form Section - Only show when editing or via a toggle if we want to match exactly, 
                   but for Settings it's better to stay accessible. Let's style it to match the modal's add form. */}
               {(editingContact || contacts.length === 0 || newContactName) ? (
-                <div style={{ 
-                  padding: '20px', 
+                <div style={{
+                  padding: '20px',
                   background: 'var(--bg-main)',
                   borderBottom: '1px solid var(--border-color)',
                   marginBottom: '16px'
@@ -437,13 +486,13 @@ const Settings: React.FC = () => {
                         style={{ width: '100%', marginBottom: 0 }}
                       />
                     </div>
-                    
+
                     <div style={{ display: 'flex', gap: '12px' }}>
                       {(editingContact || newContactName) && (
-                        <button 
-                          type="button" 
-                          onClick={() => { setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }} 
-                          className="btn" 
+                        <button
+                          type="button"
+                          onClick={() => { setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }}
+                          className="btn"
                           style={{ flex: 1, margin: 0, background: 'var(--bg-neutral)', color: 'var(--text-muted)', fontWeight: 700 }}
                         >
                           Batal
@@ -458,10 +507,10 @@ const Settings: React.FC = () => {
               ) : (
                 <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>DAFTAR KONTAK</span>
-                  <button 
+                  <button
                     onClick={() => setNewContactName(' ')} // Trick to show form
-                    style={{ 
-                      padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)', 
+                    style={{
+                      padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)',
                       border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
                       display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
                     }}
@@ -474,9 +523,9 @@ const Settings: React.FC = () => {
               {/* Search Bar */}
               <div style={{ padding: '0 20px', marginBottom: '12px' }}>
                 <div style={{ position: 'relative' }}>
-                  <Search 
-                    size={18} 
-                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} 
+                  <Search
+                    size={18}
+                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
                   />
                   <input
                     type="text"
@@ -501,8 +550,8 @@ const Settings: React.FC = () => {
                 {(() => {
                   const filtered = contacts
                     .filter(c => c.name.toLowerCase().includes(contactSearchQuery.toLowerCase()))
-                    .sort((a,b) => a.name.localeCompare(b.name));
-                  
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
                   if (filtered.length === 0) {
                     return (
                       <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -514,10 +563,10 @@ const Settings: React.FC = () => {
                   }
 
                   return filtered.map(c => (
-                    <div key={c.id} style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center', 
+                    <div key={c.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
                       padding: '14px 20px',
                       background: editingContact === c.id ? 'var(--bg-income)' : 'transparent',
                       borderBottom: '1px solid var(--border-color)',
@@ -618,36 +667,159 @@ const Settings: React.FC = () => {
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', cursor: 'pointer' }}
                     onClick={() => setExpandedCat(expandedCat === c.id ? null : c.id)}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}
+                      onClick={(e) => {
+                        if (editingCatId === c.id) {
+                          e.stopPropagation();
+                        }
+                      }}
+                    >
                       <ChevronRight size={18} style={{ transform: expandedCat === c.id ? 'rotate(90deg)' : 'none', transition: 'all 0.2s', marginRight: '8px', color: 'var(--text-muted)' }} />
-                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</span>
+                      {editingCatId === c.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }} onClick={e => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            value={editingCatName}
+                            onChange={e => setEditingCatName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                if (editingCatName.trim()) {
+                                  updateCategory(c.id, editingCatName.trim());
+                                  setEditingCatId(null);
+                                }
+                              } else if (e.key === 'Escape') {
+                                setEditingCatId(null);
+                              }
+                            }}
+                            autoFocus
+                            style={{
+                              margin: 0, padding: '4px 8px', fontSize: '13px', fontWeight: 600,
+                              background: 'var(--bg-main)', border: '1.5px solid var(--primary)', borderRadius: '8px',
+                              color: 'var(--text-main)', width: '100%', maxWidth: '160px'
+                            }}
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (editingCatName.trim()) {
+                                updateCategory(c.id, editingCatName.trim());
+                                setEditingCatId(null);
+                              }
+                            }}
+                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--primary)', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Simpan"
+                          >
+                            <Save size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingCatId(null);
+                            }}
+                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Batal"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</span>
+                      )}
                     </div>
-                    <button onClick={(e) => {
-                      e.stopPropagation();
-                      showConfirm(
-                        'Hapus Kategori',
-                        `Hapus kategori "${c.name}"? Semua data transaksi kategori ini akan kehilangan referensi kategorinya.`,
-                        () => deleteCategory(c.id)
-                      );
-                    }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                      <Trash2 size={16} />
-                    </button>
+                    {editingCatId !== c.id && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingCatId(c.id);
+                          setEditingCatName(c.name);
+                        }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }} title="Edit Kategori">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={(e) => {
+                          e.stopPropagation();
+                          showConfirm(
+                            'Hapus Kategori',
+                            `Hapus kategori "${c.name}"? Semua data transaksi kategori ini akan kehilangan referensi kategorinya.`,
+                            () => deleteCategory(c.id)
+                          );
+                        }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '6px' }} title="Hapus Kategori">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {expandedCat === c.id && (
                     <div style={{ padding: '0 12px 12px 36px', background: 'var(--bg-main)', borderRadius: '0 0 8px 8px' }}>
                       {(c.subcategories || []).map(sub => (
-                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed var(--border-color)', fontSize: '13px' }}>
-                          <span style={{ color: 'var(--text-main)' }}>{sub.name}</span>
-                          <button onClick={() => {
-                            showConfirm(
-                              'Hapus Sub-kategori',
-                              `Apakah Anda yakin ingin menghapus sub-kategori "${sub.name}"?`,
-                              () => deleteSubCategory(c.id, sub.id)
-                            );
-                          }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
-                            <X size={14} />
-                          </button>
+                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-color)', fontSize: '13px' }}>
+                          {editingSubCatId === sub.id ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                              <input
+                                type="text"
+                                value={editingSubCatName}
+                                onChange={e => setEditingSubCatName(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') {
+                                    if (editingSubCatName.trim()) {
+                                      updateSubCategory(c.id, sub.id, editingSubCatName.trim());
+                                      setEditingSubCatId(null);
+                                    }
+                                  } else if (e.key === 'Escape') {
+                                    setEditingSubCatId(null);
+                                  }
+                                }}
+                                autoFocus
+                                style={{
+                                  margin: 0, padding: '4px 8px', fontSize: '12px', fontWeight: 600,
+                                  background: 'var(--bg-card)', border: '1.5px solid var(--primary)', borderRadius: '8px',
+                                  color: 'var(--text-main)', width: '100%', maxWidth: '140px'
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  if (editingSubCatName.trim()) {
+                                    updateSubCategory(c.id, sub.id, editingSubCatName.trim());
+                                    setEditingSubCatId(null);
+                                  }
+                                }}
+                                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--primary)', cursor: 'pointer', padding: '3px 5px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Simpan"
+                              >
+                                <Save size={12} />
+                              </button>
+                              <button
+                                onClick={() => setEditingSubCatId(null)}
+                                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', padding: '3px 5px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Batal"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-main)' }}>{sub.name}</span>
+                          )}
+
+                          {editingSubCatId !== sub.id && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button onClick={() => {
+                                setEditingSubCatId(sub.id);
+                                setEditingSubCatName(sub.name);
+                              }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }} title="Edit Sub-kategori">
+                                <Edit2 size={12} />
+                              </button>
+                              <button onClick={() => {
+                                showConfirm(
+                                  'Hapus Sub-kategori',
+                                  `Apakah Anda yakin ingin menghapus sub-kategori "${sub.name}"?`,
+                                  () => deleteSubCategory(c.id, sub.id)
+                                );
+                              }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }} title="Hapus Sub-kategori">
+                                <X size={14} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                       <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
@@ -728,8 +900,8 @@ const Settings: React.FC = () => {
 
             <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingBottom: 20 }}>
               {/* Summary Card */}
-              <div style={{ 
-                margin: '0 20px 20px', padding: '16px', 
+              <div style={{
+                margin: '0 20px 20px', padding: '16px',
                 background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
                 borderRadius: '16px', color: 'white', boxShadow: '0 8px 16px var(--primary-glow)'
               }}>
@@ -752,16 +924,16 @@ const Settings: React.FC = () => {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <div style={{ flex: 2 }}>
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Nama Layanan</label>
-                      <input 
-                        type="text" placeholder="misal: Netflix" 
+                      <input
+                        type="text" placeholder="misal: Netflix"
                         value={newSubName} onChange={e => setNewSubName(e.target.value)}
                         style={{ width: '100%', marginBottom: 0 }} required
                       />
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Harga</label>
-                      <input 
-                        type="number" placeholder="0" 
+                      <input
+                        type="number" placeholder="0"
                         value={newSubAmount} onChange={e => setNewSubAmount(e.target.value)}
                         style={{ width: '100%', marginBottom: 0 }} required
                       />
@@ -770,7 +942,7 @@ const Settings: React.FC = () => {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Siklus</label>
-                      <select 
+                      <select
                         value={newSubCycle} onChange={e => setNewSubCycle(e.target.value as any)}
                         style={{ width: '100%', padding: '10px', borderRadius: '12px' }}
                       >
@@ -780,7 +952,7 @@ const Settings: React.FC = () => {
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Tgl Perpanjang</label>
-                      <input 
+                      <input
                         type="date" value={newSubDate} onChange={e => setNewSubDate(e.target.value)}
                         style={{ width: '100%', marginBottom: 0 }} required
                       />
@@ -789,7 +961,7 @@ const Settings: React.FC = () => {
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Bayar Pake Dompet</label>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <select 
+                      <select
                         value={newSubAsset} onChange={e => setNewSubAsset(e.target.value)}
                         style={{ flex: 1, padding: '10px', borderRadius: '12px' }}
                       >
@@ -810,13 +982,13 @@ const Settings: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '0 20px 10px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>DAFTAR LANGGANAN</div>
                 {subscriptions.map(s => (
-                  <div key={s.id} style={{ 
+                  <div key={s.id} style={{
                     display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px',
                     borderBottom: '1px solid var(--border-color)',
                     background: editingSub === s.id ? 'var(--bg-main)' : 'transparent',
                     opacity: s.isActive ? 1 : 0.6
                   }}>
-                    <div style={{ 
+                    <div style={{
                       width: 40, height: 40, borderRadius: 12, background: 'var(--bg-card)',
                       color: 'var(--primary)', border: '1px solid var(--border-color)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800
@@ -830,14 +1002,14 @@ const Settings: React.FC = () => {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button 
+                      <button
                         onClick={() => updateSubscription(s.id, { isActive: !s.isActive })}
                         className="btn-icon"
                         style={{ color: s.isActive ? 'var(--primary)' : 'var(--text-muted)', padding: 6 }}
                       >
                         <RefreshCw size={18} style={{ opacity: s.isActive ? 1 : 0.4 }} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
                           setEditingSub(s.id);
                           setNewSubName(s.name);
@@ -853,7 +1025,7 @@ const Settings: React.FC = () => {
                       >
                         <Edit2 size={18} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => showConfirm('Hapus Langganan', `Hapus "${s.name}"?`, () => deleteSubscription(s.id))}
                         className="btn-icon"
                         style={{ color: 'var(--danger)', padding: 6 }}
@@ -1018,44 +1190,189 @@ const Settings: React.FC = () => {
 
       case 'profile':
         return (
-          <form onSubmit={handleUpdateProfile}>
-            <div className="modal-header">
-              <h2 className="subtitle">Edit Profil</h2>
-              <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+          <form onSubmit={handleUpdateProfile} style={{ padding: '0 4px' }}>
+            <div className="modal-header" style={{ marginBottom: '20px' }}>
+              <h2 className="subtitle" style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Profil Saya</h2>
+              <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><X size={18} /></button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
-              <div style={{ position: 'relative' }}>
-                <div style={{
-                  width: 80, height: 80, borderRadius: '40px',
-                  backgroundColor: 'var(--primary)',
-                  display: 'flex', justifyContent: 'center', alignItems: 'center',
-                  color: 'white', fontSize: '32px', fontWeight: 700,
-                  overflow: 'hidden', border: '3px solid var(--bg-card)'
-                }}>
-                  {tempAvatar ? (
-                    <img src={tempAvatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    tempName.charAt(0).toUpperCase()
-                  )}
+            {/* Premium Financial Member Pass Card */}
+            <div style={{
+              background: profileStats.tierColor,
+              borderRadius: '20px',
+              padding: '20px',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: `0 12px 28px ${profileStats.shadowColor}`,
+              marginBottom: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              border: '1px solid rgba(255, 255, 255, 0.12)'
+            }}>
+              {/* Card background ambient patterns */}
+              <div style={{
+                position: 'absolute',
+                top: '-40px',
+                right: '-40px',
+                width: '140px',
+                height: '140px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                filter: 'blur(12px)',
+                pointerEvents: 'none'
+              }} />
+              <div style={{
+                position: 'absolute',
+                bottom: '-20px',
+                left: '-20px',
+                width: '90px',
+                height: '90px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.05)',
+                filter: 'blur(8px)',
+                pointerEvents: 'none'
+              }} />
+
+              {/* Card Header: Avatar & Details */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 2 }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={{
+                    width: '68px',
+                    height: '68px',
+                    borderRadius: '50%',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    fontSize: '26px',
+                    fontWeight: 900,
+                    overflow: 'hidden',
+                    border: '2.5px solid rgba(255, 255, 255, 0.85)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  }}>
+                    {tempAvatar ? (
+                      <img src={tempAvatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      tempName ? tempName.charAt(0).toUpperCase() : 'U'
+                    )}
+                  </div>
+                  <label style={{
+                    position: 'absolute',
+                    bottom: '-3px',
+                    right: '-4px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    color: '#1e293b',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
+                    transition: 'transform 0.2s ease, background-color 0.2s ease',
+                    border: '1px solid rgba(0,0,0,0.05)'
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15)'; e.currentTarget.style.backgroundColor = '#f8fafc'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)'; }}
+                    title="Ubah Foto"
+                  >
+                    <Camera size={12} style={{ flexShrink: 0, display: 'block' }} />
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                  </label>
                 </div>
-                <label style={{
-                  position: 'absolute', bottom: 0, right: -5,
-                  backgroundColor: 'var(--secondary)', padding: '6px', borderRadius: '50%',
-                  color: 'white', cursor: 'pointer', border: '2px solid var(--bg-card)'
-                }}>
-                  <Camera size={14} />
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-                </label>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 800, fontSize: '17px', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {tempName || 'User MoneyApp'}
+                    </span>
+                    <span style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.22)',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '9px',
+                      fontWeight: 800,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      display: 'inline-flex',
+                      alignItems: 'center'
+                    }}>
+                      Lokal Terverifikasi ✓
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '4px', fontWeight: 500 }}>
+                    {tempEmail || 'belum_diatur@email.com'}
+                  </div>
+                </div>
               </div>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>Pilih foto wajah</span>
+
+              {/* Divider Line */}
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.15)', margin: '2px 0' }} />
+
+              {/* Stats & Rank details */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', position: 'relative', zIndex: 2 }}>
+                <div>
+                  <div style={{ fontSize: '9px', opacity: 0.75, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Level Finansial</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800, marginTop: '3px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {profileStats.tierLabel}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '9px', opacity: 0.75, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Saldo Aktif</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800, marginTop: '3px' }}>
+                    {currencySymbol}{profileStats.netWorth.toLocaleString('id-ID')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly Stats Capsule */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'rgba(0, 0, 0, 0.15)',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                marginTop: '2px',
+                border: '1px solid rgba(255,255,255,0.06)'
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, opacity: 0.95 }}>Aktivitas Pencatatan Bulan Ini:</span>
+                <span style={{ fontSize: '11px', fontWeight: 800 }}>{profileStats.txCount} Transaksi</span>
+              </div>
             </div>
 
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nama Lengkap</label>
-            <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} required />
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Email</label>
-            <input type="email" value={tempEmail} onChange={e => setTempEmail(e.target.value)} required />
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Simpan Perubahan</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Nama Lengkap</label>
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={e => setTempName(e.target.value)}
+                  placeholder="Masukkan nama lengkap..."
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', marginBottom: 0 }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Email</label>
+                <input
+                  type="email"
+                  value={tempEmail}
+                  onChange={e => setTempEmail(e.target.value)}
+                  placeholder="Masukkan email..."
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', marginBottom: 0 }}
+                  required
+                />
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '12px', fontWeight: 800, fontSize: '14px', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px var(--primary-glow)' }}>
+              Simpan Perubahan
+            </button>
           </form>
         );
       case 'security':
@@ -1331,70 +1648,6 @@ const Settings: React.FC = () => {
         );
 
       case 'whats_new':
-        const changelog: Array<{
-          version: string; date: string; badge?: string;
-          entries: Array<{ type: 'new' | 'fix' | 'improve'; text: string }>;
-        }> = [
-            {
-              version: 'v1.0.14', date: 'Mei 2026', badge: 'Terbaru',
-              entries: [
-                { type: 'new', text: 'Split Bill (OCR): Bagi tagihan belanja ke banyak orang sekaligus langsung dari hasil scan struk' },
-                { type: 'new', text: 'Penggabungan Hutang Otomatis: Tambah piutang/hutang ke kontak yang sama kini otomatis digabung (Tips: Kosongkan aset jika ingin pembayaran tercatat sebagai Pengeluaran)' },
-                { type: 'improve', text: 'Auto-Collapse Transaksi: Daftar transaksi hanya membuka hari ini agar tampilan lebih rapi' },
-                { type: 'fix', text: 'Kalkulasi saldo sisa piutang yang salah saat penambahan nominal dengan catatan kustom' },
-              ],
-            },
-            {
-              version: 'v1.0.13', date: 'Mei 2026',
-              entries: [
-                { type: 'new', text: 'Sistem Potong Silang (Offset) otomatis untuk Hutang & Piutang dari kontak yang sama' },
-                { type: 'new', text: 'Support tipe transaksi "Transfer" pada fitur Input Sekaligus & OCR Mutasi' },
-                { type: 'new', text: 'Input Biaya Admin pada mode Bulk/OCR dengan pemisahan transaksi pengeluaran otomatis' },
-                { type: 'new', text: 'Statistik perbandingan pertumbuhan (growth) pendapatan & pengeluaran dari bulan lalu' },
-                { type: 'improve', text: 'Penyempurnaan parsing AI untuk mendeteksi rekening asal/tujuan pada transfer' },
-                { type: 'fix', text: 'Reference error pada halaman statistik saat menghitung perbandingan bulan' },
-              ],
-            },
-            {
-              version: 'v1.0.8', date: 'Apr 2025',
-              entries: [
-                { type: 'new', text: 'Gacha tier system: 9 tingkatan kekayaan (Bronze → Sultan 👑)' },
-                { type: 'new', text: 'Liquid wave fill animation pada kartu aset carousel' },
-                { type: 'new', text: 'Pesan motivasi berputar (3 per tier) setiap 4 detik' },
-                { type: 'new', text: 'Progress "berapa lagi ke tier berikutnya" langsung di kartu' },
-                { type: 'new', text: 'OCR Struk: pajak & service charge didistribusikan proporsional ke setiap item' },
-                { type: 'new', text: 'Toast notification system — tidak ada lagi dialog browser bawaan' },
-                { type: 'improve', text: 'Warna section pada modal Hutang/Piutang lebih distinct (filled + border)' },
-                { type: 'improve', text: 'Summary card Hutang/Piutang: fill lebih pekat, tanpa border' },
-                { type: 'fix', text: 'Build error: field tier.name → tier.rank setelah refactor gacha' },
-              ],
-            },
-            {
-              version: 'v1.0.7', date: 'Mar 2025',
-              entries: [
-                { type: 'new', text: 'Asset carousel swipeable dengan konfigurasi kartu di Settings' },
-                { type: 'new', text: 'Hidden Assets accordion — aset tersembunyi tidak hilang dari neraca' },
-                { type: 'new', text: 'OCR Struk via OpenAI GPT-4o-mini dengan auto-kategori & aset' },
-                { type: 'new', text: 'Modul Hutang & Piutang dengan cicilan, jatuh tempo, dan riwayat' },
-                { type: 'improve', text: 'Subcategory tersedia di BulkInput, DebtModal, dan ReceiptScanner' },
-                { type: 'fix', text: 'Default aset tidak tersimpan dengan benar di beberapa modul input' },
-              ],
-            },
-            {
-              version: 'v1.0.6', date: 'Feb 2025',
-              entries: [
-                { type: 'new', text: 'Scan mutasi bank (bulk import via foto/PDF)' },
-                { type: 'new', text: 'Recurring transactions — transaksi berulang otomatis' },
-                { type: 'new', text: 'PIN lock untuk keamanan aplikasi' },
-                { type: 'improve', text: 'Dark mode dengan CSS variable full-coverage' },
-              ],
-            },
-          ];
-        const typeMeta = {
-          new: { label: 'BARU', color: 'var(--primary)', bg: 'hsla(215,85%,58%,0.12)' },
-          fix: { label: 'FIX', color: 'var(--danger)', bg: 'hsla(350,80%,58%,0.1)' },
-          improve: { label: 'IMPROVE', color: '#d97706', bg: 'hsla(35,90%,52%,0.1)' },
-        };
         return (
           <>
             <div className="modal-header">
@@ -1402,7 +1655,7 @@ const Settings: React.FC = () => {
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {changelog.map(v => (
+              {changelogData.map(v => (
                 <div key={v.version}>
                   {/* Version header */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
@@ -1418,7 +1671,7 @@ const Settings: React.FC = () => {
                   {/* Entries */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                     {v.entries.map((e, i) => {
-                      const meta = typeMeta[e.type];
+                      const meta = changelogTypeMeta[e.type];
                       return (
                         <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                           <span style={{
@@ -1432,13 +1685,13 @@ const Settings: React.FC = () => {
                     })}
                   </div>
                   {/* Divider (except last) */}
-                  {v !== changelog[changelog.length - 1] && (
+                  {v !== changelogData[changelogData.length - 1] && (
                     <div style={{ marginTop: '16px', borderBottom: '1px dashed var(--border-color)' }} />
                   )}
                 </div>
               ))}
               <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
-                Money Tracker v1.0.13 · Made with ❤️
+                Money Tracker v1.0.16 · Made with ❤️
               </div>
             </div>
           </>
@@ -1452,7 +1705,7 @@ const Settings: React.FC = () => {
   return (
     <div className="page" style={{ paddingBottom: '80px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 className="title" style={{ margin: 0 }}>Lainnya</h1>
+        <h1 className="title" style={{ margin: 0 }}>Settings</h1>
       </div>
 
       <QuotaBanner />
@@ -1617,7 +1870,7 @@ const Settings: React.FC = () => {
           <LogOut size={20} /> Logout dari Akun
         </button>
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-          MoneyApp v1.0.15 • Dibuat dengan ❤️ by Dappal
+          MoneyApp v1.0.16 • Dibuat dengan ❤️ by Dappal
         </p>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart, LineChart, Line } from 'recharts';
 import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
@@ -12,6 +12,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const Statistics: React.FC = () => {
   const { transactions, currencySymbol, startOfMonthDay, theme, chartStyle } = useMoney();
+  const heatmapScrollRef = useRef<HTMLDivElement>(null);
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date();
     if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
@@ -66,9 +67,9 @@ const Statistics: React.FC = () => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
-    // ─── Phase 1: 5-Month Trend Data ───
-    const last5Months: { name: string, month: number, year: number, pengeluaran: number, pendapatan: number, periodStart: Date, periodEnd: Date }[] = [];
-    for (let i = 4; i >= 0; i--) {
+    // ─── Phase 1: 6-Month Trend Data ───
+    const last6Months: { name: string, month: number, year: number, pengeluaran: number, pendapatan: number, periodStart: Date, periodEnd: Date }[] = [];
+    for (let i = 5; i >= 0; i--) {
       const d = new Date(vY, vM - i, 1);
       const m = d.getMonth();
       const y = d.getFullYear();
@@ -76,7 +77,7 @@ const Statistics: React.FC = () => {
       const pS = new Date(y, m - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
       const pE = new Date(y, m + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
 
-      last5Months.push({
+      last6Months.push({
         name: MONTH_NAMES[m],
         month: m,
         year: y,
@@ -87,7 +88,7 @@ const Statistics: React.FC = () => {
       });
     }
 
-    const currentPeriod = last5Months[last5Months.length - 1];
+    const currentPeriod = last6Months[last6Months.length - 1];
     const { periodStart: vPeriodStart, periodEnd: vPeriodEnd } = currentPeriod;
 
     let thisMonthInc = 0;
@@ -153,8 +154,8 @@ const Statistics: React.FC = () => {
         heatmapSpending[tx.date] = (heatmapSpending[tx.date] || 0) + tx.amount;
       }
 
-      // 2. Trend Data (Last 5 Periods)
-      last5Months.forEach(m => {
+      // 2. Trend Data (Last 6 Periods)
+      last6Months.forEach(m => {
         if (txDate >= m.periodStart && txDate < m.periodEnd) {
           if (tx.type === 'pendapatan') m.pendapatan += tx.amount;
           if (tx.type === 'pengeluaran') m.pengeluaran += tx.amount;
@@ -162,23 +163,13 @@ const Statistics: React.FC = () => {
       });
     });
 
-    const limitSlices = (data: {name: string, value: number}[]) => {
-      if (data.length <= 5) return data;
-      const top4 = data.slice(0, 4);
-      const othersValue = data.slice(4).reduce((sum, item) => sum + item.value, 0);
-      return [...top4, { name: 'Lainnya', value: othersValue, __isOthers: true }];
-    };
-
-    const expenseDataRaw = drillDownCategory?.type === 'pengeluaran' 
+    const expenseData = drillDownCategory?.type === 'pengeluaran' 
       ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })).sort((a,b) => b.value - a.value)
       : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a,b) => b.value - a.value);
       
-    const incomeDataRaw = drillDownCategory?.type === 'pendapatan'
+    const incomeData = drillDownCategory?.type === 'pendapatan'
       ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] })).sort((a,b) => b.value - a.value)
       : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a,b) => b.value - a.value);
-
-    const expenseData = limitSlices(expenseDataRaw);
-    const incomeData = limitSlices(incomeDataRaw);
     
     // Prepare the list for the bottom section
     let allCategories: { id: string, category: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
@@ -238,12 +229,12 @@ const Statistics: React.FC = () => {
       topSpendingDay: topSpendingDay ? { date: topSpendingDay[0], amount: topSpendingDay[1] } : null,
     };
 
-    const prevPeriod = last5Months.length > 1 ? last5Months[last5Months.length - 2] : null;
+    const prevPeriod = last6Months.length > 1 ? last6Months[last6Months.length - 2] : null;
     const prevMonthIncomeVal = prevPeriod ? prevPeriod.pendapatan : 0;
     const prevMonthExpenseVal = prevPeriod ? prevPeriod.pengeluaran : 0;
 
     return { 
-      chartData: last5Months, 
+      chartData: last6Months, 
       currentMonthIncome: thisMonthInc, 
       currentMonthExpense: thisMonthExp,
       prevMonthIncome: prevMonthIncomeVal,
@@ -312,6 +303,36 @@ const Statistics: React.FC = () => {
     return dailyExpenseChart;
   }, [dailyExpenseChart, chartScale]);
 
+  useEffect(() => {
+    if (heatmapScrollRef.current && heatmapData && heatmapData.length > 0) {
+      // Find current selected/view month index (0-11)
+      const currentMonthIndex = viewDate.getMonth();
+      
+      // Calculate column index of this month
+      // Heatmap starts on firstDow of January
+      const firstDow = heatmapData[0]?.firstDow || 0;
+      let offset = 0;
+      let targetCol = 0;
+      for (let m = 0; m < currentMonthIndex; m++) {
+        offset += heatmapData[m]?.cells.length || 0;
+      }
+      targetCol = Math.floor((firstDow + offset) / 7);
+      
+      const CELL_WIDTH = 13;
+      const GAP_WIDTH = 4;
+      const colLeft = targetCol * (CELL_WIDTH + GAP_WIDTH);
+      
+      const container = heatmapScrollRef.current;
+      const containerWidth = container.clientWidth;
+      
+      // Scroll to center the month column
+      container.scrollTo({
+        left: Math.max(0, colLeft - containerWidth / 2 + 50), // +50 to show a bit of the previous month for context
+        behavior: 'smooth'
+      });
+    }
+  }, [viewDate, heatmapData]);
+
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
     setDrillDownCategory(null);
@@ -367,7 +388,7 @@ const Statistics: React.FC = () => {
       </div>
       
       <div className="card glass">
-        <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>Tren 5 Bulan Terakhir</h2>
+        <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Tren 6 Bulan Terakhir</h2>
         <div style={{ width: '100%', height: 300 }}>
           <ResponsiveContainer>
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
@@ -511,72 +532,56 @@ const Statistics: React.FC = () => {
             };
           }
 
-          const interpolate = (start: number, end: number, ratio: number) => start + (end - start) * ratio;
+          // Exact landmark values translated from user's CMYK colors
+          // R = 255 * (1 - C), G = 255 * (1 - M), B = 255 * (1 - Y)  (since K is 0)
+          const landmarks = [
+            { amt: 1000,    r: 245, g: 245, b: 245, opLight: 0.35, opDark: 0.15 }, // CMYK(4,4,4,0)
+            { amt: 5000,    r: 250, g: 240, b: 237, opLight: 0.48, opDark: 0.22 }, // CMYK(2,6,7,0)
+            { amt: 10000,   r: 255, g: 232, b: 232, opLight: 0.60, opDark: 0.32 }, // CMYK(0,9,9,0)
+            { amt: 5000,    r: 255, g: 186, b: 184, opLight: 0.75, opDark: 0.50 }, // CMYK(0,27,28,0) (treated as 50K milestone)
+            { amt: 100000,  r: 255, g: 117, b: 117, opLight: 0.85, opDark: 0.68 }, // CMYK(0,54,54,0)
+            { amt: 250000,  r: 255, g: 64,  b: 64,  opLight: 0.92, opDark: 0.80 }, // CMYK(0,75,75,0)
+            { amt: 500000,  r: 255, g: 33,  b: 33,  opLight: 0.96, opDark: 0.92 }, // CMYK(0,87,87,0)
+            { amt: 1000000, r: 255, g: 3,   b: 3,   opLight: 1.00, opDark: 1.00 }  // CMYK(0,99,99,0)
+          ];
 
-          let saturation = 0;
-          let lightness = 0;
-          let opacity = 0;
-          const hue = 355; // Warm crimson red from theme's danger color
+          // Fix 50K landmark spelling error (changed 5000 to 50000)
+          landmarks[3].amt = 50000;
 
-          if (amount < 25000) {
-            // Under 25K: Virtually white/background color
-            saturation = 4;
-            
-            if (isDark) {
-              lightness = 85;
-              opacity = 0.12;
-            } else {
-              lightness = 98;
-              opacity = 0.3;
-            }
-          } else if (amount <= 50000) {
-            // 25K to 50K: "grayish-with little red hue"
-            const ratio = (amount - 25000) / 25000;
-            saturation = Math.round(interpolate(5, 15, ratio));
-            
-            if (isDark) {
-              lightness = Math.round(interpolate(85, 75, ratio));
-              opacity = interpolate(0.15, 0.3, ratio);
-            } else {
-              lightness = Math.round(interpolate(97, 92, ratio));
-              opacity = interpolate(0.4, 0.6, ratio);
-            }
-          } else if (amount <= 150000) {
-            // 50K to 150K: "pinkish"
-            const ratio = (amount - 50000) / 100000;
-            
-            if (isDark) {
-              saturation = Math.round(interpolate(20, 45, ratio));
-              lightness = Math.round(interpolate(75, 62, ratio));
-              opacity = interpolate(0.3, 0.6, ratio);
-            } else {
-              saturation = Math.round(interpolate(30, 50, ratio));
-              lightness = Math.round(interpolate(92, 78, ratio));
-              opacity = interpolate(0.6, 0.85, ratio);
-            }
+          let r = 245, g = 245, b = 245, opacity = 1.0;
+
+          if (amount <= 1000) {
+            r = 245; g = 245; b = 245;
+            opacity = isDark ? 0.15 : 0.35;
+          } else if (amount >= 1000000) {
+            r = 255; g = 3; b = 3;
+            opacity = 1.0;
           } else {
-            // Above 150K: "ramping from pink to red bright" up to 1 Million (1000000)
-            const ratio = Math.min((amount - 150000) / 850000, 1.0);
-            
-            if (isDark) {
-              saturation = Math.round(interpolate(45, 100, ratio));
-              lightness = Math.round(interpolate(62, 42, ratio));
-              opacity = interpolate(0.6, 1.0, ratio);
-            } else {
-              saturation = Math.round(interpolate(50, 100, ratio));
-              lightness = Math.round(interpolate(78, 48, ratio));
-              opacity = interpolate(0.85, 1.0, ratio);
+            let i = 0;
+            while (i < landmarks.length - 1 && amount > landmarks[i + 1].amt) {
+              i++;
             }
+            const l1 = landmarks[i];
+            const l2 = landmarks[i + 1];
+            const ratio = (amount - l1.amt) / (l2.amt - l1.amt);
+            
+            r = Math.round(l1.r + (l2.r - l1.r) * ratio);
+            g = Math.round(l1.g + (l2.g - l1.g) * ratio);
+            b = Math.round(l1.b + (l2.b - l1.b) * ratio);
+            
+            const op1 = isDark ? l1.opDark : l1.opLight;
+            const op2 = isDark ? l2.opDark : l2.opLight;
+            opacity = op1 + (op2 - op1) * ratio;
           }
 
-          const bgStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${opacity})`;
+          const bgStyle = `rgba(${r}, ${g}, ${b}, ${opacity.toFixed(2)})`;
 
           // Premium ambient outer glow for values above 150K (reaches full intensity at 1M)
           let boxShadow = 'none';
           if (amount > 150000) {
             const glowRatio = Math.min((amount - 150000) / 850000, 1.0);
             const glowOpacity = glowRatio * 0.28; // max 0.28 glow opacity
-            boxShadow = `0 0 6px 1.5px hsla(${hue}, 95%, 50%, ${glowOpacity})`;
+            boxShadow = `0 0 6px 1.5px rgba(255, 3, 3, ${glowOpacity})`;
           }
 
           return {
@@ -613,6 +618,7 @@ const Statistics: React.FC = () => {
 
             {/* Scrollable container with modern scrollbar styling */}
             <div 
+              ref={heatmapScrollRef}
               className="custom-scrollbar"
               style={{ 
                 overflowX: 'auto', 
@@ -927,7 +933,7 @@ const Statistics: React.FC = () => {
       {/* ── Daily Expense Area Chart ──────────────────────────── */}
       {currentMonthExpense > 0 && (
         <div className="card glass" style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '16px', gap: '12px' }}>
             <div>
               <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Pengeluaran &amp; Pendapatan Harian</h2>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
@@ -1084,16 +1090,16 @@ const Statistics: React.FC = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
         {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
-          <div className="card glass">
+          <div className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
             <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
-            <div style={{ width: '100%', height: 260 }}>
+            <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie
                     data={expenseCategoryData}
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
+                    innerRadius={55}
+                    outerRadius={75}
+                    paddingAngle={3}
                     dataKey="value"
                     onClick={(data, index) => {
                       if (!drillDownCategory && !(data as any).__isOthers) {
@@ -1108,26 +1114,78 @@ const Statistics: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     formatter={(val: any) => fmt(Number(val))}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', fontSize: '11px' }}
                   />
-                  <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '12px', maxHeight: '120px', overflowY: 'auto' }}/>
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+
+            {/* Custom Interactive Scrollable Legend */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '6px 12px',
+              justifyContent: 'center',
+              marginTop: '16px',
+              maxHeight: '90px',
+              overflowY: 'auto',
+              padding: '12px 4px 4px 4px',
+              borderTop: '1px solid var(--border-color)',
+            }}
+            className="scrollbar-thin"
+            >
+              {expenseCategoryData.map((item, index) => {
+                const color = COLORS[(index + (drillDownCategory?.colorIndex ?? 0)) % COLORS.length];
+                const isOthers = (item as any).__isOthers;
+                return (
+                  <div 
+                    key={index} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      fontSize: '11px', 
+                      fontWeight: 700, 
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                      cursor: (!drillDownCategory && !isOthers) ? 'pointer' : 'default',
+                      transition: 'color 0.15s ease'
+                    }}
+                    onClick={() => {
+                      if (!drillDownCategory && !isOthers) {
+                        setDrillDownCategory({ name: item.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                      }
+                    }}
+                    onMouseEnter={e => { if (!drillDownCategory && !isOthers) e.currentTarget.style.color = 'var(--text-main)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  >
+                    <span style={{ 
+                      width: '8px', 
+                      height: '8px', 
+                      borderRadius: '50%', 
+                      backgroundColor: color,
+                      display: 'inline-block',
+                      flexShrink: 0
+                    }} />
+                    {item.name}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
         {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
-          <div className="card glass">
+          <div className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
             <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
-            <div style={{ width: '100%', height: 260 }}>
+            <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie
                     data={incomeCategoryData}
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
+                    innerRadius={55}
+                    outerRadius={75}
+                    paddingAngle={3}
                     dataKey="value"
                     onClick={(data, index) => {
                       if (!drillDownCategory && !(data as any).__isOthers) {
@@ -1142,11 +1200,63 @@ const Statistics: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     formatter={(val: any) => fmt(Number(val))}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', fontSize: '11px' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+
+            {/* Custom Interactive Scrollable Legend */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '6px 12px',
+              justifyContent: 'center',
+              marginTop: '16px',
+              maxHeight: '90px',
+              overflowY: 'auto',
+              padding: '12px 4px 4px 4px',
+              borderTop: '1px solid var(--border-color)',
+            }}
+            className="scrollbar-thin"
+            >
+              {incomeCategoryData.map((item, index) => {
+                const color = COLORS[(index + (drillDownCategory ? drillDownCategory.colorIndex : 3)) % COLORS.length];
+                const isOthers = (item as any).__isOthers;
+                return (
+                  <div 
+                    key={index} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      fontSize: '11px', 
+                      fontWeight: 700, 
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                      cursor: (!drillDownCategory && !isOthers) ? 'pointer' : 'default',
+                      transition: 'color 0.15s ease'
+                    }}
+                    onClick={() => {
+                      if (!drillDownCategory && !isOthers) {
+                        setDrillDownCategory({ name: item.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                      }
+                    }}
+                    onMouseEnter={e => { if (!drillDownCategory && !isOthers) e.currentTarget.style.color = 'var(--text-main)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  >
+                    <span style={{ 
+                      width: '8px', 
+                      height: '8px', 
+                      borderRadius: '50%', 
+                      backgroundColor: color,
+                      display: 'inline-block',
+                      flexShrink: 0
+                    }} />
+                    {item.name}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1154,7 +1264,7 @@ const Statistics: React.FC = () => {
 
       {topCategories.length > 0 && (
         <div className="card glass" style={{ marginBottom: '80px' }}>
-          <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>
+          <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>
             {drillDownCategory ? `Rincian Sub-kategori: ${drillDownCategory.name}` : 'Total Terbesar per Kategori'}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1162,15 +1272,14 @@ const Statistics: React.FC = () => {
               <div 
                 key={cat.id} 
                 onClick={() => {
-                  if (!drillDownCategory && cat.category !== 'Lainnya') {
+                  if (!drillDownCategory) {
                     setDrillDownCategory({ name: cat.category, type: cat.type, colorIndex: cat.colorIndex });
                   }
                 }}
                 style={{ 
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
                   padding: '12px', background: 'var(--bg-main)', borderRadius: '12px',
-                  cursor: drillDownCategory || cat.category === 'Lainnya' ? 'default' : 'pointer',
-                  opacity: cat.category === 'Lainnya' ? 0.7 : 1
+                  cursor: drillDownCategory ? 'default' : 'pointer'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

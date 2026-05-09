@@ -183,8 +183,10 @@ interface MoneyContextType {
   updateTransaction: (id: string, tx: Partial<Transaction>) => void;
   addCategory: (cat: Omit<Category, 'id'>) => void;
   deleteCategory: (id: string) => void;
+  updateCategory: (id: string, name: string) => void;
   addSubCategory: (categoryId: string, name: string) => void;
   deleteSubCategory: (categoryId: string, subId: string) => void;
+  updateSubCategory: (categoryId: string, subId: string, name: string) => void;
   addBudget: (budget: Omit<Budget, 'id'>) => void;
   updateBudget: (id: string, budget: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
@@ -594,6 +596,56 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return updated;
     }));
   }, []);
+
+  const updateCategory = useCallback((id: string, name: string) => {
+    let oldName = '';
+    setCategories(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      oldName = c.name;
+      const updated = { ...c, name };
+      dbPutCategory(updated).then(refreshSyncCount);
+      return updated;
+    }));
+
+    if (oldName && oldName !== name) {
+      setTransactions(prev => prev.map(tx => {
+        if (tx.category === oldName) {
+          const updated = { ...tx, category: name };
+          dbPutTransaction(updated);
+          return updated;
+        }
+        return tx;
+      }));
+    }
+  }, [refreshSyncCount]);
+
+  const updateSubCategory = useCallback((categoryId: string, subId: string, name: string) => {
+    let oldSubName = '';
+    let catName = '';
+    setCategories(prev => prev.map(c => {
+      if (c.id !== categoryId) return c;
+      catName = c.name;
+      const updatedSubcategories = (c.subcategories || []).map(sub => {
+        if (sub.id !== subId) return sub;
+        oldSubName = sub.name;
+        return { ...sub, name };
+      });
+      const updated = { ...c, subcategories: updatedSubcategories };
+      dbPutCategory(updated).then(refreshSyncCount);
+      return updated;
+    }));
+
+    if (oldSubName && oldSubName !== name && catName) {
+      setTransactions(prev => prev.map(tx => {
+        if (tx.category === catName && tx.subCategory === oldSubName) {
+          const updated = { ...tx, subCategory: name };
+          dbPutTransaction(updated);
+          return updated;
+        }
+        return tx;
+      }));
+    }
+  }, [refreshSyncCount]);
 
   // ─── Budgets ──────────────────────────────────────────────────────────────
   const addBudget = useCallback((budgetReq: Omit<Budget, 'id'>) => {
@@ -1313,7 +1365,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
-    addCategory, deleteCategory, addSubCategory, deleteSubCategory,
+    addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory,
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
@@ -1328,7 +1380,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
-    addCategory, deleteCategory, addSubCategory, deleteSubCategory,
+    addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory,
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
