@@ -3,7 +3,7 @@ import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search, CreditCard, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -178,7 +178,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, addSubCategory, deleteSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -235,6 +235,15 @@ const Settings: React.FC = () => {
   const [editingContact, setEditingContact] = useState<string | null>(null);
   const [contactSearchQuery, setContactSearchQuery] = useState('');
 
+  // Subscription State
+  const [newSubName, setNewSubName] = useState('');
+  const [newSubAmount, setNewSubAmount] = useState('');
+  const [newSubCycle, setNewSubCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [newSubDate, setNewSubDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newSubCat, setNewSubCat] = useState('');
+  const [newSubAsset, setNewSubAsset] = useState(defaultAssetId || '');
+  const [editingSub, setEditingSub] = useState<string | null>(null);
+
   const menuItems = [
     // ... existing menuItems ...
     { id: 'profile', icon: User, label: 'Profil Saya' },
@@ -244,6 +253,7 @@ const Settings: React.FC = () => {
     { id: 'budgets', icon: Target, label: 'Anggaran & Target' },
     { id: 'security', icon: Shield, label: 'Keamanan' },
     { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
+    { id: 'subscriptions', icon: CreditCard, label: 'Langganan (Subs)' },
     { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
     { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
@@ -681,6 +691,187 @@ const Settings: React.FC = () => {
                 <Plus size={20} />
               </button>
             </form>
+          </>
+        );
+      case 'subscriptions':
+        const handleAddSub = (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!newSubName.trim() || !newSubAmount) return;
+          const subData = {
+            name: newSubName.trim(),
+            amount: parseFloat(newSubAmount),
+            billingCycle: newSubCycle,
+            nextBillingDate: newSubDate,
+            category: newSubCat || 'Lainnya',
+            assetId: newSubAsset,
+            isActive: true,
+          };
+          if (editingSub) {
+            updateSubscription(editingSub, subData);
+            setEditingSub(null);
+          } else {
+            addSubscription(subData);
+          }
+          setNewSubName(''); setNewSubAmount(''); setNewSubCat('');
+        };
+
+        const totalMonthly = subscriptions
+          .filter(s => s.isActive)
+          .reduce((sum, s) => sum + (s.billingCycle === 'monthly' ? s.amount : s.amount / 12), 0);
+
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Kelola Langganan</h2>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+            </div>
+
+            <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingBottom: 20 }}>
+              {/* Summary Card */}
+              <div style={{ 
+                margin: '0 20px 20px', padding: '16px', 
+                background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                borderRadius: '16px', color: 'white', boxShadow: '0 8px 16px var(--primary-glow)'
+              }}>
+                <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: 600 }}>Estimasi Pengeluaran Bulanan</div>
+                <div style={{ fontSize: '24px', fontWeight: 800, margin: '4px 0' }}>
+                  {currencySymbol}{totalMonthly.toLocaleString('id-ID')}
+                </div>
+                <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                  Berdasarkan {subscriptions.length} layanan aktif
+                </div>
+              </div>
+
+              {/* Add/Edit Form */}
+              <div style={{ padding: '0 20px 20px', borderBottom: '1px solid var(--border-color)', marginBottom: 20 }}>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {editingSub ? <Edit2 size={16} /> : <Plus size={16} />}
+                  {editingSub ? 'Edit Langganan' : 'Tambah Langganan Baru'}
+                </div>
+                <form onSubmit={handleAddSub} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 2 }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Nama Layanan</label>
+                      <input 
+                        type="text" placeholder="misal: Netflix" 
+                        value={newSubName} onChange={e => setNewSubName(e.target.value)}
+                        style={{ width: '100%', marginBottom: 0 }} required
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Harga</label>
+                      <input 
+                        type="number" placeholder="0" 
+                        value={newSubAmount} onChange={e => setNewSubAmount(e.target.value)}
+                        style={{ width: '100%', marginBottom: 0 }} required
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Siklus</label>
+                      <select 
+                        value={newSubCycle} onChange={e => setNewSubCycle(e.target.value as any)}
+                        style={{ width: '100%', padding: '10px', borderRadius: '12px' }}
+                      >
+                        <option value="monthly">Bulanan</option>
+                        <option value="yearly">Tahunan</option>
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Tgl Perpanjang</label>
+                      <input 
+                        type="date" value={newSubDate} onChange={e => setNewSubDate(e.target.value)}
+                        style={{ width: '100%', marginBottom: 0 }} required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Bayar Pake Dompet</label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <select 
+                        value={newSubAsset} onChange={e => setNewSubAsset(e.target.value)}
+                        style={{ flex: 1, padding: '10px', borderRadius: '12px' }}
+                      >
+                        <option value="">Pilih Dompet...</option>
+                        {assets.filter(a => !a.isDeleted).map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                      <button type="submit" className="btn btn-primary" style={{ flex: 1, margin: 0 }}>
+                        {editingSub ? 'Simpan' : 'Tambah'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              {/* List */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '0 20px 10px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>DAFTAR LANGGANAN</div>
+                {subscriptions.map(s => (
+                  <div key={s.id} style={{ 
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px',
+                    borderBottom: '1px solid var(--border-color)',
+                    background: editingSub === s.id ? 'var(--bg-main)' : 'transparent',
+                    opacity: s.isActive ? 1 : 0.6
+                  }}>
+                    <div style={{ 
+                      width: 40, height: 40, borderRadius: 12, background: 'var(--bg-card)',
+                      color: 'var(--primary)', border: '1px solid var(--border-color)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800
+                    }}>
+                      {s.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <CreditCard size={10} /> {currencySymbol}{s.amount.toLocaleString('id-ID')} • <Calendar size={10} /> {s.nextBillingDate} ({s.billingCycle === 'monthly' ? 'Bln' : 'Thn'})
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button 
+                        onClick={() => updateSubscription(s.id, { isActive: !s.isActive })}
+                        className="btn-icon"
+                        style={{ color: s.isActive ? 'var(--primary)' : 'var(--text-muted)', padding: 6 }}
+                      >
+                        <RefreshCw size={18} style={{ opacity: s.isActive ? 1 : 0.4 }} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setEditingSub(s.id);
+                          setNewSubName(s.name);
+                          setNewSubAmount(s.amount.toString());
+                          setNewSubCycle(s.billingCycle);
+                          setNewSubDate(s.nextBillingDate);
+                          setNewSubAsset(s.assetId);
+                          // scroll to top
+                          document.querySelector('.modal-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="btn-icon"
+                        style={{ color: 'var(--primary)', padding: 6 }}
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button 
+                        onClick={() => showConfirm('Hapus Langganan', `Hapus "${s.name}"?`, () => deleteSubscription(s.id))}
+                        className="btn-icon"
+                        style={{ color: 'var(--danger)', padding: 6 }}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {subscriptions.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 20px' }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>💳</div>
+                    <div style={{ fontWeight: 700 }}>Belum ada data langganan</div>
+                    <div style={{ fontSize: 12 }}>Catat biaya bulananmu di sini.</div>
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         );
       case 'preferences':

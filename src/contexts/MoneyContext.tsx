@@ -121,6 +121,19 @@ export interface RecurringTransaction {
   isActive: boolean;
 }
 
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  billingCycle: 'monthly' | 'yearly';
+  nextBillingDate: string; // YYYY-MM-DD
+  category: string;
+  icon?: string;
+  assetId: string;
+  isActive: boolean;
+  note?: string;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -154,6 +167,7 @@ interface MoneyContextType {
   debts: Debt[];
   contacts: Contact[];
   recurringTransactions: RecurringTransaction[];
+  subscriptions: Subscription[];
   user: UserProfile;
   pin: string | null;
   isAppLocked: boolean;
@@ -183,6 +197,9 @@ interface MoneyContextType {
   addRecurringTransaction: (rt: Omit<RecurringTransaction, 'id'>) => void;
   updateRecurringTransaction: (id: string, rt: Partial<RecurringTransaction>) => void;
   deleteRecurringTransaction: (id: string) => void;
+  addSubscription: (sub: Omit<Subscription, 'id'>) => void;
+  updateSubscription: (id: string, sub: Partial<Subscription>) => void;
+  deleteSubscription: (id: string) => void;
   payInstallment: (debtId: string) => void;
   settleDebt: (debtId: string, assetId?: string, date?: string, time?: string, amount?: number) => void;
   addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
@@ -232,6 +249,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [debts, setDebts] = useState<Debt[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [pin, setPin] = useState<string | null>(null);
   const [isAppLocked, setIsAppLocked] = useState(false);
@@ -276,7 +294,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await migrateFromLocalStorage();
 
       // Load all data from IndexedDB
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRecurring, dbContacts] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRecurring, dbContacts, dbSubs] = await Promise.all([
         dbGetAllAssets(),
         dbGetAllTransactions(),
         dbGetAllCategories(),
@@ -284,9 +302,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         dbGetAllDebts(),
         import('../lib/db').then(m => m.dbGetAllRecurringTransactions()),
         import('../lib/db').then(m => m.dbGetAllContacts()),
+        import('../lib/db').then(m => m.dbGetAllSubscriptions()),
       ]);
       setRecurringTransactions(dbRecurring);
       setContacts(dbContacts);
+      setSubscriptions(dbSubs);
 
 
       // Seed defaults if DB is empty
@@ -750,6 +770,33 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     import('../lib/db').then(m => {
       setRecurringTransactions(prev => prev.filter(rt => rt.id !== id));
       m.dbDeleteRecurringTransaction(id);
+    });
+  }, []);
+
+  // ─── Subscriptions ──────────────────────────────────────────────────────────
+  const addSubscription = useCallback((subReq: Omit<Subscription, 'id'>) => {
+    import('../lib/db').then(m => {
+      const newSub: Subscription = { ...subReq, id: generateId() };
+      setSubscriptions(prev => [...prev, newSub]);
+      m.dbPutSubscription(newSub);
+    });
+  }, []);
+
+  const updateSubscription = useCallback((id: string, updated: Partial<Subscription>) => {
+    import('../lib/db').then(m => {
+      setSubscriptions(prev => prev.map(s => {
+        if (s.id !== id) return s;
+        const next = { ...s, ...updated };
+        m.dbPutSubscription(next);
+        return next;
+      }));
+    });
+  }, []);
+
+  const deleteSubscription = useCallback((id: string) => {
+    import('../lib/db').then(m => {
+      setSubscriptions(prev => prev.filter(s => s.id !== id));
+      m.dbDeleteSubscription(id);
     });
   }, []);
 
@@ -1235,11 +1282,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const result = await dbForceCloudSync();
     if (result.total > 0) {
       // Reload all state from IDB (which now has the fresh cloud data)
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRec, dbContacts] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRec, dbContacts, dbSubs] = await Promise.all([
         dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(),
         dbGetAllBudgets(), dbGetAllDebts(),
         import('../lib/db').then(m => m.dbGetAllRecurringTransactions()),
-        import('../lib/db').then(m => m.dbGetAllContacts())
+        import('../lib/db').then(m => m.dbGetAllContacts()),
+        import('../lib/db').then(m => m.dbGetAllSubscriptions())
       ]);
       setAssets(dbAssets);
       setTransactions(dbTxs);
@@ -1248,6 +1296,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setDebts(dbDebts as Debt[]);
       setRecurringTransactions(dbRec);
       setContacts(dbContacts);
+      setSubscriptions(dbSubs);
       await refreshSyncCount();
     }
     return result;
@@ -1257,6 +1306,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, budgets, debts, contacts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
+    subscriptions, addSubscription, updateSubscription, deleteSubscription,
     addContact, updateContact, deleteContact,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
@@ -1271,6 +1321,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }), [
     isReady, assets, transactions, categories, budgets, debts, contacts,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
+    subscriptions, addSubscription, updateSubscription, deleteSubscription,
     addContact, updateContact, deleteContact,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
