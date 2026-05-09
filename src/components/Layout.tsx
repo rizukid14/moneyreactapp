@@ -28,7 +28,7 @@ const Layout: React.FC = () => {
       )}
       <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} aria-label="Halaman Pengaturan" {...(window.location.pathname === '/settings' ? {'aria-current': 'page'} : {})}>
         <Settings size={24} />
-        <span>Lainnya</span>
+        <span>Settings</span>
       </NavLink>
     </>
   );

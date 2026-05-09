@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart, LineChart, Line } from 'recharts';
 import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
@@ -12,6 +12,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const Statistics: React.FC = () => {
   const { transactions, currencySymbol, startOfMonthDay, theme, chartStyle } = useMoney();
+  const heatmapScrollRef = useRef<HTMLDivElement>(null);
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date();
     if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
@@ -302,6 +303,36 @@ const Statistics: React.FC = () => {
     return dailyExpenseChart;
   }, [dailyExpenseChart, chartScale]);
 
+  useEffect(() => {
+    if (heatmapScrollRef.current && heatmapData && heatmapData.length > 0) {
+      // Find current selected/view month index (0-11)
+      const currentMonthIndex = viewDate.getMonth();
+      
+      // Calculate column index of this month
+      // Heatmap starts on firstDow of January
+      const firstDow = heatmapData[0]?.firstDow || 0;
+      let offset = 0;
+      let targetCol = 0;
+      for (let m = 0; m < currentMonthIndex; m++) {
+        offset += heatmapData[m]?.cells.length || 0;
+      }
+      targetCol = Math.floor((firstDow + offset) / 7);
+      
+      const CELL_WIDTH = 13;
+      const GAP_WIDTH = 4;
+      const colLeft = targetCol * (CELL_WIDTH + GAP_WIDTH);
+      
+      const container = heatmapScrollRef.current;
+      const containerWidth = container.clientWidth;
+      
+      // Scroll to center the month column
+      container.scrollTo({
+        left: Math.max(0, colLeft - containerWidth / 2 + 50), // +50 to show a bit of the previous month for context
+        behavior: 'smooth'
+      });
+    }
+  }, [viewDate, heatmapData]);
+
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
     setDrillDownCategory(null);
@@ -587,6 +618,7 @@ const Statistics: React.FC = () => {
 
             {/* Scrollable container with modern scrollbar styling */}
             <div 
+              ref={heatmapScrollRef}
               className="custom-scrollbar"
               style={{ 
                 overflowX: 'auto', 
@@ -1058,16 +1090,16 @@ const Statistics: React.FC = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
         {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
-          <div className="card glass">
+          <div className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
             <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
-            <div style={{ width: '100%', height: 260 }}>
+            <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie
                     data={expenseCategoryData}
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
+                    innerRadius={55}
+                    outerRadius={75}
+                    paddingAngle={3}
                     dataKey="value"
                     onClick={(data, index) => {
                       if (!drillDownCategory && !(data as any).__isOthers) {
@@ -1082,26 +1114,78 @@ const Statistics: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     formatter={(val: any) => fmt(Number(val))}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', fontSize: '11px' }}
                   />
-                  <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '12px', maxHeight: '120px', overflowY: 'auto' }}/>
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+
+            {/* Custom Interactive Scrollable Legend */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '6px 12px',
+              justifyContent: 'center',
+              marginTop: '16px',
+              maxHeight: '90px',
+              overflowY: 'auto',
+              padding: '12px 4px 4px 4px',
+              borderTop: '1px solid var(--border-color)',
+            }}
+            className="scrollbar-thin"
+            >
+              {expenseCategoryData.map((item, index) => {
+                const color = COLORS[(index + (drillDownCategory?.colorIndex ?? 0)) % COLORS.length];
+                const isOthers = (item as any).__isOthers;
+                return (
+                  <div 
+                    key={index} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      fontSize: '11px', 
+                      fontWeight: 700, 
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                      cursor: (!drillDownCategory && !isOthers) ? 'pointer' : 'default',
+                      transition: 'color 0.15s ease'
+                    }}
+                    onClick={() => {
+                      if (!drillDownCategory && !isOthers) {
+                        setDrillDownCategory({ name: item.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                      }
+                    }}
+                    onMouseEnter={e => { if (!drillDownCategory && !isOthers) e.currentTarget.style.color = 'var(--text-main)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  >
+                    <span style={{ 
+                      width: '8px', 
+                      height: '8px', 
+                      borderRadius: '50%', 
+                      backgroundColor: color,
+                      display: 'inline-block',
+                      flexShrink: 0
+                    }} />
+                    {item.name}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
         {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
-          <div className="card glass">
+          <div className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
             <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
-            <div style={{ width: '100%', height: 260 }}>
+            <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie
                     data={incomeCategoryData}
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
+                    innerRadius={55}
+                    outerRadius={75}
+                    paddingAngle={3}
                     dataKey="value"
                     onClick={(data, index) => {
                       if (!drillDownCategory && !(data as any).__isOthers) {
@@ -1116,11 +1200,63 @@ const Statistics: React.FC = () => {
                   </Pie>
                   <Tooltip 
                     formatter={(val: any) => fmt(Number(val))}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', fontSize: '11px' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+
+            {/* Custom Interactive Scrollable Legend */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '6px 12px',
+              justifyContent: 'center',
+              marginTop: '16px',
+              maxHeight: '90px',
+              overflowY: 'auto',
+              padding: '12px 4px 4px 4px',
+              borderTop: '1px solid var(--border-color)',
+            }}
+            className="scrollbar-thin"
+            >
+              {incomeCategoryData.map((item, index) => {
+                const color = COLORS[(index + (drillDownCategory ? drillDownCategory.colorIndex : 3)) % COLORS.length];
+                const isOthers = (item as any).__isOthers;
+                return (
+                  <div 
+                    key={index} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px', 
+                      fontSize: '11px', 
+                      fontWeight: 700, 
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                      cursor: (!drillDownCategory && !isOthers) ? 'pointer' : 'default',
+                      transition: 'color 0.15s ease'
+                    }}
+                    onClick={() => {
+                      if (!drillDownCategory && !isOthers) {
+                        setDrillDownCategory({ name: item.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                      }
+                    }}
+                    onMouseEnter={e => { if (!drillDownCategory && !isOthers) e.currentTarget.style.color = 'var(--text-main)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  >
+                    <span style={{ 
+                      width: '8px', 
+                      height: '8px', 
+                      borderRadius: '50%', 
+                      backgroundColor: color,
+                      display: 'inline-block',
+                      flexShrink: 0
+                    }} />
+                    {item.name}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

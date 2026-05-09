@@ -16,9 +16,10 @@ interface DebtModalProps {
   assets: Asset[];
   categories: Category[]; // expense categories for credit mode
   currencySymbol: string;
+  defaultType?: 'hutang' | 'piutang';
 }
 
-const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingDebt, assets, categories, currencySymbol }) => {
+const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingDebt, assets, categories, currencySymbol, defaultType }) => {
   const { defaultAssetId, contacts } = useMoney();
   const [type, setType]                           = useState<'hutang' | 'piutang'>('hutang');
   const [contact, setContact]                     = useState('');
@@ -70,7 +71,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setCreditSubCatName('');
       setCreatedAt(editingDebt.createdAt.split('T')[0]);
     } else {
-      setType('hutang');
+      setType(defaultType || 'hutang');
       setContact('');
       setDescription('');
       setTotalAmount('');
