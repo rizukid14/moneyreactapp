@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Wallet } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Wallet, ArrowRightLeft, HandCoins, Info } from 'lucide-react';
 import { useMoney, type Budget } from '../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BudgetModal from './modals/BudgetModal';
@@ -17,7 +17,7 @@ const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   const circ = 2 * Math.PI * r;
   const clamped = Math.min(percent, 100);
   const offset = circ - (clamped / 100) * circ;
-  const color = percent >= 100 ? 'var(--danger)' : percent >= 80 ? '#f59e0b' : 'var(--primary)';
+  const color = percent >= 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
   return (
     <svg width="108" height="108" viewBox="0 0 108 108">
       <circle cx="54" cy="54" r={r} fill="none" stroke="var(--border-color)" strokeWidth="10" />
@@ -54,7 +54,7 @@ const BudgetCard: React.FC<{
 }> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol }) => {
   const percent = limit > 0 ? (spent / limit) * 100 : 0;
   const remaining = limit - spent;
-  const barColor = percent >= 100 ? 'var(--danger)' : percent >= 80 ? '#f59e0b' : 'var(--primary)';
+  const barColor = percent >= 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
 
   return (
     <div className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative' }}>
@@ -116,7 +116,7 @@ const BudgetCard: React.FC<{
         </span>
         <span style={{
           fontWeight: 700,
-          color: isOver ? 'var(--danger)' : remaining < limit * 0.2 ? '#f59e0b' : 'var(--success)'
+          color: isOver ? 'var(--danger)' : remaining < limit * 0.25 ? '#f59e0b' : 'var(--success)'
         }}>
           {isOver ? `-${fmt(spent - limit, currencySymbol)}` : `Sisa ${fmt(remaining, currencySymbol)}`}
         </span>
@@ -126,7 +126,7 @@ const BudgetCard: React.FC<{
 };
 
 export const BudgetManagement: React.FC = () => {
-  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol, startOfMonthDay } = useMoney();
+  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol, startOfMonthDay, budgetMode, monthlyIncome, setMonthlyIncome, moveBudgetMoney } = useMoney();
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date();
     if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
@@ -176,6 +176,14 @@ export const BudgetManagement: React.FC = () => {
   const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
   const globalPercent = globalBudget ? (spendingMap.total / globalBudget.limit) * 100 : 0;
 
+  const totalBudgeted = useMemo(() => 
+    categoryBudgets.reduce((sum, b) => sum + b.limit, 0),
+    [categoryBudgets]);
+  
+  const unassignedMoney = monthlyIncome - totalBudgeted;
+  
+  const [isMoveMoneyOpen, setIsMoveMoneyOpen] = useState(false);
+
   return (
     <div className="budget-management-embedded" onClick={() => setActiveMenu(null)}>
       {/* Month Switcher */}
@@ -191,8 +199,80 @@ export const BudgetManagement: React.FC = () => {
       </div>
 
       {/* Hero Card */}
-      {globalBudget ? (
-        <div className={`budget-hero-card ${globalPercent >= 100 ? 'danger' : globalPercent >= 80 ? 'warning' : ''}`} style={{ marginBottom: 16, position: 'relative', padding: 16 }}>
+      {budgetMode === 'zero-based' ? (
+        <div style={{ marginBottom: 20 }}>
+          <div className="card shadow-soft" style={{ 
+            background: 'var(--primary-gradient)', color: 'white', 
+            borderRadius: 22, padding: '20px', border: 'none',
+            boxShadow: '0 12px 30px var(--primary-glow)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.1 }}>
+              <HandCoins size={120} strokeWidth={1} />
+            </div>
+            
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                Target Pendapatan
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input 
+                  type="text" 
+                  value={monthlyIncome === 0 ? '' : monthlyIncome} 
+                  onChange={e => setMonthlyIncome(Number(e.target.value.replace(/\D/g, '')))}
+                  placeholder="Set pendapatan..."
+                  style={{ 
+                    fontSize: 24, fontWeight: 800, background: 'rgba(255,255,255,0.15)', 
+                    border: '1px solid rgba(255,255,255,0.2)', color: 'white',
+                    width: '100%', padding: '8px 12px', borderRadius: 12, marginBottom: 0
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.8, textTransform: 'uppercase', marginBottom: 4 }}>
+                    Belum Dialokasikan
+                  </div>
+                  <div style={{ 
+                    fontSize: 18, fontWeight: 800, 
+                    color: unassignedMoney === 0 ? 'rgba(255,255,255,0.7)' : unassignedMoney < 0 ? '#ffcfcf' : 'white' 
+                  }}>
+                    {fmt(unassignedMoney, currencySymbol)}
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => setIsMoveMoneyOpen(true)}
+                  style={{ 
+                    background: 'white', color: 'var(--primary)', border: 'none', 
+                    borderRadius: 10, padding: '8px 12px', fontSize: 12, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  <ArrowRightLeft size={14} /> Pindahkan
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {unassignedMoney > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              style={{ 
+                marginTop: 12, padding: '10px 14px', borderRadius: 12, 
+                background: 'var(--primary-glow)', color: 'var(--primary)',
+                display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600
+              }}
+            >
+              <Info size={14} />
+              <span>Alokasikan sisa <strong>{fmt(unassignedMoney, currencySymbol)}</strong> ke kategori agar menjadi nol.</span>
+            </motion.div>
+          )}
+        </div>
+      ) : globalBudget ? (
+        <div className={`budget-hero-card ${globalPercent >= 100 ? 'danger' : globalPercent >= 75 ? 'warning' : ''}`} style={{ marginBottom: 16, position: 'relative', padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>
@@ -251,7 +331,9 @@ export const BudgetManagement: React.FC = () => {
 
       {/* Categories */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0 }}>Anggaran Kategori</h3>
+        <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0 }}>
+          {budgetMode === 'zero-based' ? 'Amplop Kategori' : 'Anggaran Kategori'}
+        </h3>
         <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
           <PlusCircle size={14} /> Tambah
         </button>
@@ -296,6 +378,16 @@ export const BudgetManagement: React.FC = () => {
         currencySymbol={currencySymbol}
       />
 
+      <MoveMoneyModal
+        isOpen={isMoveMoneyOpen}
+        onClose={() => setIsMoveMoneyOpen(false)}
+        budgets={currentMonthBudgets}
+        categories={categories}
+        unassignedMoney={unassignedMoney}
+        onMove={(from, to, amt) => moveBudgetMoney(from, to, amt, selectedMonth, selectedYear)}
+        currencySymbol={currencySymbol}
+      />
+
       <ConfirmDialog
         isOpen={deleteConfirm.open}
         onClose={() => setDeleteConfirm({ open: false, id: '' })}
@@ -308,3 +400,112 @@ export const BudgetManagement: React.FC = () => {
     </div>
   );
 };
+
+interface MoveMoneyModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  budgets: Budget[];
+  categories: any[];
+  unassignedMoney: number;
+  onMove: (from: string | null, to: string | null, amount: number) => void;
+  currencySymbol: string;
+}
+
+const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, onMove, currencySymbol }) => {
+  const [fromId, setFromId] = useState<string | null | 'unassigned'>('unassigned');
+  const [toId, setToId] = useState<string | null | 'unassigned'>('');
+  const [amount, setAmount] = useState<string>('');
+
+  const handleMove = () => {
+    const num = Number(amount);
+    if (!num || !toId || fromId === toId) return;
+    onMove(fromId === 'unassigned' ? 'unassigned' : fromId, toId === 'unassigned' ? 'unassigned' : toId, num);
+    setAmount('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <motion.div 
+        className="modal-content" 
+        onClick={e => e.stopPropagation()}
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+      >
+        <div className="modal-header">
+          <h2 className="subtitle">Pindahkan Dana</h2>
+          <button className="close-btn" onClick={onClose}><X /></button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'block' }}>DARI</label>
+            <select 
+              value={fromId || ''} 
+              onChange={e => setFromId(e.target.value === 'unassigned' ? 'unassigned' : e.target.value)}
+              style={{ width: '100%', padding: 12, borderRadius: 12 }}
+            >
+              <option value="unassigned">Sisa Belum Dialokasikan ({fmt(unassignedMoney, currencySymbol)})</option>
+              {budgets.filter(b => b.categoryId !== null).map(b => {
+                const cat = categories.find(c => c.id === b.categoryId);
+                return <option key={b.id} value={b.categoryId!}>{cat?.name || 'Kategori'} ({fmt(b.limit, currencySymbol)})</option>;
+              })}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+              <ArrowRightLeft size={20} />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'block' }}>KE</label>
+            <select 
+              value={toId || ''} 
+              onChange={e => setToId(e.target.value === 'unassigned' ? 'unassigned' : e.target.value)}
+              style={{ width: '100%', padding: 12, borderRadius: 12 }}
+            >
+              <option value="" disabled>Pilih target...</option>
+              <option value="unassigned">Sisa Belum Dialokasikan</option>
+              {budgets.filter(b => b.categoryId !== null).map(b => {
+                const cat = categories.find(c => c.id === b.categoryId);
+                return <option key={b.id} value={b.categoryId!}>{cat?.name || 'Kategori'}</option>;
+              })}
+              {categories.filter(c => c.type === 'pengeluaran' && !budgets.some(b => b.categoryId === c.id)).map(c => (
+                <option key={c.id} value={c.id}>{c.name} (Buat Amplop Baru)</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'block' }}>JUMLAH</label>
+            <input 
+              type="number" 
+              value={amount} 
+              onChange={e => setAmount(e.target.value)}
+              placeholder="0"
+              style={{ width: '100%', padding: 12, borderRadius: 12 }}
+            />
+          </div>
+
+          <button 
+            onClick={handleMove}
+            disabled={!amount || !toId}
+            className="btn btn-primary"
+            style={{ marginTop: 8 }}
+          >
+            Pindahkan Sekarang
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const X = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);

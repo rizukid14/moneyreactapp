@@ -189,6 +189,7 @@ export const ALL_STATS_VIEWS = [
   { id: 'goals', label: 'Tabungan', description: 'Progres target impian' },
   { id: 'subs', label: 'Langganan', description: 'Biaya rutin bulanan' },
   { id: 'health', label: 'Kesehatan Finansial', description: 'Skor kesehatan finansial' },
+  { id: 'forecast', label: 'Proyeksi Kas', description: 'Prediksi saldo 90 hari ke depan' },
 ];
 
 interface StatsViewSettingsProps {
@@ -319,7 +320,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
 
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -1285,6 +1286,49 @@ const Settings: React.FC = () => {
                 <option value="area">Area Chart (Gradasi & Isian)</option>
                 <option value="line">Line Chart (Garis Glowing Premium)</option>
               </select>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Target size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Metode Budgeting</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Pilih antara budget reguler atau Zero-Based (Envelope).
+              </p>
+              <div style={{ 
+                display: 'flex', background: 'var(--bg-main)', padding: '4px', 
+                borderRadius: '12px', border: '1px solid var(--border-color)' 
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setBudgetMode('regular')}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                    background: budgetMode === 'regular' ? 'var(--bg-card)' : 'transparent',
+                    color: budgetMode === 'regular' ? 'var(--primary)' : 'var(--text-muted)',
+                    fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: budgetMode === 'regular' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                  }}
+                >
+                  Reguler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBudgetMode('zero-based')}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                    background: budgetMode === 'zero-based' ? 'var(--bg-card)' : 'transparent',
+                    color: budgetMode === 'zero-based' ? 'var(--primary)' : 'var(--text-muted)',
+                    fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: budgetMode === 'zero-based' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                  }}
+                >
+                  Zero-Based
+                </button>
+              </div>
             </div>
 
             {/* ─── Rekap Aset Carousel ─────────────────────────────── */}

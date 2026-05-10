@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart, LineChart, Line } from 'recharts';
-import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame, Heart, ShieldCheck, Activity, Target, Zap, CreditCard, CheckCircle2, AlertTriangle, LayoutDashboard } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame, Heart, ShieldCheck, Activity, Target, Zap, CreditCard, CheckCircle2, AlertTriangle, LayoutDashboard, HandCoins } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
 import { formatCurrency } from '../lib/utils';
@@ -435,6 +435,7 @@ const Statistics: React.FC = () => {
                  viewId === 'budget' ? <Target size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
                  viewId === 'goals' ? <TrendingUp size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
                  viewId === 'subs' ? <CreditCard size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
+                 viewId === 'forecast' ? <Zap size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
                  <LayoutDashboard size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} />}
                 {def.label}
               </motion.button>
@@ -483,6 +484,16 @@ const Statistics: React.FC = () => {
             transition={{ duration: 0.2 }}
           >
             <SubscriptionStatistics />
+          </motion.div>
+        ) : activeViewId === 'forecast' ? (
+          <motion.div
+            key="forecast"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            <CashFlowForecast />
           </motion.div>
         ) : (
           <motion.div
@@ -1748,9 +1759,8 @@ const FinancialHealth: React.FC = () => {
   );
 };
 
-// ─── BudgetStatistics Component ──────────────────────────────────────────────
 const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
-  const { budgets, transactions, categories, currencySymbol, startOfMonthDay } = useMoney();
+  const { budgets, transactions, categories, currencySymbol, startOfMonthDay, budgetMode, monthlyIncome } = useMoney();
   
   const selectedMonth = viewDate.getMonth();
   const selectedYear = viewDate.getFullYear();
@@ -1775,12 +1785,39 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
   const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
   
+  const totalBudgeted = useMemo(() => 
+    categoryBudgets.reduce((sum, b) => sum + b.limit, 0),
+    [categoryBudgets]);
+  
+  const unassignedMoney = monthlyIncome - totalBudgeted;
+  
   const fmt = (v: number) => formatCurrency(v, currencySymbol);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Global Budget Card */}
-      {globalBudget ? (
+      {/* Global Budget / Zero-Based Hero Card */}
+      {budgetMode === 'zero-based' ? (
+        <div className="card shadow-soft" style={{ padding: '24px 20px', border: 'none', background: 'var(--primary-gradient)', color: 'white', borderRadius: '24px', boxShadow: '0 12px 30px var(--primary-glow)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.1 }}>
+            <HandCoins size={120} />
+          </div>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Total Pendapatan</div>
+            <div style={{ fontSize: '32px', fontWeight: 800, marginBottom: '16px' }}>{fmt(monthlyIncome)}</div>
+            
+            <div style={{ display: 'flex', gap: '20px' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Dialokasikan</div>
+                <div style={{ fontSize: '16px', fontWeight: 800 }}>{fmt(totalBudgeted)}</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Sisa</div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: unassignedMoney === 0 ? 'rgba(255,255,255,0.6)' : '#fff' }}>{fmt(unassignedMoney)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : globalBudget ? (
         <div className="card glass shadow-soft" style={{ padding: '20px', border: 'none', background: 'linear-gradient(135deg, var(--primary), var(--primary-light))', color: 'white' }}>
           <div style={{ fontSize: '12px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '8px' }}>Total Anggaran</div>
           <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>{fmt(globalBudget.limit)}</div>
@@ -1819,12 +1856,13 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
         {categoryBudgets.length > 0 ? categoryBudgets.map(b => {
           const cat = categories.find(c => c.id === b.categoryId);
           const spent = spendingMap[b.categoryId!] || 0;
-          const percent = (spent / b.limit) * 100;
+          const percent = b.limit > 0 ? (spent / b.limit) * 100 : 0;
+          const statusColor = percent > 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
           return (
             <div key={b.id} className="card glass" style={{ padding: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: statusColor }}>
                     <Wallet size={16} />
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '14px' }}>{cat?.name || 'Kategori'}</div>
@@ -1837,7 +1875,7 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(percent, 100)}%` }}
-                  style={{ height: '100%', background: percent > 100 ? 'var(--danger)' : 'var(--primary)', borderRadius: '3px' }}
+                  style={{ height: '100%', background: statusColor, borderRadius: '3px' }}
                 />
               </div>
             </div>
@@ -1966,6 +2004,218 @@ const SubscriptionStatistics: React.FC = () => {
           </div>
         )) : (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>Belum ada data langganan</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── CashFlowForecast Component ──────────────────────────────────────────────
+const CashFlowForecast: React.FC = () => {
+  const { 
+    assets, recurringTransactions, subscriptions, currencySymbol, theme, getAssetBalance
+  } = useMoney();
+  
+  const [forecastDays, setForecastDays] = useState<30 | 60 | 90>(30);
+  const isDark = theme === 'dark';
+  const fmt = (v: number) => formatCurrency(v, currencySymbol);
+
+  const forecastData = useMemo(() => {
+    const data: { date: string; displayDate: string; balance: number; income: number; expense: number; isDanger: boolean }[] = [];
+    
+    // 1. Initial Balance
+    let currentBalance = assets
+      .filter(a => !a.isDeleted)
+      .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+    
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    // 2. Project for 90 days
+    for (let i = 0; i < 90; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() + i);
+      
+      const dateKey = d.toISOString().split('T')[0];
+      const dayOfMonth = d.getDate();
+      const dayOfWeek = d.getDay();
+      const month = d.getMonth();
+
+      let dailyIncome = 0;
+      let dailyExpense = 0;
+
+      // Check Recurring Transactions
+      recurringTransactions.filter(rt => rt.isActive).forEach(rt => {
+        const startD = new Date(rt.startDate);
+        let isToday = false;
+        
+        if (rt.frequency === 'daily') isToday = true;
+        else if (rt.frequency === 'weekly' && dayOfWeek === startD.getDay()) isToday = true;
+        else if (rt.frequency === 'monthly' && dayOfMonth === startD.getDate()) isToday = true;
+        else if (rt.frequency === 'yearly' && dayOfMonth === startD.getDate() && month === startD.getMonth()) isToday = true;
+
+        if (isToday) {
+          if (rt.type === 'pendapatan') dailyIncome += rt.amount;
+          else if (rt.type === 'pengeluaran') dailyExpense += rt.amount;
+        }
+      });
+
+      // Check Subscriptions
+      subscriptions.filter(s => s.isActive).forEach(sub => {
+        const subDate = new Date(sub.nextBillingDate);
+        let isToday = false;
+        
+        if (sub.billingCycle === 'monthly') {
+          // Check if day matches
+          if (dayOfMonth === subDate.getDate()) isToday = true;
+        } else if (sub.billingCycle === 'yearly') {
+          // Check if day and month matches
+          if (dayOfMonth === subDate.getDate() && month === subDate.getMonth()) isToday = true;
+        }
+
+        if (isToday) {
+          dailyExpense += sub.amount;
+        }
+      });
+
+      currentBalance = currentBalance + dailyIncome - dailyExpense;
+      
+      data.push({
+        date: dateKey,
+        displayDate: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+        balance: currentBalance,
+        income: dailyIncome,
+        expense: dailyExpense,
+        isDanger: currentBalance < 0
+      });
+    }
+
+    return data;
+  }, [assets, recurringTransactions, subscriptions, getAssetBalance]);
+
+  const activeData = forecastData.slice(0, forecastDays);
+  
+  const safeToSpend = useMemo(() => {
+    const next30Days = forecastData.slice(0, 30);
+    const totalBills = next30Days.reduce((sum, d) => sum + d.expense, 0);
+    const currentBal = assets
+      .filter(a => !a.isDeleted)
+      .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+    return Math.max(0, currentBal - totalBills);
+  }, [forecastData, assets, getAssetBalance]);
+
+  const dangerDays = activeData.filter(d => d.isDanger);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
+      {/* Hero Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div className="card shadow-soft" style={{ 
+          background: 'var(--primary-gradient)', color: 'white', border: 'none', padding: '16px',
+          boxShadow: '0 10px 25px var(--primary-glow)', position: 'relative', overflow: 'hidden'
+        }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Aman Dibelanjakan</div>
+          <div style={{ fontSize: '18px', fontWeight: 800 }}>{fmt(safeToSpend)}</div>
+          <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Setelah tagihan 30 hari ke depan</div>
+          <Zap size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
+        </div>
+        
+        <div className="card shadow-soft" style={{ 
+          background: dangerDays.length > 0 ? 'var(--secondary-gradient)' : 'var(--bg-card-solid)', 
+          color: dangerDays.length > 0 ? 'white' : 'var(--text-main)', 
+          border: 'none', padding: '16px',
+          boxShadow: dangerDays.length > 0 ? '0 10px 25px var(--secondary-glow)' : '0 4px 12px rgba(0,0,0,0.03)'
+        }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Zona Bahaya</div>
+          <div style={{ fontSize: '18px', fontWeight: 800 }}>{dangerDays.length} Hari</div>
+          <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Saldo diprediksi negatif</div>
+          <AlertTriangle size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
+        </div>
+      </div>
+
+      {/* Chart Control */}
+      <div className="flex-between">
+        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Prediksi Saldo</h3>
+        <div style={{ display: 'flex', background: 'var(--bg-main)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+          {[30, 60, 90].map(days => (
+            <button
+              key={days}
+              onClick={() => setForecastDays(days as any)}
+              style={{
+                padding: '6px 12px', borderRadius: '8px', border: 'none', fontSize: '11px', fontWeight: 700,
+                background: forecastDays === days ? 'var(--bg-card)' : 'transparent',
+                color: forecastDays === days ? 'var(--primary)' : 'var(--text-muted)',
+                cursor: 'pointer'
+              }}
+            >
+              {days} HARI
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Line Chart */}
+      <div className="card glass" style={{ height: '300px', padding: '20px 10px 10px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={activeData}>
+            <defs>
+              <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+            <XAxis 
+              dataKey="displayDate" 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+              interval={forecastDays === 90 ? 14 : forecastDays === 60 ? 9 : 4}
+            />
+            <YAxis 
+              hide 
+              domain={['dataMin - 1000000', 'dataMax + 1000000']} 
+            />
+            <Tooltip
+              contentStyle={{ borderRadius: '12px', border: 'none', background: isDark ? '#1e293b' : '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              formatter={(val: any) => fmt(Number(val))}
+              labelStyle={{ fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}
+            />
+            <Area 
+              type="monotone" 
+              dataKey="balance" 
+              stroke="var(--primary)" 
+              strokeWidth={3} 
+              fillOpacity={1} 
+              fill="url(#forecastGradient)"
+              animationDuration={1000}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Upcoming Large Bills */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Tagihan Mendatang</h3>
+        {activeData.filter(d => d.expense > 0).slice(0, 5).map((d, i) => (
+          <div key={i} className="card glass" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
+                <Calendar size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '14px' }}>{d.displayDate}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Estimasi Tagihan</div>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: 800, color: 'var(--danger)', fontSize: '14px' }}>-{fmt(d.expense)}</div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Saldo: {fmt(d.balance)}</div>
+            </div>
+          </div>
+        ))}
+        {activeData.filter(d => d.expense > 0).length === 0 && (
+          <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '13px' }}>Tidak ada tagihan rutin yang terdeteksi.</div>
         )}
       </div>
     </div>

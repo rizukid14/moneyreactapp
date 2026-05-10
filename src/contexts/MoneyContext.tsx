@@ -21,6 +21,7 @@ import SplashScreen from '../components/SplashScreen';
 import { getLocalDate, getLocalTime, generateId, isPrincipalTx } from '../lib/utils';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
+export type BudgetMode = 'regular' | 'zero-based';
 
 export interface UserProfile {
   name: string;
@@ -253,6 +254,11 @@ interface MoneyContextType {
   pendingSyncCount: number;
   syncData: () => Promise<{ success: number; failed: number }>;
   pullFromCloud: () => Promise<{ total: number }>;
+  budgetMode: BudgetMode;
+  setBudgetMode: (mode: BudgetMode) => void;
+  monthlyIncome: number;
+  setMonthlyIncome: (income: number) => void;
+  moveBudgetMoney: (fromCategoryId: string | null, toCategoryId: string | null, amount: number, month: number, year: number) => void;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -290,6 +296,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [statsCarouselCards, setStatsCarouselCardsState] = useState<string[]>(['all', 'cash_bank', 'health']);
   const [defaultStatsView, setDefaultStatsViewState] = useState<string>('all');
   const [chartStyle, setChartStyleState] = useState<'area' | 'line'>('area');
+  const [budgetMode, setBudgetModeState] = useState<BudgetMode>('regular');
+  const [monthlyIncome, setMonthlyIncomeState] = useState<number>(0);
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -398,6 +406,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedDefaultStatsView) setDefaultStatsViewState(savedDefaultStatsView);
       const savedChartStyle = await dbGetSetting('chartStyle') as 'area' | 'line' | undefined;
       if (savedChartStyle) setChartStyleState(savedChartStyle);
+
+      const savedBudgetMode = await dbGetSetting('budgetMode') as BudgetMode | undefined;
+      const savedMonthlyIncome = await dbGetSetting('monthlyIncome') as number | undefined;
+      if (savedBudgetMode) setBudgetModeState(savedBudgetMode);
+      if (savedMonthlyIncome) setMonthlyIncomeState(savedMonthlyIncome);
 
       // --- Migration: budgets collection -> settings/budgets ---
       if (isFirebaseConfigured && auth.currentUser) {
@@ -1425,6 +1438,49 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return result;
   }, [refreshSyncCount]);
 
+  const setBudgetMode = useCallback((mode: BudgetMode) => {
+    setBudgetModeState(mode);
+    dbPutSetting('budgetMode', mode);
+  }, []);
+
+  const setMonthlyIncome = useCallback((income: number) => {
+    setMonthlyIncomeState(income);
+    dbPutSetting('monthlyIncome', income);
+  }, []);
+
+  const moveBudgetMoney = useCallback((fromCategoryId: string | null, toCategoryId: string | null, amount: number, month: number, year: number) => {
+    setBudgets(prev => {
+      const next = [...prev];
+      
+      const updateLimit = (catId: string | null, delta: number) => {
+        if (catId === 'unassigned') return;
+        
+        const idx = next.findIndex(b => b.categoryId === catId && b.month === month && b.year === year);
+        if (idx !== -1) {
+          const updated = { ...next[idx], limit: Math.max(0, next[idx].limit + delta) };
+          next[idx] = updated;
+          dbPutBudget(updated);
+        } else if (delta > 0) {
+          const newBudget: Budget = {
+            id: generateId(),
+            categoryId: catId,
+            limit: delta,
+            period: 'monthly',
+            month,
+            year
+          };
+          next.push(newBudget);
+          dbPutBudget(newBudget);
+        }
+      };
+
+      updateLimit(fromCategoryId, -amount);
+      updateLimit(toCategoryId, amount);
+
+      return next;
+    });
+  }, []);
+
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
@@ -1448,6 +1504,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
+    budgetMode, setBudgetMode, monthlyIncome, setMonthlyIncome, moveBudgetMoney
   }), [
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
@@ -1463,6 +1520,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
+    budgetMode, setBudgetMode, monthlyIncome, setMonthlyIncome, moveBudgetMoney
   ]);
 
   // Show splash screen while checking auth state or loading data
