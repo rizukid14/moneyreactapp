@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle, AlertCircle } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle, AlertCircle, Flame, Gauge } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -126,7 +126,7 @@ const SparklingIcon = () => (
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
+  const { transactions, assets, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
   const { showToast } = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -286,6 +286,68 @@ const Transactions: React.FC = () => {
     return { groups: sortedGroups, monthlyIncome: inc, monthlyExpense: exp };
   }, [transactions, viewDate, groupBy, searchQuery, getAssetName]);
 
+  // ─── Spending Pace Logic ──────────────────────────────────────────────────
+  const paceData = useMemo(() => {
+    const now = new Date();
+    const vM = viewDate.getMonth();
+    const vY = viewDate.getFullYear();
+    const isCurrentPeriod = vM === now.getMonth() && vY === now.getFullYear();
+
+    if (!isCurrentPeriod || searchQuery) return null;
+
+    const totalDays = new Date(vY, vM + 1, 0).getDate();
+    const daysPassed = now.getDate();
+    const expectedSpendPercent = daysPassed / totalDays;
+    
+    const globalBudget = budgets.find(b => b.categoryId === null && b.month === vM && b.year === vY);
+    if (!globalBudget || globalBudget.limit <= 0) return null;
+
+    return { totalDays, daysPassed, expectedSpendPercent, globalLimit: globalBudget.limit };
+  }, [viewDate, budgets, searchQuery]);
+
+  const paceInfo = useMemo(() => {
+    if (!paceData) return null;
+    const { totalDays, daysPassed, expectedSpendPercent, globalLimit } = paceData;
+    const actualSpendPercent = monthlyExpense / globalLimit;
+    const diff = actualSpendPercent - expectedSpendPercent;
+
+    let status: 'on_track' | 'warning' | 'danger' = 'on_track';
+    if (diff > 0.2 || actualSpendPercent > 1.0) status = 'danger';
+    else if (diff > 0.1) status = 'warning';
+
+    const dailyRate = monthlyExpense / daysPassed;
+    const remainingBudget = globalLimit - monthlyExpense;
+    const daysRemaining = dailyRate > 0 ? Math.floor(remainingBudget / dailyRate) : (totalDays - daysPassed);
+
+    return {
+      expectedSpendPercent,
+      actualSpendPercent,
+      status,
+      daysRemaining: Math.max(0, daysRemaining),
+      globalLimit
+    };
+  }, [paceData, monthlyExpense]);
+
+  // --- Pace Notification ---
+  React.useEffect(() => {
+    if (!paceInfo) return;
+    
+    const { status, actualSpendPercent, expectedSpendPercent } = paceInfo;
+    if (status === 'on_track') return;
+
+    const currentMonthKey = `${new Date().getFullYear()}-${new Date().getMonth()}`;
+    const lastNotified = localStorage.getItem(`pace_notified_${currentMonthKey}`);
+    
+    if (lastNotified !== status) {
+      const message = status === 'danger' 
+        ? `Pengeluaran terlalu cepat! Terpakai ${Math.round(actualSpendPercent * 100)}% anggaran, padahal baru ${Math.round(expectedSpendPercent * 100)}% bulan berlalu.`
+        : `Peringatan: Pengeluaran sedikit lebih cepat dari seharusnya (${Math.round(actualSpendPercent * 100)}% anggaran vs ${Math.round(expectedSpendPercent * 100)}% waktu).`;
+      
+      showToast(message, status === 'danger' ? 'error' : 'warning');
+      localStorage.setItem(`pace_notified_${currentMonthKey}`, status);
+    }
+  }, [paceInfo, showToast]);
+
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
   }, []);
@@ -389,6 +451,7 @@ const Transactions: React.FC = () => {
         );
       })()}
 
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -467,6 +530,67 @@ const Transactions: React.FC = () => {
           marginBottom: '24px'
         }}
       >
+        {/* Pace Indicator Card */}
+        {paceInfo && (
+          <motion.div
+            variants={itemVariants}
+            whileHover={{ scale: 1.01 }}
+            style={{
+              gridColumn: 'span 2',
+              background: paceInfo.status === 'danger' ? 'var(--danger-gradient)' : paceInfo.status === 'warning' ? 'var(--warning-gradient)' : 'var(--success-gradient)',
+              color: 'white',
+              borderRadius: '24px',
+              padding: '18px 20px',
+              boxShadow: paceInfo.status === 'danger' ? '0 8px 24px var(--danger-glow)' : paceInfo.status === 'warning' ? '0 8px 24px var(--warning-glow)' : '0 8px 24px var(--success-glow)',
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}
+          >
+             {/* Abstract Background Decoration */}
+             <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.2, transform: 'rotate(-15deg)' }}>
+               <Gauge size={100} strokeWidth={1} />
+             </div>
+
+             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', position: 'relative', zIndex: 1 }}>
+               <div style={{
+                 width: '42px', height: '42px', borderRadius: '14px',
+                 background: 'rgba(255, 255, 255, 0.22)',
+                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+               }}>
+                 <Flame size={24} />
+               </div>
+               <div style={{ flex: 1 }}>
+                 <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.85, marginBottom: '2px' }}>
+                   Laju Pengeluaran: {paceInfo.status === 'on_track' ? 'Aman' : paceInfo.status === 'warning' ? 'Peringatan' : 'Bahaya'}
+                 </div>
+                 <div style={{ fontSize: '15px', fontWeight: 800, lineHeight: 1.2 }}>
+                   {paceInfo.status === 'on_track' 
+                     ? "Pengeluaran Anda terkendali bulan ini." 
+                     : `Terpakai ${Math.round(paceInfo.actualSpendPercent * 100)}% anggaran dalam ${Math.round(paceInfo.expectedSpendPercent * 100)}% waktu.`}
+                 </div>
+               </div>
+             </div>
+
+             <div style={{ position: 'relative', zIndex: 1 }}>
+               <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '4px', overflow: 'hidden' }}>
+                 <motion.div
+                   initial={{ width: 0 }}
+                   animate={{ width: `${Math.min(paceInfo.actualSpendPercent * 100, 100)}%` }}
+                   style={{ height: '100%', background: 'white', borderRadius: '4px' }}
+                 />
+               </div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '11px', fontWeight: 700 }}>
+                 <span style={{ opacity: 0.9 }}>{paceInfo.status === 'danger' ? 'Terlalu Cepat!' : paceInfo.status === 'warning' ? 'Sedikit Cepat' : 'Sesuai Target'}</span>
+                 <span style={{ opacity: 0.95, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                   Estimasi: {paceInfo.daysRemaining} hari tersisa
+                 </span>
+               </div>
+             </div>
+          </motion.div>
+        )}
         {/* Bento Card 1: Pemasukan */}
         <motion.div
           role="button"
