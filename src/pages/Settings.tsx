@@ -180,9 +180,146 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
   );
 };
 
+// ─── StatsViewSettings ────────────────────────────────────────────────────────
+export const ALL_STATS_VIEWS = [
+  { id: 'all', label: 'Ringkasan Umum', description: 'Analisis semua aset' },
+  { id: 'cash_bank', label: 'Kas & Bank', description: 'Analisis tunai & rekening' },
+  { id: 'investment', label: 'Investasi & Tabungan', description: 'Analisis aset produktif' },
+  { id: 'budget', label: 'Anggaran', description: 'Pantau sisa budget bulanan' },
+  { id: 'goals', label: 'Tabungan', description: 'Progres target impian' },
+  { id: 'subs', label: 'Langganan', description: 'Biaya rutin bulanan' },
+  { id: 'health', label: 'Kesehatan Finansial', description: 'Skor kesehatan finansial' },
+];
+
+interface StatsViewSettingsProps {
+  activeViews: string[];
+  onChange: (views: string[]) => void;
+  defaultView: string;
+  onDefaultChange: (id: string) => void;
+}
+
+const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onChange, defaultView, onDefaultChange }) => {
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const toggleView = (id: string) => {
+    if (activeViews.includes(id)) {
+      if (activeViews.length <= 1) return;
+      onChange(activeViews.filter(v => v !== id));
+      if (defaultView === id) {
+        const remaining = activeViews.filter(v => v !== id);
+        onDefaultChange(remaining[0]);
+      }
+    } else {
+      onChange([...activeViews, id]);
+    }
+  };
+
+  const handleDragStart = (i: number) => { dragIdx.current = i; };
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    setDragOverIdx(i);
+  };
+  const handleDrop = (i: number) => {
+    if (dragIdx.current === null || dragIdx.current === i) { setDragOverIdx(null); return; }
+    const next = [...activeViews];
+    const [moved] = next.splice(dragIdx.current, 1);
+    next.splice(i, 0, moved);
+    onChange(next);
+    dragIdx.current = null;
+    setDragOverIdx(null);
+  };
+
+  return (
+    <div style={{ marginBottom: 20, marginTop: 30, paddingTop: 30, borderTop: '1px solid var(--border-color)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <TrendingUp size={18} color="var(--primary)" />
+        <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilan Statistik</span>
+      </div>
+      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
+        Atur urutan dan tampilan di halaman Statistik.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+        {activeViews.map((id, i) => {
+          const def = ALL_STATS_VIEWS.find(v => v.id === id);
+          if (!def) return null;
+          const isDragOver = dragOverIdx === i;
+          const isDefault = defaultView === id;
+
+          return (
+            <div
+              key={id}
+              draggable
+              onDragStart={() => handleDragStart(i)}
+              onDragOver={e => handleDragOver(e, i)}
+              onDrop={() => handleDrop(i)}
+              onDragEnd={() => setDragOverIdx(null)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                borderRadius: 14, background: isDragOver ? 'var(--primary-glow)' : 'var(--bg-main)',
+                border: isDragOver ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)',
+                cursor: 'grab', transition: 'all 0.15s'
+              }}
+            >
+              <GripVertical size={16} color="var(--text-muted)" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => onDefaultChange(id)}
+                  style={{
+                    padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
+                    background: isDefault ? 'var(--primary)' : 'var(--bg-card)',
+                    color: isDefault ? 'white' : 'var(--text-muted)',
+                    border: '1px solid var(--border-color)', cursor: 'pointer'
+                  }}
+                >
+                  {isDefault ? 'Default' : 'Set Default'}
+                </button>
+                <button
+                  onClick={() => toggleView(id)}
+                  disabled={activeViews.length <= 1}
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', opacity: activeViews.length <= 1 ? 0.3 : 0.7 }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+        Tambah Tampilan
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {ALL_STATS_VIEWS.filter(v => !activeViews.includes(v.id)).map(def => (
+          <button
+            key={def.id}
+            onClick={() => toggleView(def.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14,
+              background: 'var(--bg-card)', border: '1.5px dashed var(--border-color)', cursor: 'pointer', textAlign: 'left'
+            }}
+          >
+            <Plus size={14} color="var(--primary)" />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -1154,6 +1291,14 @@ const Settings: React.FC = () => {
             <CarouselCardSettings
               activeCards={assetCarouselCards}
               onChange={setAssetCarouselCards}
+            />
+
+            {/* ─── Statistik View Selector ─────────────────────────── */}
+            <StatsViewSettings
+              activeViews={statsCarouselCards}
+              onChange={setStatsCarouselCards}
+              defaultView={defaultStatsView}
+              onDefaultChange={setDefaultStatsView}
             />
 
             <div className="card shadow-soft" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '12px' }}>

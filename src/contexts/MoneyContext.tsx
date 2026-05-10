@@ -241,6 +241,10 @@ interface MoneyContextType {
   setDefaultTransactionGrouping: (grouping: 'date' | 'category') => void;
   assetCarouselCards: string[];
   setAssetCarouselCards: (cards: string[]) => void;
+  statsCarouselCards: string[];
+  setStatsCarouselCards: (cards: string[]) => void;
+  defaultStatsView: string;
+  setDefaultStatsView: (viewId: string) => void;
   chartStyle: 'area' | 'line';
   setChartStyle: (style: 'area' | 'line') => void;
   exportData: () => Promise<void>;
@@ -283,6 +287,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [authChecked, setAuthChecked] = useState(!isFirebaseConfigured);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [assetCarouselCards, setAssetCarouselCardsState] = useState<string[]>(['net_worth']);
+  const [statsCarouselCards, setStatsCarouselCardsState] = useState<string[]>(['all', 'cash_bank', 'health']);
+  const [defaultStatsView, setDefaultStatsViewState] = useState<string>('all');
   const [chartStyle, setChartStyleState] = useState<'area' | 'line'>('area');
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
@@ -386,6 +392,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedGrouping) setDefaultTransactionGroupingState(savedGrouping);
       const savedCarousel = await dbGetSetting('assetCarouselCards') as string[] | undefined;
       if (savedCarousel && Array.isArray(savedCarousel) && savedCarousel.length > 0) setAssetCarouselCardsState(savedCarousel);
+      const savedStatsCarousel = await dbGetSetting('statsCarouselCards') as string[] | undefined;
+      if (savedStatsCarousel && Array.isArray(savedStatsCarousel) && savedStatsCarousel.length > 0) setStatsCarouselCardsState(savedStatsCarousel);
+      const savedDefaultStatsView = await dbGetSetting('defaultStatsView') as string | undefined;
+      if (savedDefaultStatsView) setDefaultStatsViewState(savedDefaultStatsView);
       const savedChartStyle = await dbGetSetting('chartStyle') as 'area' | 'line' | undefined;
       if (savedChartStyle) setChartStyleState(savedChartStyle);
 
@@ -1339,6 +1349,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbPutSetting('assetCarouselCards', cards);
   }, []);
 
+  const setStatsCarouselCards = useCallback((cards: string[]) => {
+    setStatsCarouselCardsState(cards);
+    dbPutSetting('statsCarouselCards', cards);
+  }, []);
+
   const setChartStyle = useCallback((style: 'area' | 'line') => {
     setChartStyleState(style);
     dbPutSetting('chartStyle', style);
@@ -1418,7 +1433,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addContact, updateContact, deleteContact, addGoal, updateGoal, deleteGoal,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
-    assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle,
+    assetCarouselCards, setAssetCarouselCards,
+    statsCarouselCards, setStatsCarouselCards,
+    defaultStatsView,
+    setDefaultStatsView: (viewId: string) => {
+      setDefaultStatsViewState(viewId);
+      dbPutSetting('defaultStatsView', viewId);
+    },
+    chartStyle, setChartStyle,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory,
@@ -1433,7 +1455,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addContact, updateContact, deleteContact, addGoal, updateGoal, deleteGoal,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
-    assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle,
+    assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, chartStyle, setChartStyle,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
     addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory,
