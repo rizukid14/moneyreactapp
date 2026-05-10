@@ -496,7 +496,7 @@ const ReceiptScanner: React.FC = () => {
         <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
           <ChevronLeft size={20} />
         </button>
-        <h1 className="title" style={{ margin: 0 }}>Scan Struk</h1>
+        <h1 className="title" style={{ margin: 0 }}>{scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'}</h1>
       </div>
       <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />
 
@@ -504,8 +504,8 @@ const ReceiptScanner: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '10px' }}>
 
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)', marginBottom: '16px', width: '100%', maxWidth: '300px' }}>
-            <button onClick={() => setScanMode('struk')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'struk' ? 'var(--primary)' : 'transparent', color: scanMode === 'struk' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Struk (1 Tx)</button>
-            <button onClick={() => setScanMode('mutasi')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'mutasi' ? 'var(--primary)' : 'transparent', color: scanMode === 'mutasi' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Mutasi (Banyak Tx)</button>
+            <button onClick={() => setScanMode('struk')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'struk' ? 'var(--primary)' : 'transparent', color: scanMode === 'struk' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Pindai Struk</button>
+            <button onClick={() => setScanMode('mutasi')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'mutasi' ? 'var(--primary)' : 'transparent', color: scanMode === 'mutasi' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Pindai Mutasi</button>
           </div>
 
           <button onClick={() => fileInputRef.current?.click()} className="glass" style={{
@@ -522,10 +522,10 @@ const ReceiptScanner: React.FC = () => {
             }}>
               <Camera size={40} />
             </div>
-            <div style={{ fontWeight: 800, fontSize: '22px' }}>Ambil Foto Struk</div>
+            <div style={{ fontWeight: 800, fontSize: '22px' }}>{scanMode === 'struk' ? 'Ambil Foto Struk' : 'Ambil Foto Mutasi'}</div>
             <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <Lightbulb size={16} style={{ color: 'var(--secondary)' }} />
-              <span>Tips: Pastikan foto struk terlihat jelas dan terang</span>
+              <span>Tips: Pastikan foto {scanMode === 'struk' ? 'struk' : 'mutasi'} terlihat jelas dan terang</span>
             </div>
           </button>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', maxWidth: '300px', lineHeight: 1.5 }}>

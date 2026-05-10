@@ -21,7 +21,11 @@ const ChatBot: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, currencySymbol, isChatOpen, setIsChatOpen } = useMoney();
+  const { 
+    categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
+    currencySymbol, isChatOpen, setIsChatOpen,
+    recurringTransactions, subscriptions, budgetMode, monthlyIncome
+  } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +64,22 @@ const ChatBot: React.FC = () => {
             date: t.date
           })),
           contacts: contacts.map(c => ({ name: c.name })),
+          recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
+            type: rt.type,
+            amount: rt.amount,
+            category: rt.category,
+            frequency: rt.frequency,
+            startDate: rt.startDate,
+            note: rt.note
+          })),
+          subscriptions: subscriptions.filter(s => s.isActive).map(s => ({
+            name: s.name,
+            amount: s.amount,
+            billingCycle: s.billingCycle,
+            nextBillingDate: s.nextBillingDate
+          })),
+          budgetMode,
+          monthlyIncome,
           currentDate: getLocalDate(),
           currentTime: getLocalTime()
         })

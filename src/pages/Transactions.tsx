@@ -147,7 +147,7 @@ const Transactions: React.FC = () => {
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
 
   React.useEffect(() => {
-    const hasSeen = localStorage.getItem('whats_new_seen_v15');
+    const hasSeen = localStorage.getItem('whats_new_seen_v17');
     if (!hasSeen) {
       const timer = setTimeout(() => setIsWhatsNewOpen(true), 1500);
       return () => clearTimeout(timer);
@@ -156,7 +156,7 @@ const Transactions: React.FC = () => {
 
   const closeWhatsNew = () => {
     setIsWhatsNewOpen(false);
-    localStorage.setItem('whats_new_seen_v15', 'true');
+    localStorage.setItem('whats_new_seen_v17', 'true');
   };
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -729,7 +729,7 @@ const Transactions: React.FC = () => {
               }}
             >
               <Camera size={14} style={{ color: '#a855f7', flexShrink: 0 }} />
-              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>Struk OCR</span>
+              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>Pindai AI</span>
             </motion.button>
             <motion.button
               aria-label="Scan Bulk AI"
@@ -758,7 +758,7 @@ const Transactions: React.FC = () => {
               }}
             >
               <Sparkles size={14} style={{ color: '#3b82f6', flexShrink: 0 }} />
-              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>Bulk AI</span>
+              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>Input AI</span>
             </motion.button>
           </div>
         </motion.div>
@@ -957,7 +957,7 @@ const Transactions: React.FC = () => {
             <button
               className="fab-mini"
               onClick={() => navigate('/scan')}
-              title="Scan Struk (OCR)"
+              title="Pindai AI (Struk/Mutasi)"
               style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
               <Camera size={20} />
@@ -965,7 +965,7 @@ const Transactions: React.FC = () => {
             <button
               className="fab-mini"
               onClick={() => navigate('/bulk-input')}
-              title="Bulk Input (AI)"
+              title="Input AI (Teks)"
               style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
               <Sparkles size={20} />

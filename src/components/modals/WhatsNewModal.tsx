@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, CheckCircle2, Calendar, TrendingUp } from 'lucide-react';
+import { X, CheckCircle2, TrendingUp } from 'lucide-react';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -13,28 +13,28 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
   const features = [
     {
       icon: <CheckCircle2 className="text-primary" size={24} />,
-      title: 'Toast "Berhasil!" Instan',
-      description: 'Mendapatkan notifikasi visual premium setiap kali berhasil menambahkan atau memperbarui transaksi baik manual, split bill, maupun hasil input AI/scan struk.'
+      title: 'Zero-Based Budgeting',
+      description: 'Aktifkan mode ini di Pengaturan untuk mengalokasikan setiap rupiah pendapatan ke kategori pilihanmu hingga sisa Rp 0. Pantau "unassigned money" agar perencanaan lebih disiplin.'
     },
     {
       icon: <TrendingUp className="text-emerald-500" size={24} />,
-      title: 'Kalibrasi Skala Heatmap Presisi',
-      description: 'Skala warna grafik kontribusi heatmap pengeluaran bulanan kini terkalibrasi presisi dengan rentang nominal: 1K, 5K, 10K, 50K, 100K, 250K, 500K, dan >1JT.'
+      title: 'Proyeksi Arus Kas (30-90 Hari)',
+      description: 'Lihat masa depan keuanganmu! Proyeksi saldo harian berdasarkan transaksi rutin dan langganan. Lengkap dengan indikator "Safe to Spend" dan "Danger Zone".'
     },
     {
       icon: <CheckCircle2 className="text-primary" size={24} />,
-      title: 'MoneyBot AI: Transfer & Hutang',
-      description: 'MoneyBot kini lebih pintar! Kamu bisa mencatat transfer antar rekening dan membuat catatan hutang/piutang hanya dengan mengobrol.'
+      title: 'Target Tabungan (Goals)',
+      description: 'Buat target menabung untuk impianmu. Hubungkan langsung dengan transaksi agar progres tercatat otomatis hingga target tercapai.'
     },
     {
       icon: <TrendingUp className="text-emerald-500" size={24} />,
-      title: 'Input Sekaligus: Multi-Aset',
-      description: 'Kini kamu bisa memilih rekening/aset yang berbeda untuk setiap baris transaksi pada menu Input Sekaligus. Lebih fleksibel!'
+      title: 'Langganan & Bill Tracking',
+      description: 'Kelola semua layanan langganan (Netflix, Spotify, dll) dalam satu tempat. Bot akan membantu memantau tanggal tagihan berikutnya.'
     },
     {
-      icon: <Calendar className="text-rose-500" size={24} />,
-      title: 'Heatmap Aktivitas (1 Tahun)',
-      description: 'Lacak konsistensi pengeluaran kamu seperti grafik kontribusi GitHub! Dilengkapi glow-block premium dan label bulan yang rapi.'
+      icon: <CheckCircle2 className="text-rose-500" size={24} />,
+      title: 'Financial Health Score',
+      description: 'Dapatkan skor kesehatan finansialmu (0-100) berdasarkan rasio tabungan, ketaatan anggaran, dan konsistensi pengeluaran.'
     }
   ];
 

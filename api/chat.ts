@@ -18,7 +18,11 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { messages, categories, assets, transactions, contacts, currentDate, currentTime } = req.body;
+    const { 
+      messages, categories, assets, transactions, contacts, 
+      recurringTransactions, subscriptions, budgetMode, monthlyIncome,
+      currentDate, currentTime 
+    } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ message: 'Valid messages array is required' });
@@ -48,6 +52,14 @@ export default async function handler(req: any, res: any) {
     const transactionSummary = transactions?.length > 0
       ? transactions.map((t: any) => `${t.date}: ${t.type} ${t.amount} [${t.category}] ${t.note}`).join('\n')
       : "No recent transactions found.";
+    
+    const recurringSummary = recurringTransactions?.length > 0
+      ? recurringTransactions.map((rt: any) => `- ${rt.type} ${rt.amount} [${rt.category}] ${rt.frequency} starts ${rt.startDate} (${rt.note})`).join('\n')
+      : "None";
+
+    const subscriptionSummary = subscriptions?.length > 0
+      ? subscriptions.map((s: any) => `- ${s.name}: ${s.amount}/${s.billingCycle} next: ${s.nextBillingDate}`).join('\n')
+      : "None";
 
     const systemPrompt = `You are MoneyBot, a helpful AI assistant for MoneyApp.
 Your primary purpose is to help users manage their finances and categorize transactions.
@@ -58,14 +70,22 @@ Use this as the reference for "today", "yesterday", or other relative dates.
 STRICT GUARDRAILS:
 1. ONLY answer questions related to MoneyApp, personal finance, or budgeting. Decline all other topics.
 2. If the user asks for help, tutorial, or how to use ANY feature, you MUST call 'get_app_help' to get the user manual.
+3. You can ONLY process and create ONE transaction/debt at a time. If the user provides multiple transactions (e.g. "makan 10rb dan bensin 20rb"), do NOT call 'create_transaction' for all. Instead, pick the first one or ask for clarification, and inform the user that for multiple entries, they should use the "Input Sekaligus" (Bulk Input) feature found in the main (+) menu.
 
 CURRENT USER CONTEXT:
 Categories: ${categoryList}
 Assets: ${assetList}
 Contacts: ${contactList}
+Budget Mode: ${budgetMode || "regular"} (Income: ${monthlyIncome || 0})
 
 RECENT TRANSACTIONS (Last 150):
 ${transactionSummary}
+
+RECURRING TRANSACTIONS:
+${recurringSummary}
+
+SUBSCRIPTIONS:
+${subscriptionSummary}
 
 BEHAVIOR RULES:
 1. When a user describes a transaction (e.g., "makan kfc 10k"), First, recommend category and asset name and ask for confirmation.
@@ -73,7 +93,8 @@ BEHAVIOR RULES:
 3. For help/tutorial requests, use 'get_app_help'.
 4. For transfers between assets, use 'create_transaction' with 'type': 'transfer'.
 5. For debts (hutang) or receivables (piutang), use 'create_debt'.
-6. Keep responses concise and in Indonesian.`;
+6. Do NOT try to handle multiple transactions in one turn. Direct them to "Input Sekaligus" for bulk entries.
+7. Keep responses concise and in Indonesian.`;
 
     const tools = [
       {
@@ -174,10 +195,23 @@ BEHAVIOR RULES:
    - Kini bisa mencatat Transfer antar rekening dan membuat catatan Hutang/Piutang otomatis.
    - Cukup ketik seperti: "Transfer dari BCA ke Gopay 50rb" atau "Hutang ke Budi 100rb buat makan".
 
-5. Anggaran (Budgets): Set di Pengaturan -> Anggaran & Target per kategori.
-6. Scan Struk (OCR) & Split Bill: Scan struk, lalu klik "Split Bill" untuk bagi belanjaan ke teman-teman (otomatis jadi piutang).
-7. Pengaturan: PIN keamanan, Backup (Ekspor/Impor), Sinkronisasi Cloud, dan Custom Mata Uang/Tanggal mulai bulan.
-8. Statistik: Analisis pie chart dan perbandingan bulan lalu.
+5. Anggaran & Perencanaan (Budgets):
+   - Regular Mode: Set budget bulanan per kategori di Pengaturan -> Anggaran.
+   - Zero-Based Budgeting (Anggaran Berbasis Nol): Aktifkan di Pengaturan. Alokasikan setiap rupiah pendapatan ke "amplop" (kategori) hingga sisa Rp 0.
+   - Pace Feature: Memberi tahu jika kecepatan belanjamu terlalu tinggi dibandingkan hari yang sudah berlalu dalam bulan tersebut.
+   - Pindahkan Uang: Dalam mode Zero-Based, kamu bisa memindahkan saldo antar amplop jika salah satu kategori over-budget.
+
+6. Proyeksi Kas (Cash Flow Forecast):
+   - Tersedia di menu Statistik -> Proyeksi Kas.
+   - Memprediksi saldo harian 30, 60, hingga 90 hari ke depan berdasarkan transaksi rutin dan langganan.
+   - Safe to Spend: Menghitung uang yang aman dibelanjakan hari ini setelah menyisihkan dana untuk tagihan 30 hari ke depan.
+   - Danger Zone: Menandai hari-hari di mana saldo diprediksi akan negatif (merah).
+
+7. Langganan (Subscriptions): Kelola layanan bulanan/tahunan (Netflix, Spotify, dll) agar tidak lupa tanggal tagihan dan terekam di Proyeksi Kas.
+8. Target Tabungan (Savings Goals): Buat target untuk impianmu dan hubungkan transaksi menabung agar progres terpantau otomatis.
+9. Scan Struk (OCR) & Split Bill: Scan struk, lalu klik "Split Bill" untuk bagi belanjaan ke teman-teman (otomatis jadi piutang).
+10. Pengaturan: PIN keamanan, Backup (Ekspor/Impor), Sinkronisasi Cloud, dan Custom Mata Uang/Tanggal mulai bulan.
+11. Statistik: Analisis pie chart, perbandingan bulan lalu, dan Financial Health Score.
 `;
 
     // Check if the AI decided to call the tool
