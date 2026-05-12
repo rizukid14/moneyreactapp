@@ -8,7 +8,10 @@ interface ContactSelectModalProps {
   onClose: () => void;
   contacts: Contact[];
   selectedContactName?: string;
-  onSelect: (contactName: string) => void;
+  selectedContactNames?: string[];
+  onSelect?: (contactName: string) => void;
+  onSelectMultiple?: (contactNames: string[]) => void;
+  isMultiple?: boolean;
 }
 
 const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
@@ -16,13 +19,17 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
   onClose,
   contacts,
   selectedContactName = '',
+  selectedContactNames = [],
   onSelect,
+  onSelectMultiple,
+  isMultiple = false,
 }) => {
   const { addContact } = useMoney();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
+  const [tempSelected, setTempSelected] = useState<string[]>([]);
 
   // Reset state when modal opens
   React.useEffect(() => {
@@ -31,8 +38,9 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
       setSearchQuery('');
       setNewName('');
       setNewPhone('');
+      setTempSelected(isMultiple ? selectedContactNames : []);
     }
-  }, [isOpen]);
+  }, [isOpen, isMultiple, selectedContactNames]);
 
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return contacts;
@@ -42,10 +50,21 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
   }, [contacts, searchQuery]);
 
   const handleSelect = (contactName: string) => {
-    onSelect(contactName);
+    if (isMultiple) {
+      setTempSelected(prev => 
+        prev.includes(contactName) ? prev.filter(n => n !== contactName) : [...prev, contactName]
+      );
+    } else {
+      onSelect?.(contactName);
+      onClose();
+      setSearchQuery('');
+      setIsAddingNew(false);
+    }
+  };
+
+  const handleConfirmMultiple = () => {
+    onSelectMultiple?.(tempSelected);
     onClose();
-    setSearchQuery('');
-    setIsAddingNew(false);
   };
 
   const handleAddNew = (e: React.FormEvent) => {
@@ -206,7 +225,9 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
                     </div>
                   ) : (
                     filteredContacts.map(contact => {
-                      const isSelected = contact.name === selectedContactName;
+                      const isSelected = isMultiple 
+                        ? tempSelected.includes(contact.name)
+                        : contact.name === selectedContactName;
                       return (
                         <button
                           key={contact.id}
@@ -254,6 +275,18 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
                     })
                   )}
                 </div>
+
+                {isMultiple && (
+                  <div style={{ padding: '16px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
+                    <button 
+                      onClick={handleConfirmMultiple}
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '14px', borderRadius: '12px' }}
+                    >
+                      Pilih {tempSelected.length} Orang
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </motion.div>

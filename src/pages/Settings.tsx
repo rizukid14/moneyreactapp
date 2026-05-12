@@ -3,7 +3,7 @@ import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search, CreditCard, Calendar, ChevronLeft, Folder, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search, CreditCard, Calendar, ChevronLeft, Folder, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Share2, Plane
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -18,6 +18,7 @@ import { useToast } from '../components/common/Toast';
 import { changelogData, changelogTypeMeta } from '../data/changelog';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
+import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
@@ -322,6 +323,7 @@ const Settings: React.FC = () => {
   const { showToast } = useToast();
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
   );
@@ -450,7 +452,9 @@ const Settings: React.FC = () => {
     { id: 'security', icon: Shield, label: 'Keamanan' },
     { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
     { id: 'subscriptions', icon: CreditCard, label: 'Langganan (Subs)' },
+    { id: 'trips', icon: Plane, label: 'Holiday Trip (Bagi Biaya)' },
     { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
+    { id: 'shared_bills', icon: Share2, label: 'Shared Split Bills' },
     { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
     { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
   ];
@@ -459,6 +463,14 @@ const Settings: React.FC = () => {
     // ... existing handleMenuClick ...
     if (id === 'help') {
       window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp&body=Halo, saya butuh bantuan terkait...';
+      return;
+    }
+    if (id === 'shared_bills') {
+      setIsSharedBillsOpen(true);
+      return;
+    }
+    if (id === 'trips') {
+      window.location.href = '/trips';
       return;
     }
     setActiveModal(id);
@@ -515,7 +527,7 @@ const Settings: React.FC = () => {
     setActiveModal(null);
   };
 
-  const handleSetPin = (e: React.FormEvent) => {
+  const handleSetPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPin.length < 6) {
       setPinError('PIN harus 6 digit');
@@ -525,7 +537,7 @@ const Settings: React.FC = () => {
       setPinError('PIN tidak cocok');
       return;
     }
-    setAppPin(newPin);
+    await setAppPin(newPin);
     setActiveModal(null);
     setNewPin(''); setConfirmPin(''); setPinError('');
     // alert is fine for success usually, or we can make it a Toast. 
@@ -536,8 +548,8 @@ const Settings: React.FC = () => {
     showConfirm(
       'Matikan PIN',
       'Apakah Anda yakin ingin mematikan keamanan PIN?',
-      () => {
-        setAppPin(null);
+      async () => {
+        await setAppPin(null);
         setActiveModal(null);
       },
       'warning',
@@ -2073,7 +2085,7 @@ const Settings: React.FC = () => {
                 cursor: 'pointer'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
+                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
                   <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2092,7 +2104,7 @@ const Settings: React.FC = () => {
                   borderBottom: '1px solid var(--border-color)',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />
+                    <Moon size={20} color="var(--text-muted)" style={{ marginRight: '20px' }} />
                     <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Tema Gelap</span>
                   </div>
                   <div
@@ -2309,6 +2321,10 @@ const Settings: React.FC = () => {
         type="pengeluaran"
         initialCategory={newSubCat}
         onSelect={(cat) => setNewSubCat(cat)}
+      />
+      <SharedBillsManagerModal
+        isOpen={isSharedBillsOpen}
+        onClose={() => setIsSharedBillsOpen(false)}
       />
     </div>
   );

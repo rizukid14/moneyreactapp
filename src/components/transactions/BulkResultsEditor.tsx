@@ -352,7 +352,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
         <button
           className="btn btn-primary"
           onClick={() => onSave(batchAssetId)}
-          disabled={!results.some(r => r.selected) || !batchAssetId || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.category))}
+          disabled={!results.some(r => r.selected) || (isMutation && !batchAssetId) || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.category))}
           style={{ width: '100%', marginTop: '16px', boxShadow: '0 4px 15px var(--primary-glow)' }}
         >
           Simpan Transaksi Terpilih

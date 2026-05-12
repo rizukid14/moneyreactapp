@@ -21,8 +21,8 @@ const LockScreen: React.FC = () => {
 
   useEffect(() => {
     if (enteredPin.length >= 6) {
-      const timer = setTimeout(() => {
-        const success = unlockApp(enteredPin);
+      const timer = setTimeout(async () => {
+        const success = await unlockApp(enteredPin);
         if (!success && enteredPin.length >= 6) {
            setError(true);
            setEnteredPin('');

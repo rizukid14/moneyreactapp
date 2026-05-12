@@ -8,6 +8,8 @@ import {
   dbGetAllDebts, dbPutDebt, dbDeleteDebt,
   dbGetAllGoals, dbPutGoal, dbDeleteGoal,
   dbGetSetting, dbPutSetting, dbDeleteSetting,
+  dbGetAllTrips, dbPutTrip, dbDeleteTrip,
+  dbGetAllTripExpenses, dbPutTripExpense, dbDeleteTripExpense,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
   dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync,
@@ -18,7 +20,7 @@ import { collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
 import SplashScreen from '../components/SplashScreen';
-import { getLocalDate, getLocalTime, generateId, isPrincipalTx } from '../lib/utils';
+import { getLocalDate, getLocalTime, generateId, isPrincipalTx, hashPin } from '../lib/utils';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 export type BudgetMode = 'regular' | 'zero-based';
@@ -81,6 +83,7 @@ export interface Debt {
   paymentAssetId?: string;       // HUTANG: asset to pay FROM (e.g. BCA) | PIUTANG: asset used to LEND FROM (e.g. Cash)
   receiveAssetId?: string;       // PIUTANG: asset to receive payment INTO (e.g. BCA)
   sourceAssetId?: string;        // DEPRECATED - prefer paymentAssetId for simplicity; added for schema compatibility if needed
+  tripId?: string; // Link to trip
 }
 
 export interface Goal {
@@ -91,6 +94,37 @@ export interface Goal {
   createdAt: string;
   assetId?: string;
   isCompleted: boolean;
+}
+
+export interface TripMember {
+  id: string;
+  name: string;
+}
+
+export interface TripExpenseSplit {
+  memberId: string;
+  amount: number;
+}
+
+export interface TripExpense {
+  id: string;
+  tripId: string;
+  description: string;
+  amount: number;
+  payerId: string; // memberId
+  splits: TripExpenseSplit[];
+  date: string;
+  createdAt: string;
+}
+
+export interface Trip {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  members: TripMember[];
+  isSettled: boolean;
+  createdAt: string;
 }
 
 export interface Transaction {
@@ -147,13 +181,6 @@ export interface Subscription {
   note?: string;
 }
 
-export interface Contact {
-  id: string;
-  name: string;
-  phone?: string;
-  note?: string;
-}
-
 // ─── Default seed data ───────────────────────────────────────────────────────
 const DEFAULT_ASSET: Asset = { id: 'default-1', name: 'Dompet Tunai', type: 'Cash', initialBalance: 0 };
 
@@ -182,6 +209,8 @@ interface MoneyContextType {
   contacts: Contact[];
   recurringTransactions: RecurringTransaction[];
   subscriptions: Subscription[];
+  trips: Trip[];
+  tripExpenses: TripExpense[];
   user: UserProfile;
   pin: string | null;
   isAppLocked: boolean;
@@ -216,6 +245,12 @@ interface MoneyContextType {
   addSubscription: (sub: Omit<Subscription, 'id'>) => void;
   updateSubscription: (id: string, sub: Partial<Subscription>) => void;
   deleteSubscription: (id: string) => void;
+  addTrip: (trip: Omit<Trip, 'id' | 'createdAt'>) => Promise<void>;
+  updateTrip: (id: string, trip: Partial<Trip>) => Promise<void>;
+  deleteTrip: (id: string) => Promise<void>;
+  addTripExpense: (expense: Omit<TripExpense, 'id' | 'createdAt'>) => Promise<void>;
+  updateTripExpense: (id: string, expense: Partial<TripExpense>) => Promise<void>;
+  deleteTripExpense: (id: string) => Promise<void>;
   payInstallment: (debtId: string) => void;
   addGoal: (goal: Omit<Goal, 'id' | 'createdAt' | 'isCompleted'>) => void;
   updateGoal: (id: string, goal: Partial<Goal>) => void;
@@ -226,8 +261,8 @@ interface MoneyContextType {
   offsetDebt: (contactName: string, customDate?: string) => void;
   getAssetBalance: (assetId: string) => number;
   updateUser: (user: UserProfile) => void;
-  setAppPin: (newPin: string | null) => void;
-  unlockApp: (enteredPin: string) => boolean;
+  setAppPin: (newPin: string | null) => Promise<void>;
+  unlockApp: (enteredPin: string) => Promise<boolean>;
   lockApp: () => void;
   toggleTheme: () => void;
   isPrivateMode: boolean;
@@ -279,6 +314,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [tripExpenses, setTripExpenses] = useState<TripExpense[]>([]);
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [pin, setPin] = useState<string | null>(null);
   const [isAppLocked, setIsAppLocked] = useState(false);
@@ -327,7 +364,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await migrateFromLocalStorage();
 
       // Load all data from IndexedDB
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals, dbRecurring, dbContacts, dbSubs] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals, dbRecurring, dbContacts, dbSubs, dbTrips, dbTripExpenses] = await Promise.all([
         dbGetAllAssets(),
         dbGetAllTransactions(),
         dbGetAllCategories(),
@@ -337,6 +374,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         import('../lib/db').then(m => m.dbGetAllRecurringTransactions()),
         import('../lib/db').then(m => m.dbGetAllContacts()),
         import('../lib/db').then(m => m.dbGetAllSubscriptions()),
+        dbGetAllTrips(),
+        dbGetAllTripExpenses(),
       ]);
       setGoals(dbGoals);
       setRecurringTransactions(dbRecurring);
@@ -363,6 +402,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setDebts(dbDebts as Debt[]);
       setGoals(dbGoals as Goal[]);
       setTransactions(dbTxs);
+      setTrips(dbTrips as Trip[]);
+      setTripExpenses(dbTripExpenses as TripExpense[]);
 
       // Load settings
       let profile = await dbGetSetting('user') as UserProfile | undefined;
@@ -1306,15 +1347,37 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbPutSetting('user', newUser).then(refreshSyncCount);
   }, [refreshSyncCount]);
 
-  const setAppPin = useCallback((newPin: string | null) => {
-    setPin(newPin);
-    if (newPin) dbPutSetting('pin', newPin);
+  const setAppPin = useCallback(async (newPin: string | null) => {
+    let finalPin = newPin;
+    if (newPin) {
+      finalPin = await hashPin(newPin);
+    }
+    setPin(finalPin);
+    if (finalPin) dbPutSetting('pin', finalPin);
     else dbDeleteSetting('pin');
-    if (!newPin) setIsAppLocked(false);
+    if (!finalPin) setIsAppLocked(false);
   }, []);
 
-  const unlockApp = useCallback((enteredPin: string) => {
-    if (enteredPin === pin) { setIsAppLocked(false); return true; }
+  const unlockApp = useCallback(async (enteredPin: string) => {
+    if (!pin) return true;
+    
+    // Legacy support: if stored pin is 6 digits, it's likely plain text
+    if (pin.length === 6 && /^\d+$/.test(pin)) {
+      if (enteredPin === pin) {
+        // Upgrade to hash automatically
+        const hashed = await hashPin(enteredPin);
+        setPin(hashed);
+        dbPutSetting('pin', hashed);
+        setIsAppLocked(false);
+        return true;
+      }
+    }
+
+    const hashedInput = await hashPin(enteredPin);
+    if (hashedInput === pin) { 
+      setIsAppLocked(false); 
+      return true; 
+    }
     return false;
   }, [pin]);
 
@@ -1336,6 +1399,65 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return next;
     });
   }, []);
+
+  // ─── Trips ───────────────────────────────────────────────────────────────
+  const addTrip = useCallback(async (tripReq: Omit<Trip, 'id' | 'createdAt'>) => {
+    const newTrip: Trip = { ...tripReq, id: generateId(), createdAt: new Date().toISOString() };
+    setTrips(prev => [...prev, newTrip]);
+    await dbPutTrip(newTrip);
+    await refreshSyncCount();
+  }, [refreshSyncCount]);
+
+  const updateTrip = useCallback(async (id: string, updated: Partial<Trip>) => {
+    let next: Trip | undefined;
+    setTrips(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      next = { ...t, ...updated };
+      return next;
+    }));
+    if (next) {
+      await dbPutTrip(next);
+      await refreshSyncCount();
+    }
+  }, [refreshSyncCount]);
+
+  const deleteTrip = useCallback(async (id: string) => {
+    setTrips(prev => prev.filter(t => t.id !== id));
+    setTripExpenses(prev => prev.filter(e => e.tripId !== id));
+    await dbDeleteTrip(id);
+    // Also delete all related expenses from DB
+    const related = tripExpenses.filter(e => e.tripId === id);
+    for (const e of related) {
+      await dbDeleteTripExpense(e.id);
+    }
+    await refreshSyncCount();
+  }, [refreshSyncCount, tripExpenses]);
+
+  const addTripExpense = useCallback(async (expenseReq: Omit<TripExpense, 'id' | 'createdAt'>) => {
+    const newExpense: TripExpense = { ...expenseReq, id: generateId(), createdAt: new Date().toISOString() };
+    setTripExpenses(prev => [...prev, newExpense]);
+    await dbPutTripExpense(newExpense);
+    await refreshSyncCount();
+  }, [refreshSyncCount]);
+
+  const updateTripExpense = useCallback(async (id: string, updated: Partial<TripExpense>) => {
+    let next: TripExpense | undefined;
+    setTripExpenses(prev => prev.map(e => {
+      if (e.id !== id) return e;
+      next = { ...e, ...updated };
+      return next;
+    }));
+    if (next) {
+      await dbPutTripExpense(next);
+      await refreshSyncCount();
+    }
+  }, [refreshSyncCount]);
+
+  const deleteTripExpense = useCallback(async (id: string) => {
+    setTripExpenses(prev => prev.filter(e => e.id !== id));
+    await dbDeleteTripExpense(id);
+    await refreshSyncCount();
+  }, [refreshSyncCount]);
 
   const setDefaultAssetId = useCallback((id: string | null) => {
     setDefaultAssetIdState(id);
@@ -1418,12 +1540,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const result = await dbForceCloudSync();
     if (result.total > 0) {
       // Reload all state from IDB (which now has the fresh cloud data)
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRec, dbContacts, dbSubs] = await Promise.all([
+      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRec, dbContacts, dbSubs, dbTrips, dbTripEx] = await Promise.all([
         dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(),
         dbGetAllBudgets(), dbGetAllDebts(),
         import('../lib/db').then(m => m.dbGetAllRecurringTransactions()),
         import('../lib/db').then(m => m.dbGetAllContacts()),
-        import('../lib/db').then(m => m.dbGetAllSubscriptions())
+        import('../lib/db').then(m => m.dbGetAllSubscriptions()),
+        dbGetAllTrips(),
+        dbGetAllTripExpenses()
       ]);
       setAssets(dbAssets);
       setTransactions(dbTxs);
@@ -1433,6 +1557,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setRecurringTransactions(dbRec);
       setContacts(dbContacts);
       setSubscriptions(dbSubs);
+      setTrips(dbTrips as Trip[]);
+      setTripExpenses(dbTripEx as TripExpense[]);
       await refreshSyncCount();
     }
     return result;
@@ -1486,6 +1612,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
     subscriptions, addSubscription, updateSubscription, deleteSubscription,
+    trips, addTrip, updateTrip, deleteTrip,
+    tripExpenses, addTripExpense, updateTripExpense, deleteTripExpense,
     addContact, updateContact, deleteContact, addGoal, updateGoal, deleteGoal,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
@@ -1509,6 +1637,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
     subscriptions, addSubscription, updateSubscription, deleteSubscription,
+    trips, addTrip, updateTrip, deleteTrip,
+    tripExpenses, addTripExpense, updateTripExpense, deleteTripExpense,
     addContact, updateContact, deleteContact, addGoal, updateGoal, deleteGoal,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
     startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
@@ -1528,7 +1658,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return <SplashScreen />;
   }
 
-  if (isFirebaseConfigured && !authUser) {
+  const isPublicRoute = window.location.pathname.startsWith('/shared-split/') || window.location.pathname.startsWith('/shared-split-bill/');
+
+  if (isFirebaseConfigured && !authUser && !isPublicRoute) {
     return <AuthScreen />;
   }
 

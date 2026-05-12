@@ -57,3 +57,15 @@ export const isPrincipalTx = (note: string, category?: string): boolean => {
          c === 'penerimaan dana pinjaman' ||
          c === 'pemberian pinjaman';
 };
+/**
+ * Hashes a PIN string using SHA-256 via Web Crypto API.
+ * Returns a hexadecimal string.
+ */
+export const hashPin = async (pin: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pin);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+};

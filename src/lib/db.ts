@@ -2,10 +2,12 @@ import { openDB, type IDBPDatabase } from 'idb';
 import { collection, doc, getDocs, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db as firestore, isFirebaseConfigured } from './firebase';
 import type { Asset, Transaction, Category, UserProfile, Contact, Goal } from '../contexts/MoneyContext';
+import { query, where, orderBy } from 'firebase/firestore';
+import { generateId } from './utils';
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 
 export interface SyncItem {
   id: string;
@@ -27,6 +29,8 @@ export interface MoneyAppDB {
   subscriptions: { key: string; value: any };
   settings: { key: string; value: string | number | boolean | UserProfile | null };
   pending_sync: { key: string; value: SyncItem };
+  trips: { key: string; value: any };
+  trip_expenses: { key: string; value: any };
 }
 
 let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
@@ -46,6 +50,8 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('subscriptions')) db.createObjectStore('subscriptions', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
         if (!db.objectStoreNames.contains('pending_sync')) db.createObjectStore('pending_sync', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('trips')) db.createObjectStore('trips', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('trip_expenses')) db.createObjectStore('trip_expenses', { keyPath: 'id' });
       },
     });
   }
@@ -169,6 +175,8 @@ export const dbForceCloudSync = async (): Promise<{ total: number }> => {
       ['contacts', 'contacts'],
       ['subscriptions', 'subscriptions'],
       ['goals', 'goals'],
+      ['trips', 'trips'],
+      ['trip_expenses', 'trip_expenses'],
     ];
 
     for (const [fsCol, idbStore] of collections) {
@@ -607,4 +615,131 @@ export const migrateFromIndexedDBToFirebase = async (): Promise<boolean> => {
   } catch (e) { return false; }
 };
 
+// ─── Shared Split Bills & Trips ──────────────────────────────────────────────
+export interface SharedSplit {
+  id: string;
+  creatorId: string;
+  type?: 'split' | 'trip'; // Distinguish between normal split and trip
+  merchantName: string;   // For trip: used as Trip Name
+  date: string;           // For trip: used as Start Date
+  endDate?: string;       // For trip
+  totalAmount: number;
+  currencySymbol: string;
+  splits: any[];
+  secondarySplits?: any[]; // Store the other mode's data
+  settlementMode?: 'simple' | 'detailed'; // Current active mode
+  lineItems?: any[];      // For normal split
+  tripExpenses?: any[];   // For trip
+  members?: any[];        // For trip
+  sourceId?: string;      // ID of the original trip or split to prevent duplicates
+  createdAt: number;
+}
+
+export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorId' | 'createdAt'>): Promise<string> => {
+  if (!isFirebaseConfigured || !auth.currentUser) throw new Error("Cloud sync required to share.");
+
+  let id = generateId();
+  
+  // Check if a link for this source already exists to prevent duplicates
+  if (data.sourceId) {
+    const q = query(
+      collection(firestore, 'shared_splits'),
+      where('creatorId', '==', getUid()),
+      where('sourceId', '==', data.sourceId)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      id = snap.docs[0].id;
+    }
+  }
+
+  const sharedSplit: SharedSplit = {
+    ...data,
+    id,
+    creatorId: getUid(),
+    createdAt: Date.now(),
+  };
+
+  await setDoc(doc(firestore, 'shared_splits', id), sanitizeForFirestore(sharedSplit));
+  return id;
+};
+
+export const dbGetSharedSplit = async (id: string): Promise<SharedSplit | null> => {
+  if (!isFirebaseConfigured) return null;
+  try {
+    const docSnap = await getDoc(doc(firestore, 'shared_splits', id));
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as SharedSplit;
+    }
+  } catch (e) {
+    console.error('Failed to fetch shared split:', e);
+  }
+  return null;
+};
+
+export const dbDeleteSharedSplit = async (id: string) => {
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  await deleteDoc(doc(firestore, 'shared_splits', id));
+};
+
+export const dbGetMySharedSplits = async (): Promise<SharedSplit[]> => {
+  if (!isFirebaseConfigured || !auth.currentUser) return [];
+  try {
+    const q = query(
+      collection(firestore, 'shared_splits'),
+      where('creatorId', '==', getUid()),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as SharedSplit));
+  } catch (e) {
+    console.error('Failed to fetch my shared splits:', e);
+    return [];
+  }
+};
+
 export const migrateFromLocalStorage = async () => false;
+
+// ─── Trips ────────────────────────────────────────────────────────────────────
+export const dbGetAllTrips = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('trips');
+};
+
+export const dbPutTrip = async (trip: any) => {
+  const db = await getDB();
+  await db.put('trips', trip);
+  if (isFirebaseConfigured && auth.currentUser) {
+    await recordPendingSync({ id: trip.id, collection: 'trips', operation: 'PUT', data: trip });
+  }
+};
+
+export const dbDeleteTrip = async (id: string) => {
+  const db = await getDB();
+  await db.delete('trips', id);
+  if (isFirebaseConfigured && auth.currentUser) {
+    await recordPendingSync({ id, collection: 'trips', operation: 'DELETE' });
+  }
+};
+
+// ─── Trip Expenses ────────────────────────────────────────────────────────────
+export const dbGetAllTripExpenses = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('trip_expenses');
+};
+
+export const dbPutTripExpense = async (expense: any) => {
+  const db = await getDB();
+  await db.put('trip_expenses', expense);
+  if (isFirebaseConfigured && auth.currentUser) {
+    await recordPendingSync({ id: expense.id, collection: 'trip_expenses', operation: 'PUT', data: expense });
+  }
+};
+
+export const dbDeleteTripExpense = async (id: string) => {
+  const db = await getDB();
+  await db.delete('trip_expenses', id);
+  if (isFirebaseConfigured && auth.currentUser) {
+    await recordPendingSync({ id, collection: 'trip_expenses', operation: 'DELETE' });
+  }
+};

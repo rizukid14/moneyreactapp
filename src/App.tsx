@@ -14,6 +14,9 @@ const BulkInput = lazy(() => import('./pages/BulkInput'));
 const Assets = lazy(() => import('./pages/Assets'));
 const Debts = lazy(() => import('./pages/Debts'));
 const Settings = lazy(() => import('./pages/Settings'));
+const SharedSplitBill = lazy(() => import('./pages/SharedSplitBill'));
+const Trips = lazy(() => import('./pages/Trips'));
+const TripDetail = lazy(() => import('./pages/TripDetail'));
 
 // SplashScreen is used as fallback for both initial load and lazy page loading
 
@@ -36,7 +39,17 @@ const AppContent: React.FC = () => {
   }, []);
 
   if (isAppLocked) {
-    return <LockScreen />;
+    return (
+      <BrowserRouter>
+        <Suspense fallback={<SplashScreen />}>
+          <Routes>
+            <Route path="/shared-split/:id" element={<SharedSplitBill />} />
+            <Route path="/shared-split-bill/:id" element={<SharedSplitBill />} />
+            <Route path="*" element={<LockScreen />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    );
   }
 
   return (
@@ -52,7 +65,11 @@ const AppContent: React.FC = () => {
               <Route path="assets" element={<Assets />} />
               <Route path="debts" element={<Debts />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="trips" element={<Trips />} />
+              <Route path="trips/:id" element={<TripDetail />} />
             </Route>
+            <Route path="/shared-split/:id" element={<SharedSplitBill />} />
+            <Route path="/shared-split-bill/:id" element={<SharedSplitBill />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

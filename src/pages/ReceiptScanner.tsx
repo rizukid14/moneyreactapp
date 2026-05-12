@@ -424,38 +424,61 @@ const ReceiptScanner: React.FC = () => {
   const handleSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
     try {
       const userSplit = splits.find(s => s.id === 'me');
+      const payer = splits.find(s => s.isPayer) || splits[0];
+      const isMePayer = payer.id === 'me';
 
-      // 1. Save user's portion as a transaction
-      if (userSplit && userSplit.amount > 0) {
-        addTransaction({
-          type: 'pengeluaran',
-          amount: userSplit.amount,
-          category: data.category || 'Belanja (OCR)',
-          subCategory: data.subCategory || undefined,
-          date: selectedDate,
-          time: selectedTime,
-          note: merchantName || 'Split Bill',
-          assetId: data.assetId,
+      if (isMePayer) {
+        // CASE 1: I PAID -> Record my share as expense + others as receivables
+        // 1. My portion as a transaction
+        if (userSplit && userSplit.amount > 0) {
+          addTransaction({
+            type: 'pengeluaran',
+            amount: userSplit.amount,
+            category: data.category || 'Belanja (OCR)',
+            subCategory: data.subCategory || undefined,
+            date: selectedDate,
+            time: selectedTime,
+            note: merchantName || 'Split Bill',
+            assetId: data.assetId,
+          });
+        }
+
+        // 2. Others' portions as Piutang (Debts)
+        const others = splits.filter(s => s.id !== 'me' && s.amount > 0);
+        others.forEach(person => {
+          addDebt({
+            type: 'piutang',
+            contact: person.contactName,
+            description: `Split Bill: ${merchantName || 'Struk'}`,
+            totalAmount: person.amount,
+            isPaid: false,
+            createdAt: new Date().toISOString(),
+            paymentAssetId: selectedAssetId,
+            isInstallment: false,
+            paidInstallments: 0
+          }, 'none', selectedCategory || 'Lainnya');
         });
+        showToast(`Split bill disimpan! (${others.length} piutang dicatat)`, 'success');
+      } else {
+        // CASE 2: SOMEONE ELSE PAID -> Record my share as a debt to them
+        if (userSplit && userSplit.amount > 0) {
+          addDebt({
+            type: 'hutang',
+            contact: payer.contactName,
+            description: `Split Bill (${merchantName || 'Struk'})`,
+            totalAmount: userSplit.amount,
+            isPaid: false,
+            createdAt: new Date().toISOString(),
+            liabilityAssetId: '', // No asset affected yet as I haven't paid them back
+            isInstallment: false,
+            paidInstallments: 0
+          }, 'none', selectedCategory || 'Lainnya');
+          showToast(`Berhasil mencatat hutang ke ${payer.contactName}`, 'success');
+        } else {
+          showToast('Tidak ada bagian untuk Anda dalam split ini.', 'info');
+        }
       }
 
-      // 2. Save others' portions as Piutang (Debts)
-      const others = splits.filter(s => s.id !== 'me' && s.amount > 0);
-      others.forEach(person => {
-        addDebt({
-          type: 'piutang',
-          contact: person.contactName,
-          description: `Split Bill: ${merchantName || 'Struk'}`,
-          totalAmount: person.amount,
-          isPaid: false,
-          createdAt: new Date().toISOString(),
-          paymentAssetId: selectedAssetId, // The asset used to "lend" (pay for them)
-          isInstallment: false,
-          paidInstallments: 0
-        }, 'none', selectedCategory || 'Lainnya');
-      });
-
-      showToast(`Split bill berhasil disimpan! (${others.length} piutang dibuat)`, 'success');
       setIsSplitModalOpen(false);
       reset();
     } catch (e) {
