@@ -351,7 +351,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         await migrateFromIndexedDBToFirebase();
       } else {
         setAuthUser(null);
-        setIsReady(false);
       }
       setAuthChecked(true);
     });
@@ -360,7 +359,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ── Bootstrap: migrate if needed, then load from IndexedDB ──────────────
   useEffect(() => {
-    if (!authUser) return; // Block loading until authenticated
+    if (!authChecked) return; // Wait for initial auth check
     const bootstrap = async () => {
       // One-time migration from localStorage
       await migrateFromLocalStorage();
@@ -477,7 +476,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setIsReady(true);
     };
     bootstrap();
-  }, [authUser]);
+  }, [authChecked]);
 
   // ─── Apply theme ────────────────────────────────────────────────────────
   useEffect(() => {

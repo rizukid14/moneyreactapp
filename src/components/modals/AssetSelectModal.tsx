@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Check, Wallet, CreditCard, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Plus } from 'lucide-react';
+import { X, Check, Wallet, CreditCard, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Plus, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Asset, type AssetType, useMoney } from '../../contexts/MoneyContext';
 import AssetModal from './AssetModal';
@@ -30,6 +30,7 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
   const { addAsset, updateAsset, addTransaction, deleteAsset, currencySymbol } = useMoney();
   const [activeType, setActiveType] = useState<AssetType>('Cash');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Get types that have at least one active asset
   const availableTypes = useMemo(() => {
@@ -54,10 +55,17 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
 
   // Assets of the active type, sorted alphabetically
   const filteredAssets = useMemo(() => {
-    return [...assets]
-      .filter(a => a.type === activeType)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [assets, activeType]);
+    let result = [...assets];
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(a => a.name.toLowerCase().includes(query));
+    } else {
+      result = result.filter(a => a.type === activeType);
+    }
+    
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [assets, activeType, searchQuery]);
 
   const handleSelect = (assetId: string) => {
     onSelect(assetId);
@@ -109,6 +117,37 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                 </div>
               </div>
 
+              {/* Search Bar */}
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
+                <div style={{ position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    placeholder="Cari rekening..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 36px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-main)',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      marginBottom: 0,
+                    }}
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Split View */}
               <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
@@ -123,18 +162,22 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                 }}>
                   {availableTypes.map(type => {
                     const meta = ASSET_TYPE_META[type];
-                    const isActive = type === activeType;
+                    const isActive = type === activeType && !searchQuery;
                     const count = assets.filter(a => a.type === type).length;
 
                     return (
                       <button
                         key={type}
-                        onClick={() => setActiveType(type)}
+                        onClick={() => {
+                          setActiveType(type);
+                          setSearchQuery('');
+                        }}
                         style={{
                           width: '100%', padding: '12px 16px', background: isActive ? 'var(--bg-card)' : 'transparent',
                           border: 'none', borderLeft: `3px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
                           display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
                           cursor: 'pointer', transition: 'background 0.2s', textAlign: 'left', gap: '4px',
+                          opacity: searchQuery ? 0.5 : 1
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>

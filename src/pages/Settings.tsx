@@ -3,7 +3,7 @@ import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search, CreditCard, Calendar, ChevronLeft, Folder, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Share2, Plane
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, Save, Search, CreditCard, Calendar, ChevronLeft, Folder, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Share2, Plane
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -19,6 +19,7 @@ import { changelogData, changelogTypeMeta } from '../data/changelog';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
 import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
+import ContactModal from '../components/modals/ContactModal';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
@@ -321,7 +322,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
 
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -379,10 +380,8 @@ const Settings: React.FC = () => {
   const [editingSubCatName, setEditingSubCatName] = useState('');
 
   // Contact State
-  const [newContactName, setNewContactName] = useState('');
-  const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactNote, setNewContactNote] = useState('');
   const [editingContact, setEditingContact] = useState<string | null>(null);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactSearchQuery, setContactSearchQuery] = useState('');
   const [budgetTab, setBudgetTab] = useState<'budget' | 'goal'>('budget');
 
@@ -657,115 +656,30 @@ const Settings: React.FC = () => {
   const renderModalContent = () => {
     switch (activeModal) {
       case 'contacts':
-        const handleAddContact = (e: React.FormEvent) => {
-          e.preventDefault();
-          if (!newContactName.trim()) return;
-          if (editingContact) {
-            updateContact(editingContact, {
-              name: newContactName.trim(),
-              phone: newContactPhone.trim() || undefined,
-              note: newContactNote.trim() || undefined,
-            });
-            setEditingContact(null);
-          } else {
-            addContact({
-              name: newContactName.trim(),
-              phone: newContactPhone.trim() || undefined,
-              note: newContactNote.trim() || undefined,
-            });
-          }
-          setNewContactName('');
-          setNewContactPhone('');
-          setNewContactNote('');
-        };
-
         return (
           <>
             <div className="modal-header">
               <h2 className="subtitle">Daftar Kontak</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); setContactSearchQuery(''); }}><X /></button>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}><X /></button>
             </div>
 
             <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingBottom: '20px' }}>
-
-              {/* Form Section - Only show when editing or via a toggle if we want to match exactly, 
-                  but for Settings it's better to stay accessible. Let's style it to match the modal's add form. */}
-              {(editingContact || contacts.length === 0 || newContactName) ? (
-                <div style={{
-                  padding: '20px',
-                  background: 'var(--bg-main)',
-                  borderBottom: '1px solid var(--border-color)',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {editingContact ? <Edit2 size={16} /> : <UserPlus size={16} />}
-                    {editingContact ? 'Edit Kontak' : 'Tambah Kontak Baru'}
-                  </div>
-                  <form onSubmit={handleAddContact} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Nama Kontak</label>
-                      <input
-                        type="text"
-                        value={newContactName}
-                        onChange={e => setNewContactName(e.target.value)}
-                        placeholder="Masukkan nama..."
-                        style={{ width: '100%', marginBottom: 0 }}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Nomor Telepon (Opsional)</label>
-                      <input
-                        type="tel"
-                        value={newContactPhone}
-                        onChange={e => setNewContactPhone(e.target.value)}
-                        placeholder="0812..."
-                        style={{ width: '100%', marginBottom: 0 }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Catatan (Opsional)</label>
-                      <input
-                        type="text"
-                        value={newContactNote}
-                        onChange={e => setNewContactNote(e.target.value)}
-                        placeholder="Contoh: Teman SD"
-                        style={{ width: '100%', marginBottom: 0 }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                      {(editingContact || newContactName) && (
-                        <button
-                          type="button"
-                          onClick={() => { setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }}
-                          className="btn"
-                          style={{ flex: 1, margin: 0, background: 'var(--bg-neutral)', color: 'var(--text-muted)', fontWeight: 700 }}
-                        >
-                          Batal
-                        </button>
-                      )}
-                      <button type="submit" className="btn btn-primary" style={{ flex: 2, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <Save size={18} /> {editingContact ? 'Simpan Perubahan' : 'Tambah Kontak'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              ) : (
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>DAFTAR KONTAK</span>
-                  <button
-                    onClick={() => setNewContactName(' ')} // Trick to show form
-                    style={{
-                      padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)',
-                      border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
-                    }}
-                  >
-                    <Plus size={14} /> Tambah
-                  </button>
-                </div>
-              )}
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>DAFTAR KONTAK</span>
+                <button
+                  onClick={() => {
+                    setEditingContact(null);
+                    setIsContactModalOpen(true);
+                  }}
+                  style={{
+                    padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)',
+                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={14} /> Tambah
+                </button>
+              </div>
 
               {/* Search Bar */}
               <div style={{ padding: '0 20px', marginBottom: '12px' }}>
@@ -844,12 +758,7 @@ const Settings: React.FC = () => {
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => {
                           setEditingContact(c.id);
-                          setNewContactName(c.name);
-                          setNewContactPhone(c.phone || '');
-                          setNewContactNote(c.note || '');
-                          // Scroll to top
-                          const modal = document.querySelector('.modal-content');
-                          if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
+                          setIsContactModalOpen(true);
                         }} className="btn-icon" style={{ color: 'var(--primary)', padding: 6 }}>
                           <Edit2 size={18} />
                         </button>
@@ -2352,6 +2261,14 @@ const Settings: React.FC = () => {
       <SharedBillsManagerModal
         isOpen={isSharedBillsOpen}
         onClose={() => setIsSharedBillsOpen(false)}
+      />
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => {
+          setIsContactModalOpen(false);
+          setEditingContact(null);
+        }}
+        editingContact={contacts.find(c => c.id === editingContact)}
       />
     </div>
   );

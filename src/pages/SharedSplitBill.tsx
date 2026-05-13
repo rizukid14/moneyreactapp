@@ -20,13 +20,14 @@ import { useToast } from '../components/common/Toast';
 
 const SharedSplitBill: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { addDebt } = useMoney();
+  const { addDebt, isReady } = useMoney();
   const { showToast } = useToast();
   const [split, setSplit] = useState<SharedSplit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState<'simple' | 'detailed'>('simple');
+  const [savedItems, setSavedItems] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const fetchSplit = async () => {
@@ -61,37 +62,60 @@ const SharedSplitBill: React.FC = () => {
     return split.secondarySplits || [];
   }, [split, mode]);
 
-  const handleSaveToDebts = (item: any) => {
+  const handleSaveToDebts = (item: any, idx: number) => {
     if (!split) return;
+
+    let debtType: 'hutang' | 'piutang' = 'hutang';
+    let contact = '';
 
     // For Trip Settlement
     if (split.type === 'trip') {
-      const isPayer = window.confirm(`Apakah Anda adalah ${item.from}? (Jika YA, ini akan dicatat sebagai HUTANG Anda ke ${item.to}. Jika TIDAK, kami asumsikan Anda adalah ${item.to} dan ini dicatat sebagai PIUTANG Anda dari ${item.from})`);
-
-      addDebt({
-        type: isPayer ? 'hutang' : 'piutang',
-        contact: isPayer ? item.to : item.from,
-        description: `Settle Trip: ${split.merchantName}`,
-        totalAmount: item.amount,
-        isPaid: false,
-        createdAt: new Date().toISOString(),
-        isInstallment: false,
-        paidInstallments: 0
-      }, 'none');
+      const isMeFrom = window.confirm(`Apakah Anda adalah ${item.from}?\n\nKlik OK jika Anda yang berhutang ke ${item.to}.`);
+      if (isMeFrom) {
+        debtType = 'hutang';
+        contact = item.to;
+      } else {
+        const isMeTo = window.confirm(`Apakah Anda adalah ${item.to}?\n\nKlik OK jika ${item.from} yang berhutang ke Anda.`);
+        if (isMeTo) {
+          debtType = 'piutang';
+          contact = item.from;
+        } else {
+          return; // Cancelled
+        }
+      }
     } else {
       // For Normal Split
-      addDebt({
-        type: item.isPayer ? 'piutang' : 'hutang',
-        contact: item.contactName,
-        description: `Split Bill: ${split.merchantName}`,
-        totalAmount: item.amount,
-        isPaid: false,
-        createdAt: new Date().toISOString(),
-        isInstallment: false,
-        paidInstallments: 0
-      }, 'none');
+      if (item.isPayer) {
+        // Clicking on someone who paid -> "I owe them"
+        const ok = window.confirm(`Catat sebagai HUTANG Anda ke ${item.contactName}?\n\n(Anda berhutang karena ${item.contactName} yang membayar tagihan ini)`);
+        if (!ok) return;
+        debtType = 'hutang';
+        contact = item.contactName;
+      } else {
+        // Clicking on someone who owes -> "They owe me"
+        const ok = window.confirm(`Catat sebagai PIUTANG Anda dari ${item.contactName}?\n\n(Anda mencatat bahwa ${item.contactName} berhutang ke Anda)`);
+        if (!ok) return;
+        debtType = 'piutang';
+        contact = item.contactName;
+      }
     }
 
+    addDebt({
+      type: debtType,
+      contact: contact,
+      description: `${split.type === 'trip' ? 'Trip' : 'Split'}: ${split.merchantName}`,
+      totalAmount: item.amount,
+      isPaid: false,
+      createdAt: new Date().toISOString(),
+      isInstallment: false,
+      paidInstallments: 0
+    }, 'none');
+
+    setSavedItems(prev => {
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
     showToast('Berhasil dicatat ke daftar Hutang/Piutang!', 'success');
   };
 
@@ -319,21 +343,31 @@ const SharedSplitBill: React.FC = () => {
 
                 <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '2px' }}>{split.currencySymbol}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 900, color: item.isPayer ? 'var(--success)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0px' }}>{split.currencySymbol}</div>
+                    <div style={{ fontSize: '19px', fontWeight: 900, color: item.isPayer ? 'var(--success)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
                       {(Number(item.amount) || 0).toLocaleString('id-ID')}
                     </div>
                   </div>
                   <button
-                    onClick={() => handleSaveToDebts(item)}
-                    style={{
-                      width: '32px', height: '32px', borderRadius: '10px', background: 'var(--primary-glow)',
-                      border: 'none', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', transition: 'all 0.2s'
+                    onClick={() => {
+                      if (!isReady) {
+                        showToast('Menyiapkan data...', 'info');
+                        return;
+                      }
+                      handleSaveToDebts(item, idx);
                     }}
-                    title="Catat di Hutang/Piutang"
+                    disabled={savedItems.has(idx)}
+                    style={{
+                      width: '32px', height: '32px', borderRadius: '10px', 
+                      background: savedItems.has(idx) ? 'var(--success-glow)' : 'var(--primary-glow)',
+                      border: 'none', color: savedItems.has(idx) ? 'var(--success)' : 'var(--primary)', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: savedItems.has(idx) ? 'default' : 'pointer', transition: 'all 0.2s',
+                      opacity: !isReady ? 0.5 : 1
+                    }}
+                    title={!isReady ? "Menyiapkan..." : (savedItems.has(idx) ? "Sudah dicatat" : "Catat di Hutang/Piutang")}
                   >
-                    <PlusCircle size={20} />
+                    {savedItems.has(idx) ? <CheckCircle2 size={18} /> : <PlusCircle size={20} />}
                   </button>
                 </div>
               </motion.div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ChevronRight, Folder, FolderOpen, Check, Plus } from 'lucide-react';
+import { X, ChevronRight, Folder, FolderOpen, Check, Plus, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Category, useMoney } from '../../contexts/MoneyContext';
 import CategoryModal from './CategoryModal';
@@ -20,13 +20,22 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   const { addCategory, updateCategory, addSubCategory } = useMoney();
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Filter and sort main categories alphabetically
   const sortedCategories = useMemo(() => {
-    return [...categories]
-      .filter(c => c.type === type)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [categories, type]);
+    let result = [...categories].filter(c => c.type === type);
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(c => 
+        c.name.toLowerCase().includes(query) || 
+        c.subcategories?.some(s => s.name.toLowerCase().includes(query))
+      );
+    }
+    
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [categories, type, searchQuery]);
 
   useEffect(() => {
     if (isOpen) {
@@ -45,8 +54,15 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   // Sort subcategories alphabetically
   const sortedSubcategories = useMemo(() => {
     if (!activeCategoryObj || !activeCategoryObj.subcategories) return [];
-    return [...activeCategoryObj.subcategories].sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeCategoryObj]);
+    let result = [...activeCategoryObj.subcategories];
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(s => s.name.toLowerCase().includes(query));
+    }
+    
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeCategoryObj, searchQuery]);
 
   const handleCategoryClick = (catName: string) => {
     setActiveCategory(catName);
@@ -104,6 +120,37 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                     <Plus size={18} />
                   </button>
                   <button className="close-btn" onClick={onClose}><X size={20} /></button>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
+                <div style={{ position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    placeholder="Cari kategori atau sub-kategori..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 36px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-main)',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      marginBottom: 0,
+                    }}
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
 

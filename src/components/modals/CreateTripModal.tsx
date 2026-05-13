@@ -33,9 +33,17 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
     }
   }, [editingTrip, isOpen]);
 
-  const handleSelectContact = (contactName: string) => {
-    if (members.find(m => m.name === contactName)) return;
-    setMembers([...members, { id: generateId(), name: contactName }]);
+  const handleSelectMultipleContacts = (names: string[]) => {
+    const currentNames = members.map(m => m.name);
+    const newMembers = [...members];
+    
+    names.forEach(name => {
+      if (!currentNames.includes(name)) {
+        newMembers.push({ id: generateId(), name });
+      }
+    });
+    
+    setMembers(newMembers);
   };
 
   const handleRemoveMember = (id: string) => {
@@ -161,7 +169,9 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
               isOpen={isContactModalOpen}
               onClose={() => setIsContactModalOpen(false)}
               contacts={contacts}
-              onSelect={handleSelectContact}
+              isMultiple={true}
+              selectedContactNames={members.map(m => m.name)}
+              onSelectMultiple={handleSelectMultipleContacts}
             />
 
             <button 
