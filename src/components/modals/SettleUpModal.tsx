@@ -218,6 +218,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
         description: `Settle Trip: ${trip.name}`,
         totalAmount: t.amount,
         isPaid: false, // Will be marked paid by addDebtPayment
+        date: new Date().toISOString().split('T')[0],
         createdAt: new Date().toISOString(),
         isInstallment: false,
         paidInstallments: 0

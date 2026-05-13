@@ -13,7 +13,7 @@ interface AddTripExpenseModalProps {
 }
 
 const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClose, trip, editingExpense }) => {
-  const { currencySymbol, assets, defaultAssetId, addTripExpense, updateTripExpense, addTransaction } = useMoney();
+  const { currencySymbol, assets, defaultAssetId, addTripExpense, updateTripExpense, addTransaction, addDebt } = useMoney();
   const { scanReceipt, isScanning } = useReceiptOCR();
 
   const [description, setDescription] = useState('');
@@ -213,24 +213,45 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
 
 
     if (editingExpense) {
-      updateTripExpense(editingExpense.id, expenseData);
+      await updateTripExpense(editingExpense.id, expenseData);
     } else {
-      addTripExpense(expenseData);
-    }
+      const newExpense = await addTripExpense(expenseData);
 
-    // Create real transaction if asset is selected AND I am the payer
-    if (selectedAssetId && payerId === 'me') {
-      addTransaction({
-        type: 'pengeluaran',
-        amount: totalAmount,
-        category: 'Liburan & Perjalanan',
-        subCategory: 'Biaya Trip',
-        date: expenseData.date,
-        time: getLocalTime(),
-        note: `[Trip: ${trip.name}] ${description}`,
-        assetId: selectedAssetId,
-        relatedId: trip.id // Link to trip
-      });
+      // Create real transaction if asset is selected AND I am the payer
+      if (selectedAssetId && payerId === 'me') {
+        addTransaction({
+          type: 'pengeluaran',
+          amount: totalAmount,
+          category: 'Liburan & Perjalanan',
+          subCategory: 'Biaya Trip',
+          date: expenseData.date,
+          time: getLocalTime(),
+          note: `[Trip: ${trip.name}] ${description}`,
+          assetId: selectedAssetId,
+          relatedId: newExpense.id // Link to trip expense
+        });
+      }
+
+      // Create global debts if I am the payer (others owe me)
+      if (payerId === 'me') {
+        expenseData.splits.forEach(s => {
+          if (s.memberId !== 'me') {
+            const memberName = trip.members.find(m => m.id === s.memberId)?.name || 'Teman';
+            addDebt({
+              type: 'piutang',
+              contact: memberName,
+              totalAmount: s.amount,
+              description: `[Trip: ${trip.name}] ${description}`,
+              date: expenseData.date,
+              isPaid: false,
+              createdAt: new Date().toISOString(),
+              isInstallment: false,
+              paidInstallments: 0,
+              relatedId: newExpense.id // Link to trip expense
+            }, 'none');
+          }
+        });
+      }
     }
 
     onClose();

@@ -452,6 +452,7 @@ const ReceiptScanner: React.FC = () => {
             description: `Split Bill: ${merchantName || 'Struk'}`,
             totalAmount: person.amount,
             isPaid: false,
+            date: selectedDate,
             createdAt: new Date().toISOString(),
             paymentAssetId: selectedAssetId,
             isInstallment: false,
@@ -468,6 +469,7 @@ const ReceiptScanner: React.FC = () => {
             description: `Split Bill (${merchantName || 'Struk'})`,
             totalAmount: userSplit.amount,
             isPaid: false,
+            date: selectedDate,
             createdAt: new Date().toISOString(),
             liabilityAssetId: '', // No asset affected yet as I haven't paid them back
             isInstallment: false,

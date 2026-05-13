@@ -106,6 +106,7 @@ const SharedSplitBill: React.FC = () => {
       description: `${split.type === 'trip' ? 'Trip' : 'Split'}: ${split.merchantName}`,
       totalAmount: item.amount,
       isPaid: false,
+      date: split.date || new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
       isInstallment: false,
       paidInstallments: 0

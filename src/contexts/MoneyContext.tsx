@@ -71,6 +71,7 @@ export interface Debt {
   totalAmount: number;           // original loan amount
   dueDate?: string;              // YYYY-MM-DD
   isPaid: boolean;
+  date: string;                  // Occurrence date (YYYY-MM-DD)
   createdAt: string;
   // Installment fields
   isInstallment: boolean;
@@ -84,6 +85,7 @@ export interface Debt {
   receiveAssetId?: string;       // PIUTANG: asset to receive payment INTO (e.g. BCA)
   sourceAssetId?: string;        // DEPRECATED - prefer paymentAssetId for simplicity; added for schema compatibility if needed
   tripId?: string; // Link to trip
+  relatedId?: string; // General link to related items (e.g. TripExpense)
 }
 
 export interface Goal {
@@ -250,7 +252,7 @@ interface MoneyContextType {
   addTrip: (trip: Omit<Trip, 'id' | 'createdAt'>) => Promise<void>;
   updateTrip: (id: string, trip: Partial<Trip>) => Promise<void>;
   deleteTrip: (id: string) => Promise<void>;
-  addTripExpense: (expense: Omit<TripExpense, 'id' | 'createdAt'>) => Promise<void>;
+  addTripExpense: (expense: Omit<TripExpense, 'id' | 'createdAt'>) => Promise<TripExpense>;
   updateTripExpense: (id: string, expense: Partial<TripExpense>) => Promise<void>;
   deleteTripExpense: (id: string) => Promise<void>;
   payInstallment: (debtId: string) => void;
@@ -638,9 +640,25 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           return updated;
         }));
       }
-    } else {
       setTransactions(prev => prev.filter(tx => tx.id !== id));
       dbDeleteTransaction(id).then(refreshSyncCount);
+
+      // --- Sync with Trip Expense & Related Debts ---
+      if (txToDelete.category === 'Liburan & Perjalanan' && txToDelete.subCategory === 'Biaya Trip') {
+        const expenseId = txToDelete.relatedId;
+        if (expenseId) {
+          // Delete Trip Expense
+          setTripExpenses(prev => prev.filter(e => e.id !== expenseId));
+          dbDeleteTripExpense(expenseId);
+          
+          // Delete Related Debts
+          setDebts(prev => {
+            const relatedDebts = prev.filter(d => d.relatedId === expenseId);
+            relatedDebts.forEach(d => dbDeleteDebt(d.id));
+            return prev.filter(d => d.relatedId !== expenseId);
+          });
+        }
+      }
     }
   }, [transactions, refreshSyncCount]);
 
@@ -802,9 +820,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newDebt: Debt = { ...debtReq, id: debtId };
 
     // Generate initial transaction for the principal
-    const createdAtDate = new Date(newDebt.createdAt);
-    const date = createdAtDate.toISOString().split('T')[0];
-    const time = createdAtDate.toTimeString().split(' ')[0].substring(0, 5);
+    const date = newDebt.date || new Date(newDebt.createdAt).toISOString().split('T')[0];
+    const time = new Date(newDebt.createdAt).toTimeString().split(' ')[0].substring(0, 5);
 
     if (newDebt.type === 'piutang') {
       // Give loan: Account balance decreases (Expense)
@@ -1439,6 +1456,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setTripExpenses(prev => [...prev, newExpense]);
     await dbPutTripExpense(newExpense);
     await refreshSyncCount();
+    return newExpense;
   }, [refreshSyncCount]);
 
   const updateTripExpense = useCallback(async (id: string, updated: Partial<TripExpense>) => {
@@ -1455,10 +1473,32 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   const deleteTripExpense = useCallback(async (id: string) => {
+    const expenseToDelete = tripExpenses.find(e => e.id === id);
     setTripExpenses(prev => prev.filter(e => e.id !== id));
     await dbDeleteTripExpense(id);
+
+    // Also delete linked transaction & related debts
+    if (expenseToDelete) {
+      // Deleting Transactions
+      setTransactions(prev => {
+        const tx = prev.find(t => t.relatedId === id);
+        if (tx) {
+          dbDeleteTransaction(tx.id);
+          return prev.filter(t => t.id !== tx.id);
+        }
+        return prev;
+      });
+
+      // Deleting Related Debts
+      setDebts(prev => {
+        const relatedDebts = prev.filter(d => d.relatedId === id);
+        relatedDebts.forEach(d => dbDeleteDebt(d.id));
+        return prev.filter(d => d.relatedId !== id);
+      });
+    }
+
     await refreshSyncCount();
-  }, [refreshSyncCount]);
+  }, [refreshSyncCount, tripExpenses]);
 
   const setDefaultAssetId = useCallback((id: string | null) => {
     setDefaultAssetIdState(id);

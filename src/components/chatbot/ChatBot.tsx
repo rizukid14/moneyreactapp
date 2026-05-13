@@ -175,6 +175,7 @@ const ChatBot: React.FC = () => {
         description: toolArgs.description || '',
         totalAmount: Number(toolArgs.amount),
         isPaid: false,
+        date: toolArgs.date || getLocalDate(),
         createdAt: toolArgs.date ? `${toolArgs.date}T${getLocalTime()}:00` : new Date().toISOString(),
         isInstallment: toolArgs.isInstallment || false,
         totalInstallments: toolArgs.totalInstallments,

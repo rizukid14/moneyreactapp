@@ -126,6 +126,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
         totalAmount:  parseNum(totalAmount),
         dueDate:      dueDate || undefined,
         isPaid:       editingDebt?.isPaid || false,
+        date:         createdAt,
         createdAt:    editingDebt ? editingDebt.createdAt : new Date(createdAt).toISOString(),
         isInstallment,
         installmentAmount:  isInstallment ? parseNum(installmentAmount) : undefined,
