@@ -877,13 +877,23 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
               </button>
 
               <div style={{ display: 'flex', gap: 10 }}>
-                <button
-                  className="btn"
-                  onClick={onClose}
-                  style={{ flex: 1 }}
-                >
-                  Batal
-                </button>
+                {activeSharedId ? (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => window.open(`${window.location.origin}/shared-split/${activeSharedId}`, '_blank')}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  >
+                    <ExternalLink size={16} /> Buka Link
+                  </button>
+                ) : (
+                  <button
+                    className="btn"
+                    onClick={onClose}
+                    style={{ flex: 1 }}
+                  >
+                    Batal
+                  </button>
+                )}
                 <button
                   className="btn btn-primary"
                   onClick={handleSave}

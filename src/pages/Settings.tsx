@@ -442,21 +442,41 @@ const Settings: React.FC = () => {
   const [isSubAssetSelectOpen, setIsSubAssetSelectOpen] = useState(false);
   const [isSubCatSelectOpen, setIsSubCatSelectOpen] = useState(false);
 
-  const menuItems = [
-    // ... existing menuItems ...
-    { id: 'profile', icon: User, label: 'Profil Saya' },
-    { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
-    { id: 'contacts', icon: BookUser, label: 'Kontak' },
-    { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
-    { id: 'budgets', icon: Target, label: 'Budgeting & Goals' },
-    { id: 'security', icon: Shield, label: 'Keamanan' },
-    { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
-    { id: 'subscriptions', icon: CreditCard, label: 'Langganan (Subs)' },
-    { id: 'trips', icon: Plane, label: 'Holiday Trip (Bagi Biaya)' },
-    { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
-    { id: 'shared_bills', icon: Share2, label: 'Shared Split Bills' },
-    { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
-    { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
+  const menuGroups = [
+    {
+      title: 'Akun & Personalisasi',
+      items: [
+        { id: 'profile', icon: User, label: 'Profil Saya' },
+        { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
+        { id: 'theme', icon: Moon, label: 'Tema Gelap', isToggle: true },
+        { id: 'security', icon: Shield, label: 'Keamanan' },
+      ]
+    },
+    {
+      title: 'Manajemen Keuangan',
+      items: [
+        { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
+        { id: 'budgets', icon: Target, label: 'Budgeting & Goals' },
+        { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
+        { id: 'subscriptions', icon: CreditCard, label: 'Langganan (Subs)' },
+      ]
+    },
+    {
+      title: 'Sosial & Fitur Berbagi',
+      items: [
+        { id: 'contacts', icon: BookUser, label: 'Daftar Kontak' },
+        { id: 'trips', icon: Plane, label: 'Holiday Trip (Bagi Biaya)' },
+        { id: 'shared_bills', icon: Share2, label: 'Shared Split Bills' },
+      ]
+    },
+    {
+      title: 'Data & Sistem',
+      items: [
+        { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
+        { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
+        { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
+      ]
+    }
   ];
 
   const handleMenuClick = (id: string) => {
@@ -2070,65 +2090,72 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <div className="card" style={{ padding: '8px 16px' }}>
-        {menuItems.map((item, index) => {
-          const Icon = item.icon;
-          const isLast = index === menuItems.length - 1;
-          return (
-            <React.Fragment key={item.id}>
-              <div onClick={() => handleMenuClick(item.id)} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '16px 0',
-                borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-                cursor: 'pointer'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
-                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
-                  <ChevronRight size={20} color="var(--text-muted)" />
-                </div>
-              </div>
+      {menuGroups.map((group) => (
+        <div key={group.title} style={{ marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', paddingLeft: '12px' }}>
+            {group.title}
+          </h3>
+          <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
+            {group.items.map((item, index) => {
+              const Icon = item.icon;
+              const isLast = index === group.items.length - 1;
+              
+              if ((item as any).isToggle) {
+                return (
+                  <div key={item.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '16px 0',
+                    borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <Icon size={20} color="var(--text-muted)" style={{ marginRight: '20px' }} />
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
+                    </div>
+                    <div
+                      onClick={toggleTheme}
+                      style={{
+                        width: '44px', height: '24px', borderRadius: '12px',
+                        backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
+                        display: 'flex', alignItems: 'center', padding: '0 2px',
+                        cursor: 'pointer', transition: 'all 0.3s'
+                      }}>
+                      <div style={{
+                        width: '20px', height: '20px', borderRadius: '10px',
+                        backgroundColor: 'white',
+                        transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                      }} />
+                    </div>
+                  </div>
+                );
+              }
 
-              {/* Tema Row - Inserted after Security */}
-              {item.id === 'security' && (
-                <div style={{
+              return (
+                <div key={item.id} onClick={() => handleMenuClick(item.id)} style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '16px 0',
-                  borderBottom: '1px solid var(--border-color)',
+                  borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+                  cursor: 'pointer'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Moon size={20} color="var(--text-muted)" style={{ marginRight: '20px' }} />
-                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Tema Gelap</span>
+                    <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
+                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
                   </div>
-                  <div
-                    onClick={toggleTheme}
-                    style={{
-                      width: '44px', height: '24px', borderRadius: '12px',
-                      backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
-                      display: 'flex', alignItems: 'center', padding: '0 2px',
-                      cursor: 'pointer', transition: 'all 0.3s'
-                    }}>
-                    <div style={{
-                      width: '20px', height: '20px', borderRadius: '10px',
-                      backgroundColor: 'white',
-                      transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                    }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
+                    <ChevronRight size={20} color="var(--text-muted)" />
                   </div>
                 </div>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
 
       <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>

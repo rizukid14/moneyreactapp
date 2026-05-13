@@ -124,6 +124,8 @@ export interface Trip {
   endDate: string;
   members: TripMember[];
   isSettled: boolean;
+  settlementMode?: 'simple' | 'detailed';
+  paidSettlements?: string[];
   createdAt: string;
 }
 

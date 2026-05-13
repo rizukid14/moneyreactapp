@@ -800,13 +800,19 @@ const ReceiptScanner: React.FC = () => {
                         style={{ width: '80px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '4px 8px', borderRadius: '6px', marginBottom: 0 }}
                       />
                     ) : (
-                      <span
+                      <div 
                         onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('amount'); }}
-                        style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'text' }}
-                        title="Tap untuk edit nominal"
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', cursor: 'text' }}
                       >
-                        {currencySymbol}{item.amount.toLocaleString('id-ID')}
-                      </span>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)' }}>
+                          {currencySymbol}{item.amount.toLocaleString('id-ID')}
+                        </span>
+                        {item.originalAmount && item.amount !== item.originalAmount && (
+                          <span style={{ fontSize: '9px', fontWeight: 800, color: item.amount > item.originalAmount ? 'var(--danger)' : 'var(--success)', opacity: 0.8 }}>
+                            {item.amount > item.originalAmount ? '+' : ''}{(item.amount - item.originalAmount).toLocaleString('id-ID')}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -861,7 +867,7 @@ const ReceiptScanner: React.FC = () => {
                   </div>
                 )}
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.7, marginTop: '2px', fontStyle: 'italic' }}>
-                  * Nilai di atas sudah didistribusikan secara proporsional ke harga item di bawah.
+                  * Gunakan tombol "Hitung Ulang & Distribusi" untuk memasukkan Pajak/Service ke harga item secara proporsional.
                 </div>
               </div>
             )}
@@ -977,10 +983,14 @@ const ReceiptScanner: React.FC = () => {
       <SplitBillModal
         isOpen={isSplitModalOpen}
         onClose={() => setIsSplitModalOpen(false)}
-        totalAmount={parseInt(editableAmount) || 0}
+        totalAmount={
+          lineItems.some(i => i.selected)
+            ? lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0)
+            : (parseInt(editableAmount) || 0)
+        }
         merchantName={merchantName}
         date={selectedDate}
-        lineItems={lineItems}
+        lineItems={lineItems.some(i => i.selected) ? lineItems.filter(i => i.selected) : lineItems}
         assets={assets}
         categories={categories}
         initialAssetId={selectedAssetId}
