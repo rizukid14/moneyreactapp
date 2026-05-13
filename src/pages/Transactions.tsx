@@ -147,7 +147,7 @@ const Transactions: React.FC = () => {
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
 
   React.useEffect(() => {
-    const hasSeen = localStorage.getItem('whats_new_seen_v17');
+    const hasSeen = localStorage.getItem('whats_new_seen_v1_0_17');
     if (!hasSeen) {
       const timer = setTimeout(() => setIsWhatsNewOpen(true), 1500);
       return () => clearTimeout(timer);
@@ -156,7 +156,7 @@ const Transactions: React.FC = () => {
 
   const closeWhatsNew = () => {
     setIsWhatsNewOpen(false);
-    localStorage.setItem('whats_new_seen_v17', 'true');
+    localStorage.setItem('whats_new_seen_v1_0_17', 'true');
   };
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
