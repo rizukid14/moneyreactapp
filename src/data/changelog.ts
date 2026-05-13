@@ -18,7 +18,17 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v1.0.16', date: 'Mei 2026', badge: 'Terbaru',
+    version: 'v1.0.17', date: 'Mei 2026', badge: 'Terbaru',
+    entries: [
+      { type: 'new', text: 'Ekosistem Holiday Trip Premium: Perombakan total UI input pengeluaran trip dengan nominal premium, scroll pembayar horizontal, dan integrasi aset riil (langsung potong saldo rek)' },
+      { type: 'improve', text: 'OCR Trip Full-Edit: Kemampuan mengedit nama item, harga, menambah atau menghapus item hasil scan struk secara manual pada modal trip' },
+      { type: 'new', text: 'Smart Settle-Up Trip: Fitur pelunasan bagi biaya dengan dukungan tombol "Buka Link" (Open in App) dan identifikasi visual warna rekening' },
+      { type: 'improve', text: 'Grouped Settings Menu: Penataan ulang menu pengaturan ke dalam kategori logis (Akun, Keuangan, Sosial, Sistem) untuk navigasi yang lebih efisien' },
+      { type: 'improve', text: 'Chatbot Knowledge Injection: Pembaharuan basis pengetahuan AI Chatbot agar lebih cerdas dalam menjelaskan fitur-fitur terbaru aplikasi' },
+    ],
+  },
+  {
+    version: 'v1.0.16', date: 'Mei 2026',
     entries: [
       { type: 'new', text: 'Manajemen Kategori Fleksibel: Kemampuan untuk mengubah (Edit) nama Kategori dan Sub-kategori secara inline secara langsung, lengkap dengan pembaharuan nama otomatis pada seluruh riwayat transaksi terkait' },
       { type: 'improve', text: 'Legend Kategori Responsif: Desain scrollable kustom pada grafik donat yang mencegah tumpukan tulisan saat subkategori terlalu banyak' },

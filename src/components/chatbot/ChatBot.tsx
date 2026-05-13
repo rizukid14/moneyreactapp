@@ -81,7 +81,16 @@ const ChatBot: React.FC = () => {
           budgetMode,
           monthlyIncome,
           currentDate: getLocalDate(),
-          currentTime: getLocalTime()
+          currentTime: getLocalTime(),
+          appKnowledge: {
+            currentVersion: 'v1.0.17',
+            latestFeatures: [
+              'Holiday Trip: Fitur manajemen biaya perjalanan premium dengan OCR dan integrasi aset riil.',
+              'Smart Settle-Up: Pelunasan trip dengan link sharing dan tombol "Buka Link".',
+              'Grouped Settings: Navigasi pengaturan yang terorganisir (Akun, Keuangan, Sosial, Sistem).',
+              'Premium Member Pass: Kartu keanggotaan digital di profil dengan gacha tier level.'
+            ]
+          }
         })
       });
 
