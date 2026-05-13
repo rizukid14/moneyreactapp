@@ -65,6 +65,13 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       setShowOCRUI(false);
     }
   }, [editingExpense, isOpen, trip]);
+  
+  // Clear selected asset if payer is not me
+  useEffect(() => {
+    if (payerId !== 'me') {
+      setSelectedAssetId('');
+    }
+  }, [payerId]);
 
   const handleOCR = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -211,8 +218,8 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       addTripExpense(expenseData);
     }
 
-    // Create real transaction if asset is selected
-    if (selectedAssetId) {
+    // Create real transaction if asset is selected AND I am the payer
+    if (selectedAssetId && payerId === 'me') {
       addTransaction({
         type: 'pengeluaran',
         amount: totalAmount,
@@ -305,23 +312,25 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                   <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" style={{ width: '100%', borderRadius: '14px', padding: '12px' }} />
                 </div>
               </div>
-              <div>
-                <label className="label">Dibayar Pakai (Opsional)</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={selectedAssetId}
-                    onChange={e => setSelectedAssetId(e.target.value)}
-                    className="input"
-                    style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700, appearance: 'none', background: 'var(--bg-card)' }}
-                  >
-                    <option value="">Hanya Catat</option>
-                    {assets.filter(a => !a.isDeleted).map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                  <ChevronRight size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%) rotate(90deg)', pointerEvents: 'none' }} />
+              {payerId === 'me' && (
+                <div>
+                  <label className="label">Dibayar Pakai (Opsional)</label>
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      value={selectedAssetId}
+                      onChange={e => setSelectedAssetId(e.target.value)}
+                      className="input"
+                      style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700, appearance: 'none', background: 'var(--bg-card)' }}
+                    >
+                      <option value="">Hanya Catat</option>
+                      {assets.filter(a => !a.isDeleted).map(a => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                    <ChevronRight size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%) rotate(90deg)', pointerEvents: 'none' }} />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Payer Selection - Horizontal Scroll */}
