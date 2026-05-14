@@ -268,7 +268,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
           exit={{ opacity: 0, y: 100 }}
           className="modal-content"
           onClick={e => e.stopPropagation()}
-          style={{ maxHeight: '90vh', overflowY: 'auto', paddingBottom: '32px' }}
+          style={{ maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '32px' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: 800 }}>{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</h2>
@@ -354,10 +354,10 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
               )}
             </div>
 
-            {/* Payer Selection - Horizontal Scroll */}
+            {/* Payer Selection - Wrapped Chips */}
             <div>
               <label className="label" style={{ marginBottom: '12px', display: 'block' }}>Siapa yang bayar?</label>
-              <div className="custom-scrollbar" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px', margin: '0 -4px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 {trip.members.map(m => {
                   const isActive = payerId === m.id;
                   return (
@@ -365,19 +365,27 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                       key={m.id}
                       onClick={() => setPayerId(m.id)}
                       style={{
-                        flexShrink: 0, padding: '12px 20px', borderRadius: '16px',
+                        padding: '10px 16px', borderRadius: '16px',
                         background: isActive ? 'var(--primary)' : 'var(--bg-neutral)',
                         color: isActive ? 'white' : 'var(--text-main)',
-                        border: 'none', fontWeight: 800, fontSize: '13px',
+                        border: isActive ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)', 
+                        fontWeight: 800, fontSize: '13px',
                         cursor: 'pointer', transition: 'all 0.2s',
                         boxShadow: isActive ? '0 4px 12px var(--primary-glow)' : 'none',
                         display: 'flex', alignItems: 'center', gap: '8px'
                       }}
                     >
-                      <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>
+                      <div style={{ 
+                        width: '20px', height: '20px', borderRadius: '50%', 
+                        background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-card)', 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                        fontSize: '10px', fontWeight: 900
+                      }}>
                         {m.name.charAt(0).toUpperCase()}
                       </div>
-                      {m.name}
+                      <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.name}
+                      </span>
                       {isActive && <Check size={14} />}
                     </button>
                   );

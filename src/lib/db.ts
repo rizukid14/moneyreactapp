@@ -130,8 +130,10 @@ export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: 
   const db = await getDB();
   const store = idbStoreName || colName;
 
-  // 1. Put all valid items from cloud into IDB
+  // 1. Put items from cloud into IDB, but only if they don't have pending local changes
   for (const item of items) {
+    const pending = await db.get('pending_sync', item.id as string);
+    if (pending) continue; // Don't overwrite local changes (PUT or DELETE) with cloud data
     await (db as any).put(store as any, item);
   }
 
