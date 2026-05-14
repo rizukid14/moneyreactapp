@@ -65,7 +65,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       setShowOCRUI(false);
     }
   }, [editingExpense, isOpen, trip]);
-  
+
   // Clear selected asset if payer is not me
   useEffect(() => {
     if (payerId !== 'me') {
