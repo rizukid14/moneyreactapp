@@ -17,6 +17,7 @@ const TripDetail: React.FC = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(null);
 
   const trip = trips.find(t => t.id === id);
   const expenses = useMemo(() => 
@@ -30,6 +31,16 @@ const TripDetail: React.FC = () => {
     expenses.reduce((sum, e) => sum + e.amount, 0),
     [expenses]
   );
+  
+  const userConsumption = useMemo(() => {
+    let sum = 0;
+    expenses.forEach(e => {
+      e.splits.forEach(s => {
+        if (s.memberId === 'me') sum += s.amount;
+      });
+    });
+    return sum;
+  }, [expenses]);
 
   if (!trip) {
     return (
@@ -84,6 +95,11 @@ const TripDetail: React.FC = () => {
           <div>
             <p style={{ fontSize: '11px', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Total Biaya Trip</p>
             <p style={{ fontSize: '24px', fontWeight: 900, margin: 0 }}>{currencySymbol}{totalSpent.toLocaleString('id-ID')}</p>
+            {trip.members.some(m => m.id === 'me') && (
+              <p style={{ fontSize: '12px', opacity: 0.8, margin: '4px 0 0 0', fontWeight: 600 }}>
+                Pengeluaran Kamu: {currencySymbol}{Math.round(userConsumption).toLocaleString('id-ID')}
+              </p>
+            )}
           </div>
           <button 
             onClick={() => setIsSettleModalOpen(true)}
@@ -125,48 +141,87 @@ const TripDetail: React.FC = () => {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.05 }}
+                      onClick={() => setExpandedExpenseId(expandedExpenseId === expense.id ? null : expense.id)}
                       style={{ 
                         background: 'var(--bg-card)', borderRadius: '20px', padding: '16px',
-                        border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '16px'
+                        border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px',
+                        cursor: 'pointer'
                       }}
                     >
-                      <div style={{ 
-                        width: '44px', height: '44px', background: 'var(--bg-neutral)', borderRadius: '14px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)'
-                      }}>
-                        <Wallet size={20} />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <h4 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{expense.description}</h4>
-                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                          Dibayar oleh <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>{payer?.name}</span>
-                        </p>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-                          {currencySymbol}{expense.amount.toLocaleString('id-ID')}
-                        </p>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                          <button 
-                            onClick={() => {
-                              setEditingExpense(expense);
-                              setIsAddModalOpen(true);
-                            }}
-                            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', padding: '4px', cursor: 'pointer' }}
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setDeletingId(expense.id);
-                              setIsDeleteConfirmOpen(true);
-                            }}
-                            style={{ background: 'transparent', border: 'none', color: 'var(--danger)', padding: '4px', cursor: 'pointer' }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%' }}>
+                        <div style={{ 
+                          width: '44px', height: '44px', background: 'var(--bg-neutral)', borderRadius: '14px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0
+                        }}>
+                          <Wallet size={20} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h4 style={{ fontSize: '15px', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{expense.description}</h4>
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                            Dibayar oleh <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>{payer?.name}</span>
+                          </p>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <p style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+                            {currencySymbol}{expense.amount.toLocaleString('id-ID')}
+                          </p>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingExpense(expense);
+                                setIsAddModalOpen(true);
+                              }}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', padding: '4px', cursor: 'pointer' }}
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingId(expense.id);
+                                setIsDeleteConfirmOpen(true);
+                              }}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--danger)', padding: '4px', cursor: 'pointer' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                       </div>
+
+                      {expandedExpenseId === expense.id && (
+                        <div style={{ width: '100%', borderTop: '1px dashed var(--border-color)', paddingTop: '12px' }}>
+                          {expense.items && expense.items.length > 0 && (
+                            <div style={{ marginBottom: '12px' }}>
+                              <p style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Rincian Item (Receipt):</p>
+                              {expense.items.map((item, i) => {
+                                const assignedNames = item.assignments.map(id => trip.members.find(m => m.id === id)?.name || 'Teman').join(', ');
+                                return (
+                                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px' }}>
+                                    <div style={{ flex: 1 }}>
+                                      <span style={{ fontWeight: 600 }}>{item.name}</span>
+                                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{assignedNames}</div>
+                                    </div>
+                                    <span style={{ fontWeight: 700 }}>{currencySymbol}{item.amount.toLocaleString('id-ID')}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          <p style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Ditanggung Oleh:</p>
+                          {expense.splits.map(s => {
+                            const m = trip.members.find(m => m.id === s.memberId);
+                            return (
+                              <div key={s.memberId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '13px' }}>
+                                <span>{m?.name}</span>
+                                <span style={{ fontWeight: 700 }}>{currencySymbol}{s.amount.toLocaleString('id-ID')}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })}

@@ -126,6 +126,14 @@ const Trips: React.FC = () => {
                   <div>
                     <p style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Total Terpakai</p>
                     <p style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>{currencySymbol}{total.toLocaleString('id-ID')}</p>
+                    {trip.members.some(m => m.id === 'me') && (
+                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0', fontWeight: 600 }}>
+                        Pengeluaran Kamu: {currencySymbol}{Math.round(tripExpenses.filter(e => e.tripId === trip.id).reduce((sum, e) => {
+                          const mySplit = e.splits.find(s => s.memberId === 'me');
+                          return sum + (mySplit ? mySplit.amount : 0);
+                        }, 0)).toLocaleString('id-ID')}
+                      </p>
+                    )}
                   </div>
                   <div style={{ display: 'flex' }}>
                     {trip.members.slice(0, 3).map((m, i) => (

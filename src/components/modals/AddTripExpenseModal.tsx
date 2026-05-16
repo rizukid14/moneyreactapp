@@ -5,6 +5,43 @@ import { useMoney, type Trip, type TripExpense, type TripExpenseSplit } from '..
 import { useReceiptOCR } from '../../hooks/useReceiptOCR';
 import { generateId, getLocalTime } from '../../lib/utils';
 
+// Helper component for currency input to prevent cursor jump to end on format
+const CurrencyInput = ({ value, onChange, placeholder, style, className }: any) => {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  
+  const displayValue = value ? parseInt(value.toString().replace(/\D/g, '') || '0').toLocaleString('id-ID') : '';
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const el = e.target;
+    let cursor = el.selectionStart || 0;
+    const oldLength = el.value.length;
+    
+    const raw = el.value.replace(/\D/g, '');
+    onChange(raw);
+
+    setTimeout(() => {
+      if (inputRef.current) {
+        const newLength = inputRef.current.value.length;
+        cursor = cursor + (newLength - oldLength);
+        inputRef.current.setSelectionRange(cursor, cursor);
+      }
+    }, 0);
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      inputMode="numeric"
+      value={displayValue}
+      onChange={handleChange}
+      placeholder={placeholder}
+      style={style}
+      className={className}
+    />
+  );
+};
+
 interface AddTripExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -50,6 +87,21 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
         const allEqual = editingExpense.splits.every(s => Math.abs(s.amount - firstAmt) < 1);
         setIsCustomSplit(!allEqual);
       }
+      
+      if (editingExpense.items && editingExpense.items.length > 0) {
+        setOcrItems(editingExpense.items.map(i => ({ id: i.id, name: i.name, amount: i.amount })));
+        const assignments: Record<number, string[]> = {};
+        editingExpense.items.forEach((item, idx) => {
+          assignments[idx] = item.assignments;
+        });
+        setItemAssignments(assignments);
+        setShowOCRUI(true);
+      } else {
+        setOcrItems([]);
+        setItemAssignments({});
+        setShowOCRUI(false);
+      }
+      
       setSelectedAssetId(''); // Reset or find if linked? Trip expenses usually not linked to assets yet
     } else {
       setDescription('');
@@ -208,6 +260,12 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       amount: totalAmount,
       payerId,
       splits,
+      items: ocrItems.length > 0 ? ocrItems.map((item, idx) => ({
+        id: item.id,
+        name: item.name,
+        amount: item.amount,
+        assignments: itemAssignments[idx] || []
+      })) : undefined,
       date
     };
 
@@ -219,17 +277,22 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
 
       // Create real transaction if asset is selected AND I am the payer
       if (selectedAssetId && payerId === 'me') {
-        addTransaction({
-          type: 'pengeluaran',
-          amount: totalAmount,
-          category: 'Liburan & Perjalanan',
-          subCategory: 'Biaya Trip',
-          date: expenseData.date,
-          time: getLocalTime(),
-          note: `[Trip: ${trip.name}] ${description}`,
-          assetId: selectedAssetId,
-          relatedId: newExpense.id // Link to trip expense
-        });
+        const mySplit = expenseData.splits.find(s => s.memberId === 'me');
+        const myAmount = mySplit ? mySplit.amount : 0;
+        
+        if (myAmount > 0) {
+          addTransaction({
+            type: 'pengeluaran',
+            amount: myAmount,
+            category: 'Liburan & Perjalanan',
+            subCategory: 'Biaya Trip',
+            date: expenseData.date,
+            time: getLocalTime(),
+            note: `[Trip: ${trip.name}] ${description}`,
+            assetId: selectedAssetId,
+            relatedId: newExpense.id // Link to trip expense
+          });
+        }
       }
 
       // Create global debts if I am the payer (others owe me)
@@ -247,8 +310,9 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
               createdAt: new Date().toISOString(),
               isInstallment: false,
               paidInstallments: 0,
-              relatedId: newExpense.id // Link to trip expense
-            }, 'none');
+              relatedId: newExpense.id, // Link to trip expense
+              paymentAssetId: selectedAssetId || undefined
+            }, selectedAssetId ? 'cash' : 'none');
           }
         });
       }
@@ -260,8 +324,9 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1200 }}>
+    <>
+      <AnimatePresence>
+        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1200 }}>
         <motion.div
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
@@ -310,10 +375,9 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                     padding: '10px 16px', borderRadius: '16px', border: '1px solid var(--border-color)'
                   }}>
                     <span style={{ fontSize: '24px', fontWeight: 900, color: 'var(--primary)' }}>{currencySymbol}</span>
-                    <input
-                      type="text"
-                      value={amount === '0' ? '' : parseInt(amount || '0').toLocaleString('id-ID')}
-                      onChange={e => setAmount(e.target.value.replace(/\D/g, ''))}
+                    <CurrencyInput
+                      value={amount}
+                      onChange={(raw: string) => setAmount(raw)}
                       placeholder="0"
                       style={{
                         flex: 1, background: 'transparent', border: 'none',
@@ -405,73 +469,13 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
               </label>
             )}
 
-            {/* OCR Item Assignment UI */}
-            {showOCRUI && ocrItems.length > 0 && (
-              <div style={{ background: 'var(--bg-neutral)', borderRadius: '24px', padding: '16px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Calculator size={16} /> Rincian Item (Edit & Bagi)
-                  </h3>
-                  <button
-                    onClick={addOcrItem}
-                    style={{ padding: '6px 12px', borderRadius: '10px', background: 'var(--primary-glow)', border: 'none', color: 'var(--primary)', fontSize: '11px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Plus size={14} /> Item
-                  </button>
-                </div>
-
-                <div style={{ display: 'grid', gap: '12px' }}>
-                  {ocrItems.map((item, idx) => (
-                    <div key={item.id} style={{ padding: '14px', background: 'var(--bg-card)', borderRadius: '18px', border: '1px solid var(--border-color)' }}>
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                        <input
-                          type="text"
-                          value={item.name}
-                          onChange={e => updateOcrItem(idx, { name: e.target.value })}
-                          placeholder="Nama item..."
-                          style={{ flex: 1, background: 'var(--bg-neutral)', border: 'none', borderRadius: '10px', padding: '8px 12px', fontSize: '13px', fontWeight: 700, outline: 'none' }}
-                        />
-                        <div style={{ position: 'relative', width: '100px' }}>
-                          <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                          <input
-                            type="text"
-                            value={item.amount === 0 ? '' : item.amount.toLocaleString('id-ID')}
-                            onChange={e => updateOcrItem(idx, { amount: parseInt(e.target.value.replace(/\D/g, '')) || 0 })}
-                            placeholder="0"
-                            style={{ width: '100%', background: 'var(--bg-neutral)', border: 'none', borderRadius: '10px', padding: '8px 8px 8px 24px', fontSize: '13px', fontWeight: 800, textAlign: 'right', outline: 'none' }}
-                          />
-                        </div>
-                        <button
-                          onClick={() => removeOcrItem(idx)}
-                          style={{ padding: '8px', color: 'var(--danger)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {trip.members.map(m => {
-                          const isAssigned = (itemAssignments[idx] || []).includes(m.id);
-                          return (
-                            <button
-                              key={m.id}
-                              onClick={() => toggleItemAssignment(idx, m.id)}
-                              style={{
-                                padding: '6px 12px', borderRadius: '10px', border: isAssigned ? '1.5px solid var(--primary)' : '1.5px solid transparent', fontSize: '11px', fontWeight: 700,
-                                background: isAssigned ? 'var(--primary-glow)' : 'var(--bg-neutral)',
-                                color: isAssigned ? 'var(--primary)' : 'var(--text-muted)',
-                                cursor: 'pointer', transition: 'all 0.2s'
-                              }}
-                            >
-                              {m.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {ocrItems.length > 0 && (
+              <button 
+                onClick={() => setShowOCRUI(true)}
+                style={{ padding: '16px', background: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 800, borderRadius: '16px', border: '1px solid var(--primary)', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <Calculator size={18} /> Lihat & Bagi Rincian Struk ({ocrItems.length} Item)
+              </button>
             )}
 
             {/* Split Section */}
@@ -514,10 +518,9 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                       {isCustomSplit && isIncluded && (
                         <div style={{ position: 'relative', width: 'clamp(80px, 30%, 120px)', flexShrink: 0 }}>
                           <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                          <input
-                            type="text"
+                          <CurrencyInput
                             value={customAmounts[m.id] || ''}
-                            onChange={e => setCustomAmounts({ ...customAmounts, [m.id]: e.target.value.replace(/\D/g, '') })}
+                            onChange={(raw: string) => setCustomAmounts({ ...customAmounts, [m.id]: raw })}
                             placeholder="0"
                             className="input"
                             style={{ width: '100%', padding: '8px 8px 8px 24px', textAlign: 'right', fontSize: '14px', marginBottom: 0, background: 'var(--bg-neutral)', border: 'none' }}
@@ -540,7 +543,97 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+      </AnimatePresence>
+      
+      {/* OCR Items Sub-modal */}
+      <AnimatePresence>
+        {showOCRUI && ocrItems.length > 0 && (
+          <div className="modal-overlay" style={{ zIndex: 1300 }} onClick={() => setShowOCRUI(false)}>
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="modal-content"
+              onClick={e => e.stopPropagation()}
+              style={{ maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '32px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Rincian Item (Edit & Bagi)
+                </h3>
+                <button onClick={() => setShowOCRUI(false)} className="btn-icon">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                <button
+                  onClick={addOcrItem}
+                  style={{ padding: '8px 16px', borderRadius: '12px', background: 'var(--primary-glow)', border: 'none', color: 'var(--primary)', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Plus size={16} /> Tambah Item
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gap: '16px' }}>
+                {ocrItems.map((item, idx) => (
+                  <div key={item.id} style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: '20px', border: '1px solid var(--border-color)', boxShadow: '0 4px 16px rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                      <input
+                        type="text"
+                        value={item.name}
+                        onChange={e => updateOcrItem(idx, { name: e.target.value })}
+                        placeholder="Nama item..."
+                        style={{ flex: 1, background: 'var(--bg-neutral)', border: 'none', borderRadius: '12px', padding: '12px 16px', fontSize: '14px', fontWeight: 700, outline: 'none' }}
+                      />
+                      <div style={{ position: 'relative', width: '130px' }}>
+                        <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>{currencySymbol}</span>
+                        <CurrencyInput
+                          value={item.amount}
+                          onChange={(raw: string) => updateOcrItem(idx, { amount: parseInt(raw) || 0 })}
+                          placeholder="0"
+                          style={{ width: '100%', background: 'var(--bg-neutral)', border: 'none', borderRadius: '12px', padding: '12px 12px 12px 32px', fontSize: '14px', fontWeight: 800, textAlign: 'right', outline: 'none' }}
+                        />
+                      </div>
+                      <button
+                        onClick={() => removeOcrItem(idx)}
+                        style={{ padding: '12px', color: 'var(--danger)', background: 'var(--bg-neutral)', borderRadius: '12px', border: 'none', cursor: 'pointer' }}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {trip.members.map(m => {
+                        const isAssigned = (itemAssignments[idx] || []).includes(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => toggleItemAssignment(idx, m.id)}
+                            style={{
+                              padding: '8px 16px', borderRadius: '12px', border: isAssigned ? '1.5px solid var(--primary)' : '1.5px solid transparent', fontSize: '12px', fontWeight: 800,
+                              background: isAssigned ? 'var(--primary-glow)' : 'var(--bg-neutral)',
+                              color: isAssigned ? 'var(--primary)' : 'var(--text-muted)',
+                              cursor: 'pointer', transition: 'all 0.2s'
+                            }}
+                          >
+                            {m.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <button onClick={() => setShowOCRUI(false)} className="btn btn-primary" style={{ width: '100%', padding: '16px', borderRadius: '16px', marginTop: '24px', fontWeight: 800 }}>
+                Selesai Bagi Rincian
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

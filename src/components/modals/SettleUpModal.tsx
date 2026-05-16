@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { X, Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, History, ExternalLink } from 'lucide-react';
+import { X, Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, History, ExternalLink, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMoney, type Trip, type TripExpense } from '../../contexts/MoneyContext';
+import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
 import { generateId, getLocalDate, getLocalTime } from '../../lib/utils';
+import SettlementExplanationModal from './SettlementExplanationModal';
 
 interface SettleUpModalProps {
   isOpen: boolean;
@@ -19,20 +20,29 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
   const [settlingTx, setSettlingTx] = useState<any | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string>(defaultAssetId || '');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
 
   const settlement = useMemo(() => {
     // 1. Calculate net balances
     const balances: Record<string, number> = {};
-    trip.members.forEach(m => balances[m.id] = 0);
+    const consumed: Record<string, number> = {};
+    const paid: Record<string, number> = {};
+    trip.members.forEach(m => {
+      balances[m.id] = 0;
+      consumed[m.id] = 0;
+      paid[m.id] = 0;
+    });
 
     expenses.forEach(e => {
       // Payer gets back the full amount they paid
-      if (balances[e.payerId] !== undefined) {
+      if (paid[e.payerId] !== undefined) {
+        paid[e.payerId] += e.amount;
         balances[e.payerId] += e.amount;
       }
       // Each member (including payer) owes their split amount
       e.splits.forEach(s => {
-        if (balances[s.memberId] !== undefined) {
+        if (consumed[s.memberId] !== undefined) {
+          consumed[s.memberId] += s.amount;
           balances[s.memberId] -= s.amount;
         }
       });
@@ -115,7 +125,9 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
     });
 
     return { 
-      balances, 
+      balances,
+      consumed,
+      paid,
       simpleTransactions,
       detailedTransactions,
       transactions: mode === 'simple' ? simpleTransactions : detailedTransactions 
@@ -159,15 +171,19 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
             amount: Number(t.amount) || 0
           };
         }),
-        members: trip.members,
+        members: trip.members.map(m => m.id === 'me' ? { ...m, name: user.name || 'User' } : m),
         tripExpenses: expenses.map(e => {
           const payerMember = trip.members.find(m => m.id === e.payerId);
           const payerName = payerMember ? (payerMember.id === 'me' ? (user.name || 'User') : payerMember.name) : 'Unknown';
           return {
+            id: e.id,
             description: e.description,
             amount: e.amount,
+            payerId: e.payerId,
             payer: payerName,
-            date: e.date
+            date: e.date,
+            splits: e.splits,
+            items: e.items
           };
         })
       }));
@@ -257,8 +273,10 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
   if (!isOpen) return null;
 
   return (
+    <>
+
     <AnimatePresence>
-      <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
+      <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1200 }}>
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -404,16 +422,30 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 <div style={{ display: 'grid', gap: '8px' }}>
                   {trip.members.map(m => {
                     const bal = settlement.balances[m.id] || 0;
+                    const cons = settlement.consumed[m.id] || 0;
+                    const pd = settlement.paid[m.id] || 0;
                     const roundedBal = Math.round(bal);
                     return (
-                      <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--bg-neutral)', borderRadius: '12px' }}>
-                        <span style={{ fontWeight: 700 }}>{m.name}</span>
-                        <span style={{ 
-                          fontWeight: 800, 
-                          color: roundedBal > 0 ? 'var(--success)' : roundedBal < 0 ? 'var(--danger)' : 'var(--text-muted)'
-                        }}>
-                          {roundedBal > 0 ? '+' : ''}{currencySymbol}{Math.abs(roundedBal).toLocaleString('id-ID')}
-                        </span>
+                      <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <div>
+                          <div style={{ fontWeight: 800, marginBottom: '4px' }}>{m.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            <span style={{ color: 'var(--danger)' }}>Pakai: {currencySymbol}{Math.round(cons).toLocaleString('id-ID')}</span>
+                            <span style={{ margin: '0 6px' }}>|</span>
+                            <span style={{ color: 'var(--success)' }}>Nalangin: {currencySymbol}{Math.round(pd).toLocaleString('id-ID')}</span>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                            {roundedBal > 0 ? 'Menerima' : roundedBal < 0 ? 'Membayar' : 'Lunas'}
+                          </div>
+                          <span style={{ 
+                            fontWeight: 900, fontSize: '16px',
+                            color: roundedBal > 0 ? 'var(--success)' : roundedBal < 0 ? 'var(--danger)' : 'var(--text-muted)'
+                          }}>
+                            {roundedBal > 0 ? '+' : ''}{currencySymbol}{Math.abs(roundedBal).toLocaleString('id-ID')}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}
@@ -453,7 +485,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                             opacity: isPaid ? 0.6 : 1
                           }}
                         >
-                          <div style={{ flex: 1 }}>
+                          <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setSelectedSettlement(t)}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                               <span style={{ fontWeight: 800 }}>{from?.name}</span>
                               <ArrowRight size={14} color="var(--text-muted)" />
@@ -461,6 +493,9 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                             </div>
                             <div style={{ fontSize: '18px', fontWeight: 900, color: isPaid ? 'var(--success)' : 'var(--primary)' }}>
                               {currencySymbol}{t.amount.toLocaleString('id-ID')}
+                            </div>
+                            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              Kenapa bayar segini? <Info size={10} />
                             </div>
                           </div>
                           {(t.from === 'me' || t.to === 'me') && !isPaid && (
@@ -516,6 +551,18 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
         </motion.div>
       </div>
     </AnimatePresence>
+    
+    <SettlementExplanationModal
+      isOpen={!!selectedSettlement}
+      onClose={() => setSelectedSettlement(null)}
+      settlement={selectedSettlement}
+      mode={mode}
+      trip={trip}
+      expenses={expenses}
+      currencySymbol={currencySymbol}
+      settlementData={settlement}
+    />
+    </>
   );
 };
 

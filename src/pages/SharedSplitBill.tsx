@@ -17,6 +17,8 @@ import { motion } from 'framer-motion';
 import { dbGetSharedSplit, type SharedSplit } from '../lib/db';
 import { useMoney } from '../contexts/MoneyContext';
 import { useToast } from '../components/common/Toast';
+import SharedExpenseDetailModal from '../components/modals/SharedExpenseDetailModal';
+import SettlementExplanationModal from '../components/modals/SettlementExplanationModal';
 
 const SharedSplitBill: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +30,9 @@ const SharedSplitBill: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState<'simple' | 'detailed'>('simple');
   const [savedItems, setSavedItems] = useState<Set<number>>(new Set());
+  
+  const [selectedExpense, setSelectedExpense] = useState<any>(null);
+  const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
 
   useEffect(() => {
     const fetchSplit = async () => {
@@ -314,33 +319,35 @@ const SharedSplitBill: React.FC = () => {
                 {split.type === 'trip' ? (
                   // Settlement View (From -> To)
                   <>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '14px' }}>
-                        <span>{item.from}</span>
-                        <ArrowUpRight size={14} color="var(--text-muted)" />
-                        <span>{item.to}</span>
-                      </div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px' }}>Penyelesaian Saldo</div>
+                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => split.type === 'trip' && setSelectedSettlement(item)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '14px' }}>
+                      <span>{item.from}</span>
+                      <ArrowUpRight size={14} color="var(--text-muted)" />
+                      <span>{item.to}</span>
                     </div>
-                  </>
-                ) : (
-                  // Normal Split View
-                  <>
-                    <div style={{
-                      width: '52px', height: '52px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '20px', fontWeight: 800, background: item.isPayer ? 'var(--success)' : 'var(--bg-main)',
-                      color: item.isPayer ? 'white' : 'var(--primary)'
-                    }}>
-                      {item.contactName.charAt(0).toUpperCase()}
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      Penyelesaian Saldo <Info size={10} />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', marginBottom: '2px' }}>{item.contactName}</div>
-                      <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px', color: item.isPayer ? 'var(--success)' : 'var(--text-muted)' }}>
-                        {item.isPayer ? 'Payer / Sudah Bayar' : <><ArrowDownLeft size={10} color="var(--danger)" /> Belum Bayar</>}
-                      </div>
+                  </div>
+                </>
+              ) : (
+                // Normal Split View
+                <>
+                  <div style={{
+                    width: '52px', height: '52px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '20px', fontWeight: 800, background: item.isPayer ? 'var(--success)' : 'var(--bg-main)',
+                    color: item.isPayer ? 'white' : 'var(--primary)'
+                  }}>
+                    {item.contactName.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', marginBottom: '2px' }}>{item.contactName}</div>
+                    <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px', color: item.isPayer ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {item.isPayer ? 'Payer / Sudah Bayar' : <><ArrowDownLeft size={10} color="var(--danger)" /> Belum Bayar</>}
                     </div>
-                  </>
-                )}
+                  </div>
+                </>
+              )}
 
                 <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div>
@@ -384,13 +391,22 @@ const SharedSplitBill: React.FC = () => {
             </div>
             <div style={{ display: 'grid', gap: '8px' }}>
               {(split as any).tripExpenses.map((exp: any, idx: number) => (
-                <div key={idx} style={{ padding: '14px 16px', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div 
+                  key={idx} 
+                  onClick={() => setSelectedExpense(exp)}
+                  style={{ padding: '14px 16px', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}
+                >
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '13px' }}>{exp.description}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Dibayar oleh {exp.payer} • {exp.date}</div>
+                    <div style={{ fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>{exp.description}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>Dibayar oleh {exp.payer} • {exp.date}</div>
                   </div>
-                  <div style={{ fontWeight: 800, fontSize: '14px' }}>
-                    {split.currencySymbol}{exp.amount.toLocaleString('id-ID')}
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 800, fontSize: '14px' }}>
+                      {split.currencySymbol}{exp.amount.toLocaleString('id-ID')}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 700, marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                      Detail <ArrowUpRight size={10} />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -436,6 +452,25 @@ const SharedSplitBill: React.FC = () => {
           </p>
         </footer>
       </div>
+
+      {/* Modals */}
+      <SharedExpenseDetailModal
+        isOpen={!!selectedExpense}
+        onClose={() => setSelectedExpense(null)}
+        expense={selectedExpense}
+        members={(split as any).members || []}
+        currencySymbol={split.currencySymbol || 'Rp'}
+      />
+
+      <SettlementExplanationModal
+        isOpen={!!selectedSettlement}
+        onClose={() => setSelectedSettlement(null)}
+        settlement={selectedSettlement}
+        mode={mode}
+        trip={{ members: (split as any).members || [] }}
+        expenses={(split as any).tripExpenses || []}
+        currencySymbol={split.currencySymbol || 'Rp'}
+      />
     </div>
   );
 };

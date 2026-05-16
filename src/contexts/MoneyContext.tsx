@@ -108,6 +108,13 @@ export interface TripExpenseSplit {
   amount: number;
 }
 
+export interface TripExpenseItem {
+  id: string;
+  name: string;
+  amount: number;
+  assignments: string[]; // memberIds
+}
+
 export interface TripExpense {
   id: string;
   tripId: string;
@@ -115,6 +122,7 @@ export interface TripExpense {
   amount: number;
   payerId: string; // memberId
   splits: TripExpenseSplit[];
+  items?: TripExpenseItem[];
   date: string;
   createdAt: string;
 }
