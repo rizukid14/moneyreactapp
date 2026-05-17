@@ -24,7 +24,7 @@ const ChatBot: React.FC = () => {
   const { 
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
     currencySymbol, isChatOpen, setIsChatOpen,
-    recurringTransactions, subscriptions, budgetMode, monthlyIncome
+    recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode
   } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -80,6 +80,7 @@ const ChatBot: React.FC = () => {
           })),
           budgetMode,
           monthlyIncome,
+          zbbMode,
           currentDate: getLocalDate(),
           currentTime: getLocalTime(),
           appKnowledge: {

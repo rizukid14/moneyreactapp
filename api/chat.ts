@@ -20,7 +20,7 @@ export default async function handler(req: any, res: any) {
   try {
     const { 
       messages, categories, assets, transactions, contacts, 
-      recurringTransactions, subscriptions, budgetMode, monthlyIncome,
+      recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
       currentDate, currentTime 
     } = req.body;
 
@@ -76,7 +76,7 @@ CURRENT USER CONTEXT:
 Categories: ${categoryList}
 Assets: ${assetList}
 Contacts: ${contactList}
-Budget Mode: ${budgetMode || "regular"} (Income: ${monthlyIncome || 0})
+Budget Mode: ${budgetMode || "regular"} (Income: ${monthlyIncome || 0}, Strict ZBB: ${zbbMode === 'strict' ? 'Yes' : 'No'})
 
 RECENT TRANSACTIONS (Last 150):
 ${transactionSummary}
@@ -198,8 +198,9 @@ BEHAVIOR RULES:
 5. Anggaran & Perencanaan (Budgets):
    - Regular Mode: Set budget bulanan per kategori di Pengaturan -> Anggaran.
    - Zero-Based Budgeting (Anggaran Berbasis Nol): Aktifkan di Pengaturan. Alokasikan setiap rupiah pendapatan ke "amplop" (kategori) hingga sisa Rp 0.
+   - Strict Mode ZBB: Jika diaktifkan, transaksi (termasuk scan struk dan mutasi massal) yang melebihi batas amplop akan diblokir. Aplikasi akan memunculkan modal khusus yang memaksa pemindahan/realokasi dana sebelum transaksi bisa disimpan.
    - Pace Feature: Memberi tahu jika kecepatan belanjamu terlalu tinggi dibandingkan hari yang sudah berlalu dalam bulan tersebut.
-   - Pindahkan Uang: Dalam mode Zero-Based, kamu bisa memindahkan saldo antar amplop jika salah satu kategori over-budget.
+   - Pindahkan Uang: Dalam mode Zero-Based, kamu bisa memindahkan saldo antar amplop secara manual.
 
 6. Proyeksi Kas (Cash Flow Forecast):
    - Tersedia di menu Statistik -> Proyeksi Kas.
