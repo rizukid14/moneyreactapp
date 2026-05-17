@@ -172,48 +172,69 @@ BEHAVIOR RULES:
     const APP_TUTORIAL = `
 1. Transaksi (Transactions):
    - Cara Tambah: Klik tombol '+' di pojok kanan bawah, pilih 'Tambah Pengeluaran' atau 'Pendapatan'.
-   - Transfer: Gunakan menu 'Transfer' untuk memindahkan uang antar rekening.
-   - Input Sekaligus: Mendukung banyak transaksi sekaligus. Kini bisa memilih rekening berbeda untuk tiap baris transaksi (Multi-Asset support).
+   - Transfer: Gunakan menu 'Transfer' untuk memindahkan uang antar rekening. Bisa input biaya admin juga.
+   - Input Sekaligus: Mendukung banyak transaksi sekaligus dari teks atau foto mutasi bank. Bisa memilih rekening berbeda untuk tiap baris (Multi-Asset support).
    - Edit/Hapus: Klik pada item transaksi di daftar.
    - Copy: Di menu edit transaksi, klik tombol 'Copy'.
    - Pencarian: Gunakan ikon kaca pembesar di atas daftar transaksi.
    - Auto-Collapse: Daftar hanya membuka hari ini. Klik baris tanggal untuk melihat riwayat lainnya.
 
 2. Aset & Kekayaan (Assets):
-   - Kelola Aset: Tambah akun bank/cash di menu Aset.
-   - Gacha Tier System: Total kekayaanmu menentukan tingkat 'Gacha' (Bronze -> Sultan 👑). 
-   - Pesan Motivasi: Setiap tier punya pesan motivasi berbeda.
+   - Kelola Aset: Tambah akun bank/cash di menu Aset (Tunai, Bank, eWallet, Tabungan, Investasi, dll).
+   - Gacha Tier System: Total kekayaanmu menentukan tingkat 'Gacha' (Bronze -> Sultan 👑).
+   - Pesan Motivasi: Setiap tier punya pesan motivasi berbeda yang berganti setiap 4 detik.
 
 3. Hutang & Piutang (Debts):
    - Bayar/Cicil: Klik pada catatan hutang untuk membayar sebagian atau lunas.
    - Offset (Potong Silang): Gunakan banner di atas halaman Hutang untuk potong saldo hutang vs piutang ke orang yang sama.
-   - Tips Profesional: Kosongkan "Aset" saat buat hutang agar pembayaran nanti tercatat sebagai Pengeluaran (Expense). Jika pilih aset, pembayaran akan tercatat sebagai Transfer.
+   - Tips Profesional: Kosongkan "Aset" saat buat hutang agar pembayaran nanti tercatat sebagai Pengeluaran. Jika pilih aset, pembayaran akan tercatat sebagai Transfer.
    - Merge Otomatis: Hutang ke kontak yang sama otomatis digabung jika belum lunas.
 
 4. MoneyBot AI:
    - Chatbot canggih yang bisa diajak diskusi keuangan.
-   - Kini bisa mencatat Transfer antar rekening dan membuat catatan Hutang/Piutang otomatis.
+   - Bisa mencatat Transfer antar rekening dan membuat catatan Hutang/Piutang otomatis.
    - Cukup ketik seperti: "Transfer dari BCA ke Gopay 50rb" atau "Hutang ke Budi 100rb buat makan".
+   - TIDAK bisa menginput lebih dari 1 transaksi sekaligus. Untuk banyak transaksi, gunakan fitur "Input Sekaligus".
 
 5. Anggaran & Perencanaan (Budgets):
    - Regular Mode: Set budget bulanan per kategori di Pengaturan -> Anggaran.
-   - Zero-Based Budgeting (Anggaran Berbasis Nol): Aktifkan di Pengaturan. Alokasikan setiap rupiah pendapatan ke "amplop" (kategori) hingga sisa Rp 0.
-   - Strict Mode ZBB: Jika diaktifkan, transaksi (termasuk scan struk dan mutasi massal) yang melebihi batas amplop akan diblokir. Aplikasi akan memunculkan modal khusus yang memaksa pemindahan/realokasi dana sebelum transaksi bisa disimpan.
-   - Pace Feature: Memberi tahu jika kecepatan belanjamu terlalu tinggi dibandingkan hari yang sudah berlalu dalam bulan tersebut.
-   - Pindahkan Uang: Dalam mode Zero-Based, kamu bisa memindahkan saldo antar amplop secara manual.
+   - Zero-Based Budgeting (ZBB): Aktifkan di Pengaturan -> Preferensi. Setiap rupiah pendapatan WAJIB dialokasikan ke amplop (kategori) hingga sisa Rp 0.
+   - Strict Mode ZBB: Jika diaktifkan, transaksi (termasuk scan struk dan mutasi massal) yang melebihi batas amplop akan DIBLOKIR. Aplikasi memunculkan modal yang memaksa pemindahan/realokasi dana antar kategori sebelum transaksi bisa disimpan.
+   - Pace Feature: Memberi tahu jika kecepatan belanjamu terlalu tinggi dibandingkan hari yang sudah berlalu dalam bulan.
+   - Pindahkan Uang: Dalam mode ZBB, kamu bisa memindahkan saldo antar amplop secara manual.
 
 6. Proyeksi Kas (Cash Flow Forecast):
    - Tersedia di menu Statistik -> Proyeksi Kas.
    - Memprediksi saldo harian 30, 60, hingga 90 hari ke depan berdasarkan transaksi rutin dan langganan.
+   - Proyeksi Investasi: Jika ada transaksi rutin bertipe Transfer ke aset Investasi/Tabungan, grafik menampilkan dua garis terpisah: saldo kas (biru) dan proyeksi saldo investasi (hijau zamrud).
    - Safe to Spend: Menghitung uang yang aman dibelanjakan hari ini setelah menyisihkan dana untuk tagihan 30 hari ke depan.
    - Danger Zone: Menandai hari-hari di mana saldo diprediksi akan negatif (merah).
 
 7. Langganan (Subscriptions): Kelola layanan bulanan/tahunan (Netflix, Spotify, dll) agar tidak lupa tanggal tagihan dan terekam di Proyeksi Kas.
 8. Target Tabungan (Savings Goals): Buat target untuk impianmu dan hubungkan transaksi menabung agar progres terpantau otomatis.
-9. Scan Struk (OCR) & Split Bill: Scan struk, lalu klik "Split Bill" untuk bagi belanjaan ke teman-teman (otomatis jadi piutang).
-10. Pengaturan: PIN keamanan, Backup (Ekspor/Impor), Sinkronisasi Cloud, dan Custom Mata Uang/Tanggal mulai bulan.
-11. Statistik: Analisis pie chart, perbandingan bulan lalu, dan Financial Health Score.
+
+9. Scan Struk (OCR) & Split Bill:
+   - Scan struk belanja via foto, AI otomatis mendeteksi item, harga, pajak, dan service charge.
+   - Klik "Split Bill" untuk membagi tagihan ke teman-teman (otomatis jadi piutang per orang).
+   - Jika Strict ZBB Mode aktif, scan struk juga akan divalidasi budget sebelum bisa disimpan.
+
+10. Holiday Trip (Perjalanan Bersama):
+    - Fitur manajemen biaya perjalanan kelompok (liburan, outing, dll).
+    - Buat trip baru, tambahkan anggota, lalu catat setiap pengeluaran beserta siapa yang membayar.
+    - OCR terintegrasi: bisa scan struk langsung dari halaman trip dan edit item hasil scan secara manual.
+    - Integrasi Aset Riil: Pembayaran trip langsung memotong saldo rekening yang dipilih.
+    - Smart Settle-Up: Setelah trip selesai, klik "Settle Up" untuk menghitung siapa bayar ke siapa dengan mode Sederhana atau Detail. Bisa share link ke anggota atau buka di aplikasi (Open in App).
+
+11. Profil & Keanggotaan:
+    - Premium Member Pass Card: Halaman profil kini berupa kartu keanggotaan digital dengan tier level berdasarkan total kekayaan bersih (Bronze -> Sultan 👑), dilengkapi statistik saldo aktif dan jumlah transaksi bulan ini.
+
+12. Pengaturan (Settings):
+    - Menu dikelompokkan ke dalam 4 kategori: Akun (Profil, Keamanan), Keuangan (Anggaran, Langganan, Transaksi Rutin, Tujuan Tabungan), Sosial (Hutang, Kontak, Shared Bills, Trips), dan Sistem (Backup, Preferensi, Apa yang Baru, Logout).
+    - Preferensi: Toggle metode budgeting (Reguler / ZBB), toggle Strict Mode ZBB, Custom Mata Uang, Tanggal mulai bulan finansial, dan konfigurasi tampilan kartu aset.
+
+13. Statistik: Analisis pie chart per kategori, perbandingan pertumbuhan vs bulan lalu, Financial Health Score, dan heatmap aktivitas harian.
 `;
+
 
     // Check if the AI decided to call the tool
     if (message.tool_calls && message.tool_calls.length > 0) {
