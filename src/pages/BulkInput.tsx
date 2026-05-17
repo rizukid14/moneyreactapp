@@ -5,16 +5,73 @@ import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI'
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/common/Toast';
+import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
-  const { addTransaction, assets, categories, currencySymbol } = useMoney();
+  const { addTransaction, assets, categories, currencySymbol, validateTransactionBudget, zbbMode } = useMoney();
   const { parseData, isParsing, error, setError } = useBulkParseAI();
   const { showToast } = useToast();
 
   const [stage, setStage] = useState<'input' | 'results'>('input');
   const [inputText, setInputText] = useState('');
   const [results, setResults] = useState<ParsedTransaction[]>([]);
+  
+  const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+  const [pendingAction, setPendingAction] = useState<boolean>(false);
+
+  const performSave = () => {
+    const toSave = results.filter(r => r.selected);
+    toSave.forEach(tx => {
+      if (tx.type === 'transfer') {
+        addTransaction({
+          type: 'transfer',
+          amount: tx.amount,
+          date: tx.date,
+          note: tx.note || 'Transfer',
+          category: 'Transfer',
+          fromAssetId: tx.fromAsset,
+          toAssetId: tx.toAsset
+        });
+
+        if (tx.adminFee && tx.adminFee > 0) {
+          const feeAssetId = tx.adminFeeTarget === 'receiver' ? tx.toAsset : tx.fromAsset;
+          const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+          addTransaction({
+            type: 'pengeluaran',
+            amount: tx.adminFee,
+            category: 'Biaya Admin',
+            date: tx.date,
+            note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+            assetId: feeAssetId,
+          });
+        }
+      } else {
+        addTransaction({
+          type: tx.type,
+          amount: tx.amount,
+          date: tx.date,
+          note: tx.note,
+          category: tx.category,
+          subCategory: tx.subCategory || undefined,
+          assetId: tx.asset
+        });
+      }
+    });
+
+    showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
+    setStage('input');
+    setInputText('');
+    setResults([]);
+  };
+
+  const handleReallocationSuccess = () => {
+    setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+    if (pendingAction) {
+      performSave();
+    }
+    setPendingAction(false);
+  };
 
   const handleParse = async () => {
     if (!inputText.trim()) {
@@ -82,6 +139,15 @@ const BulkInput: React.FC = () => {
 
   return (
     <div className="page">
+      <OverspendReallocationModal
+        isOpen={reallocationModal.isOpen}
+        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+        onSuccess={handleReallocationSuccess}
+        deficitCategoryId={reallocationModal.deficitCategory}
+        deficitAmount={reallocationModal.deficitAmount}
+        month={reallocationModal.month}
+        year={reallocationModal.year}
+      />
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
         <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
           <ChevronLeft size={20} />
@@ -156,47 +222,37 @@ const BulkInput: React.FC = () => {
               return;
             }
 
-            toSave.forEach(tx => {
-              if (tx.type === 'transfer') {
-                addTransaction({
-                  type: 'transfer',
-                  amount: tx.amount,
-                  date: tx.date,
-                  note: tx.note || 'Transfer',
-                  category: 'Transfer',
-                  fromAssetId: tx.fromAsset,
-                  toAssetId: tx.toAsset
-                });
+            if (zbbMode === 'strict') {
+              const expenses = toSave.filter(r => r.type === 'pengeluaran');
+              const grouped = expenses.reduce((acc, tx) => {
+                const key = `${tx.category}_${tx.date}`;
+                acc[key] = (acc[key] || 0) + tx.amount;
+                return acc;
+              }, {} as Record<string, number>);
 
-                if (tx.adminFee && tx.adminFee > 0) {
-                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? tx.toAsset : tx.fromAsset;
-                  const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
-                  addTransaction({
-                    type: 'pengeluaran',
-                    amount: tx.adminFee,
-                    category: 'Biaya Admin',
-                    date: tx.date,
-                    note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
-                    assetId: feeAssetId,
+              for (const key of Object.keys(grouped)) {
+                const [cat, dt] = key.split('_');
+                const validation = validateTransactionBudget({
+                  type: 'pengeluaran',
+                  amount: grouped[key],
+                  category: cat,
+                  date: dt
+                });
+                if (!validation.isValid) {
+                  setPendingAction(true);
+                  setReallocationModal({
+                    isOpen: true,
+                    deficitCategory: validation.deficitCategory,
+                    deficitAmount: validation.deficitAmount,
+                    month: new Date(dt).getMonth(),
+                    year: new Date(dt).getFullYear()
                   });
+                  return;
                 }
-              } else {
-                addTransaction({
-                  type: tx.type,
-                  amount: tx.amount,
-                  date: tx.date,
-                  note: tx.note,
-                  category: tx.category,
-                  subCategory: tx.subCategory || undefined,
-                  assetId: tx.asset
-                });
               }
-            });
+            }
 
-            showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
-            setStage('input');
-            setInputText('');
-            setResults([]);
+            performSave();
           }}
         />
       )}

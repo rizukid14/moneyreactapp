@@ -132,7 +132,7 @@ const Transactions: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isCopyMode, setIsCopyMode] = useState(false);
-  const [initialType, setInitialType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
+  const [initialType, setInitialType] = useState<Transaction['type']>('pengeluaran');
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => {
@@ -162,8 +162,11 @@ const Transactions: React.FC = () => {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const toggleGroup = useCallback((groupId: string) => {
-    setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
-  }, []);
+    setCollapsedGroups(prev => {
+      const isCurrentlyCollapsed = prev[groupId] ?? (groupBy === 'date' && groupId !== getLocalDate());
+      return { ...prev, [groupId]: !isCurrentlyCollapsed };
+    });
+  }, [groupBy]);
 
   const getAssetName = useCallback((id?: string) => {
     const asset = assets.find(a => a.id === id);
@@ -375,7 +378,7 @@ const Transactions: React.FC = () => {
     setIsModalOpen(true);
   }, []);
 
-  const handleAdd = (type: 'pengeluaran' | 'pendapatan' | 'transfer' = 'pengeluaran') => {
+  const handleAdd = (type: Transaction['type'] = 'pengeluaran') => {
     setEditingTransaction(null);
     setIsCopyMode(false);
     setInitialType(type);

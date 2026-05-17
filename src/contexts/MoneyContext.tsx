@@ -10,6 +10,8 @@ import {
   dbGetSetting, dbPutSetting, dbDeleteSetting,
   dbGetAllTrips, dbPutTrip, dbDeleteTrip,
   dbGetAllTripExpenses, dbPutTripExpense, dbDeleteTripExpense,
+  dbGetAllMonthlyIncomes, dbPutMonthlyIncome, dbDeleteMonthlyIncome,
+  dbGetAllBudgetReallocations, dbPutBudgetReallocation, dbDeleteBudgetReallocation,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
   dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync,
@@ -139,9 +141,28 @@ export interface Trip {
   createdAt: string;
 }
 
+export interface MonthlyIncome {
+  id: string; // format: "YYYY-MM"
+  month: number;
+  year: number;
+  amount: number;
+  isLocked: boolean;
+  createdAt: number;
+}
+
+export interface BudgetReallocation {
+  id: string;
+  month: number;
+  year: number;
+  fromCategoryId: string | 'unassigned';
+  toCategoryId: string | 'unassigned';
+  amount: number;
+  date: string; // ISO String
+}
+
 export interface Transaction {
   id: string;
-  type: 'pengeluaran' | 'pendapatan' | 'transfer';
+  type: 'pengeluaran' | 'pendapatan' | 'transfer' | 'piutang_keluar' | 'piutang_masuk' | 'hutang_masuk' | 'hutang_keluar';
   amount: number;
   category: string;
   subCategory?: string;
@@ -165,7 +186,7 @@ export interface Contact {
 
 export interface RecurringTransaction {
   id: string;
-  type: 'pengeluaran' | 'pendapatan' | 'transfer';
+  type: Transaction['type'];
   amount: number;
   category: string;
   subCategory?: string;
@@ -303,9 +324,18 @@ interface MoneyContextType {
   pullFromCloud: () => Promise<{ total: number }>;
   budgetMode: BudgetMode;
   setBudgetMode: (mode: BudgetMode) => void;
-  monthlyIncome: number;
+  zbbMode: 'flexible' | 'strict';
+  setZbbMode: (mode: 'flexible' | 'strict') => void;
+  monthlyIncome: number; // legacy global
   setMonthlyIncome: (income: number) => void;
+  monthlyIncomes: MonthlyIncome[];
+  setMonthIncome: (month: number, year: number, amount: number, isLocked: boolean) => void;
+  deleteMonthIncome: (id: string) => void;
+  budgetReallocations: BudgetReallocation[];
+  addBudgetReallocation: (realloc: Omit<BudgetReallocation, 'id' | 'date'>) => void;
+  deleteBudgetReallocation: (id: string) => void;
   moveBudgetMoney: (fromCategoryId: string | null, toCategoryId: string | null, amount: number, month: number, year: number) => void;
+  validateTransactionBudget: (tx: Partial<Transaction>) => { isValid: boolean; deficitCategory: string | null; deficitAmount: number };
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -346,7 +376,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [defaultStatsView, setDefaultStatsViewState] = useState<string>('all');
   const [chartStyle, setChartStyleState] = useState<'area' | 'line'>('area');
   const [budgetMode, setBudgetModeState] = useState<BudgetMode>('regular');
+  const [zbbMode, setZbbModeState] = useState<'flexible' | 'strict'>('flexible');
   const [monthlyIncome, setMonthlyIncomeState] = useState<number>(0);
+  const [monthlyIncomes, setMonthlyIncomes] = useState<MonthlyIncome[]>([]);
+  const [budgetReallocations, setBudgetReallocations] = useState<BudgetReallocation[]>([]);
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -375,7 +408,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await migrateFromLocalStorage();
 
       // Load all data from IndexedDB
-      const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals, dbRecurring, dbContacts, dbSubs, dbTrips, dbTripExpenses] = await Promise.all([
+      const [
+        dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals, dbRecurring, dbContacts, dbSubs, dbTrips, dbTripExpenses, dbMonthlyIncomes, dbReallocations
+      ] = await Promise.all([
         dbGetAllAssets(),
         dbGetAllTransactions(),
         dbGetAllCategories(),
@@ -387,7 +422,39 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         import('../lib/db').then(m => m.dbGetAllSubscriptions()),
         dbGetAllTrips(),
         dbGetAllTripExpenses(),
+        dbGetAllMonthlyIncomes(),
+        dbGetAllBudgetReallocations(),
       ]);
+
+      const hasMigratedV1_0_18 = localStorage.getItem('migrated_v1_0_18_debts');
+      if (!hasMigratedV1_0_18 && dbTxs.length > 0) {
+        let migratedCount = 0;
+        const updatedTxs = dbTxs.map(tx => {
+          let newType = tx.type;
+          if (tx.type === 'pengeluaran') {
+            if (tx.category === 'Pinjaman & Piutang' || tx.category === 'Tambah Piutang') newType = 'piutang_keluar';
+            else if (tx.category === 'Bayar Hutang') newType = 'hutang_keluar';
+          } else if (tx.type === 'pendapatan') {
+            if (tx.category === 'Tambah Hutang' || (tx.note && tx.note.includes('Penerimaan dana pinjaman'))) newType = 'hutang_masuk';
+            else if (tx.category === 'Pelunasan Piutang') newType = 'piutang_masuk';
+          }
+          
+          if (newType !== tx.type) {
+            migratedCount++;
+            return { ...tx, type: newType as Transaction['type'] };
+          }
+          return tx;
+        });
+
+        if (migratedCount > 0) {
+          const mDb = await import('../lib/db');
+          await Promise.all(updatedTxs.filter((tx, i) => tx.type !== dbTxs[i].type).map(tx => mDb.dbPutTransaction(tx)));
+          updatedTxs.forEach((tx, i) => { dbTxs[i] = tx; });
+          console.log(`Migrated ${migratedCount} debt transactions to v1.0.18 types.`);
+        }
+        localStorage.setItem('migrated_v1_0_18_debts', 'true');
+      }
+
       setGoals(dbGoals);
       setRecurringTransactions(dbRecurring);
       setContacts(dbContacts);
@@ -415,6 +482,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setTransactions(dbTxs);
       setTrips(dbTrips as Trip[]);
       setTripExpenses(dbTripExpenses as TripExpense[]);
+      setMonthlyIncomes(dbMonthlyIncomes as MonthlyIncome[]);
+      setBudgetReallocations(dbReallocations as BudgetReallocation[]);
 
       // Load settings
       let profile = await dbGetSetting('user') as UserProfile | undefined;
@@ -460,8 +529,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedChartStyle) setChartStyleState(savedChartStyle);
 
       const savedBudgetMode = await dbGetSetting('budgetMode') as BudgetMode | undefined;
+      const savedZbbMode = await dbGetSetting('zbbMode') as 'flexible' | 'strict' | undefined;
       const savedMonthlyIncome = await dbGetSetting('monthlyIncome') as number | undefined;
       if (savedBudgetMode) setBudgetModeState(savedBudgetMode);
+      if (savedZbbMode) setZbbModeState(savedZbbMode);
       if (savedMonthlyIncome) setMonthlyIncomeState(savedMonthlyIncome);
 
       // --- Migration: budgets collection -> settings/budgets ---
@@ -832,10 +903,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const time = new Date(newDebt.createdAt).toTimeString().split(' ')[0].substring(0, 5);
 
     if (newDebt.type === 'piutang') {
-      // Give loan: Account balance decreases (Expense)
+      // Give loan: Account balance decreases (Expense-like but ignored in stats)
       if (newDebt.paymentAssetId) {
         _createTx({
-          type: 'pengeluaran',
+          type: 'piutang_keluar',
           amount: newDebt.totalAmount,
           category: 'Pinjaman & Piutang',
           date,
@@ -850,9 +921,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } else {
       // Hutang (Saya Berhutang)
       if (initialMode === 'cash' && newDebt.liabilityAssetId) {
-        // Receive loan principal: Account balance increases (Income)
+        // Receive loan principal: Account balance increases (Income-like but ignored in stats)
         _createTx({
-          type: 'pendapatan',
+          type: 'hutang_masuk',
           amount: newDebt.totalAmount,
           category: categoryName || 'Lainnya',
           date,
@@ -1036,9 +1107,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             relatedId: debtId,
           });
         } else {
-          // Terima pembayaran piutang: Pendapatan masuk ke receiveAssetId
+          // Terima pembayaran piutang: Saldo masuk ke receiveAssetId (Bukan pendapatan)
           _createTx({
-            type: 'pendapatan',
+            type: 'piutang_masuk',
             amount: amt,
             category: 'Pelunasan Piutang',
             date: today,
@@ -1092,7 +1163,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             });
           } else {
             _createTx({
-              type: 'pengeluaran',
+              type: 'hutang_keluar',
               amount: amountToRecord,
               category: 'Bayar Hutang',
               date: today,
@@ -1104,7 +1175,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           }
         } else {
           _createTx({
-            type: 'pendapatan',
+            type: 'piutang_masuk',
             amount: amountToRecord,
             category: 'Pelunasan Piutang',
             date: today,
@@ -1338,8 +1409,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!asset) return 0;
     let balance = asset.initialBalance;
     transactions.forEach(tx => {
-      if (tx.type === 'pendapatan' && tx.assetId === assetId) balance += tx.amount;
-      else if (tx.type === 'pengeluaran' && tx.assetId === assetId) balance -= tx.amount;
+      if ((tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk') && tx.assetId === assetId) balance += tx.amount;
+      else if ((tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar') && tx.assetId === assetId) balance -= tx.amount;
       else if (tx.type === 'transfer' && tx.fromAssetId === assetId) balance -= tx.amount;
       else if (tx.type === 'transfer' && tx.toAssetId === assetId) balance += tx.amount;
     });
@@ -1623,6 +1694,83 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbPutSetting('monthlyIncome', income);
   }, []);
 
+  const setZbbMode = useCallback((mode: 'flexible' | 'strict') => {
+    setZbbModeState(mode);
+    dbPutSetting('zbbMode', mode);
+  }, []);
+
+  const setMonthIncome = useCallback((month: number, year: number, amount: number, isLocked: boolean) => {
+    const id = `${year}-${month}`;
+    const newIncome: MonthlyIncome = {
+      id, month, year, amount, isLocked, createdAt: Date.now()
+    };
+    setMonthlyIncomes(prev => {
+      const idx = prev.findIndex(m => m.id === id);
+      if (idx > -1) {
+        const next = [...prev];
+        next[idx] = newIncome;
+        return next;
+      }
+      return [...prev, newIncome];
+    });
+    dbPutMonthlyIncome(newIncome);
+  }, []);
+
+  const deleteMonthIncome = useCallback((id: string) => {
+    setMonthlyIncomes(prev => prev.filter(m => m.id !== id));
+    dbDeleteMonthlyIncome(id);
+  }, []);
+
+  const addBudgetReallocation = useCallback((realloc: Omit<BudgetReallocation, 'id' | 'date'>) => {
+    const newRealloc: BudgetReallocation = {
+      ...realloc,
+      id: generateId(),
+      date: new Date().toISOString()
+    };
+    setBudgetReallocations(prev => [...prev, newRealloc]);
+    dbPutBudgetReallocation(newRealloc);
+  }, []);
+
+  const deleteBudgetReallocation = useCallback((id: string) => {
+    setBudgetReallocations(prev => prev.filter(m => m.id !== id));
+    dbDeleteBudgetReallocation(id);
+  }, []);
+
+  const validateTransactionBudget = useCallback((tx: Partial<Transaction>) => {
+    if (zbbMode !== 'strict') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
+    if (tx.type !== 'pengeluaran') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
+    
+    const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+    if (!cat) return { isValid: true, deficitCategory: null, deficitAmount: 0 };
+
+    const txDate = tx.date ? new Date(tx.date) : new Date();
+    const m = txDate.getMonth();
+    const y = txDate.getFullYear();
+
+    const budget = budgets.find(b => b.categoryId === cat.id && b.month === m && b.year === y);
+    if (!budget) {
+      return { isValid: false, deficitCategory: cat.id, deficitAmount: tx.amount || 0 };
+    }
+
+    const periodStart = new Date(y, m - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
+    const periodEnd = new Date(y, m + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
+    
+    let spent = 0;
+    transactions.forEach(t => {
+      if (t.id !== tx.id && t.type === 'pengeluaran' && t.category === tx.category) {
+        const d = new Date(t.date);
+        if (d >= periodStart && d < periodEnd) spent += t.amount;
+      }
+    });
+
+    const proposedSpend = spent + (tx.amount || 0);
+    if (proposedSpend > budget.limit) {
+      return { isValid: false, deficitCategory: cat.id, deficitAmount: proposedSpend - budget.limit };
+    }
+
+    return { isValid: true, deficitCategory: null, deficitAmount: 0 };
+  }, [zbbMode, categories, budgets, transactions, startOfMonthDay]);
+
   const moveBudgetMoney = useCallback((fromCategoryId: string | null, toCategoryId: string | null, amount: number, month: number, year: number) => {
     setBudgets(prev => {
       const next = [...prev];
@@ -1654,7 +1802,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       return next;
     });
-  }, []);
+
+    addBudgetReallocation({
+      month, year,
+      fromCategoryId: fromCategoryId || 'unassigned',
+      toCategoryId: toCategoryId || 'unassigned',
+      amount
+    });
+  }, [addBudgetReallocation]);
 
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
@@ -1681,7 +1836,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
-    budgetMode, setBudgetMode, monthlyIncome, setMonthlyIncome, moveBudgetMoney
+    budgetMode, setBudgetMode, zbbMode, setZbbMode, monthlyIncome, setMonthlyIncome,
+    monthlyIncomes, setMonthIncome, deleteMonthIncome,
+    budgetReallocations, addBudgetReallocation, deleteBudgetReallocation,
+    moveBudgetMoney, validateTransactionBudget
   }), [
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
@@ -1699,7 +1857,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
     exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
-    budgetMode, setBudgetMode, monthlyIncome, setMonthlyIncome, moveBudgetMoney
+    budgetMode, setBudgetMode, zbbMode, setZbbMode, monthlyIncome, setMonthlyIncome,
+    monthlyIncomes, setMonthIncome, deleteMonthIncome,
+    budgetReallocations, addBudgetReallocation, deleteBudgetReallocation,
+    moveBudgetMoney, validateTransactionBudget
   ]);
 
   // Show splash screen while checking auth state or loading data

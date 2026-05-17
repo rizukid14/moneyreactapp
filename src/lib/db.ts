@@ -7,7 +7,7 @@ import { generateId } from './utils';
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 
 export interface SyncItem {
   id: string;
@@ -31,6 +31,8 @@ export interface MoneyAppDB {
   pending_sync: { key: string; value: SyncItem };
   trips: { key: string; value: any };
   trip_expenses: { key: string; value: any };
+  monthly_incomes: { key: string; value: any };
+  budget_reallocations: { key: string; value: any };
 }
 
 let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
@@ -52,6 +54,8 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('pending_sync')) db.createObjectStore('pending_sync', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('trips')) db.createObjectStore('trips', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('trip_expenses')) db.createObjectStore('trip_expenses', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('monthly_incomes')) db.createObjectStore('monthly_incomes', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('budget_reallocations')) db.createObjectStore('budget_reallocations', { keyPath: 'id' });
       },
     });
   }
@@ -179,6 +183,8 @@ export const dbForceCloudSync = async (): Promise<{ total: number }> => {
       ['goals', 'goals'],
       ['trips', 'trips'],
       ['trip_expenses', 'trip_expenses'],
+      ['monthly_incomes', 'monthly_incomes'],
+      ['budget_reallocations', 'budget_reallocations'],
     ];
 
     for (const [fsCol, idbStore] of collections) {
@@ -743,5 +749,49 @@ export const dbDeleteTripExpense = async (id: string) => {
   await db.delete('trip_expenses', id);
   if (isFirebaseConfigured && auth.currentUser) {
     await recordPendingSync({ id, collection: 'trip_expenses', operation: 'DELETE' });
+  }
+};
+
+// ─── Monthly Incomes ──────────────────────────────────────────────────────────
+export const dbGetAllMonthlyIncomes = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('monthly_incomes');
+};
+
+export const dbPutMonthlyIncome = async (item: any) => {
+  const db = await getDB();
+  await db.put('monthly_incomes', item);
+  if (isFirebaseConfigured && auth.currentUser) {
+    await recordPendingSync({ id: item.id, collection: 'monthly_incomes', operation: 'PUT', data: item });
+  }
+};
+
+export const dbDeleteMonthlyIncome = async (id: string) => {
+  const db = await getDB();
+  await db.delete('monthly_incomes', id);
+  if (isFirebaseConfigured && auth.currentUser) {
+    await recordPendingSync({ id, collection: 'monthly_incomes', operation: 'DELETE' });
+  }
+};
+
+// ─── Budget Reallocations ─────────────────────────────────────────────────────
+export const dbGetAllBudgetReallocations = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('budget_reallocations');
+};
+
+export const dbPutBudgetReallocation = async (item: any) => {
+  const db = await getDB();
+  await db.put('budget_reallocations', item);
+  if (isFirebaseConfigured && auth.currentUser) {
+    await recordPendingSync({ id: item.id, collection: 'budget_reallocations', operation: 'PUT', data: item });
+  }
+};
+
+export const dbDeleteBudgetReallocation = async (id: string) => {
+  const db = await getDB();
+  await db.delete('budget_reallocations', id);
+  if (isFirebaseConfigured && auth.currentUser) {
+    await recordPendingSync({ id, collection: 'budget_reallocations', operation: 'DELETE' });
   }
 };

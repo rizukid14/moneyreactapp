@@ -322,7 +322,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
 
 const Settings: React.FC = () => {
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -1270,6 +1270,35 @@ const Settings: React.FC = () => {
                   Zero-Based
                 </button>
               </div>
+
+              {budgetMode === 'zero-based' && (
+                <div style={{ marginTop: 12, padding: '12px', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Disiplin ZBB (Strict Mode)</span>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', position: 'relative' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={zbbMode === 'strict'} 
+                        onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')} 
+                        style={{ opacity: 0, position: 'absolute', width: 0, height: 0 }}
+                      />
+                      <div style={{
+                        width: '40px', height: '24px', backgroundColor: zbbMode === 'strict' ? 'var(--primary)' : 'var(--border-color)',
+                        borderRadius: '12px', position: 'relative', transition: '0.3s'
+                      }}>
+                        <div style={{
+                          width: '18px', height: '18px', backgroundColor: 'white', borderRadius: '50%',
+                          position: 'absolute', top: '3px', left: zbbMode === 'strict' ? '19px' : '3px',
+                          transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    Jika aktif, setiap transaksi <strong>wajib</strong> memiliki sisa anggaran. Jika defisit, Anda akan dipaksa memindahkan dana dari kategori lain.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* ─── Rekap Aset Carousel ─────────────────────────────── */}
@@ -1959,7 +1988,7 @@ const Settings: React.FC = () => {
                 </div>
               ))}
               <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
-                Money Tracker v1.0.17 · Made with ❤️
+                Money Tracker v1.0.18 · Made with ❤️
               </div>
             </div>
           </>
@@ -2145,7 +2174,7 @@ const Settings: React.FC = () => {
           <LogOut size={20} /> Logout dari Akun
         </button>
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-          MoneyApp v1.0.17 • Dibuat dengan ❤️ by Dappal
+          MoneyApp v1.0.18 • Dibuat dengan ❤️ by Dappal
         </p>
       </div>
 

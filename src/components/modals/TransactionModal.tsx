@@ -9,6 +9,7 @@ import AssetSelectModal from './AssetSelectModal';
 import GoalSelectModal from './GoalSelectModal';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
+import OverspendReallocationModal from './OverspendReallocationModal';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -20,16 +21,16 @@ interface TransactionModalProps {
   deleteTransaction?: (id: string) => void;
   editingTransaction?: Transaction | null;
   isCopyMode?: boolean;
-  initialType?: 'pengeluaran' | 'pendapatan' | 'transfer';
+  initialType?: Transaction['type'];
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals } = useMoney();
+  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode } = useMoney();
   const { showToast } = useToast();
-  const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
+  const [type, setType] = useState<Transaction['type']>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
@@ -66,6 +67,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const saved = localStorage.getItem('tx_drafts');
     return saved ? JSON.parse(saved) : {};
   });
+
+  const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+  const [pendingTxData, setPendingTxData] = useState<any>(null);
 
   // ─── Draft Logic ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -274,6 +278,25 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       goalId,
     };
 
+    if (zbbMode === 'strict' && type === 'pengeluaran') {
+      const validation = validateTransactionBudget({ ...txData, id: editingTransaction?.id });
+      if (!validation.isValid) {
+        setPendingTxData(txData);
+        setReallocationModal({
+          isOpen: true,
+          deficitCategory: validation.deficitCategory,
+          deficitAmount: validation.deficitAmount,
+          month: new Date(date).getMonth(),
+          year: new Date(date).getFullYear()
+        });
+        return; // Intercept and wait for reallocation
+      }
+    }
+
+    performSave(txData);
+  };
+
+  const performSave = (txData: any) => {
     if (editingTransaction && updateTransaction && !isCopyMode) {
       updateTransaction(editingTransaction.id, txData);
 
@@ -377,8 +400,25 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   };
 
+  const handleReallocationSuccess = () => {
+    setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+    if (pendingTxData) {
+      performSave(pendingTxData);
+      setPendingTxData(null);
+    }
+  };
+
   return (
     <>
+      <OverspendReallocationModal
+        isOpen={reallocationModal.isOpen}
+        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+        onSuccess={handleReallocationSuccess}
+        deficitCategoryId={reallocationModal.deficitCategory}
+        deficitAmount={reallocationModal.deficitAmount}
+        month={reallocationModal.month}
+        year={reallocationModal.year}
+      />
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -410,38 +450,44 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 </div>
               ) : (
                 <form onSubmit={handleSave}>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setType('pengeluaran')}
-                      style={{
-                        flex: 1, padding: '10px', borderRadius: '8px',
-                        border: type === 'pengeluaran' ? '2px solid var(--secondary)' : '1px solid var(--border-color)',
-                        background: type === 'pengeluaran' ? 'var(--bg-expense)' : 'var(--bg-card)',
-                        fontWeight: 700, color: type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'
-                      }}
-                    >Pengeluaran</button>
-                    <button
-                      type="button"
-                      onClick={() => setType('pendapatan')}
-                      style={{
-                        flex: 1, padding: '10px', borderRadius: '8px',
-                        border: type === 'pendapatan' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                        background: type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-card)',
-                        fontWeight: 700, color: type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)'
-                      }}
-                    >Pendapatan</button>
-                    <button
-                      type="button"
-                      onClick={() => setType('transfer')}
-                      style={{
-                        flex: 1, padding: '10px', borderRadius: '8px',
-                        border: type === 'transfer' ? '2px solid var(--text-muted)' : '1px solid var(--border-color)',
-                        background: type === 'transfer' ? 'var(--bg-neutral)' : 'var(--bg-card)',
-                        fontWeight: 700, color: type === 'transfer' ? 'var(--text-main)' : 'var(--text-muted)'
-                      }}
-                    >Transfer</button>
-                  </div>
+                  {['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(type) ? (
+                    <div style={{ padding: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '16px', textAlign: 'center', fontWeight: 700, color: 'var(--text-main)' }}>
+                      Tipe: {type === 'piutang_keluar' ? 'Memberi Pinjaman' : type === 'piutang_masuk' ? 'Pelunasan Piutang' : type === 'hutang_masuk' ? 'Terima Pinjaman' : 'Bayar Hutang'}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setType('pengeluaran')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '8px',
+                          border: type === 'pengeluaran' ? '2px solid var(--secondary)' : '1px solid var(--border-color)',
+                          background: type === 'pengeluaran' ? 'var(--bg-expense)' : 'var(--bg-card)',
+                          fontWeight: 700, color: type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'
+                        }}
+                      >Pengeluaran</button>
+                      <button
+                        type="button"
+                        onClick={() => setType('pendapatan')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '8px',
+                          border: type === 'pendapatan' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                          background: type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-card)',
+                          fontWeight: 700, color: type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)'
+                        }}
+                      >Pendapatan</button>
+                      <button
+                        type="button"
+                        onClick={() => setType('transfer')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '8px',
+                          border: type === 'transfer' ? '2px solid var(--text-muted)' : '1px solid var(--border-color)',
+                          background: type === 'transfer' ? 'var(--bg-neutral)' : 'var(--bg-card)',
+                          fontWeight: 700, color: type === 'transfer' ? 'var(--text-main)' : 'var(--text-muted)'
+                        }}
+                      >Transfer</button>
+                    </div>
+                  )}
 
                   <motion.div
                     key={type}

@@ -8,6 +8,7 @@ import { useToast } from '../components/common/Toast';
 import SplitBillModal from '../components/modals/SplitBillModal';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
+import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 import { useNavigate } from 'react-router-dom';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
@@ -22,10 +23,13 @@ const CONFIDENCE_BADGE = {
 
 const ReceiptScanner: React.FC = () => {
   const navigate = useNavigate();
-  const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId } = useMoney();
+  const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId, validateTransactionBudget, zbbMode } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { showToast } = useToast();
+
+  const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+  const [pendingAction, setPendingAction] = useState<{ type: 'save_main' | 'save_line_items' | 'save_mutasi' | 'split', data?: any } | null>(null);
 
   // Stage management
   const [stage, setStage] = useState<Stage>('upload');
@@ -362,11 +366,35 @@ const ReceiptScanner: React.FC = () => {
 
   const handleSaveMain = () => {
     if (!result) return;
-    // editableAmount state is always raw digits — parse directly
     const finalAmount = parseInt(editableAmount) || 0;
     if (finalAmount <= 0) { showToast('Isi nominal terlebih dahulu', 'warning'); return; }
     if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
 
+    if (zbbMode === 'strict' && selectedType === 'pengeluaran') {
+      const validation = validateTransactionBudget({
+        type: selectedType,
+        amount: finalAmount,
+        category: selectedCategory || 'Belanja (OCR)',
+        date: selectedDate
+      });
+      if (!validation.isValid) {
+        setPendingAction({ type: 'save_main' });
+        setReallocationModal({
+          isOpen: true,
+          deficitCategory: validation.deficitCategory,
+          deficitAmount: validation.deficitAmount,
+          month: new Date(selectedDate).getMonth(),
+          year: new Date(selectedDate).getFullYear()
+        });
+        return;
+      }
+    }
+
+    performSaveMain();
+  };
+
+  const performSaveMain = () => {
+    const finalAmount = parseInt(editableAmount) || 0;
     try {
       // Build note and description with line items if they exist
       const selectedItems = lineItems.filter(i => i.selected);
@@ -400,6 +428,33 @@ const ReceiptScanner: React.FC = () => {
     const toSave = lineItems.filter(i => i.selected && i.amount !== 0);
     if (toSave.length === 0) { showToast('Pilih minimal 1 item dengan nominal selain 0', 'warning'); return; }
 
+    const totalSaveAmount = toSave.reduce((sum, item) => sum + item.amount, 0);
+
+    if (zbbMode === 'strict' && selectedType === 'pengeluaran') {
+      const validation = validateTransactionBudget({
+        type: selectedType,
+        amount: totalSaveAmount,
+        category: selectedCategory || 'Belanja (OCR)',
+        date: selectedDate
+      });
+      if (!validation.isValid) {
+        setPendingAction({ type: 'save_line_items' });
+        setReallocationModal({
+          isOpen: true,
+          deficitCategory: validation.deficitCategory,
+          deficitAmount: validation.deficitAmount,
+          month: new Date(selectedDate).getMonth(),
+          year: new Date(selectedDate).getFullYear()
+        });
+        return;
+      }
+    }
+
+    performSaveLineItems();
+  };
+
+  const performSaveLineItems = () => {
+    const toSave = lineItems.filter(i => i.selected && i.amount !== 0);
     try {
       toSave.forEach(item => {
         addTransaction({
@@ -422,6 +477,34 @@ const ReceiptScanner: React.FC = () => {
   };
 
   const handleSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
+    const userSplit = splits.find(s => s.id === 'me');
+    const payer = splits.find(s => s.isPayer) || splits[0];
+    const isMePayer = payer.id === 'me';
+
+    if (isMePayer && zbbMode === 'strict' && userSplit && userSplit.amount > 0) {
+      const validation = validateTransactionBudget({
+        type: 'pengeluaran',
+        amount: userSplit.amount,
+        category: data.category || 'Belanja (OCR)',
+        date: selectedDate
+      });
+      if (!validation.isValid) {
+        setPendingAction({ type: 'split', data: { splits, data } });
+        setReallocationModal({
+          isOpen: true,
+          deficitCategory: validation.deficitCategory,
+          deficitAmount: validation.deficitAmount,
+          month: new Date(selectedDate).getMonth(),
+          year: new Date(selectedDate).getFullYear()
+        });
+        return;
+      }
+    }
+
+    performSplitSave(splits, data);
+  };
+
+  const performSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
     try {
       const userSplit = splits.find(s => s.id === 'me');
       const payer = splits.find(s => s.isPayer) || splits[0];
@@ -514,9 +597,76 @@ const ReceiptScanner: React.FC = () => {
     setEditingItemIdx(0);
     setEditingField('name');
   };
+  const performSaveMutasi = (batchAssetId: string) => {
+    const toSave = mutasiResults.filter(r => r.selected);
+    toSave.forEach(tx => {
+      if (tx.type === 'transfer') {
+        const finalFrom = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : batchAssetId;
+        const finalTo = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : batchAssetId;
+        const newTx = addTransaction({
+          type: 'transfer',
+          amount: tx.amount,
+          date: tx.date,
+          note: tx.note || 'Transfer',
+          category: 'Transfer',
+          fromAssetId: finalFrom,
+          toAssetId: finalTo
+        });
+        if (tx.adminFee && tx.adminFee > 0) {
+          const feeAssetId = tx.adminFeeTarget === 'receiver' ? finalTo : finalFrom;
+          const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+          addTransaction({
+            type: 'pengeluaran',
+            amount: tx.adminFee,
+            category: 'Biaya Admin',
+            date: tx.date,
+            note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+            assetId: feeAssetId,
+            relatedId: newTx.id,
+          });
+        }
+      } else {
+        addTransaction({
+          type: tx.type,
+          amount: tx.amount,
+          date: tx.date,
+          note: tx.note,
+          category: tx.category,
+          subCategory: tx.subCategory || undefined,
+          assetId: batchAssetId
+        });
+      }
+    });
+
+    showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
+    reset();
+  };
+
+  const handleReallocationSuccess = () => {
+    setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+    if (pendingAction?.type === 'save_main') {
+      performSaveMain();
+    } else if (pendingAction?.type === 'save_line_items') {
+      performSaveLineItems();
+    } else if (pendingAction?.type === 'split' && pendingAction.data) {
+      performSplitSave(pendingAction.data.splits, pendingAction.data.data);
+    } else if (pendingAction?.type === 'save_mutasi' && pendingAction.data?.batchAssetId) {
+      performSaveMutasi(pendingAction.data.batchAssetId);
+    }
+    setPendingAction(null);
+  };
 
   return (
     <div className="page">
+      <OverspendReallocationModal
+        isOpen={reallocationModal.isOpen}
+        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+        onSuccess={handleReallocationSuccess}
+        deficitCategoryId={reallocationModal.deficitCategory}
+        deficitAmount={reallocationModal.deficitAmount}
+        month={reallocationModal.month}
+        year={reallocationModal.year}
+      />
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
         <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
           <ChevronLeft size={20} />
@@ -934,50 +1084,37 @@ const ReceiptScanner: React.FC = () => {
               return;
             }
 
-            toSave.forEach(tx => {
-              if (tx.type === 'transfer') {
-                // Ensure one side is the batch asset
-                const finalFrom = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : batchAssetId;
-                const finalTo = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : batchAssetId;
+            if (zbbMode === 'strict') {
+              const expenses = toSave.filter(r => r.type === 'pengeluaran');
+              const grouped = expenses.reduce((acc, tx) => {
+                const key = `${tx.category}_${tx.date}`;
+                acc[key] = (acc[key] || 0) + tx.amount;
+                return acc;
+              }, {} as Record<string, number>);
 
-                const newTx = addTransaction({
-                  type: 'transfer',
-                  amount: tx.amount,
-                  date: tx.date,
-                  note: tx.note || 'Transfer',
-                  category: 'Transfer',
-                  fromAssetId: finalFrom,
-                  toAssetId: finalTo
+              for (const key of Object.keys(grouped)) {
+                const [cat, dt] = key.split('_');
+                const validation = validateTransactionBudget({
+                  type: 'pengeluaran',
+                  amount: grouped[key],
+                  category: cat,
+                  date: dt
                 });
-
-                if (tx.adminFee && tx.adminFee > 0) {
-                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? finalTo : finalFrom;
-                  const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
-                  addTransaction({
-                    type: 'pengeluaran',
-                    amount: tx.adminFee,
-                    category: 'Biaya Admin',
-                    date: tx.date,
-                    note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
-                    assetId: feeAssetId,
-                    relatedId: newTx.id,
+                if (!validation.isValid) {
+                  setPendingAction({ type: 'save_mutasi', data: { batchAssetId } });
+                  setReallocationModal({
+                    isOpen: true,
+                    deficitCategory: validation.deficitCategory,
+                    deficitAmount: validation.deficitAmount,
+                    month: new Date(dt).getMonth(),
+                    year: new Date(dt).getFullYear()
                   });
+                  return; 
                 }
-              } else {
-                addTransaction({
-                  type: tx.type,
-                  amount: tx.amount,
-                  date: tx.date,
-                  note: tx.note,
-                  category: tx.category,
-                  subCategory: tx.subCategory || undefined,
-                  assetId: batchAssetId
-                });
               }
-            });
+            }
 
-            showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
-            reset();
+            performSaveMutasi(batchAssetId);
           }}
         />
       )}

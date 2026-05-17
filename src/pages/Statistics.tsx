@@ -3,6 +3,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame, Heart, ShieldCheck, Activity, Target, Zap, CreditCard, CheckCircle2, AlertTriangle, LayoutDashboard, HandCoins } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
+import StatDetailModal from '../components/modals/StatDetailModal';
+import type { StatDetailItem } from '../components/modals/StatDetailModal';
 import { formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -19,6 +21,13 @@ const Statistics: React.FC = () => {
     currencySymbol, startOfMonthDay, theme, chartStyle,
     statsCarouselCards, defaultStatsView
   } = useMoney();
+  const [detailModalProps, setDetailModalProps] = useState<{
+    isOpen: boolean;
+    title: string;
+    explanation?: string;
+    formula?: React.ReactNode;
+    details: StatDetailItem[];
+  }>({ isOpen: false, title: '', details: [] });
   const heatmapScrollRef = useRef<HTMLDivElement>(null);
   const [viewDate, setViewDate] = useState(() => {
     // ... (existing init)
@@ -453,7 +462,7 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <FinancialHealth />
+            <FinancialHealth onShowDetail={setDetailModalProps} />
           </motion.div>
         ) : activeViewId === 'budget' ? (
           <motion.div
@@ -493,7 +502,7 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <CashFlowForecast />
+            <CashFlowForecast onShowDetail={setDetailModalProps} />
           </motion.div>
         ) : (
           <motion.div
@@ -982,12 +991,31 @@ const Statistics: React.FC = () => {
             {/* ── Insights Section ────────────────────────────────── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
               {/* Net Savings */}
-              <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
+              <div 
+                className="card glass" 
+                style={{ marginBottom: 0, padding: '14px', cursor: 'pointer', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                onClick={() => setDetailModalProps({
+                  isOpen: true,
+                  title: 'Sisa Bersih (Net Savings)',
+                  explanation: 'Sisa bersih menunjukkan sisa uang tunai riil Anda di bulan ini setelah dikurangi semua pengeluaran.',
+                  formula: 'Pemasukan - Pengeluaran',
+                  details: [
+                    { label: 'Pemasukan Bulan Ini', value: fmt(currentMonthIncome), type: 'addition' },
+                    { label: 'Pengeluaran Bulan Ini', value: fmt(currentMonthExpense), type: 'subtraction' },
+                    { label: 'Sisa Bersih', value: fmt(insights.netSavings), type: 'result' }
+                  ]
+                })}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: insights.netSavings >= 0 ? 'var(--bg-income)' : 'var(--bg-expense)', color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--secondary)' }}>
                     <TrendingUp size={14} />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Sisa Bersih</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    Sisa Bersih
+                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>!</div>
+                  </span>
                 </div>
                 <div style={{ fontSize: '15px', fontWeight: 800, color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
                   {insights.netSavings >= 0 ? '+' : ''}{fmt(insights.netSavings)}
@@ -1000,12 +1028,38 @@ const Statistics: React.FC = () => {
               </div>
 
               {/* Daily Average Spending */}
-              <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
+              <div 
+                className="card glass" 
+                style={{ marginBottom: 0, padding: '14px', cursor: 'pointer', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                onClick={() => {
+                   const now = new Date();
+                   const vM = viewDate.getMonth();
+                   const vY = viewDate.getFullYear();
+                   const isCurrentMonth = now.getMonth() === vM && now.getFullYear() === vY;
+                   const daysPassed = isCurrentMonth ? Math.max(1, now.getDate()) : new Date(vY, vM + 1, 0).getDate();
+                   setDetailModalProps({
+                     isOpen: true,
+                     title: 'Rata-rata Pengeluaran Harian',
+                     explanation: 'Menunjukkan seberapa cepat Anda menghabiskan uang rata-rata setiap harinya di bulan ini.',
+                     formula: 'Total Pengeluaran / Jumlah Hari Berlalu',
+                     details: [
+                       { label: 'Total Pengeluaran', value: fmt(currentMonthExpense), type: 'neutral' },
+                       { label: 'Hari Berlalu', value: `${daysPassed} Hari`, type: 'neutral' },
+                       { label: 'Rata-rata / Hari', value: fmt(insights.avgDailySpending), type: 'result' }
+                     ]
+                   });
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(35,80%,55%,0.1)', color: 'hsl(35,80%,45%)' }}>
                     <Calendar size={14} />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Rata-rata/Hari</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    Rata-rata/Hari
+                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>!</div>
+                  </span>
                 </div>
                 <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--secondary)' }}>
                   {fmt(insights.avgDailySpending)}
@@ -1458,6 +1512,10 @@ const Statistics: React.FC = () => {
         viewDate={viewDate}
         onSelectDate={setViewDate}
       />
+      <StatDetailModal
+        {...detailModalProps}
+        onClose={() => setDetailModalProps(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };
@@ -1470,7 +1528,7 @@ const SCORE_COLORS = {
   poor: '#ef4444'
 };
 
-const FinancialHealth: React.FC = () => {
+const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ onShowDetail }) => {
   const {
     transactions, assets, debts, budgets, categories,
     currencySymbol, theme
@@ -1504,7 +1562,10 @@ const FinancialHealth: React.FC = () => {
       return sum + Math.max(0, d.totalAmount - paidAmt);
     }, 0);
 
-    const currentAssetsValue = assets.reduce((sum, a) => {
+    let totalAssetsValue = 0;
+    let liquidAssetsValue = 0;
+
+    assets.filter(a => !a.isDeleted).forEach(a => {
       const txSum = transactions.filter(t => t.assetId === a.id || t.fromAssetId === a.id || t.toAssetId === a.id)
         .reduce((s, t) => {
           if (t.type === 'pendapatan') return s + t.amount;
@@ -1515,10 +1576,14 @@ const FinancialHealth: React.FC = () => {
           }
           return s;
         }, 0);
-      return sum + (a.initialBalance || 0) + txSum;
-    }, 0);
+      const val = (a.initialBalance || 0) + txSum;
+      totalAssetsValue += val;
+      if (['Cash', 'Bank Account', 'eWallet'].includes(a.type)) {
+        liquidAssetsValue += val;
+      }
+    });
 
-    const currentNetWorth = currentAssetsValue - totalUnpaidDebt;
+    const currentNetWorth = totalAssetsValue - totalUnpaidDebt;
 
     let tempNetWorth = currentNetWorth;
     for (let i = last6Months.length - 1; i >= 0; i--) {
@@ -1539,7 +1604,7 @@ const FinancialHealth: React.FC = () => {
     else if (savingsRate >= 0) savingsScore = 5;
 
     const avgMonthlyExpense = last6Months.reduce((sum, m) => sum + m.expense, 0) / 6 || 1;
-    const efMonths = currentAssetsValue / avgMonthlyExpense;
+    const efMonths = liquidAssetsValue / avgMonthlyExpense;
 
     let efScore = 0;
     if (efMonths >= 6) efScore = 20;
@@ -1547,7 +1612,7 @@ const FinancialHealth: React.FC = () => {
     else if (efMonths >= 3) efScore = 10;
     else if (efMonths >= 1) efScore = 5;
 
-    const debtRatio = (totalUnpaidDebt / (currentAssetsValue || 1)) * 100;
+    const debtRatio = (totalUnpaidDebt / (liquidAssetsValue || 1)) * 100;
     let debtScore = 0;
     if (debtRatio === 0) debtScore = 20;
     else if (debtRatio < 10) debtScore = 15;
@@ -1611,7 +1676,8 @@ const FinancialHealth: React.FC = () => {
       last6Months,
       momSpending,
       momSavings,
-      currentAssetsValue,
+      totalAssetsValue,
+      liquidAssetsValue,
       totalUnpaidDebt,
       currentNetWorth,
       metrics: [
@@ -1677,8 +1743,65 @@ const FinancialHealth: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '24px' }}>
         {stats.metrics.map((m, i) => (
           <motion.div
-            key={i} className="card" style={{ padding: '16px', margin: 0, border: '1.5px solid var(--border-color)' }}
+            key={i} 
+            className="card clickable-card" 
+            style={{ padding: '16px', margin: 0, border: '1.5px solid var(--border-color)', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
+            onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
+            onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+            onClick={() => {
+              if (!onShowDetail) return;
+              
+              let formula = '';
+              let explanation = '';
+              let details: any[] = [];
+              
+              if (m.label === 'Rasio Tabungan') {
+                formula = '(Rata-rata Pemasukan - Rata-rata Pengeluaran) / Rata-rata Pemasukan × 100%';
+                explanation = 'Persentase pendapatan yang berhasil Anda tabung. Idealnya minimal 20%. Dihitung berdasarkan rata-rata 3 bulan terakhir.';
+                details = [
+                  { label: 'Rata-rata Pemasukan (3bln)', value: fmt(stats.last6Months.slice(-3).reduce((sum, mo) => sum + mo.income, 0) / 3), type: 'addition' },
+                  { label: 'Rata-rata Pengeluaran (3bln)', value: fmt(stats.last6Months.slice(-3).reduce((sum, mo) => sum + mo.expense, 0) / 3), type: 'subtraction' },
+                  { label: 'Rasio Tabungan', value: `${stats.savingsRate.toFixed(1)}%`, type: 'result' }
+                ];
+              } else if (m.label === 'Dana Darurat') {
+                formula = 'Total Aset Likuid / Rata-rata Pengeluaran Bulanan';
+                explanation = 'Berapa bulan Anda bisa bertahan hidup tanpa pendapatan sama sekali dengan mengandalkan uang tabungan saat ini. Idealnya 6 bulan.';
+                details = [
+                  { label: 'Total Aset Likuid (Kas/Bank/E-Wallet)', value: fmt(stats.liquidAssetsValue), type: 'addition' },
+                  { label: 'Rata-rata Pengeluaran (6bln)', value: fmt(stats.last6Months.reduce((sum, mo) => sum + mo.expense, 0) / 6), type: 'neutral' },
+                  { label: 'Ketahanan Dana', value: `${stats.efMonths.toFixed(1)} Bulan`, type: 'result' }
+                ];
+              } else if (m.label === 'Rasio Hutang') {
+                formula = 'Total Hutang Belum Lunas / Total Aset Likuid × 100%';
+                explanation = 'Perbandingan antara hutang yang belum dibayar dengan uang tunai yang Anda miliki. Idealnya 0% (tidak punya hutang tunai).';
+                details = [
+                  { label: 'Sisa Hutang Belum Lunas', value: fmt(stats.totalUnpaidDebt), type: 'subtraction' },
+                  { label: 'Total Aset Likuid (Kas/Bank/E-Wallet)', value: fmt(stats.liquidAssetsValue), type: 'neutral' },
+                  { label: 'Rasio Hutang', value: `${stats.debtRatio.toFixed(1)}%`, type: 'result' }
+                ];
+              } else if (m.label === 'Kepatuhan Anggaran') {
+                formula = 'Jumlah Kategori Sesuai Target / Total Anggaran Aktif × 100%';
+                explanation = 'Persentase anggaran bulanan yang berhasil Anda patuhi tanpa melebihi batas yang ditentukan.';
+                details = [
+                  { label: 'Rasio Kepatuhan', value: `${stats.adherenceRate.toFixed(1)}%`, type: 'result' }
+                ];
+              } else if (m.label === 'Konsistensi Belanja') {
+                formula = 'Standard Deviation / Mean (Pengeluaran)';
+                explanation = 'Mengukur seberapa stabil pengeluaran Anda dari bulan ke bulan selama 6 bulan terakhir. Semakin rendah angkanya, semakin stabil kebiasaan belanja Anda.';
+                details = [
+                  { label: 'Variasi Belanja', value: stats.spendingCV.toFixed(2), type: 'result' }
+                ];
+              } else if (m.label === 'Stabilitas Income') {
+                formula = 'Standard Deviation / Mean (Pendapatan)';
+                explanation = 'Mengukur seberapa stabil pemasukan Anda dari bulan ke bulan selama 6 bulan terakhir.';
+                details = [
+                  { label: 'Variasi Pemasukan', value: stats.incomeCV.toFixed(2), type: 'result' }
+                ];
+              }
+
+              onShowDetail({ isOpen: true, title: m.label, formula, explanation, details });
+            }}
           >
             <div className="flex-between" style={{ marginBottom: '12px' }}>
               <div style={{ padding: '8px', borderRadius: '12px', background: 'var(--primary-glow)', color: 'var(--primary)' }}>
@@ -1686,7 +1809,10 @@ const FinancialHealth: React.FC = () => {
               </div>
               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>{m.score}/{m.max}</span>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px' }}>{m.label}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {m.label}
+              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>!</div>
+            </div>
             <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)' }}>{m.value}</div>
             <div style={{ height: '4px', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
               <div style={{
@@ -1726,7 +1852,7 @@ const FinancialHealth: React.FC = () => {
             <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{fmt(stats.currentNetWorth)}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>Aset: {fmt(stats.currentAssetsValue)}</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>Aset Total: {fmt(stats.totalAssetsValue)}</div>
             <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700 }}>Hutang: {fmt(stats.totalUnpaidDebt)}</div>
           </div>
         </div>
@@ -2011,7 +2137,7 @@ const SubscriptionStatistics: React.FC = () => {
 };
 
 // ─── CashFlowForecast Component ──────────────────────────────────────────────
-const CashFlowForecast: React.FC = () => {
+const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ onShowDetail }) => {
   const {
     assets, recurringTransactions, subscriptions, currencySymbol, theme, getAssetBalance
   } = useMoney();
@@ -2021,11 +2147,15 @@ const CashFlowForecast: React.FC = () => {
   const fmt = (v: number) => formatCurrency(v, currencySymbol);
 
   const forecastData = useMemo(() => {
-    const data: { date: string; displayDate: string; balance: number; income: number; expense: number; isDanger: boolean }[] = [];
+    const data: { date: string; displayDate: string; balance: number; investBalance: number; income: number; expense: number; investInflow: number; isDanger: boolean }[] = [];
 
-    // 1. Initial Balance
+    // 1. Initial Balance (Hanya aset likuid)
     let currentBalance = assets
-      .filter(a => !a.isDeleted)
+      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type))
+      .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+
+    let currentInvestBalance = assets
+      .filter(a => !a.isDeleted && ['Savings', 'Investment'].includes(a.type))
       .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
 
     const now = new Date();
@@ -2043,6 +2173,8 @@ const CashFlowForecast: React.FC = () => {
 
       let dailyIncome = 0;
       let dailyExpense = 0;
+      let dailyInvestInflow = 0;
+      let dailyInvestOutflow = 0;
 
       // Check Recurring Transactions
       recurringTransactions.filter(rt => rt.isActive).forEach(rt => {
@@ -2057,6 +2189,31 @@ const CashFlowForecast: React.FC = () => {
         if (isToday) {
           if (rt.type === 'pendapatan') dailyIncome += rt.amount;
           else if (rt.type === 'pengeluaran') dailyExpense += rt.amount;
+          else if (rt.type === 'transfer') {
+             const fromAsset = assets.find(a => a.id === rt.fromAssetId);
+             const toAsset = assets.find(a => a.id === rt.toAssetId);
+
+             const isFromLiquid = fromAsset && ['Cash', 'Bank Account', 'eWallet'].includes(fromAsset.type);
+             const isToLiquid = toAsset && ['Cash', 'Bank Account', 'eWallet'].includes(toAsset.type);
+             const isFromInvest = fromAsset && ['Savings', 'Investment'].includes(fromAsset.type);
+             const isToInvest = toAsset && ['Savings', 'Investment'].includes(toAsset.type);
+
+             if (isFromLiquid && isToInvest) {
+                dailyExpense += rt.amount;
+                dailyInvestInflow += rt.amount;
+             } else if (isFromInvest && isToLiquid) {
+                dailyIncome += rt.amount;
+                dailyInvestOutflow += rt.amount;
+             } else if (isFromLiquid && !isToLiquid) {
+                dailyExpense += rt.amount;
+             } else if (!isFromLiquid && isToLiquid) {
+                dailyIncome += rt.amount;
+             } else if (isFromInvest && !isToInvest) {
+                dailyInvestOutflow += rt.amount;
+             } else if (!isFromInvest && isToInvest) {
+                dailyInvestInflow += rt.amount;
+             }
+          }
         }
       });
 
@@ -2079,13 +2236,16 @@ const CashFlowForecast: React.FC = () => {
       });
 
       currentBalance = currentBalance + dailyIncome - dailyExpense;
+      currentInvestBalance = currentInvestBalance + dailyInvestInflow - dailyInvestOutflow;
 
       data.push({
         date: dateKey,
         displayDate: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
         balance: currentBalance,
+        investBalance: currentInvestBalance,
         income: dailyIncome,
         expense: dailyExpense,
+        investInflow: dailyInvestInflow,
         isDanger: currentBalance < 0
       });
     }
@@ -2099,25 +2259,97 @@ const CashFlowForecast: React.FC = () => {
     const next30Days = forecastData.slice(0, 30);
     const totalBills = next30Days.reduce((sum, d) => sum + d.expense, 0);
     const currentBal = assets
-      .filter(a => !a.isDeleted)
+      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type))
       .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
     return Math.max(0, currentBal - totalBills);
   }, [forecastData, assets, getAssetBalance]);
+
+  const projectedInvest = useMemo(() => {
+    if (forecastData.length === 0) return 0;
+    return forecastData[Math.min(29, forecastData.length - 1)]?.investBalance || 0;
+  }, [forecastData]);
+
+  const currentInvestBal = useMemo(() => {
+    return assets.filter(a => !a.isDeleted && ['Savings', 'Investment'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+  }, [assets, getAssetBalance]);
 
   const dangerDays = activeData.filter(d => d.isDanger);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
       {/* Hero Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-        <div className="card shadow-soft" style={{
-          background: 'var(--primary-gradient)', color: 'white', border: 'none', padding: '16px',
-          boxShadow: '0 10px 25px var(--primary-glow)', position: 'relative', overflow: 'hidden'
-        }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Aman Dibelanjakan</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        <div 
+          className="card shadow-soft clickable-card" 
+          style={{
+            background: 'var(--primary-gradient)', color: 'white', border: 'none', padding: '16px',
+            boxShadow: '0 10px 25px var(--primary-glow)', position: 'relative', overflow: 'hidden', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s'
+          }}
+          onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
+          onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+          onClick={() => {
+            if (!onShowDetail) return;
+            const next30Days = forecastData.slice(0, 30);
+            const totalBills = next30Days.reduce((sum, d) => sum + d.expense, 0);
+            const totalIncome = next30Days.reduce((sum, d) => sum + d.income, 0);
+            const currentBal = assets.filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+            
+            onShowDetail({
+              isOpen: true,
+              title: 'Aman Dibelanjakan',
+              explanation: 'Uang yang bebas Anda gunakan hari ini tanpa takut gagal membayar tagihan rutin dan langganan dalam 30 hari ke depan.',
+              formula: 'Max(0, Total Aset - Estimasi Tagihan 30 Hari)',
+              details: [
+                { label: 'Total Saldo Saat Ini', value: fmt(currentBal), type: 'addition' },
+                { label: 'Estimasi Tagihan (30 Hari)', value: fmt(totalBills), type: 'subtraction' },
+                { label: 'Estimasi Pemasukan Rutin (Info)', value: fmt(totalIncome), type: 'neutral' },
+                { label: 'Aman Dibelanjakan', value: fmt(safeToSpend), type: 'result' }
+              ]
+            });
+          }}
+        >
+          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Aman Dibelanjakan
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>!</div>
+          </div>
           <div style={{ fontSize: '18px', fontWeight: 800 }}>{fmt(safeToSpend)}</div>
           <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Setelah tagihan 30 hari ke depan</div>
           <Zap size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
+        </div>
+
+        <div 
+          className="card shadow-soft clickable-card" 
+          style={{
+            background: 'var(--success-gradient, linear-gradient(135deg, #10b981, #34d399))', color: 'white', border: 'none', padding: '16px',
+            boxShadow: '0 10px 25px rgba(16,185,129,0.2)', position: 'relative', overflow: 'hidden', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s'
+          }}
+          onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
+          onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+          onClick={() => {
+            if (!onShowDetail) return;
+            const next30Days = forecastData.slice(0, 30);
+            const totalInflow = next30Days.reduce((sum, d) => sum + d.investInflow, 0);
+            
+            onShowDetail({
+              isOpen: true,
+              title: 'Tabungan & Investasi',
+              explanation: 'Perkiraan total nilai tabungan dan investasi Anda dalam 30 hari ke depan berdasarkan transaksi rutin otomatis (seperti auto-debet/transfer bulanan).',
+              formula: 'Saldo Tabungan/Investasi Saat Ini + Penambahan Rutin 30 Hari',
+              details: [
+                { label: 'Saldo Saat Ini', value: fmt(currentInvestBal), type: 'addition' },
+                { label: 'Penambahan Rutin (30 Hari)', value: fmt(totalInflow), type: 'addition' },
+                { label: 'Estimasi Masa Depan', value: fmt(projectedInvest), type: 'result' }
+              ]
+            });
+          }}
+        >
+          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Tabungan & Investasi
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>!</div>
+          </div>
+          <div style={{ fontSize: '18px', fontWeight: 800 }}>{fmt(projectedInvest)}</div>
+          <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Estimasi 30 hari ke depan</div>
+          <Target size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
         </div>
 
         <div className="card shadow-soft" style={{
@@ -2163,6 +2395,10 @@ const CashFlowForecast: React.FC = () => {
                 <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
                 <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
               </linearGradient>
+              <linearGradient id="investGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+              </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
             <XAxis
@@ -2184,10 +2420,21 @@ const CashFlowForecast: React.FC = () => {
             <Area
               type="monotone"
               dataKey="balance"
+              name="Kas & Bank"
               stroke="var(--primary)"
               strokeWidth={3}
               fillOpacity={1}
               fill="url(#forecastGradient)"
+              animationDuration={1000}
+            />
+            <Area
+              type="monotone"
+              dataKey="investBalance"
+              name="Tabungan & Investasi"
+              stroke="#10b981"
+              strokeWidth={3}
+              fillOpacity={1}
+              fill="url(#investGradient)"
               animationDuration={1000}
             />
           </AreaChart>

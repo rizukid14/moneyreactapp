@@ -83,12 +83,11 @@ const ChatBot: React.FC = () => {
           currentDate: getLocalDate(),
           currentTime: getLocalTime(),
           appKnowledge: {
-            currentVersion: 'v1.0.17',
+            currentVersion: 'v1.0.18',
             latestFeatures: [
-              'Holiday Trip: Fitur manajemen biaya perjalanan premium dengan OCR dan integrasi aset riil.',
-              'Smart Settle-Up: Pelunasan trip dengan link sharing dan tombol "Buka Link".',
-              'Grouped Settings: Navigasi pengaturan yang terorganisir (Akun, Keuangan, Sosial, Sistem).',
-              'Premium Member Pass: Kartu keanggotaan digital di profil dengan gacha tier level.'
+              'Zero-Based Budgeting (ZBB): Fitur alokasi pendapatan secara ketat di mana setiap pemasukan harus dialokasikan ke amplop kategori sampai habis bersisa 0.',
+              'ZBB Strict Mode: Sistem pemblokiran/pencegatan otomatis pada transaksi (manual, struk OCR, maupun mutasi) jika nominal melebihi sisa limit kategori, mengharuskan pemindahan/realokasi anggaran sebelum lanjut.',
+              'Tampilan UI Envelope System pada halaman budgeting dengan dukungan penguncian (lock) pendapatan.'
             ]
           }
         })

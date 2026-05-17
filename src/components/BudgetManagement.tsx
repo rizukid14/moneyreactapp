@@ -40,6 +40,80 @@ const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   );
 };
 
+const EnvelopeCard: React.FC<{
+  label: string;
+  spent: number;
+  limit: number;
+  onTopUp: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  isMenuOpen: boolean;
+  onMenuToggle: () => void;
+  currencySymbol: string;
+}> = ({ label, spent, limit, onTopUp, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol }) => {
+  const available = limit - spent;
+  const isOver = available < 0;
+  
+  return (
+    <div className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative', padding: '16px 20px', borderLeft: isOver ? '4px solid var(--danger)' : available === 0 ? '4px solid var(--border-color)' : '4px solid var(--primary)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)', marginBottom: 2 }}>{label}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Dianggarkan: {fmt(limit, currencySymbol)} &bull; Terpakai: {fmt(spent, currencySymbol)}
+          </div>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
+            <MoreVertical size={16} />
+          </button>
+          <AnimatePresence>
+            {isMenuOpen && (
+              <motion.div 
+                className="budget-dropdown" 
+                style={{ right: 0, top: 28 }}
+                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                transition={{ duration: 0.1 }}
+              >
+                <button className="budget-dropdown-item" onClick={onEdit}><Edit2 size={13} /> Edit Limit</button>
+                <button className="budget-dropdown-item danger" onClick={onDelete}><Trash2 size={13} /> Hapus</button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 2 }}>
+            Tersedia
+          </div>
+          <div style={{
+            fontSize: 20, fontWeight: 800,
+            color: isOver ? 'var(--danger)' : available === 0 ? 'var(--text-muted)' : 'var(--success)'
+          }}>
+            {isOver ? `-${fmt(Math.abs(available), currencySymbol)}` : fmt(available, currencySymbol)}
+          </div>
+        </div>
+        
+        <button 
+          onClick={(e) => { e.stopPropagation(); onTopUp(); }}
+          style={{ 
+            background: 'var(--bg-main)', border: '1px solid var(--border-color)', 
+            color: 'var(--primary)', width: 36, height: 36, borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+          }}
+        >
+          <PlusCircle size={18} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const BudgetCard: React.FC<{
   label: string;
   icon?: React.ReactNode;
@@ -126,7 +200,7 @@ const BudgetCard: React.FC<{
 };
 
 export const BudgetManagement: React.FC = () => {
-  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol, startOfMonthDay, budgetMode, monthlyIncome, setMonthlyIncome, moveBudgetMoney } = useMoney();
+  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol, startOfMonthDay, budgetMode, monthlyIncomes, setMonthIncome, moveBudgetMoney, budgetReallocations } = useMoney();
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date();
     if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
@@ -138,6 +212,7 @@ export const BudgetManagement: React.FC = () => {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
+  const [quickTopUpTarget, setQuickTopUpTarget] = useState<string | null>(null);
 
   const selectedMonth = viewDate.getMonth();
   const selectedYear = viewDate.getFullYear();
@@ -176,11 +251,38 @@ export const BudgetManagement: React.FC = () => {
   const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
   const globalPercent = globalBudget ? (spendingMap.total / globalBudget.limit) * 100 : 0;
 
+  const copyFromPreviousMonth = () => {
+    const prevMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
+    const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+    
+    const prevBudgets = budgets.filter(b => b.month === prevMonth && b.year === prevYear && b.categoryId !== null);
+    
+    prevBudgets.forEach(pb => {
+      const existing = currentMonthBudgets.find(b => b.categoryId === pb.categoryId);
+      if (!existing) {
+        addBudget({
+          categoryId: pb.categoryId,
+          limit: pb.limit,
+          period: 'monthly',
+          month: selectedMonth,
+          year: selectedYear
+        });
+      }
+    });
+  };
+
   const totalBudgeted = useMemo(() => 
     categoryBudgets.reduce((sum, b) => sum + b.limit, 0),
     [categoryBudgets]);
   
-  const unassignedMoney = monthlyIncome - totalBudgeted;
+  const currentMonthIncomeObj = useMemo(() => 
+    monthlyIncomes.find(m => m.month === selectedMonth && m.year === selectedYear),
+  [monthlyIncomes, selectedMonth, selectedYear]);
+  
+  const monthlyIncomeAmount = currentMonthIncomeObj ? currentMonthIncomeObj.amount : 0;
+  const isIncomeLocked = currentMonthIncomeObj ? currentMonthIncomeObj.isLocked : false;
+
+  const unassignedMoney = monthlyIncomeAmount - totalBudgeted;
   
   const [isMoveMoneyOpen, setIsMoveMoneyOpen] = useState(false);
 
@@ -218,15 +320,24 @@ export const BudgetManagement: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input 
                   type="text" 
-                  value={monthlyIncome === 0 ? '' : monthlyIncome} 
-                  onChange={e => setMonthlyIncome(Number(e.target.value.replace(/\D/g, '')))}
+                  value={monthlyIncomeAmount === 0 ? '' : monthlyIncomeAmount} 
+                  onChange={e => setMonthIncome(selectedMonth, selectedYear, Number(e.target.value.replace(/\D/g, '')), isIncomeLocked)}
+                  disabled={isIncomeLocked}
                   placeholder="Set pendapatan..."
                   style={{ 
                     fontSize: 24, fontWeight: 800, background: 'rgba(255,255,255,0.15)', 
                     border: '1px solid rgba(255,255,255,0.2)', color: 'white',
-                    width: '100%', padding: '8px 12px', borderRadius: 12, marginBottom: 0
+                    width: '100%', padding: '8px 12px', borderRadius: 12, marginBottom: 0,
+                    opacity: isIncomeLocked ? 0.7 : 1
                   }}
                 />
+                <button 
+                  onClick={() => setMonthIncome(selectedMonth, selectedYear, monthlyIncomeAmount, !isIncomeLocked)}
+                  className="btn-icon"
+                  style={{ background: isIncomeLocked ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)', color: 'white', padding: 10, borderRadius: 12 }}
+                >
+                  {isIncomeLocked ? <span style={{fontSize: 12, fontWeight: 700}}>🔒</span> : <span style={{fontSize: 12, fontWeight: 700}}>🔓</span>}
+                </button>
               </div>
               
               <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -236,7 +347,7 @@ export const BudgetManagement: React.FC = () => {
                   </div>
                   <div style={{ 
                     fontSize: 18, fontWeight: 800, 
-                    color: unassignedMoney === 0 ? 'rgba(255,255,255,0.7)' : unassignedMoney < 0 ? '#ffcfcf' : 'white' 
+                    color: unassignedMoney === 0 ? '#86efac' : unassignedMoney < 0 ? '#ffcfcf' : '#fcd34d' 
                   }}>
                     {fmt(unassignedMoney, currencySymbol)}
                   </div>
@@ -334,9 +445,16 @@ export const BudgetManagement: React.FC = () => {
         <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0 }}>
           {budgetMode === 'zero-based' ? 'Amplop Kategori' : 'Anggaran Kategori'}
         </h3>
-        <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <PlusCircle size={14} /> Tambah
-        </button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {categoryBudgets.length === 0 && (
+            <button onClick={copyFromPreviousMonth} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+              Salin Bulan Lalu
+            </button>
+          )}
+          <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <PlusCircle size={14} /> Tambah
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, maxHeight: '300px', overflowY: 'auto', paddingRight: 4 }}>
@@ -345,18 +463,35 @@ export const BudgetManagement: React.FC = () => {
           const spent = spendingMap[b.categoryId!] || 0;
           return (
             <div key={b.id} onClick={e => e.stopPropagation()}>
-              <BudgetCard
-                label={cat?.name || 'Kategori Terhapus'}
-                icon={<Wallet size={14} />}
-                spent={spent}
-                limit={b.limit}
-                isOver={spent > b.limit}
-                onEdit={() => handleEdit(b)}
-                onDelete={() => handleDelete(b.id)}
-                isMenuOpen={activeMenu === b.id}
-                onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
-                currencySymbol={currencySymbol}
-              />
+              {budgetMode === 'zero-based' ? (
+                <EnvelopeCard
+                  label={cat?.name || 'Kategori Terhapus'}
+                  spent={spent}
+                  limit={b.limit}
+                  onTopUp={() => {
+                    setQuickTopUpTarget(b.categoryId!);
+                    setIsMoveMoneyOpen(true);
+                  }}
+                  onEdit={() => handleEdit(b)}
+                  onDelete={() => handleDelete(b.id)}
+                  isMenuOpen={activeMenu === b.id}
+                  onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
+                  currencySymbol={currencySymbol}
+                />
+              ) : (
+                <BudgetCard
+                  label={cat?.name || 'Kategori Terhapus'}
+                  icon={<Wallet size={14} />}
+                  spent={spent}
+                  limit={b.limit}
+                  isOver={spent > b.limit}
+                  onEdit={() => handleEdit(b)}
+                  onDelete={() => handleDelete(b.id)}
+                  isMenuOpen={activeMenu === b.id}
+                  onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
+                  currencySymbol={currencySymbol}
+                />
+              )}
             </div>
           );
         })}
@@ -364,6 +499,40 @@ export const BudgetManagement: React.FC = () => {
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: '20px 0' }}>Belum ada anggaran kategori.</div>
         )}
       </div>
+
+      {budgetMode === 'zero-based' && budgetReallocations && budgetReallocations.some(r => r.month === selectedMonth && r.year === selectedYear) && (
+        <div style={{ marginTop: 24, paddingBottom: 16 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 10px 0', color: 'var(--text-main)' }}>Riwayat Realokasi Bulan Ini</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {budgetReallocations
+              .filter(r => r.month === selectedMonth && r.year === selectedYear)
+              .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .map(r => {
+                const fromName = r.fromCategoryId === 'unassigned' ? 'Belum Dialokasikan' : categories.find(c => c.id === r.fromCategoryId)?.name || 'Kategori';
+                const toName = r.toCategoryId === 'unassigned' ? 'Belum Dialokasikan' : categories.find(c => c.id === r.toCategoryId)?.name || 'Kategori';
+                const time = new Date(r.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                const date = new Date(r.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                return (
+                  <div key={r.id} style={{ background: 'var(--bg-main)', padding: 12, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{fromName}</span>
+                        <ArrowRightLeft size={10} style={{ color: 'var(--text-muted)' }} />
+                        <span>{toName}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                        {date} &bull; {time}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)' }}>
+                      {fmt(r.amount, currencySymbol)}
+                    </div>
+                  </div>
+                );
+            })}
+          </div>
+        </div>
+      )}
 
       <BudgetModal
         isOpen={isModalOpen}
@@ -380,12 +549,13 @@ export const BudgetManagement: React.FC = () => {
 
       <MoveMoneyModal
         isOpen={isMoveMoneyOpen}
-        onClose={() => setIsMoveMoneyOpen(false)}
+        onClose={() => { setIsMoveMoneyOpen(false); setQuickTopUpTarget(null); }}
         budgets={currentMonthBudgets}
         categories={categories}
         unassignedMoney={unassignedMoney}
         onMove={(from, to, amt) => moveBudgetMoney(from, to, amt, selectedMonth, selectedYear)}
         currencySymbol={currencySymbol}
+        defaultToId={quickTopUpTarget}
       />
 
       <ConfirmDialog
@@ -409,12 +579,26 @@ interface MoveMoneyModalProps {
   unassignedMoney: number;
   onMove: (from: string | null, to: string | null, amount: number) => void;
   currencySymbol: string;
+  defaultToId?: string | null;
 }
 
-const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, onMove, currencySymbol }) => {
+const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, onMove, currencySymbol, defaultToId }) => {
   const [fromId, setFromId] = useState<string | null | 'unassigned'>('unassigned');
   const [toId, setToId] = useState<string | null | 'unassigned'>('');
   const [amount, setAmount] = useState<string>('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (defaultToId) {
+        setToId(defaultToId);
+        setFromId('unassigned');
+      } else {
+        setToId('');
+        setFromId('unassigned');
+      }
+      setAmount('');
+    }
+  }, [isOpen, defaultToId]);
 
   const handleMove = () => {
     const num = Number(amount);

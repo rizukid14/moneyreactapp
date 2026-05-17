@@ -225,7 +225,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const totalSplit = splits.reduce((sum, s) => sum + s.amount, 0);
   const difference = totalAmount - totalSplit;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (splits.length === 0) {
       alert('Tambahkan minimal 1 orang untuk split bill');
       return;
@@ -239,6 +239,24 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     if (!selectedAssetId) {
       alert('Pilih rekening terlebih dahulu');
       return;
+    }
+
+    // Auto-generate shared link in the background to ensure it's accessible later
+    try {
+      if (!activeSharedId) {
+        await dbSaveSharedSplit({
+          type: 'split',
+          sourceId: sourceId || `${merchantName}-${date}-${totalAmount}`,
+          merchantName,
+          date,
+          totalAmount,
+          currencySymbol,
+          splits,
+          lineItems: localLineItems
+        });
+      }
+    } catch (err) {
+      console.error('Failed to auto-save shared split:', err);
     }
 
     onSave(splits, {
