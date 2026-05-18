@@ -56,10 +56,10 @@ export const QuotaBanner: React.FC = () => {
         <div className="quota-banner pulse">
             <div className="quota-banner-content">
                 <div className="quota-info">
-                    <AlertCircle size={18} className="warn-icon" />
+                    <CloudUpload size={18} style={{ color: 'var(--primary)' }} />
                     <div className="quota-text">
-                        <strong>Firestore Limit Tercapai</strong>
-                        <p>{pendingSyncCount} data tersimpan secara lokal di perangkat ini.</p>
+                        <strong>Sinkronisasi Awan (Pending)</strong>
+                        <p>{pendingSyncCount} data tersimpan secara lokal & siap dicadangkan.</p>
                     </div>
                 </div>
                 <button 
