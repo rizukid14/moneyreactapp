@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, CheckCircle2, Wallet, Calculator, Camera, Plus, Trash2 } from 'lucide-react';
+import { X, Check, Wallet, Calculator, Camera, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AssetSelectModal from './AssetSelectModal';
 import { useMoney, type Trip, type TripExpense, type TripExpenseSplit } from '../../contexts/MoneyContext';
