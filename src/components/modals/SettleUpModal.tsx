@@ -227,9 +227,9 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
       // Find existing debts linked to this trip's expenses for this contact
       const tripExpenseIds = new Set(expenses.map(e => e.id));
       const relatedDebts = debts.filter(d =>
-        d.contact === contactName &&
-        d.relatedId && tripExpenseIds.has(d.relatedId) &&
-        !d.isPaid
+        d.contact.toLowerCase().trim() === contactName.toLowerCase().trim() &&
+        !d.isPaid &&
+        ((d.relatedId && tripExpenseIds.has(d.relatedId)) || d.description.toLowerCase().includes(`[trip: ${trip.name.toLowerCase()}]`))
       );
 
       if (relatedDebts.length > 0 && contactName) {
@@ -341,7 +341,8 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                       display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
                       borderRadius: '16px', background: selectedAssetId === asset.id ? 'var(--primary-glow)' : 'var(--bg-neutral)',
                       border: `1px solid ${selectedAssetId === asset.id ? 'var(--primary)' : 'var(--border-color)'}`,
-                      width: '100%', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left'
+                      width: '100%', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left',
+                      color: 'var(--text-main)'
                     }}
                   >
                     <div style={{ 

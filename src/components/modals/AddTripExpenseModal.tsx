@@ -279,6 +279,25 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
             }, selectedAssetId ? 'cash' : 'none');
           }
         });
+      } else {
+        // Someone else paid! If I am in the splits, I owe them (hutang)
+        const mySplit = expenseData.splits.find(s => s.memberId === 'me');
+        if (mySplit && mySplit.amount > 0) {
+          const payerName = trip.members.find(m => m.id === payerId)?.name || 'Teman';
+          addDebt({
+            type: 'hutang',
+            contact: payerName,
+            totalAmount: mySplit.amount,
+            description: `[Trip: ${trip.name}] ${description}`,
+            date: expenseData.date,
+            isPaid: false,
+            createdAt: new Date().toISOString(),
+            isInstallment: false,
+            paidInstallments: 0,
+            relatedId: newExpense.id, // Link to trip expense
+            liabilityAssetId: ''
+          }, 'none');
+        }
       }
     }
 
