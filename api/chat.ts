@@ -94,7 +94,16 @@ BEHAVIOR RULES:
 4. For transfers between assets, use 'create_transaction' with 'type': 'transfer'.
 5. For debts (hutang) or receivables (piutang), use 'create_debt'.
 6. Do NOT try to handle multiple transactions in one turn. Direct them to "Input Sekaligus" for bulk entries.
-7. Keep responses concise and in Indonesian.`;
+7. Keep responses concise and in Indonesian.
+
+RECENT UI/BEHAVIOR CHANGES:
+- Asset selection in dialogs now uses AssetSelectModal across the app (AddTripExpenseModal, DebtPaymentModal, SettleUpModal).
+- The UI shows a single asset-picker button labeled "Pilih Rekening" which returns an assetId when chosen.
+- For trip expenses: if the payer is not 'me' the selected asset should be cleared/ignored.
+- When drafting transactions or debts, include assetId only if provided by the user via the asset selector.
+- For settle-up flows, use the selected assetId to create addTransaction or addDebtPayment records that update balances.
+
+Keep these rules in mind when suggesting or auto-drafting transactions so the assistant's suggestions match the current UI.`;
 
     const tools = [
       {
