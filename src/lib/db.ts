@@ -571,8 +571,9 @@ export const dbImportAll = async (data: any) => {
 };
 
 // ─── Sync Logic ──────────────────────────────────────────────────────────────
-export const dbSyncPendingItems = async (): Promise<{ success: number; failed: number }> => {
-  if (!isFirebaseConfigured || !auth.currentUser) return { success: 0, failed: 0 };
+export const dbSyncPendingItems = async (): Promise<{ success: number; failed: number; error?: string }> => {
+  if (!isFirebaseConfigured) return { success: 0, failed: 0, error: 'NO_FIREBASE' };
+  if (!auth.currentUser) return { success: 0, failed: 0, error: 'NOT_LOGGED_IN' };
   const db = await getDB();
   const pending = await db.getAll('pending_sync');
   let success = 0;
@@ -591,6 +592,7 @@ export const dbSyncPendingItems = async (): Promise<{ success: number; failed: n
       await db.delete('pending_sync', item.id);
       success++;
     } catch (e) {
+      console.error('[Sync Error] Failed to sync item:', item, e);
       failed++;
       break;
     }
@@ -717,17 +719,23 @@ export const dbGetAllTrips = async (): Promise<any[]> => {
 export const dbPutTrip = async (trip: any) => {
   const db = await getDB();
   await db.put('trips', trip);
-  if (isFirebaseConfigured && auth.currentUser) {
-    await recordPendingSync({ id: trip.id, collection: 'trips', operation: 'PUT', data: trip });
-  }
+  await recordPendingSync({ id: trip.id, collection: 'trips', operation: 'PUT', data: trip });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'trips', trip.id), sanitizeForFirestore(trip))
+    .then(() => removePendingSync(trip.id))
+    .catch(() => { });
 };
 
 export const dbDeleteTrip = async (id: string) => {
   const db = await getDB();
   await db.delete('trips', id);
-  if (isFirebaseConfigured && auth.currentUser) {
-    await recordPendingSync({ id, collection: 'trips', operation: 'DELETE' });
-  }
+  await recordPendingSync({ id, collection: 'trips', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'trips', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
 };
 
 // ─── Trip Expenses ────────────────────────────────────────────────────────────
@@ -739,17 +747,23 @@ export const dbGetAllTripExpenses = async (): Promise<any[]> => {
 export const dbPutTripExpense = async (expense: any) => {
   const db = await getDB();
   await db.put('trip_expenses', expense);
-  if (isFirebaseConfigured && auth.currentUser) {
-    await recordPendingSync({ id: expense.id, collection: 'trip_expenses', operation: 'PUT', data: expense });
-  }
+  await recordPendingSync({ id: expense.id, collection: 'trip_expenses', operation: 'PUT', data: expense });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'trip_expenses', expense.id), sanitizeForFirestore(expense))
+    .then(() => removePendingSync(expense.id))
+    .catch(() => { });
 };
 
 export const dbDeleteTripExpense = async (id: string) => {
   const db = await getDB();
   await db.delete('trip_expenses', id);
-  if (isFirebaseConfigured && auth.currentUser) {
-    await recordPendingSync({ id, collection: 'trip_expenses', operation: 'DELETE' });
-  }
+  await recordPendingSync({ id, collection: 'trip_expenses', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'trip_expenses', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
 };
 
 // ─── Monthly Incomes ──────────────────────────────────────────────────────────
@@ -761,17 +775,23 @@ export const dbGetAllMonthlyIncomes = async (): Promise<any[]> => {
 export const dbPutMonthlyIncome = async (item: any) => {
   const db = await getDB();
   await db.put('monthly_incomes', item);
-  if (isFirebaseConfigured && auth.currentUser) {
-    await recordPendingSync({ id: item.id, collection: 'monthly_incomes', operation: 'PUT', data: item });
-  }
+  await recordPendingSync({ id: item.id, collection: 'monthly_incomes', operation: 'PUT', data: item });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'monthly_incomes', item.id), sanitizeForFirestore(item))
+    .then(() => removePendingSync(item.id))
+    .catch(() => { });
 };
 
 export const dbDeleteMonthlyIncome = async (id: string) => {
   const db = await getDB();
   await db.delete('monthly_incomes', id);
-  if (isFirebaseConfigured && auth.currentUser) {
-    await recordPendingSync({ id, collection: 'monthly_incomes', operation: 'DELETE' });
-  }
+  await recordPendingSync({ id, collection: 'monthly_incomes', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'monthly_incomes', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
 };
 
 // ─── Budget Reallocations ─────────────────────────────────────────────────────
@@ -783,15 +803,21 @@ export const dbGetAllBudgetReallocations = async (): Promise<any[]> => {
 export const dbPutBudgetReallocation = async (item: any) => {
   const db = await getDB();
   await db.put('budget_reallocations', item);
-  if (isFirebaseConfigured && auth.currentUser) {
-    await recordPendingSync({ id: item.id, collection: 'budget_reallocations', operation: 'PUT', data: item });
-  }
+  await recordPendingSync({ id: item.id, collection: 'budget_reallocations', operation: 'PUT', data: item });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'budget_reallocations', item.id), sanitizeForFirestore(item))
+    .then(() => removePendingSync(item.id))
+    .catch(() => { });
 };
 
 export const dbDeleteBudgetReallocation = async (id: string) => {
   const db = await getDB();
   await db.delete('budget_reallocations', id);
-  if (isFirebaseConfigured && auth.currentUser) {
-    await recordPendingSync({ id, collection: 'budget_reallocations', operation: 'DELETE' });
-  }
+  await recordPendingSync({ id, collection: 'budget_reallocations', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'budget_reallocations', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
 };

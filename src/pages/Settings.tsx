@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
@@ -321,6 +322,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
 };
 
 const Settings: React.FC = () => {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -489,7 +491,7 @@ const Settings: React.FC = () => {
       return;
     }
     if (id === 'trips') {
-      window.location.href = '/trips';
+      navigate('/trips');
       return;
     }
     setActiveModal(id);

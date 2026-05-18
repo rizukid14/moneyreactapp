@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
@@ -8,6 +8,7 @@ import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
 import DebtOffsetModal from '../components/modals/DebtOffsetModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import { useToast } from '../components/common/Toast';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -331,6 +332,24 @@ const Debts: React.FC = () => {
         amt: Math.min(vals.h, vals.p)
       }));
   }, [debts, transactions]);
+
+  const { showToast } = useToast();
+
+  // Always keep ref to latest offsetDebt to avoid stale closure in the effect below
+  const offsetDebtRef = useRef(offsetDebt);
+  useEffect(() => { offsetDebtRef.current = offsetDebt; });
+
+  // Auto-offset: cascade — processes one contact per render cycle to stay fresh
+  useEffect(() => {
+    if (offsetPotentials.length === 0) return;
+    const p = offsetPotentials[0];
+    offsetDebtRef.current(p.contact);
+    showToast(
+      `↔ Potong silang otomatis: ${p.contact} · ${currencySymbol}${p.amt.toLocaleString('id-ID')}`,
+      'success'
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offsetPotentials]);
 
   const filtered = useMemo(() => {
     return debts.filter(d => {

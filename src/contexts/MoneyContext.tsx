@@ -320,7 +320,7 @@ interface MoneyContextType {
   importData: (file: File) => Promise<void>;
   logOut: () => Promise<void>;
   pendingSyncCount: number;
-  syncData: () => Promise<{ success: number; failed: number }>;
+  syncData: () => Promise<{ success: number; failed: number; error?: string }>;
   pullFromCloud: () => Promise<{ total: number }>;
   budgetMode: BudgetMode;
   setBudgetMode: (mode: BudgetMode) => void;
@@ -566,13 +566,17 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Sync Status ────────────────────────────────────────────────────────
   const refreshSyncCount = useCallback(async () => {
+    if (!isFirebaseConfigured) {
+      setPendingSyncCount(0);
+      return;
+    }
     const count = await dbGetPendingSyncCount();
     console.log('[MoneyContext] Updating pending sync count:', count);
     setPendingSyncCount(count);
   }, []);
 
   useEffect(() => {
-    if (isReady) {
+    if (isReady && isFirebaseConfigured) {
       refreshSyncCount();
       // Poll sync count every 10 seconds to catch background retry successes
       const interval = setInterval(refreshSyncCount, 10000);

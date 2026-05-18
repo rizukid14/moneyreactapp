@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { X, Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, ExternalLink, Info, History as HistoryIcon } from 'lucide-react';
+import AssetSelectModal from './AssetSelectModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
-import { getLocalDate, getLocalTime } from '../../lib/utils';
+import { getLocalDate, getLocalTime, isPrincipalTx } from '../../lib/utils';
 import SettlementExplanationModal from './SettlementExplanationModal';
 
 interface SettleUpModalProps {
@@ -14,13 +15,14 @@ interface SettleUpModalProps {
 }
 
 const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, expenses }) => {
-  const { user, currencySymbol, debts, assets, addDebtPayment, addTransaction, updateDebt, updateTrip, defaultAssetId, getAssetBalance } = useMoney();
+  const { user, currencySymbol, debts, transactions, assets, addDebtPayment, addTransaction, updateTrip, defaultAssetId, getAssetBalance } = useMoney();
   const { showToast } = useToast();
   const [mode, setMode] = useState<'simple' | 'detailed'>(trip.settlementMode || 'simple');
   const [settlingTx, setSettlingTx] = useState<any | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string>(defaultAssetId || '');
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
+  const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
 
   const settlement = useMemo(() => {
     // 1. Calculate net balances
@@ -233,20 +235,47 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
       );
 
       if (relatedDebts.length > 0 && contactName) {
-        // Record payment TX on the first debt (will appear in debt history)
-        addDebtPayment(
-          relatedDebts[0].id,
-          t.amount,
-          assetId,
-          getLocalDate(),
-          getLocalTime(),
-          `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`
-        );
+        // Calculate remaining amount for each related debt
+        const activeDebts = relatedDebts.map(d => {
+          const history = transactions.filter(tx => tx.relatedId === d.id);
+          const paidAmt = history.reduce((sum, tx) => {
+            if (isPrincipalTx(tx.note, tx.category)) return sum;
+            return sum + Number(tx.amount || 0);
+          }, 0);
+          const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
+          return { debt: d, remaining };
+        }).filter(item => item.remaining > 0);
 
-        // Mark ALL related debts for this contact as paid
-        relatedDebts.forEach(d => {
-          updateDebt(d.id, { isPaid: true });
-        });
+        const totalRemaining = activeDebts.reduce((sum, item) => sum + item.remaining, 0);
+
+        if (activeDebts.length > 0 && totalRemaining > 0) {
+          let paymentLeft = t.amount;
+
+          // Proportional payment allocation
+          activeDebts.forEach((item, idx) => {
+            let portion = 0;
+            if (idx === activeDebts.length - 1) {
+              // Give all remaining payment to the last item to avoid rounding/residual issues
+              portion = paymentLeft;
+            } else {
+              portion = Math.round((item.remaining / totalRemaining) * t.amount);
+              // Cap to avoid overpaying if rounding exceeds remaining or total left
+              portion = Math.min(portion, item.remaining, paymentLeft);
+            }
+
+            if (portion > 0) {
+              addDebtPayment(
+                item.debt.id,
+                portion,
+                assetId,
+                getLocalDate(),
+                getLocalTime(),
+                `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`
+              );
+              paymentLeft -= portion;
+            }
+          });
+        }
       } else if (t.from === 'me' || t.to === 'me') {
         // No existing debts found (expense was "Hanya Catat" originally)
         // Create a standalone TX to record the money movement
@@ -333,35 +362,40 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
               </div>
 
               <div style={{ display: 'grid', gap: '8px', marginBottom: '32px' }}>
-                {assets.filter(a => !a.isDeleted && !a.isHidden).map(asset => (
-                  <button
-                    key={asset.id}
-                    onClick={() => setSelectedAssetId(asset.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
-                      borderRadius: '16px', background: selectedAssetId === asset.id ? 'var(--primary-glow)' : 'var(--bg-neutral)',
-                      border: `1px solid ${selectedAssetId === asset.id ? 'var(--primary)' : 'var(--border-color)'}`,
-                      width: '100%', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left',
-                      color: 'var(--text-main)'
-                    }}
-                  >
-                    <div style={{ 
-                      width: '40px', height: '40px', borderRadius: '10px', 
-                      background: selectedAssetId === asset.id ? 'var(--bg-card)' : 'var(--bg-card)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: selectedAssetId === asset.id ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
-                    }}>
-                      <Wallet size={20} color={selectedAssetId === asset.id ? 'var(--primary)' : (asset.type === 'Cash' ? 'var(--secondary)' : asset.type === 'Bank Account' ? 'var(--primary)' : asset.type === 'eWallet' ? 'var(--success)' : 'var(--text-muted)')} />
+                <button
+                  type="button"
+                  onClick={() => setIsAssetSelectOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
+                    borderRadius: '16px', background: 'var(--bg-neutral)',
+                    border: `1px solid var(--border-color)`,
+                    width: '100%', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left',
+                    color: 'var(--text-main)'
+                  }}
+                >
+                  <div style={{ 
+                    width: '40px', height: '40px', borderRadius: '10px', 
+                    background: 'var(--bg-card)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Wallet size={20} color={'var(--text-muted)'} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: '14px' }}>{assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Saldo: {currencySymbol}{getAssetBalance(selectedAssetId).toLocaleString('id-ID')}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, fontSize: '14px' }}>{asset.name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        Saldo: {currencySymbol}{getAssetBalance(asset.id).toLocaleString('id-ID')}
-                      </div>
-                    </div>
-                    {selectedAssetId === asset.id && <CheckCircle2 size={20} color="var(--primary)" />}
-                  </button>
-                ))}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>Ganti</div>
+                </button>
+
+                <AssetSelectModal
+                  isOpen={isAssetSelectOpen}
+                  onClose={() => setIsAssetSelectOpen(false)}
+                  assets={assets}
+                  selectedAssetId={selectedAssetId}
+                  onSelect={(id) => { setSelectedAssetId(id); setIsAssetSelectOpen(false); }}
+                />
 
               </div>
 

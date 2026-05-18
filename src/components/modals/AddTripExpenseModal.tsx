@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Calculator, Camera, Plus, Trash2, ChevronRight } from 'lucide-react';
+import { X, Check, CheckCircle2, Wallet, Calculator, Camera, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AssetSelectModal from './AssetSelectModal';
 import { useMoney, type Trip, type TripExpense, type TripExpenseSplit } from '../../contexts/MoneyContext';
 import { useReceiptOCR } from '../../hooks/useReceiptOCR';
 import { generateId, getLocalTime } from '../../lib/utils';
@@ -30,6 +31,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
   const [ocrItems, setOcrItems] = useState<{ id: string, name: string, amount: number }[]>([]);
   const [itemAssignments, setItemAssignments] = useState<Record<number, string[]>>({});
   const [showOCRUI, setShowOCRUI] = useState(false);
+  const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
 
   useEffect(() => {
     if (editingExpense) {
@@ -373,29 +375,42 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gap: '16px' }}>
               <div>
                 <label className="label">Tanggal</label>
-                <div style={{ position: 'relative' }}>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" style={{ width: '100%', borderRadius: '14px', padding: '12px' }} />
-                </div>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" style={{ width: '100%', borderRadius: '14px', padding: '12px' }} />
               </div>
               {payerId === 'me' && (
                 <div>
-                  <label className="label">Dibayar Pakai (Opsional)</label>
-                  <div style={{ position: 'relative' }}>
-                    <select
-                      value={selectedAssetId}
-                      onChange={e => setSelectedAssetId(e.target.value)}
-                      className="input"
-                      style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700, appearance: 'none', background: 'var(--bg-card)' }}
+                  <label className="label" style={{ marginBottom: '12px', display: 'block' }}>Dibayar Pakai</label>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsAssetSelectOpen(true)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                        borderRadius: '16px',
+                        background: 'var(--bg-neutral)',
+                        border: `1.5px solid var(--border-color)`,
+                        width: '100%', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left',
+                        color: 'var(--text-main)'
+                      }}
                     >
-                      <option value="">Hanya Catat</option>
-                      {assets.filter(a => !a.isDeleted).map(a => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                      ))}
-                    </select>
-                    <ChevronRight size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%) rotate(90deg)', pointerEvents: 'none' }} />
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'var(--bg-card)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                      }}>
+                        <Wallet size={18} color={'var(--text-muted)'} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                        <div style={{ fontWeight: 800, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{assets.find(a => a.id === selectedAssetId)?.type || ''}</div>
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>Ganti</div>
+                    </button>
                   </div>
                 </div>
               )}
@@ -527,7 +542,14 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
         </motion.div>
       </div>
       </AnimatePresence>
-      
+      <AssetSelectModal
+        isOpen={isAssetSelectOpen}
+        onClose={() => setIsAssetSelectOpen(false)}
+        assets={assets}
+        selectedAssetId={selectedAssetId}
+        onSelect={(id) => { setSelectedAssetId(id); setIsAssetSelectOpen(false); }}
+      />
+
       {/* OCR Items Sub-modal */}
       <AnimatePresence>
         {showOCRUI && ocrItems.length > 0 && (
