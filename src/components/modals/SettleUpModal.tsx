@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { X, Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, History, ExternalLink, Info } from 'lucide-react';
+import { X, Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, ExternalLink, Info, History as HistoryIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
-import { generateId, getLocalDate, getLocalTime } from '../../lib/utils';
+import { getLocalDate, getLocalTime } from '../../lib/utils';
 import SettlementExplanationModal from './SettlementExplanationModal';
 
 interface SettleUpModalProps {
@@ -14,7 +14,7 @@ interface SettleUpModalProps {
 }
 
 const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, expenses }) => {
-  const { user, currencySymbol, addDebt, assets, addDebtPayment, updateTrip, defaultAssetId, getAssetBalance } = useMoney();
+  const { user, currencySymbol, debts, assets, addDebtPayment, addTransaction, updateDebt, updateTrip, defaultAssetId, getAssetBalance } = useMoney();
   const { showToast } = useToast();
   const [mode, setMode] = useState<'simple' | 'detailed'>(trip.settlementMode || 'simple');
   const [settlingTx, setSettlingTx] = useState<any | null>(null);
@@ -84,7 +84,6 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
     }
 
     // 3. Detailed Mode (Proportional / Full Breakdown)
-    // We sum all individual IOUs and then net them
     const iouMap: Record<string, Record<string, number>> = {};
     trip.members.forEach(m1 => {
       iouMap[m1.id] = {};
@@ -204,62 +203,86 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
     showToast('Link disalin!', 'success');
   };
 
-  const handleMarkAsPaid = async (t: any, idx: number, assetId?: string) => {
+  const handleMarkAsPaid = async (t: any, idx: number, assetId: string) => {
+    if (!assetId) {
+      showToast('Pilih sumber dana terlebih dahulu!', 'warning');
+      return;
+    }
+
     const fromName = trip.members.find(m => m.id === t.from)?.name || 'Unknown';
     const toName = trip.members.find(m => m.id === t.to)?.name || 'Unknown';
     
     setIsProcessing(true);
     try {
-      const debtId = generateId();
       const settlementKey = `${t.from}-${t.to}-${t.amount}-${idx}`;
 
-      // 1. Create a Debt record (unpaid initially)
-      let debtType: 'hutang' | 'piutang' = 'hutang';
-      let contact = '';
-      
+      // Determine contact name for debt lookup
+      let contactName = '';
       if (t.from === 'me') {
-        debtType = 'hutang';
-        contact = toName;
+        contactName = toName;  // I owe them → hutang, contact = creditor name
       } else if (t.to === 'me') {
-        debtType = 'piutang';
-        contact = fromName;
-      } else {
-        contact = `${fromName} -> ${toName}`;
+        contactName = fromName; // They owe me → piutang, contact = debtor name
       }
 
-      await addDebt({
-        id: debtId,
-        type: debtType,
-        contact: contact,
-        description: `Settle Trip: ${trip.name}`,
-        totalAmount: t.amount,
-        isPaid: false, // Will be marked paid by addDebtPayment
-        date: new Date().toISOString().split('T')[0],
-        createdAt: new Date().toISOString(),
-        isInstallment: false,
-        paidInstallments: 0
-      } as any, 'none');
+      // Find existing debts linked to this trip's expenses for this contact
+      const tripExpenseIds = new Set(expenses.map(e => e.id));
+      const relatedDebts = debts.filter(d =>
+        d.contact === contactName &&
+        d.relatedId && tripExpenseIds.has(d.relatedId) &&
+        !d.isPaid
+      );
 
-      // 2. If asset selected, record the payment TX
-      if (assetId) {
-        await addDebtPayment(
-          debtId,
+      if (relatedDebts.length > 0 && contactName) {
+        // Record payment TX on the first debt (will appear in debt history)
+        addDebtPayment(
+          relatedDebts[0].id,
           t.amount,
           assetId,
           getLocalDate(),
           getLocalTime(),
-          `Pelunasan Trip: ${trip.name}`
+          `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`
         );
+
+        // Mark ALL related debts for this contact as paid
+        relatedDebts.forEach(d => {
+          updateDebt(d.id, { isPaid: true });
+        });
+      } else if (t.from === 'me' || t.to === 'me') {
+        // No existing debts found (expense was "Hanya Catat" originally)
+        // Create a standalone TX to record the money movement
+        if (t.to === 'me') {
+          // They pay me → piutang_masuk (money in)
+          addTransaction({
+            type: 'piutang_masuk',
+            amount: t.amount,
+            category: 'Pelunasan Piutang',
+            date: getLocalDate(),
+            time: getLocalTime(),
+            note: `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`,
+            assetId,
+          });
+        } else {
+          // I pay them → hutang_keluar (money out)
+          addTransaction({
+            type: 'hutang_keluar',
+            amount: t.amount,
+            category: 'Bayar Hutang',
+            date: getLocalDate(),
+            time: getLocalTime(),
+            note: `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`,
+            assetId,
+          });
+        }
       }
 
-      // 3. Update Trip with locked mode and paid settlement key
+      // Update Trip with locked mode and paid settlement key
       const updatedPaid = [...(trip.paidSettlements || []), settlementKey];
       await updateTrip(trip.id, {
         settlementMode: mode,
         paidSettlements: updatedPaid
       });
 
-      showToast(assetId ? `Pembayaran dicatat & saldo diperbarui!` : `Penyelesaian dicatat di Debts!`, 'success');
+      showToast(`Pembayaran dicatat & saldo diperbarui!`, 'success');
       setSettlingTx(null);
     } catch (err) {
       console.error(err);
@@ -339,39 +362,18 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                   </button>
                 ))}
 
-                <button
-                  onClick={() => setSelectedAssetId('')}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
-                    borderRadius: '16px', background: selectedAssetId === '' ? 'var(--primary-glow)' : 'var(--bg-neutral)',
-                    border: `1px solid ${selectedAssetId === '' ? 'var(--primary)' : 'var(--border-color)'}`,
-                    width: '100%', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left'
-                  }}
-                >
-                  <div style={{ 
-                    width: '40px', height: '40px', borderRadius: '10px', background: 'var(--bg-card)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>
-                    <History size={20} color={selectedAssetId === '' ? 'var(--primary)' : 'var(--text-muted)'} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: '14px' }}>Hanya Catat (Tanpa Saldo)</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hanya masuk ke riwayat Hutang/Piutang</div>
-                  </div>
-                  {selectedAssetId === '' && <CheckCircle2 size={20} color="var(--primary)" />}
-                </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '12px' }}>
                 <button onClick={() => setSettlingTx(null)} className="btn btn-secondary">Batal</button>
                 <button 
-                  onClick={() => handleMarkAsPaid(settlingTx, settlingTx.idx, selectedAssetId || undefined)} 
-                  disabled={isProcessing}
+                  onClick={() => handleMarkAsPaid(settlingTx, settlingTx.idx, selectedAssetId)} 
+                  disabled={isProcessing || !selectedAssetId}
                   className="btn btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: !selectedAssetId ? 0.5 : 1 }}
                 >
-                  {isProcessing ? 'Memproses...' : 'Konfirmasi Pelunasan'}
-                  {!isProcessing && <ChevronRight size={18} />}
+                  {isProcessing ? 'Memproses...' : !selectedAssetId ? 'Pilih Aset Dulu' : 'Konfirmasi Pelunasan'}
+                  {!isProcessing && selectedAssetId && <ChevronRight size={18} />}
                 </button>
               </div>
             </motion.div>
@@ -411,7 +413,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 </button>
                 {trip.settlementMode && (
                   <div style={{ position: 'absolute', top: '-18px', right: '0', fontSize: '10px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <History size={10} /> MODE TERKUNCI
+                    <HistoryIcon size={10} /> MODE TERKUNCI
                   </div>
                 )}
               </div>

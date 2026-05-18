@@ -4,6 +4,7 @@ import { type Goal, type Asset } from '../../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalculatorModal from './CalculatorModal';
 import AssetSelectModal from './AssetSelectModal';
+import CurrencyInput from '../common/CurrencyInput';
 import { useToast } from '../common/Toast';
 import { getLocalDate } from '../../lib/utils';
 
@@ -43,11 +44,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
     }
   }, [editingGoal, isOpen]);
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const numericValue = e.target.value.replace(/\D/g, '');
-    if (!numericValue) { setTargetAmount(''); return; }
-    setTargetAmount(Number(numericValue).toLocaleString('id-ID'));
-  };
+
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,13 +122,11 @@ const GoalModal: React.FC<GoalModalProps> = ({
                   Target Dana ({currencySymbol})
                 </label>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                  <input 
-                    type="text" 
-                    inputMode="numeric" 
+                  <CurrencyInput 
                     required 
                     placeholder="Contoh: 10.000.000" 
                     value={targetAmount} 
-                    onChange={handleAmountChange}
+                    onChange={setTargetAmount}
                     style={{ flex: 1, marginBottom: 0 }}
                   />
                   <button 

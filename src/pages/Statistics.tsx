@@ -2278,11 +2278,11 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
       {/* Hero Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'clamp(6px, 2vw, 12px)' }}>
         <div 
           className="card shadow-soft clickable-card" 
           style={{
-            background: 'var(--primary-gradient)', color: 'white', border: 'none', padding: '16px',
+            background: 'var(--primary-gradient)', color: 'white', border: 'none', padding: 'clamp(10px, 3vw, 16px)',
             boxShadow: '0 10px 25px var(--primary-glow)', position: 'relative', overflow: 'hidden', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s'
           }}
           onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
@@ -2308,19 +2308,19 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
             });
           }}
         >
-          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             Aman Dibelanjakan
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>!</div>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, flexShrink: 0 }}>!</div>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: 800 }}>{fmt(safeToSpend)}</div>
-          <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Setelah tagihan 30 hari ke depan</div>
+          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(safeToSpend)}</div>
+          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Setelah tagihan 30 hari</div>
           <Zap size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
         </div>
 
         <div 
           className="card shadow-soft clickable-card" 
           style={{
-            background: 'var(--success-gradient, linear-gradient(135deg, #10b981, #34d399))', color: 'white', border: 'none', padding: '16px',
+            background: 'var(--success-gradient, linear-gradient(135deg, #10b981, #34d399))', color: 'white', border: 'none', padding: 'clamp(10px, 3vw, 16px)',
             boxShadow: '0 10px 25px rgba(16,185,129,0.2)', position: 'relative', overflow: 'hidden', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s'
           }}
           onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
@@ -2343,24 +2343,25 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
             });
           }}
         >
-          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             Tabungan & Investasi
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>!</div>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, flexShrink: 0 }}>!</div>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: 800 }}>{fmt(projectedInvest)}</div>
-          <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Estimasi 30 hari ke depan</div>
+          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(projectedInvest)}</div>
+          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Estimasi 30 hari</div>
           <Target size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
         </div>
 
         <div className="card shadow-soft" style={{
           background: dangerDays.length > 0 ? 'var(--secondary-gradient)' : 'var(--bg-card-solid)',
           color: dangerDays.length > 0 ? 'white' : 'var(--text-main)',
-          border: 'none', padding: '16px',
-          boxShadow: dangerDays.length > 0 ? '0 10px 25px var(--secondary-glow)' : '0 4px 12px rgba(0,0,0,0.03)'
+          border: 'none', padding: 'clamp(10px, 3vw, 16px)',
+          boxShadow: dangerDays.length > 0 ? '0 10px 25px var(--secondary-glow)' : '0 4px 12px rgba(0,0,0,0.03)',
+          position: 'relative', overflow: 'hidden'
         }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Zona Bahaya</div>
-          <div style={{ fontSize: '18px', fontWeight: 800 }}>{dangerDays.length} Hari</div>
-          <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Saldo diprediksi negatif</div>
+          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Zona Bahaya</div>
+          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800 }}>{dangerDays.length} Hari</div>
+          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Saldo prediksi negatif</div>
           <AlertTriangle size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
         </div>
       </div>

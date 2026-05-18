@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
 import AssetSelectModal from './AssetSelectModal';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface DebtAddPrincipalModalProps {
   isOpen: boolean;
@@ -41,9 +42,8 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
     setLastOpen(isOpen);
   }, [isOpen, lastOpen, debt, debtDefaultAssetId, globalDefaultAssetId, activeAssets]);
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '');
-    setAmount(val);
+  const handleRawAmountChange = (raw: string) => {
+    setAmount(raw);
   };
 
   const handleConfirm = () => {
@@ -86,11 +86,9 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Nominal Tambahan:</div>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <span style={{ position: 'absolute', left: 0, fontWeight: 800, color: 'var(--text-muted)', fontSize: 18 }}>{currencySymbol}</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={amount ? Number(amount).toLocaleString('id-ID') : ''}
-                      onChange={handleAmountChange}
+                    <CurrencyInput
+                      value={amount}
+                      onChange={handleRawAmountChange}
                       placeholder="0"
                       style={{ width: '100%', paddingLeft: 40, fontWeight: 800, fontSize: 18, marginBottom: 0 }}
                     />

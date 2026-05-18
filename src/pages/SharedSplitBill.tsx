@@ -67,48 +67,33 @@ const SharedSplitBill: React.FC = () => {
     return split.secondarySplits || [];
   }, [split, mode]);
 
+  const [identityPicker, setIdentityPicker] = useState<{ item: any; idx: number } | null>(null);
+
   const handleSaveToDebts = (item: any, idx: number) => {
     if (!split) return;
 
+    // For Trip Settlement — need to identify who the user is
+    if (split.type === 'trip') {
+      setIdentityPicker({ item, idx });
+      return;
+    }
+
+    // For Normal Split — straightforward
     let debtType: 'hutang' | 'piutang' = 'hutang';
     let contact = '';
 
-    // For Trip Settlement
-    if (split.type === 'trip') {
-      const isMeFrom = window.confirm(`Apakah Anda adalah ${item.from}?\n\nKlik OK jika Anda yang berhutang ke ${item.to}.`);
-      if (isMeFrom) {
-        debtType = 'hutang';
-        contact = item.to;
-      } else {
-        const isMeTo = window.confirm(`Apakah Anda adalah ${item.to}?\n\nKlik OK jika ${item.from} yang berhutang ke Anda.`);
-        if (isMeTo) {
-          debtType = 'piutang';
-          contact = item.from;
-        } else {
-          return; // Cancelled
-        }
-      }
+    if (item.isPayer) {
+      debtType = 'hutang';
+      contact = item.contactName;
     } else {
-      // For Normal Split
-      if (item.isPayer) {
-        // Clicking on someone who paid -> "I owe them"
-        const ok = window.confirm(`Catat sebagai HUTANG Anda ke ${item.contactName}?\n\n(Anda berhutang karena ${item.contactName} yang membayar tagihan ini)`);
-        if (!ok) return;
-        debtType = 'hutang';
-        contact = item.contactName;
-      } else {
-        // Clicking on someone who owes -> "They owe me"
-        const ok = window.confirm(`Catat sebagai PIUTANG Anda dari ${item.contactName}?\n\n(Anda mencatat bahwa ${item.contactName} berhutang ke Anda)`);
-        if (!ok) return;
-        debtType = 'piutang';
-        contact = item.contactName;
-      }
+      debtType = 'piutang';
+      contact = item.contactName;
     }
 
     addDebt({
       type: debtType,
       contact: contact,
-      description: `${split.type === 'trip' ? 'Trip' : 'Split'}: ${split.merchantName}`,
+      description: `${(split as any).type === 'trip' ? 'Trip' : 'Split'}: ${split.merchantName}`,
       totalAmount: item.amount,
       isPaid: false,
       date: split.date || new Date().toISOString().split('T')[0],
@@ -122,6 +107,34 @@ const SharedSplitBill: React.FC = () => {
       next.add(idx);
       return next;
     });
+    showToast('Berhasil dicatat ke daftar Hutang/Piutang!', 'success');
+  };
+
+  const handleIdentityConfirm = (role: 'from' | 'to') => {
+    if (!identityPicker || !split) return;
+    const { item, idx } = identityPicker;
+
+    const debtType: 'hutang' | 'piutang' = role === 'from' ? 'hutang' : 'piutang';
+    const contact = role === 'from' ? item.to : item.from;
+
+    addDebt({
+      type: debtType,
+      contact: contact,
+      description: `Trip: ${split.merchantName}`,
+      totalAmount: item.amount,
+      isPaid: false,
+      date: split.date || new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
+      isInstallment: false,
+      paidInstallments: 0
+    }, 'none');
+
+    setSavedItems(prev => {
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
+    setIdentityPicker(null);
     showToast('Berhasil dicatat ke daftar Hutang/Piutang!', 'success');
   };
 
@@ -471,6 +484,108 @@ const SharedSplitBill: React.FC = () => {
         expenses={(split as any).tripExpenses || []}
         currencySymbol={split.currencySymbol || 'Rp'}
       />
+
+      {/* Identity Picker Modal for Trip Settlements */}
+      {identityPicker && (
+        <div 
+          onClick={() => setIdentityPicker(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '20px'
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '380px', width: '100%', background: 'var(--bg-card)', borderRadius: '32px',
+              padding: '28px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px rgba(0,0,0,0.2)'
+            }}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 800, textAlign: 'center', marginBottom: '6px' }}>
+              Siapa Anda?
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '20px', lineHeight: 1.5 }}>
+              Pilih identitas Anda untuk mencatat transaksi ini dengan benar.
+            </p>
+
+            <div style={{ display: 'grid', gap: '10px', marginBottom: '16px' }}>
+              {/* I am the debtor (from) */}
+              <button
+                onClick={() => handleIdentityConfirm('from')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px',
+                  borderRadius: '20px', background: 'var(--bg-neutral)', border: '1.5px solid var(--border-color)',
+                  cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left', width: '100%'
+                }}
+              >
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '14px', background: 'var(--danger-glow, rgba(239,68,68,0.1))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 900,
+                  color: 'var(--danger)'
+                }}>
+                  {identityPicker.item.from?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '2px' }}>
+                    Saya adalah <span style={{ color: 'var(--danger)' }}>{identityPicker.item.from}</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Saya berhutang ke {identityPicker.item.to}
+                  </div>
+                </div>
+                <ArrowUpRight size={16} color="var(--text-muted)" />
+              </button>
+
+              {/* I am the creditor (to) */}
+              <button
+                onClick={() => handleIdentityConfirm('to')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px',
+                  borderRadius: '20px', background: 'var(--bg-neutral)', border: '1.5px solid var(--border-color)',
+                  cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left', width: '100%'
+                }}
+              >
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '14px', background: 'var(--success-glow, rgba(34,197,94,0.1))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 900,
+                  color: 'var(--success)'
+                }}>
+                  {identityPicker.item.to?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '2px' }}>
+                    Saya adalah <span style={{ color: 'var(--success)' }}>{identityPicker.item.to}</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    {identityPicker.item.from} berhutang ke saya
+                  </div>
+                </div>
+                <ArrowDownLeft size={16} color="var(--text-muted)" />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--primary-glow)', borderRadius: '14px', marginBottom: '16px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>Nominal</span>
+              <span style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)' }}>
+                {split?.currencySymbol}{(Number(identityPicker.item.amount) || 0).toLocaleString('id-ID')}
+              </span>
+            </div>
+
+            <button
+              onClick={() => setIdentityPicker(null)}
+              style={{
+                width: '100%', padding: '14px', borderRadius: '14px', background: 'var(--bg-neutral)',
+                border: '1px solid var(--border-color)', fontWeight: 700, fontSize: '13px',
+                color: 'var(--text-muted)', cursor: 'pointer'
+              }}
+            >
+              Batal
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

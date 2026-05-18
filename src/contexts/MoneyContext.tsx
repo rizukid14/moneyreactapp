@@ -730,14 +730,29 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           setTripExpenses(prev => prev.filter(e => e.id !== expenseId));
           dbDeleteTripExpense(expenseId);
           
-          // Delete Related Debts
+          // Delete Related Debts (including their TX payment history)
           setDebts(prev => {
             const relatedDebts = prev.filter(d => d.relatedId === expenseId);
-            relatedDebts.forEach(d => dbDeleteDebt(d.id));
+            relatedDebts.forEach(d => {
+              // Delete TX payment history for this debt
+              const debtTxs = transactions.filter(tx => tx.relatedId === d.id);
+              debtTxs.forEach(tx => dbDeleteTransaction(tx.id));
+              dbDeleteDebt(d.id);
+            });
             return prev.filter(d => d.relatedId !== expenseId);
+          });
+          // Also remove debt TX payment history from state
+          setTransactions(prev => {
+            const debtIds = new Set(
+              transactions.filter(tx => tx.relatedId && debts.some(d => d.relatedId === expenseId && d.id === tx.relatedId)).map(tx => tx.id)
+            );
+            return prev.filter(tx => !debtIds.has(tx.id));
           });
         }
       }
+    } else {
+      setTransactions(prev => prev.filter(tx => tx.id !== id));
+      dbDeleteTransaction(id).then(refreshSyncCount);
     }
   }, [transactions, refreshSyncCount]);
 
@@ -1568,11 +1583,21 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return prev;
       });
 
-      // Deleting Related Debts
+      // Deleting Related Debts (including their TX payment history)
       setDebts(prev => {
         const relatedDebts = prev.filter(d => d.relatedId === id);
-        relatedDebts.forEach(d => dbDeleteDebt(d.id));
+        relatedDebts.forEach(d => {
+          // Delete TX payment history for this debt
+          const debtTxs = transactions.filter(tx => tx.relatedId === d.id);
+          debtTxs.forEach(tx => dbDeleteTransaction(tx.id));
+          dbDeleteDebt(d.id);
+        });
         return prev.filter(d => d.relatedId !== id);
+      });
+      // Also remove debt TX payment history from state
+      setTransactions(prev => {
+        const relatedDebtIds = new Set(debts.filter(d => d.relatedId === id).map(d => d.id));
+        return prev.filter(tx => !(tx.relatedId && relatedDebtIds.has(tx.relatedId)));
       });
     }
 

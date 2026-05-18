@@ -3,6 +3,7 @@ import { X, Calculator, Folder, Wallet, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Debt, type Asset, type Category } from '../../contexts/MoneyContext';
 import CalculatorModal from './CalculatorModal';
+import CurrencyInput from '../common/CurrencyInput';
 import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
 import ContactSelectModal from './ContactSelectModal';
@@ -110,10 +111,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
     }
   }, [totalAmount, totalInstallments, isInstallment, editingDebt]);
 
-  const formatNum = (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    setter(raw ? Number(raw).toLocaleString('id-ID') : '');
-  };
+
   const parseNum = (s: string) => Number(s.replace(/\./g, ''));
 
   const handleSave = (e: React.FormEvent) => {
@@ -230,13 +228,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Total Jumlah ({currencySymbol})</label>
               <div style={{ display: 'flex', gap: '8px', marginBottom: 16 }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
+                <CurrencyInput
                   required
                   placeholder="0"
                   value={totalAmount}
-                  onChange={e => formatNum(e, setTotalAmount)}
+                  onChange={setTotalAmount}
                   style={{ flex: 1, marginBottom: 0 }}
                 />
                 <button
@@ -396,7 +392,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                 <div style={{ background: 'var(--success-glow)', borderRadius: 12, padding: 14, marginBottom: 8, border: '1px solid hsla(145,65%,43%,0.18)' }}>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Nominal Per Cicilan ({currencySymbol}) - <span style={{ color: typeColor, fontStyle: 'italic' }}>Otomatis Terisi</span></label>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                    <input type="text" inputMode="numeric" required={isInstallment} placeholder="0" value={installmentAmount} onChange={e => formatNum(e, setInstallmentAmount)} style={{ flex: 1, marginBottom: 0 }} />
+                    <CurrencyInput required={isInstallment} placeholder="0" value={installmentAmount} onChange={setInstallmentAmount} style={{ flex: 1, marginBottom: 0 }} />
                     <button 
                       type="button" 
                       onClick={() => setCalcOpen('installment')} 

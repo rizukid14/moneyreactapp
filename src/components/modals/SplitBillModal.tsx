@@ -7,6 +7,7 @@ import ContactSelectModal from './ContactSelectModal';
 import { type LineItem } from '../../hooks/useReceiptOCR';
 import AssetSelectModal from './AssetSelectModal';
 import CategorySelectModal from './CategorySelectModal';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface SplitPerson {
   id: string;
@@ -647,14 +648,9 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                           </div>
                         </div>
 
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={split.amount === 0 ? '' : split.amount.toLocaleString('id-ID')}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, '');
-                            updateAmount(split.id, parseInt(raw) || 0);
-                          }}
+                        <CurrencyInput
+                          value={split.amount === 0 ? '' : split.amount}
+                          onChange={(raw) => updateAmount(split.id, parseInt(raw) || 0)}
                           disabled={splitMethod !== 'custom'}
                           style={{
                             width: 90,
@@ -751,14 +747,9 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                             />
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                              <input 
-                                type="text" 
-                                inputMode="numeric"
-                                value={item.amount === 0 ? '' : item.amount.toLocaleString('id-ID')}
-                                onChange={(e) => {
-                                  const raw = e.target.value.replace(/\D/g, '');
-                                  updateLocalItem(idx, { amount: parseInt(raw) || 0 });
-                                }}
+                              <CurrencyInput 
+                                value={item.amount === 0 ? '' : item.amount}
+                                onChange={(raw) => updateLocalItem(idx, { amount: parseInt(raw) || 0 })}
                                 placeholder="0"
                                 style={{ width: 80, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13, fontWeight: 800, textAlign: 'right', marginBottom: 0 }}
                               />

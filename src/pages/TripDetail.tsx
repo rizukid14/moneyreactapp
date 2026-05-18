@@ -191,19 +191,19 @@ const TripDetail: React.FC = () => {
                       </div>
 
                       {expandedExpenseId === expense.id && (
-                        <div style={{ width: '100%', borderTop: '1px dashed var(--border-color)', paddingTop: '12px' }}>
+                        <div style={{ width: '100%', borderTop: '1px dashed var(--border-color)', paddingTop: '12px', overflow: 'hidden', minWidth: 0 }}>
                           {expense.items && expense.items.length > 0 && (
                             <div style={{ marginBottom: '12px' }}>
                               <p style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Rincian Item (Receipt):</p>
                               {expense.items.map((item, i) => {
                                 const assignedNames = item.assignments.map(id => trip.members.find(m => m.id === id)?.name || 'Teman').join(', ');
                                 return (
-                                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px' }}>
-                                    <div style={{ flex: 1 }}>
-                                      <span style={{ fontWeight: 600 }}>{item.name}</span>
-                                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{assignedNames}</div>
+                                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', overflow: 'hidden', minWidth: 0 }}>
+                                    <div style={{ flex: 1, minWidth: 0, marginRight: '8px' }}>
+                                      <span style={{ fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignedNames}</div>
                                     </div>
-                                    <span style={{ fontWeight: 700 }}>{currencySymbol}{item.amount.toLocaleString('id-ID')}</span>
+                                    <span style={{ fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>{currencySymbol}{item.amount.toLocaleString('id-ID')}</span>
                                   </div>
                                 );
                               })}
@@ -214,9 +214,9 @@ const TripDetail: React.FC = () => {
                           {expense.splits.map(s => {
                             const m = trip.members.find(m => m.id === s.memberId);
                             return (
-                              <div key={s.memberId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '13px' }}>
-                                <span>{m?.name}</span>
-                                <span style={{ fontWeight: 700 }}>{currencySymbol}{s.amount.toLocaleString('id-ID')}</span>
+                              <div key={s.memberId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '13px', overflow: 'hidden', minWidth: 0 }}>
+                                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '8px' }}>{m?.name}</span>
+                                <span style={{ fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>{currencySymbol}{s.amount.toLocaleString('id-ID')}</span>
                               </div>
                             );
                           })}

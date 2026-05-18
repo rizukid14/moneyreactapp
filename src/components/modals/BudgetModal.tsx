@@ -4,6 +4,7 @@ import { type Category, type Budget } from '../../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
+import CurrencyInput from '../common/CurrencyInput';
 import { useToast } from '../common/Toast';
 
 interface BudgetModalProps {
@@ -38,11 +39,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
     }
   }, [editingBudget, isOpen]);
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const numericValue = e.target.value.replace(/\D/g, '');
-    if (!numericValue) { setLimit(''); return; }
-    setLimit(Number(numericValue).toLocaleString('id-ID'));
-  };
+
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,13 +158,11 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                   Batas Maksimal ({currencySymbol})
                 </label>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                  <input 
-                    type="text" 
-                    inputMode="numeric" 
+                  <CurrencyInput 
                     required 
                     placeholder="Contoh: 1.000.000" 
                     value={limit} 
-                    onChange={handleAmountChange}
+                    onChange={setLimit}
                     style={{ flex: 1, marginBottom: 0 }}
                   />
                   <button 

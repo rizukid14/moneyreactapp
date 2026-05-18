@@ -10,6 +10,7 @@ import GoalSelectModal from './GoalSelectModal';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
 import OverspendReallocationModal from './OverspendReallocationModal';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -236,24 +237,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     return alerts;
   }, [type, amount, date, category, budgets, transactions, categories, editingTransaction]);
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const el = e.target;
-    const oldCursor = el.selectionStart || 0;
-    const oldLength = el.value.length;
-
-    const numericValue = el.value.replace(/\D/g, '');
-    if (!numericValue) { setAmount(''); return; }
-
-    const newVal = Number(numericValue).toLocaleString('id-ID');
-    setAmount(newVal);
-
-    window.requestAnimationFrame(() => {
-      if (amountRef.current) {
-        const diff = newVal.length - oldLength;
-        const newCursor = Math.max(0, oldCursor + diff);
-        amountRef.current.setSelectionRange(newCursor, newCursor);
-      }
-    });
+  const handleRawAmountChange = (val: string) => {
+    setAmount(val);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -496,14 +481,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     transition={{ duration: 0.15, ease: "easeOut" }}
                   >
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                      <input
+                      <CurrencyInput
                         ref={amountRef}
-                        type="text"
-                        inputMode="numeric"
                         required
                         placeholder={`Nominal (${currencySymbol})`}
                         value={amount}
-                        onChange={handleAmountChange}
+                        onChange={handleRawAmountChange}
                         style={{ flex: 1, marginBottom: 0 }}
                       />
                       <button
@@ -688,15 +671,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: adminFee ? '10px' : 0 }}>
                           <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>Biaya Admin</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
+                          <CurrencyInput
                             placeholder="0"
                             value={adminFee}
-                            onChange={e => {
-                              const numericValue = e.target.value.replace(/\D/g, '');
-                              setAdminFee(numericValue ? Number(numericValue).toLocaleString('id-ID') : '');
-                            }}
+                            onChange={setAdminFee}
                             style={{
                               width: '100px', fontSize: '13px', fontWeight: 700, textAlign: 'right',
                               padding: '6px 10px', marginBottom: 0, borderRadius: '8px',

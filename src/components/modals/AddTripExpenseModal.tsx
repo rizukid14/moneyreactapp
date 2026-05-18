@@ -4,43 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Trip, type TripExpense, type TripExpenseSplit } from '../../contexts/MoneyContext';
 import { useReceiptOCR } from '../../hooks/useReceiptOCR';
 import { generateId, getLocalTime } from '../../lib/utils';
-
-// Helper component for currency input to prevent cursor jump to end on format
-const CurrencyInput = ({ value, onChange, placeholder, style, className }: any) => {
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  
-  const displayValue = value ? parseInt(value.toString().replace(/\D/g, '') || '0').toLocaleString('id-ID') : '';
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const el = e.target;
-    let cursor = el.selectionStart || 0;
-    const oldLength = el.value.length;
-    
-    const raw = el.value.replace(/\D/g, '');
-    onChange(raw);
-
-    setTimeout(() => {
-      if (inputRef.current) {
-        const newLength = inputRef.current.value.length;
-        cursor = cursor + (newLength - oldLength);
-        inputRef.current.setSelectionRange(cursor, cursor);
-      }
-    }, 0);
-  };
-
-  return (
-    <input
-      ref={inputRef}
-      type="text"
-      inputMode="numeric"
-      value={displayValue}
-      onChange={handleChange}
-      placeholder={placeholder}
-      style={style}
-      className={className}
-    />
-  );
-};
+import CurrencyInput from '../common/CurrencyInput';
 
 interface AddTripExpenseModalProps {
   isOpen: boolean;

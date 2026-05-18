@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getLocalDate, getLocalTime, formatCurrency } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
 import AssetSelectModal from './AssetSelectModal';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface DebtPaymentModalProps {
   isOpen: boolean;
@@ -50,10 +51,9 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
     setLastOpen(isOpen);
   }, [isOpen, lastOpen, debt, remaining, debtDefaultAssetId, globalDefaultAssetId, activeAssets]);
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '');
-    setAmount(val);
-    const numVal = Number(val);
+  const handleRawAmountChange = (rawVal: string) => {
+    setAmount(rawVal);
+    const numVal = Number(rawVal);
     if (numVal >= remaining) {
       setIsFullSettle(true);
     } else {
@@ -116,11 +116,9 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 </label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={Number(amount).toLocaleString('id-ID')}
-                    onChange={handleAmountChange}
+                  <CurrencyInput
+                    value={amount}
+                    onChange={handleRawAmountChange}
                     style={{ width: '100%', paddingLeft: 40, fontWeight: 800, fontSize: 18, marginBottom: 0 }}
                   />
                 </div>
