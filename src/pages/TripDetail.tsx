@@ -145,7 +145,7 @@ const TripDetail: React.FC = () => {
                       style={{ 
                         background: 'var(--bg-card)', borderRadius: '20px', padding: '16px',
                         border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px',
-                        cursor: 'pointer'
+                        cursor: 'pointer', minWidth: 0
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%' }}>
@@ -156,7 +156,7 @@ const TripDetail: React.FC = () => {
                           <Wallet size={20} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <h4 style={{ fontSize: '15px', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{expense.description}</h4>
+                          <h4 style={{ fontSize: '15px', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={expense.description}>{expense.description}</h4>
                           <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
                             Dibayar oleh <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>{payer?.name}</span>
                           </p>

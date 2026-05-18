@@ -93,14 +93,14 @@ const Trips: React.FC = () => {
                   }}>
                     <MapPin size={24} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>{trip.name}</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={trip.name}>{trip.name}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                         <Calendar size={12} />
                         {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                         <Users size={12} />
                         {trip.members.length} Orang
                       </div>

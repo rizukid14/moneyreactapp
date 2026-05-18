@@ -409,11 +409,11 @@ const SharedSplitBill: React.FC = () => {
                   onClick={() => setSelectedExpense(exp)}
                   style={{ padding: '14px 16px', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}
                 >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>{exp.description}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>Dibayar oleh {exp.payer} • {exp.date}</div>
+                  <div style={{ flex: 1, minWidth: 0, marginRight: '12px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={exp.description}>{exp.description}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Dibayar oleh {exp.payer} • {exp.date}</div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: '14px' }}>
                       {split.currencySymbol}{exp.amount.toLocaleString('id-ID')}
                     </div>
