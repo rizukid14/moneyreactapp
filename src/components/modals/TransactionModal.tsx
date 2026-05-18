@@ -395,15 +395,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   return (
     <>
-      <OverspendReallocationModal
-        isOpen={reallocationModal.isOpen}
-        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
-        onSuccess={handleReallocationSuccess}
-        deficitCategoryId={reallocationModal.deficitCategory}
-        deficitAmount={reallocationModal.deficitAmount}
-        month={reallocationModal.month}
-        year={reallocationModal.year}
-      />
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -899,6 +890,16 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         goals={goals}
         selectedGoalId={goalId}
         onSelect={(id) => setGoalId(id)}
+      />
+
+      <OverspendReallocationModal
+        isOpen={reallocationModal.isOpen}
+        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+        onSuccess={handleReallocationSuccess}
+        deficitCategoryId={reallocationModal.deficitCategory}
+        deficitAmount={reallocationModal.deficitAmount}
+        month={reallocationModal.month}
+        year={reallocationModal.year}
       />
     </>
   );

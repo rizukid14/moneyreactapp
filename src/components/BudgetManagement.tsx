@@ -4,6 +4,7 @@ import { useMoney, type Budget } from '../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BudgetModal from './modals/BudgetModal';
 import ConfirmDialog from './common/ConfirmDialog';
+import CurrencyInput from './common/CurrencyInput';
 
 const MONTH_NAMES = [
   'Januari','Februari','Maret','April','Mei','Juni',
@@ -553,6 +554,7 @@ export const BudgetManagement: React.FC = () => {
         budgets={currentMonthBudgets}
         categories={categories}
         unassignedMoney={unassignedMoney}
+        spendingMap={spendingMap}
         onMove={(from, to, amt) => moveBudgetMoney(from, to, amt, selectedMonth, selectedYear)}
         currencySymbol={currencySymbol}
         defaultToId={quickTopUpTarget}
@@ -577,12 +579,13 @@ interface MoveMoneyModalProps {
   budgets: Budget[];
   categories: any[];
   unassignedMoney: number;
+  spendingMap: Record<string, number>;
   onMove: (from: string | null, to: string | null, amount: number) => void;
   currencySymbol: string;
   defaultToId?: string | null;
 }
 
-const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, onMove, currencySymbol, defaultToId }) => {
+const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, spendingMap, onMove, currencySymbol, defaultToId }) => {
   const [fromId, setFromId] = useState<string | null | 'unassigned'>('unassigned');
   const [toId, setToId] = useState<string | null | 'unassigned'>('');
   const [amount, setAmount] = useState<string>('');
@@ -591,19 +594,36 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
     if (isOpen) {
       if (defaultToId) {
         setToId(defaultToId);
-        setFromId('unassigned');
+        // Find if unassigned money is not enough but we have other source
+        if (unassignedMoney <= 0) {
+          const firstAvailable = budgets.find(b => b.categoryId !== null && (b.limit - (spendingMap[b.categoryId!] || 0)) > 0);
+          setFromId(firstAvailable ? firstAvailable.categoryId : 'unassigned');
+        } else {
+          setFromId('unassigned');
+        }
       } else {
         setToId('');
-        setFromId('unassigned');
+        setFromId(unassignedMoney > 0 ? 'unassigned' : (budgets.find(b => b.categoryId !== null && (b.limit - (spendingMap[b.categoryId!] || 0)) > 0)?.categoryId || 'unassigned'));
       }
       setAmount('');
     }
-  }, [isOpen, defaultToId]);
+  }, [isOpen, defaultToId, unassignedMoney, budgets, spendingMap]);
+
+  const available = React.useMemo(() => {
+    if (fromId === 'unassigned') {
+      return Math.max(0, unassignedMoney);
+    }
+    const b = budgets.find(x => x.categoryId === fromId);
+    if (!b) return 0;
+    const spent = spendingMap[fromId!] || 0;
+    return Math.max(0, b.limit - spent);
+  }, [fromId, budgets, spendingMap, unassignedMoney]);
+
+  const amountNum = parseInt(amount.replace(/\D/g, '')) || 0;
 
   const handleMove = () => {
-    const num = Number(amount);
-    if (!num || !toId || fromId === toId) return;
-    onMove(fromId === 'unassigned' ? 'unassigned' : fromId, toId === 'unassigned' ? 'unassigned' : toId, num);
+    if (!amountNum || amountNum <= 0 || amountNum > available || !toId || fromId === toId) return;
+    onMove(fromId === 'unassigned' ? 'unassigned' : fromId, toId === 'unassigned' ? 'unassigned' : toId, amountNum);
     setAmount('');
     onClose();
   };
@@ -630,10 +650,18 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
               onChange={e => setFromId(e.target.value === 'unassigned' ? 'unassigned' : e.target.value)}
               style={{ width: '100%', padding: 12, borderRadius: 12 }}
             >
-              <option value="unassigned">Sisa Belum Dialokasikan ({fmt(unassignedMoney, currencySymbol)})</option>
+              <option value="unassigned" disabled={unassignedMoney <= 0}>
+                Sisa Belum Dialokasikan (Tersedia: {fmt(unassignedMoney, currencySymbol)})
+              </option>
               {budgets.filter(b => b.categoryId !== null).map(b => {
                 const cat = categories.find(c => c.id === b.categoryId);
-                return <option key={b.id} value={b.categoryId!}>{cat?.name || 'Kategori'} ({fmt(b.limit, currencySymbol)})</option>;
+                const spent = spendingMap[b.categoryId!] || 0;
+                const rem = b.limit - spent;
+                return (
+                  <option key={b.id} value={b.categoryId!} disabled={rem <= 0}>
+                    {cat?.name || 'Kategori'} (Tersedia: {fmt(rem, currencySymbol)}) {rem <= 0 ? '• Anggaran Habis' : ''}
+                  </option>
+                );
               })}
             </select>
           </div>
@@ -665,18 +693,27 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
 
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'block' }}>JUMLAH</label>
-            <input 
-              type="number" 
+            <CurrencyInput 
               value={amount} 
-              onChange={e => setAmount(e.target.value)}
+              onChange={setAmount}
               placeholder="0"
               style={{ width: '100%', padding: 12, borderRadius: 12 }}
             />
+            {amountNum > available && (
+              <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 600, marginTop: '6px', display: 'block' }}>
+                ⚠️ Dana tidak cukup. Maksimal: {fmt(available, currencySymbol)}
+              </span>
+            )}
+            {available <= 0 && (
+              <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 600, marginTop: '6px', display: 'block' }}>
+                ⚠️ Sumber dana yang Anda pilih tidak memiliki sisa saldo.
+              </span>
+            )}
           </div>
 
           <button 
             onClick={handleMove}
-            disabled={!amount || !toId}
+            disabled={!amountNum || amountNum <= 0 || amountNum > available || !toId || fromId === toId}
             className="btn btn-primary"
             style={{ marginTop: 8 }}
           >
