@@ -606,7 +606,6 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                     {settlement.transactions.map((t, idx) => {
                        const from = trip.members.find(m => m.id === t.from);
                        const to = trip.members.find(m => m.id === t.to);
-                       const settlementKey = `${t.from}-${t.to}-${t.amount}-${idx}`;
                        const baseKey = `${t.from}-${t.to}-${idx}`;
                        const paidSoFar = trip.settlementPaidAmounts?.[baseKey] || 0;
                        const remainingAmt = Math.max(0, t.amount - paidSoFar);
