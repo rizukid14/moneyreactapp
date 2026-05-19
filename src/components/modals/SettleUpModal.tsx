@@ -23,6 +23,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
   const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
+  const [settleAmount, setSettleAmount] = useState<number>(0);
 
   const settlement = useMemo(() => {
     // 1. Calculate net balances
@@ -63,8 +64,9 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
     const simpleTransactions: { from: string, to: string, amount: number }[] = [];
     const tempBalances = { ...balances };
     
-    const debtors = Object.keys(tempBalances).filter(id => tempBalances[id] < -0.5);
-    const creditors = Object.keys(tempBalances).filter(id => tempBalances[id] > 0.5);
+    // Sort keys alphabetically by ID to guarantee deterministic calculations across duplicate/cloned trips
+    const debtors = Object.keys(tempBalances).filter(id => tempBalances[id] < -0.5).sort();
+    const creditors = Object.keys(tempBalances).filter(id => tempBalances[id] > 0.5).sort();
     
     let i = 0, j = 0;
     while (i < debtors.length && j < creditors.length) {
@@ -205,11 +207,14 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
     showToast('Link disalin!', 'success');
   };
 
-  const handleMarkAsPaid = async (t: any, idx: number, assetId: string) => {
+  const handleMarkAsPaid = async (t: any, idx: number, assetId: string, actualAmount?: number) => {
     if (!assetId) {
       showToast('Pilih sumber dana terlebih dahulu!', 'warning');
       return;
     }
+
+    const payAmtToRecord = actualAmount !== undefined ? actualAmount : t.amount;
+    if (payAmtToRecord <= 0) return;
 
     const fromName = trip.members.find(m => m.id === t.from)?.name || 'Unknown';
     const toName = trip.members.find(m => m.id === t.to)?.name || 'Unknown';
@@ -217,26 +222,39 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
     setIsProcessing(true);
     try {
       const settlementKey = `${t.from}-${t.to}-${t.amount}-${idx}`;
+      const baseKey = `${t.from}-${t.to}-${idx}`;
 
       // Determine contact name for debt lookup
       let contactName = '';
+      let targetType: 'hutang' | 'piutang' | null = null;
       if (t.from === 'me') {
         contactName = toName;  // I owe them → hutang, contact = creditor name
+        targetType = 'hutang';
       } else if (t.to === 'me') {
         contactName = fromName; // They owe me → piutang, contact = debtor name
+        targetType = 'piutang';
       }
 
-      // Find existing debts linked to this trip's expenses for this contact
+      // Find existing debts linked to this trip's expenses
       const tripExpenseIds = new Set(expenses.map(e => e.id));
       const relatedDebts = debts.filter(d =>
-        d.contact.toLowerCase().trim() === contactName.toLowerCase().trim() &&
+        d.type === targetType &&
         !d.isPaid &&
         ((d.relatedId && tripExpenseIds.has(d.relatedId)) || d.description.toLowerCase().includes(`[trip: ${trip.name.toLowerCase()}]`))
       );
 
       if (relatedDebts.length > 0 && contactName) {
+        // Prioritize the direct contact's debts first, then others
+        const sortedDebts = [...relatedDebts].sort((a, b) => {
+          const aIsContact = a.contact.toLowerCase().trim() === contactName.toLowerCase().trim();
+          const bIsContact = b.contact.toLowerCase().trim() === contactName.toLowerCase().trim();
+          if (aIsContact && !bIsContact) return -1;
+          if (!aIsContact && bIsContact) return 1;
+          return 0;
+        });
+
         // Calculate remaining amount for each related debt
-        const activeDebts = relatedDebts.map(d => {
+        const activeDebts = sortedDebts.map(d => {
           const history = transactions.filter(tx => tx.relatedId === d.id);
           const paidAmt = history.reduce((sum, tx) => {
             if (isPrincipalTx(tx.note, tx.category)) return sum;
@@ -246,22 +264,14 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
           return { debt: d, remaining };
         }).filter(item => item.remaining > 0);
 
-        const totalRemaining = activeDebts.reduce((sum, item) => sum + item.remaining, 0);
+        if (activeDebts.length > 0) {
+          let paymentLeft = payAmtToRecord;
 
-        if (activeDebts.length > 0 && totalRemaining > 0) {
-          let paymentLeft = t.amount;
-
-          // Proportional payment allocation
-          activeDebts.forEach((item, idx) => {
-            let portion = 0;
-            if (idx === activeDebts.length - 1) {
-              // Give all remaining payment to the last item to avoid rounding/residual issues
-              portion = paymentLeft;
-            } else {
-              portion = Math.round((item.remaining / totalRemaining) * t.amount);
-              // Cap to avoid overpaying if rounding exceeds remaining or total left
-              portion = Math.min(portion, item.remaining, paymentLeft);
-            }
+          // Sequentially allocate payment across related debts
+          for (let i = 0; i < activeDebts.length; i++) {
+            if (paymentLeft <= 0) break;
+            const item = activeDebts[i];
+            const portion = Math.min(paymentLeft, item.remaining);
 
             if (portion > 0) {
               addDebtPayment(
@@ -270,11 +280,59 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 assetId,
                 getLocalDate(),
                 getLocalTime(),
-                `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`
+                `Pelunasan Trip: ${trip.name} (${item.debt.contact})`
               );
               paymentLeft -= portion;
             }
-          });
+          }
+
+          // If there is still a surplus leftover after paying off all trip debts, record a standalone transaction for the surplus
+          if (paymentLeft > 0) {
+            if (t.to === 'me') {
+              addTransaction({
+                type: 'piutang_masuk',
+                amount: paymentLeft,
+                category: 'Pelunasan Piutang',
+                date: getLocalDate(),
+                time: getLocalTime(),
+                note: `Pelunasan Trip (Surplus): ${trip.name} (${fromName} → ${toName})`,
+                assetId,
+              });
+            } else {
+              addTransaction({
+                type: 'hutang_keluar',
+                amount: paymentLeft,
+                category: 'Bayar Hutang',
+                date: getLocalDate(),
+                time: getLocalTime(),
+                note: `Pelunasan Trip (Surplus): ${trip.name} (${fromName} → ${toName})`,
+                assetId,
+              });
+            }
+          }
+        } else {
+          // Fallback if activeDebts list evaluates to empty
+          if (t.to === 'me') {
+            addTransaction({
+              type: 'piutang_masuk',
+              amount: payAmtToRecord,
+              category: 'Pelunasan Piutang',
+              date: getLocalDate(),
+              time: getLocalTime(),
+              note: `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`,
+              assetId,
+            });
+          } else {
+            addTransaction({
+              type: 'hutang_keluar',
+              amount: payAmtToRecord,
+              category: 'Bayar Hutang',
+              date: getLocalDate(),
+              time: getLocalTime(),
+              note: `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`,
+              assetId,
+            });
+          }
         }
       } else if (t.from === 'me' || t.to === 'me') {
         // No existing debts found (expense was "Hanya Catat" originally)
@@ -283,7 +341,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
           // They pay me → piutang_masuk (money in)
           addTransaction({
             type: 'piutang_masuk',
-            amount: t.amount,
+            amount: payAmtToRecord,
             category: 'Pelunasan Piutang',
             date: getLocalDate(),
             time: getLocalTime(),
@@ -294,7 +352,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
           // I pay them → hutang_keluar (money out)
           addTransaction({
             type: 'hutang_keluar',
-            amount: t.amount,
+            amount: payAmtToRecord,
             category: 'Bayar Hutang',
             date: getLocalDate(),
             time: getLocalTime(),
@@ -304,14 +362,27 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
         }
       }
 
-      // Update Trip with locked mode and paid settlement key
-      const updatedPaid = [...(trip.paidSettlements || []), settlementKey];
+      // Update paid amounts for this transaction slot
+      const currentPaid = trip.settlementPaidAmounts?.[baseKey] || 0;
+      const newPaid = currentPaid + payAmtToRecord;
+      const updatedPaidAmounts = {
+        ...(trip.settlementPaidAmounts || {}),
+        [baseKey]: newPaid
+      };
+
+      // Mark as fully settled in paidSettlements if it meets or exceeds target
+      let updatedPaid = [...(trip.paidSettlements || [])];
+      if (newPaid >= t.amount && !updatedPaid.includes(settlementKey)) {
+        updatedPaid.push(settlementKey);
+      }
+
       await updateTrip(trip.id, {
         settlementMode: mode,
-        paidSettlements: updatedPaid
+        paidSettlements: updatedPaid,
+        settlementPaidAmounts: updatedPaidAmounts
       });
 
-      showToast(`Pembayaran dicatat & saldo diperbarui!`, 'success');
+      showToast(`Pembayaran sebesar Rp ${payAmtToRecord.toLocaleString('id-ID')} dicatat!`, 'success');
       setSettlingTx(null);
     } catch (err) {
       console.error(err);
@@ -354,11 +425,39 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                   <X size={18} />
                 </button>
                 <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Pilih Sumber Dana</h3>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Pilih Aset & Jumlah Bayar</h3>
                   <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Penyelesaian sebesar {currencySymbol}{settlingTx.amount.toLocaleString('id-ID')}
+                    Total Target: {currencySymbol}{settlingTx.amount.toLocaleString('id-ID')}
                   </p>
                 </div>
+              </div>
+
+              {/* Settle Amount Field */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
+                  Jumlah Pembayaran
+                </label>
+                <input 
+                  type="number"
+                  value={settleAmount || ''}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    const baseKey = `${settlingTx.from}-${settlingTx.to}-${settlingTx.idx}`;
+                    const paidSoFar = trip.settlementPaidAmounts?.[baseKey] || 0;
+                    const maxAllowed = Math.max(0, settlingTx.amount - paidSoFar);
+                    setSettleAmount(Math.min(maxAllowed, Math.max(0, val)));
+                  }}
+                  placeholder="Masukkan nominal"
+                  style={{
+                    width: '100%', padding: '12px 16px', borderRadius: '12px',
+                    border: '1.5px solid var(--border-color)', background: 'var(--bg-neutral)',
+                    color: 'var(--text-main)', fontSize: '15px', fontWeight: 700,
+                    outline: 'none'
+                  }}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '6px', fontWeight: 600 }}>
+                  Sisa yang harus dibayar: {currencySymbol}{Math.max(0, settlingTx.amount - (trip.settlementPaidAmounts?.[`${settlingTx.from}-${settlingTx.to}-${settlingTx.idx}`] || 0)).toLocaleString('id-ID')}
+                </span>
               </div>
 
               <div style={{ display: 'grid', gap: '8px', marginBottom: '32px' }}>
@@ -402,13 +501,13 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '12px' }}>
                 <button onClick={() => setSettlingTx(null)} className="btn btn-secondary">Batal</button>
                 <button 
-                  onClick={() => handleMarkAsPaid(settlingTx, settlingTx.idx, selectedAssetId)} 
-                  disabled={isProcessing || !selectedAssetId}
+                  onClick={() => handleMarkAsPaid(settlingTx, settlingTx.idx, selectedAssetId, settleAmount)} 
+                  disabled={isProcessing || !selectedAssetId || settleAmount <= 0}
                   className="btn btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: !selectedAssetId ? 0.5 : 1 }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: (!selectedAssetId || settleAmount <= 0) ? 0.5 : 1 }}
                 >
-                  {isProcessing ? 'Memproses...' : !selectedAssetId ? 'Pilih Aset Dulu' : 'Konfirmasi Pelunasan'}
-                  {!isProcessing && selectedAssetId && <ChevronRight size={18} />}
+                  {isProcessing ? 'Memproses...' : !selectedAssetId ? 'Pilih Aset Dulu' : settleAmount <= 0 ? 'Nominal tidak valid' : 'Konfirmasi Pelunasan'}
+                  {!isProcessing && selectedAssetId && settleAmount > 0 && <ChevronRight size={18} />}
                 </button>
               </div>
             </motion.div>
@@ -504,55 +603,74 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gap: '12px' }}>
-                     {settlement.transactions.map((t, idx) => {
-                      const from = trip.members.find(m => m.id === t.from);
-                      const to = trip.members.find(m => m.id === t.to);
-                      const settlementKey = `${t.from}-${t.to}-${t.amount}-${idx}`;
-                      const isPaid = trip.paidSettlements?.includes(settlementKey);
-
-                      return (
-                        <motion.div 
-                          key={idx}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                          style={{ 
-                            padding: '16px', background: 'var(--bg-card)', borderRadius: '16px',
-                            border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '12px',
-                            opacity: isPaid ? 0.6 : 1
-                          }}
-                        >
-                          <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setSelectedSettlement(t)}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                              <span style={{ fontWeight: 800 }}>{from?.name}</span>
-                              <ArrowRight size={14} color="var(--text-muted)" />
-                              <span style={{ fontWeight: 800 }}>{to?.name}</span>
-                            </div>
-                            <div style={{ fontSize: '18px', fontWeight: 900, color: isPaid ? 'var(--success)' : 'var(--primary)' }}>
-                              {currencySymbol}{t.amount.toLocaleString('id-ID')}
-                            </div>
-                            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              Kenapa bayar segini? <Info size={10} />
-                            </div>
-                          </div>
-                          {(t.from === 'me' || t.to === 'me') && !isPaid && (
-                            <button 
-                              onClick={() => setSettlingTx({ ...t, idx })}
-                              className="btn-icon"
-                              style={{ color: 'var(--success)', background: 'var(--success-glow)' }}
-                              title="Tandai sebagai Lunas"
-                            >
-                              <CheckCircle2 size={20} />
-                            </button>
-                          )}
-                          {isPaid && (
-                            <div style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800 }}>
-                              <CheckCircle2 size={16} /> LUNAS
-                            </div>
-                          )}
-                        </motion.div>
-                      );
-                    })}
+                    {settlement.transactions.map((t, idx) => {
+                       const from = trip.members.find(m => m.id === t.from);
+                       const to = trip.members.find(m => m.id === t.to);
+                       const settlementKey = `${t.from}-${t.to}-${t.amount}-${idx}`;
+                       const baseKey = `${t.from}-${t.to}-${idx}`;
+                       const paidSoFar = trip.settlementPaidAmounts?.[baseKey] || 0;
+                       const remainingAmt = Math.max(0, t.amount - paidSoFar);
+                       const isPaid = remainingAmt <= 0.5;
+                       const isPartiallyPaid = paidSoFar > 0 && remainingAmt > 0.5;
+ 
+                       return (
+                         <motion.div 
+                           key={idx}
+                           initial={{ opacity: 0, x: -10 }}
+                           animate={{ opacity: 1, x: 0 }}
+                           transition={{ delay: idx * 0.05 }}
+                           style={{ 
+                             padding: '16px', background: 'var(--bg-card)', borderRadius: '16px',
+                             border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '12px',
+                             opacity: isPaid ? 0.6 : 1
+                           }}
+                         >
+                           <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setSelectedSettlement(t)}>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                               <span style={{ fontWeight: 800 }}>{from?.name}</span>
+                               <ArrowRight size={14} color="var(--text-muted)" />
+                               <span style={{ fontWeight: 800 }}>{to?.name}</span>
+                             </div>
+                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                               <div style={{ fontSize: '18px', fontWeight: 900, color: isPaid ? 'var(--success)' : 'var(--primary)' }}>
+                                 {currencySymbol}{remainingAmt.toLocaleString('id-ID')}
+                               </div>
+                               {t.amount !== remainingAmt && (
+                                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                                   {currencySymbol}{t.amount.toLocaleString('id-ID')}
+                                 </div>
+                               )}
+                             </div>
+                             {isPartiallyPaid && (
+                               <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px' }}>
+                                 Dibayar sebagian: {currencySymbol}{paidSoFar.toLocaleString('id-ID')}
+                               </div>
+                             )}
+                             <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                               Kenapa bayar segini? <Info size={10} />
+                             </div>
+                           </div>
+                           {(t.from === 'me' || t.to === 'me') && !isPaid && (
+                             <button 
+                               onClick={() => {
+                                 setSettleAmount(remainingAmt);
+                                 setSettlingTx({ ...t, idx });
+                               }}
+                               className="btn-icon"
+                               style={{ color: 'var(--success)', background: 'var(--success-glow)' }}
+                               title="Tandai sebagai Lunas / Cicil"
+                             >
+                               <CheckCircle2 size={20} />
+                             </button>
+                           )}
+                           {isPaid && (
+                             <div style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800 }}>
+                               <CheckCircle2 size={16} /> LUNAS
+                             </div>
+                           )}
+                         </motion.div>
+                       );
+                     })}
                   </div>
                 )}
               </div>

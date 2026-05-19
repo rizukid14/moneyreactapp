@@ -1,8 +1,15 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openai: OpenAI | null = null;
+
+const getOpenAI = () => {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY || 'mock-key',
+    });
+  }
+  return openai;
+};
 
 export const config = {
   api: {
@@ -21,7 +28,7 @@ export default async function handler(req: any, res: any) {
     const { 
       messages, categories, assets, transactions, contacts, 
       recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
-      startOfMonthDay, currentDate, currentTime 
+      startOfMonthDay, currentDate, currentTime, budgets, goals
     } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
@@ -40,19 +47,23 @@ export default async function handler(req: any, res: any) {
       .join(" ");
     const userMessagesContext = userMessages.toLowerCase();
 
-    // Parse financial end-of-month based on startOfMonthDay preference and currentDate
+    // Parse financial month range and startOfMonthDay preference
+    let startStr = "";
+    let endStr = "";
+    let daysToEOM = -1;
     let financialMonthEndString = "";
     let isNearEndOfMonth = false;
-    let daysToEOM = -1;
-    
+
     if (currentDate) {
       const parts = currentDate.split('-');
       if (parts.length === 3) {
         const year = parseInt(parts[0]);
-        const month = parseInt(parts[1]);
+        const month = parseInt(parts[1]); // 1-indexed
         const day = parseInt(parts[2]);
 
         const startDay = startOfMonthDay || 1;
+        let startYear = year;
+        let startMonth = month;
         let endYear = year;
         let endMonth = month;
         let endDay = startDay - 1;
@@ -60,6 +71,8 @@ export default async function handler(req: any, res: any) {
         if (startDay === 1) {
           const lastDayOfCalMonth = new Date(year, month, 0).getDate();
           endDay = lastDayOfCalMonth;
+          startStr = `${year}-${String(month).padStart(2, '0')}-01`;
+          endStr = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
         } else {
           if (day >= startDay) {
             endMonth = month + 1;
@@ -67,20 +80,104 @@ export default async function handler(req: any, res: any) {
               endMonth = 1;
               endYear = year + 1;
             }
+          } else {
+            startMonth = month - 1;
+            if (startMonth < 1) {
+              startMonth = 12;
+              startYear = year - 1;
+            }
           }
+          const lastDayOfEndMonth = new Date(endYear, endMonth, 0).getDate();
+          const actualEndDay = Math.min(startDay - 1, lastDayOfEndMonth);
+          
+          startStr = `${startYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`;
+          endStr = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(actualEndDay).padStart(2, '0')}`;
         }
 
         const eomDate = new Date(endYear, endMonth - 1, endDay);
         const todayDate = new Date(year, month - 1, day);
         const diffTime = eomDate.getTime() - todayDate.getTime();
         daysToEOM = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        financialMonthEndString = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+        financialMonthEndString = endStr;
         
         // Trigger EOM near status if we are within 5 days of the financial month end
         if (daysToEOM >= 0 && daysToEOM <= 5) {
           isNearEndOfMonth = true;
         }
       }
+    }
+
+    // Pre-calculate financial month metrics for high-fidelity insights
+    const currentPeriodTxs = transactions?.filter((t: any) => {
+      if (!t.date) return false;
+      return t.date >= startStr && t.date <= endStr;
+    }) || [];
+
+    const periodIncome = currentPeriodTxs
+      .filter((t: any) => t.type === 'pendapatan')
+      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+
+    const periodExpenses = currentPeriodTxs
+      .filter((t: any) => t.type === 'pengeluaran')
+      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+
+    const periodSavings = periodIncome - periodExpenses;
+    const savingsRate = periodIncome > 0 ? Math.round((periodSavings / periodIncome) * 100) : 0;
+
+    const categoryBreakdown = (categories || []).map((cat: any) => {
+      const catBudgets = (budgets || []).filter((b: any) => b.categoryId === cat.id);
+      let limit = 0;
+      if (catBudgets.length > 0) {
+        const endParts = endStr.split('-');
+        const endMonthVal = endParts.length === 3 ? parseInt(endParts[1]) : 0;
+        const endYearVal = endParts.length === 3 ? parseInt(endParts[0]) : 0;
+        const currentBudget = catBudgets.find((b: any) => b.month === endMonthVal && b.year === endYearVal);
+        if (currentBudget) {
+          limit = currentBudget.limit || 0;
+        } else {
+          limit = catBudgets[catBudgets.length - 1].limit || 0;
+        }
+      }
+      const totalSpent = currentPeriodTxs
+        .filter((t: any) => t.category === cat.name && t.type === 'pengeluaran')
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      const remaining = limit - totalSpent;
+      const pctConsumed = limit > 0 ? Math.round((totalSpent / limit) * 100) : 0;
+      return {
+        name: cat.name,
+        type: cat.type,
+        limit,
+        totalSpent,
+        remaining,
+        pctConsumed
+      };
+    });
+
+    let financialMetricsSummary = `
+=== PRE-COMPUTED PERIOD FINANCIAL METRICS (${startStr || "N/A"} to ${endStr || "N/A"}) ===
+- Total Income: Rp ${periodIncome.toLocaleString('id-ID')}
+- Total Expenses: Rp ${periodExpenses.toLocaleString('id-ID')}
+- Net Savings: Rp ${periodSavings.toLocaleString('id-ID')} (Savings Rate: ${savingsRate}%)
+`;
+
+    if (categoryBreakdown.length > 0) {
+      financialMetricsSummary += `
+=== CATEGORY SPENDING BREAKDOWN ===
+${categoryBreakdown.map((c: any) => {
+  if (c.type === 'pengeluaran') {
+    return `- ${c.name}: Spent Rp ${c.totalSpent.toLocaleString('id-ID')} of limit Rp ${c.limit.toLocaleString('id-ID')} (${c.pctConsumed}% consumed, Remaining: Rp ${c.remaining.toLocaleString('id-ID')})`;
+  } else {
+    return `- ${c.name} (Pemasukan): Received Rp ${c.totalSpent.toLocaleString('id-ID')}`;
+  }
+}).join('\n')}
+`;
+    }
+
+    if (goals && goals.length > 0) {
+      financialMetricsSummary += `
+=== SAVINGS GOALS ===
+${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocaleString('id-ID')} by ${g.targetDate} (Status: ${g.isCompleted ? 'Completed' : 'Active'})`).join('\n')}
+`;
     }
 
     // 2. Classifiers
@@ -217,13 +314,15 @@ export default async function handler(req: any, res: any) {
     if (isEndOfMonthRelated || isNearEndOfMonth) {
       modularRules += `
 === END OF MONTH FINANCIAL ADVICE RULES ===
-- The user's current financial month ends on: ${financialMonthEndString || "Unknown"} (based on their custom startOfMonthDay preference: ${startOfMonthDay || 1}).
+- The user's current financial month is from ${startStr || "N/A"} to ${endStr || "N/A"} (based on startOfMonthDay preference: ${startOfMonthDay || 1}).
 - Today is ${daysToEOM} days away from the end of their financial month.
-- Since we are close to or evaluating the end of the financial month, you MUST:
-  1. Proactively analyze the user's spending habits this month. Compare their expenses with their monthly income (if configured) or overall transaction totals.
-  2. Highlight which categories consumed the most budget.
-  3. Offer concrete, friendly, and actionable advice to save money or optimize their budget for the next financial period.
-  4. If ZBB is active, remind them to make sure all envelopes are perfectly allocated to 0 before the next month's income is unlocked.
+- Since we are evaluating or close to the end of the financial month, you MUST:
+  1. Provide a comprehensive, professional, and detailed report of their monthly performance. Use headers, bold key numbers, and structured bullet points.
+  2. Highlight the Total Income, Total Expenses, Net Savings, and Savings Rate. Analyze if they have a surplus or deficit.
+  3. Identify their top spending categories and compare them against their budget limits. Be specific: e.g. "Pengeluaran untuk kategori Makanan mencapai Rp X dari anggaran Rp Y (Z%)."
+  4. Point out categories where they are overbudget or close to the limit. Offer concrete suggestions (e.g. if using ZBB, suggest moving funds from category A to category B).
+  5. Provide exactly 3 actionable, high-quality tips for saving money based on their specific transaction history (e.g. if they spend a lot on "kopi" or "makan diluar", reference those notes).
+  6. Maintain a supportive, motivating, yet highly analytical and structured tone (in Indonesian).
 `;
     }
 
@@ -243,11 +342,12 @@ Categories: ${categoryList}
 Assets: ${assetList}
 Contacts: ${contactList}
 Budget Mode: ${budgetMode || "regular"} (Income: ${monthlyIncome || 0}, Strict ZBB: ${zbbMode === 'strict' ? 'Yes' : 'No'})
+${financialMetricsSummary}
 
 RECENT TRANSACTIONS (Last ${maxTxs}):
 ${transactionSummary}
 
-RECURRING TRANSACTIONS:
+RECENT RECURRING TRANSACTIONS:
 ${recurringSummary}
 
 SUBSCRIPTIONS:
@@ -335,12 +435,16 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
       ...messages
     ];
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: apiMessages,
       tools: tools as any,
       tool_choice: "auto",
     });
+
+    if (!response.choices || response.choices.length === 0) {
+      return res.status(500).json({ message: 'OpenAI returned an empty response.' });
+    }
 
     const choice = response.choices[0];
     const message = choice.message;
@@ -448,12 +552,20 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
         }
 
         if (functionName === 'create_transaction' || functionName === 'create_debt') {
+          let parsedArgs = {};
+          try {
+            parsedArgs = typeof toolCall.function.arguments === 'string'
+              ? JSON.parse(toolCall.function.arguments)
+              : (toolCall.function.arguments || {});
+          } catch (e) {
+            console.error('Failed to parse tool arguments:', e);
+          }
           return res.status(200).json({
             role: "assistant",
             content: message.content || "Ini draft datanya, silakan dikonfirmasi ya!",
             toolCall: {
               name: functionName,
-              arguments: JSON.parse(toolCall.function.arguments)
+              arguments: parsedArgs
             }
           });
         }

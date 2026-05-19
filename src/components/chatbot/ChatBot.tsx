@@ -25,7 +25,7 @@ const ChatBot: React.FC = () => {
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
     currencySymbol, isChatOpen, setIsChatOpen,
     recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
-    startOfMonthDay
+    startOfMonthDay, budgets, goals
   } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -104,6 +104,8 @@ const ChatBot: React.FC = () => {
           startOfMonthDay: startOfMonthDay || 1,
           currentDate: getLocalDate(),
           currentTime: getLocalTime(),
+          budgets,
+          goals,
           appKnowledge: {
             currentVersion: 'v1.0.18',
             latestFeatures: []
@@ -111,7 +113,10 @@ const ChatBot: React.FC = () => {
         })
       });
 
-      if (!response.ok) throw new Error('Failed to fetch from chat API');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to fetch from chat API');
+      }
 
       const data = await response.json();
       
@@ -192,6 +197,8 @@ const ChatBot: React.FC = () => {
           startOfMonthDay: startOfMonthDay || 1,
           currentDate: getLocalDate(),
           currentTime: getLocalTime(),
+          budgets,
+          goals,
           appKnowledge: {
             currentVersion: 'v1.0.18',
             latestFeatures: [
@@ -203,7 +210,10 @@ const ChatBot: React.FC = () => {
         })
       });
 
-      if (!response.ok) throw new Error('Failed to fetch from chat API');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to fetch from chat API');
+      }
 
       const data = await response.json();
       
@@ -391,7 +401,7 @@ const ChatBot: React.FC = () => {
                     lineHeight: 1.5,
                     whiteSpace: 'pre-wrap'
                   }}>
-                    {msg.content}
+                    {renderMarkdown(msg.content)}
                   </div>
                 )}
 
@@ -660,3 +670,90 @@ const ChatBot: React.FC = () => {
 };
 
 export default ChatBot;
+
+// --- Native Safe Markdown Parser for Chat Messages ---
+const parseInlineMarkdown = (text: string): React.ReactNode[] => {
+  const regex = /(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const splitParts = text.split(regex);
+
+  return splitParts.map((part, index) => {
+    if (part.startsWith('***') && part.endsWith('***')) {
+      return <strong key={index}><em>{part.slice(3, -3)}</em></strong>;
+    }
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+};
+
+const renderMarkdown = (content: string): React.ReactNode => {
+  if (!content) return null;
+
+  const blocks = content.split('\n');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {blocks.map((block, idx) => {
+        const trimmed = block.trim();
+        if (!trimmed) {
+          return <div key={idx} style={{ height: '6px' }} />;
+        }
+
+        // Headings
+        if (trimmed.startsWith('### ')) {
+          return (
+            <h4 key={idx} style={{ margin: '8px 0 4px 0', fontSize: '14px', fontWeight: 800, color: 'inherit' }}>
+              {parseInlineMarkdown(trimmed.substring(4))}
+            </h4>
+          );
+        }
+        if (trimmed.startsWith('## ')) {
+          return (
+            <h3 key={idx} style={{ margin: '12px 0 6px 0', fontSize: '15px', fontWeight: 800, color: 'inherit' }}>
+              {parseInlineMarkdown(trimmed.substring(3))}
+            </h3>
+          );
+        }
+        if (trimmed.startsWith('# ')) {
+          return (
+            <h2 key={idx} style={{ margin: '14px 0 8px 0', fontSize: '16px', fontWeight: 800, color: 'inherit' }}>
+              {parseInlineMarkdown(trimmed.substring(2))}
+            </h2>
+          );
+        }
+
+        // Bullet lists
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          return (
+            <div key={idx} style={{ display: 'flex', gap: '6px', paddingLeft: '4px', margin: '2px 0', lineHeight: 1.4 }}>
+              <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>•</span>
+              <span style={{ flex: 1 }}>{parseInlineMarkdown(trimmed.substring(2))}</span>
+            </div>
+          );
+        }
+
+        // Ordered lists
+        const orderedMatch = trimmed.match(/^(\d+)\.\s(.*)/);
+        if (orderedMatch) {
+          return (
+            <div key={idx} style={{ display: 'flex', gap: '6px', paddingLeft: '4px', margin: '2px 0', lineHeight: 1.4 }}>
+              <span style={{ color: 'var(--primary)', fontWeight: 'bold', minWidth: '14px' }}>{orderedMatch[1]}.</span>
+              <span style={{ flex: 1 }}>{parseInlineMarkdown(orderedMatch[2])}</span>
+            </div>
+          );
+        }
+
+        // Normal paragraph text
+        return (
+          <div key={idx} style={{ margin: 0, lineHeight: 1.4 }}>
+            {parseInlineMarkdown(block)}
+          </div>
+        );
+      })}
+    </div>
+  );
+};

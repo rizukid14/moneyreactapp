@@ -301,7 +301,7 @@ const Transactions: React.FC = () => {
     const totalDays = new Date(vY, vM + 1, 0).getDate();
     const daysPassed = now.getDate();
     const expectedSpendPercent = daysPassed / totalDays;
-    
+
     const globalBudget = budgets.find(b => b.categoryId === null && b.month === vM && b.year === vY);
     if (!globalBudget || globalBudget.limit <= 0) return null;
 
@@ -334,18 +334,18 @@ const Transactions: React.FC = () => {
   // --- Pace Notification ---
   React.useEffect(() => {
     if (!paceInfo) return;
-    
+
     const { status, actualSpendPercent, expectedSpendPercent } = paceInfo;
     if (status === 'on_track') return;
 
     const currentMonthKey = `${new Date().getFullYear()}-${new Date().getMonth()}`;
     const lastNotified = localStorage.getItem(`pace_notified_${currentMonthKey}`);
-    
+
     if (lastNotified !== status) {
-      const message = status === 'danger' 
+      const message = status === 'danger'
         ? `Pengeluaran terlalu cepat! Terpakai ${Math.round(actualSpendPercent * 100)}% anggaran, padahal baru ${Math.round(expectedSpendPercent * 100)}% bulan berlalu.`
         : `Peringatan: Pengeluaran sedikit lebih cepat dari seharusnya (${Math.round(actualSpendPercent * 100)}% anggaran vs ${Math.round(expectedSpendPercent * 100)}% waktu).`;
-      
+
       showToast(message, status === 'danger' ? 'error' : 'warning');
       localStorage.setItem(`pace_notified_${currentMonthKey}`, status);
     }
@@ -379,7 +379,7 @@ const Transactions: React.FC = () => {
     const todayDate = new Date(year, month - 1, day);
     const diffTime = eomDate.getTime() - todayDate.getTime();
     const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return {
       isNearEOM: days >= 0 && days <= 5,
       days,
@@ -470,13 +470,13 @@ const Transactions: React.FC = () => {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '13px', fontWeight: 800, color: '#856404' }}>Langganan Segera Berakhir</div>
               <div style={{ fontSize: '11px', color: '#856404', opacity: 0.8, fontWeight: 600 }}>
-                {upcomingSubs.length === 1 
-                  ? `"${upcomingSubs[0].name}" akan jatuh tempo dalam ${Math.ceil((new Date(upcomingSubs[0].nextBillingDate).getTime() - new Date().setHours(0,0,0,0)) / (1000*60*60*24))} hari.`
+                {upcomingSubs.length === 1
+                  ? `"${upcomingSubs[0].name}" akan jatuh tempo dalam ${Math.ceil((new Date(upcomingSubs[0].nextBillingDate).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))} hari.`
                   : `${upcomingSubs.length} langganan akan jatuh tempo dalam 3 hari ke depan.`
                 }
               </div>
             </div>
-            <button 
+            <button
               onClick={() => navigate('/settings')}
               style={{
                 background: '#856404', color: 'white', border: 'none',
@@ -588,46 +588,46 @@ const Transactions: React.FC = () => {
               gap: '12px'
             }}
           >
-             {/* Abstract Background Decoration */}
-             <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.2, transform: 'rotate(-15deg)' }}>
-               <Gauge size={100} strokeWidth={1} />
-             </div>
+            {/* Abstract Background Decoration */}
+            <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.2, transform: 'rotate(-15deg)' }}>
+              <Gauge size={100} strokeWidth={1} />
+            </div>
 
-             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', position: 'relative', zIndex: 1 }}>
-               <div style={{
-                 width: '42px', height: '42px', borderRadius: '14px',
-                 background: 'rgba(255, 255, 255, 0.22)',
-                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-               }}>
-                 <Flame size={24} />
-               </div>
-               <div style={{ flex: 1 }}>
-                 <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.85, marginBottom: '2px' }}>
-                   Laju Pengeluaran: {paceInfo.status === 'on_track' ? 'Aman' : paceInfo.status === 'warning' ? 'Peringatan' : 'Bahaya'}
-                 </div>
-                 <div style={{ fontSize: '15px', fontWeight: 800, lineHeight: 1.2 }}>
-                   {paceInfo.status === 'on_track' 
-                     ? "Pengeluaran Anda terkendali bulan ini." 
-                     : `Terpakai ${Math.round(paceInfo.actualSpendPercent * 100)}% anggaran dalam ${Math.round(paceInfo.expectedSpendPercent * 100)}% waktu.`}
-                 </div>
-               </div>
-             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', position: 'relative', zIndex: 1 }}>
+              <div style={{
+                width: '42px', height: '42px', borderRadius: '14px',
+                background: 'rgba(255, 255, 255, 0.22)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <Flame size={24} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.85, marginBottom: '2px' }}>
+                  Laju Pengeluaran: {paceInfo.status === 'on_track' ? 'Aman' : paceInfo.status === 'warning' ? 'Peringatan' : 'Bahaya'}
+                </div>
+                <div style={{ fontSize: '15px', fontWeight: 800, lineHeight: 1.2 }}>
+                  {paceInfo.status === 'on_track'
+                    ? "Pengeluaran Anda terkendali bulan ini."
+                    : `Terpakai ${Math.round(paceInfo.actualSpendPercent * 100)}% anggaran dalam ${Math.round(paceInfo.expectedSpendPercent * 100)}% waktu.`}
+                </div>
+              </div>
+            </div>
 
-             <div style={{ position: 'relative', zIndex: 1 }}>
-               <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '4px', overflow: 'hidden' }}>
-                 <motion.div
-                   initial={{ width: 0 }}
-                   animate={{ width: `${Math.min(paceInfo.actualSpendPercent * 100, 100)}%` }}
-                   style={{ height: '100%', background: 'white', borderRadius: '4px' }}
-                 />
-               </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '11px', fontWeight: 700 }}>
-                 <span style={{ opacity: 0.9 }}>{paceInfo.status === 'danger' ? 'Terlalu Cepat!' : paceInfo.status === 'warning' ? 'Sedikit Cepat' : 'Sesuai Target'}</span>
-                 <span style={{ opacity: 0.95, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
-                   Estimasi: {paceInfo.daysRemaining} hari tersisa
-                 </span>
-               </div>
-             </div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '4px', overflow: 'hidden' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(paceInfo.actualSpendPercent * 100, 100)}%` }}
+                  style={{ height: '100%', background: 'white', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '11px', fontWeight: 700 }}>
+                <span style={{ opacity: 0.9 }}>{paceInfo.status === 'danger' ? 'Terlalu Cepat!' : paceInfo.status === 'warning' ? 'Sedikit Cepat' : 'Sesuai Target'}</span>
+                <span style={{ opacity: 0.95, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                  Estimasi: {paceInfo.daysRemaining} hari tersisa
+                </span>
+              </div>
+            </div>
           </motion.div>
         )}
         {/* Bento Card 1: Pemasukan */}
@@ -811,14 +811,14 @@ const Transactions: React.FC = () => {
           whileTap={{ scale: 0.98 }}
           onClick={() => setIsChatOpen(true)}
           style={{
-            background: eomInfo.isNearEOM 
-              ? 'linear-gradient(135deg, hsl(270, 75%, 60%), hsl(250, 80%, 55%))' 
+            background: eomInfo.isNearEOM
+              ? 'linear-gradient(135deg, hsl(270, 75%, 60%), hsl(250, 80%, 55%))'
               : 'var(--bg-card)',
             border: eomInfo.isNearEOM ? 'none' : '1.5px solid var(--border-color)',
             borderRadius: '20px',
             padding: '12px 14px',
-            boxShadow: eomInfo.isNearEOM 
-              ? '0 8px 24px rgba(168, 85, 247, 0.4)' 
+            boxShadow: eomInfo.isNearEOM
+              ? '0 8px 24px rgba(168, 85, 247, 0.4)'
               : '0 4px 16px rgba(59, 130, 246, 0.12)',
             display: 'flex',
             flexDirection: 'column',
@@ -831,32 +831,32 @@ const Transactions: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '100%' }}>
               <span style={{ position: 'relative', display: 'flex', height: '7px', width: '7px', marginRight: '5px' }}>
-                <span style={{ 
-                  animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite', 
-                  position: 'absolute', 
-                  display: 'inline-flex', 
-                  height: '7px', 
-                  width: '7px', 
-                  borderRadius: '50%', 
-                  background: eomInfo.isNearEOM ? 'hsl(45, 100%, 65%)' : 'var(--success)', 
-                  opacity: 0.75 
+                <span style={{
+                  animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite',
+                  position: 'absolute',
+                  display: 'inline-flex',
+                  height: '7px',
+                  width: '7px',
+                  borderRadius: '50%',
+                  background: eomInfo.isNearEOM ? 'hsl(45, 100%, 65%)' : 'var(--success)',
+                  opacity: 0.75
                 }} />
-                <span style={{ 
-                  position: 'relative', 
-                  display: 'inline-flex', 
-                  borderRadius: '50%', 
-                  height: '7px', 
-                  width: '7px', 
-                  background: eomInfo.isNearEOM ? 'hsl(45, 100%, 50%)' : 'var(--success)' 
+                <span style={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  borderRadius: '50%',
+                  height: '7px',
+                  width: '7px',
+                  background: eomInfo.isNearEOM ? 'hsl(45, 100%, 50%)' : 'var(--success)'
                 }} />
               </span>
-              <span style={{ 
-                fontSize: '11px', 
-                fontWeight: 800, 
-                color: eomInfo.isNearEOM ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)', 
-                textTransform: 'uppercase', 
-                letterSpacing: '0.05em', 
-                lineHeight: '1' 
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                color: eomInfo.isNearEOM ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                lineHeight: '1'
               }}>
                 {eomInfo.isNearEOM ? 'EOM Alert 💡' : 'MoneyBot'}
               </span>
@@ -866,20 +866,20 @@ const Transactions: React.FC = () => {
             </div>
           </div>
           <div>
-            <div style={{ 
-              fontSize: '13px', 
-              fontWeight: 800, 
-              color: eomInfo.isNearEOM ? 'white' : 'var(--text-main)', 
-              marginBottom: '1px' 
+            <div style={{
+              fontSize: '13px',
+              fontWeight: 800,
+              color: eomInfo.isNearEOM ? 'white' : 'var(--text-main)',
+              marginBottom: '1px'
             }}>
               {eomInfo.isNearEOM ? 'Nasihat Akhir Bulan' : 'Tanya Bot Asisten'}
             </div>
-            <div style={{ 
-              fontSize: '10px', 
-              color: eomInfo.isNearEOM ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)', 
-              fontWeight: 600 
+            <div style={{
+              fontSize: '10px',
+              color: eomInfo.isNearEOM ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)',
+              fontWeight: 600
             }}>
-              {eomInfo.isNearEOM ? 'Mulai evaluasi AI &rarr;' : 'Catat via chat &rarr;'}
+              {eomInfo.isNearEOM ? 'Mulai evaluasi AI ' : 'Catat via chat '}
             </div>
           </div>
         </motion.div>

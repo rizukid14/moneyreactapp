@@ -138,6 +138,7 @@ export interface Trip {
   isSettled: boolean;
   settlementMode?: 'simple' | 'detailed';
   paidSettlements?: string[];
+  settlementPaidAmounts?: Record<string, number>;
   createdAt: string;
 }
 
@@ -1235,7 +1236,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         });
       } else {
         _createTx({
-          type: 'pengeluaran',
+          type: 'hutang_keluar',
           amount,
           category: 'Bayar Hutang',
           date,
@@ -1247,7 +1248,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     } else {
       _createTx({
-        type: 'pendapatan',
+        type: 'piutang_masuk',
         amount,
         category: 'Pelunasan Piutang',
         date,
@@ -1355,7 +1356,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       const newTx: Transaction = {
         id: generateId(),
-        type: 'pengeluaran',
+        type: 'hutang_keluar',
         amount: payAmt,
         category: 'Bayar Hutang',
         date,
@@ -1385,7 +1386,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       const newTx: Transaction = {
         id: generateId(),
-        type: 'pendapatan',
+        type: 'piutang_masuk',
         amount: payAmt,
         category: 'Pelunasan Piutang',
         date,
