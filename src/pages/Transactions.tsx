@@ -351,6 +351,42 @@ const Transactions: React.FC = () => {
     }
   }, [paceInfo, showToast]);
 
+  const eomInfo = useMemo(() => {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth() + 1; // 1-indexed
+    const year = today.getFullYear();
+
+    const startDay = startOfMonthDay || 1;
+    let endYear = year;
+    let endMonth = month;
+    let endDay = startDay - 1;
+
+    if (startDay === 1) {
+      const lastDayOfCalMonth = new Date(year, month, 0).getDate();
+      endDay = lastDayOfCalMonth;
+    } else {
+      if (day >= startDay) {
+        endMonth = month + 1;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = year + 1;
+        }
+      }
+    }
+
+    const eomDate = new Date(endYear, endMonth - 1, endDay);
+    const todayDate = new Date(year, month - 1, day);
+    const diffTime = eomDate.getTime() - todayDate.getTime();
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return {
+      isNearEOM: days >= 0 && days <= 5,
+      days,
+      dateStr: `${endDay}/${endMonth}/${endYear}`
+    };
+  }, [startOfMonthDay]);
+
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
   }, []);
@@ -769,17 +805,21 @@ const Transactions: React.FC = () => {
         {/* Bento Card 4: Chatbot Assistant */}
         <motion.div
           role="button"
-          aria-label="Tanya Bot Asisten"
+          aria-label={eomInfo.isNearEOM ? "Evaluasi Tutup Buku Akhir Bulan AI" : "Tanya Bot Asisten"}
           variants={itemVariants}
           whileHover={{ scale: 1.01, y: -2 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setIsChatOpen(true)}
           style={{
-            background: 'var(--bg-card)',
-            border: '1.5px solid var(--border-color)',
+            background: eomInfo.isNearEOM 
+              ? 'linear-gradient(135deg, hsl(270, 75%, 60%), hsl(250, 80%, 55%))' 
+              : 'var(--bg-card)',
+            border: eomInfo.isNearEOM ? 'none' : '1.5px solid var(--border-color)',
             borderRadius: '20px',
             padding: '12px 14px',
-            boxShadow: '0 4px 16px rgba(59, 130, 246, 0.12)',
+            boxShadow: eomInfo.isNearEOM 
+              ? '0 8px 24px rgba(168, 85, 247, 0.4)' 
+              : '0 4px 16px rgba(59, 130, 246, 0.12)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
@@ -791,18 +831,56 @@ const Transactions: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '100%' }}>
               <span style={{ position: 'relative', display: 'flex', height: '7px', width: '7px', marginRight: '5px' }}>
-                <span style={{ animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite', position: 'absolute', display: 'inline-flex', height: '7px', width: '7px', borderRadius: '50%', background: 'var(--success)', opacity: 0.75 }} />
-                <span style={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', height: '7px', width: '7px', background: 'var(--success)' }} />
+                <span style={{ 
+                  animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite', 
+                  position: 'absolute', 
+                  display: 'inline-flex', 
+                  height: '7px', 
+                  width: '7px', 
+                  borderRadius: '50%', 
+                  background: eomInfo.isNearEOM ? 'hsl(45, 100%, 65%)' : 'var(--success)', 
+                  opacity: 0.75 
+                }} />
+                <span style={{ 
+                  position: 'relative', 
+                  display: 'inline-flex', 
+                  borderRadius: '50%', 
+                  height: '7px', 
+                  width: '7px', 
+                  background: eomInfo.isNearEOM ? 'hsl(45, 100%, 50%)' : 'var(--success)' 
+                }} />
               </span>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '1' }}>MoneyBot</span>
+              <span style={{ 
+                fontSize: '11px', 
+                fontWeight: 800, 
+                color: eomInfo.isNearEOM ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)', 
+                textTransform: 'uppercase', 
+                letterSpacing: '0.05em', 
+                lineHeight: '1' 
+              }}>
+                {eomInfo.isNearEOM ? 'EOM Alert 💡' : 'MoneyBot'}
+              </span>
             </div>
             <div style={{ height: '0px', display: 'flex', alignItems: 'center', overflow: 'visible' }}>
               <MagicRobotSVG size={46} />
             </div>
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1px' }}>Tanya Bot Asisten</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>Catat via chat &rarr;</div>
+            <div style={{ 
+              fontSize: '13px', 
+              fontWeight: 800, 
+              color: eomInfo.isNearEOM ? 'white' : 'var(--text-main)', 
+              marginBottom: '1px' 
+            }}>
+              {eomInfo.isNearEOM ? 'Nasihat Akhir Bulan' : 'Tanya Bot Asisten'}
+            </div>
+            <div style={{ 
+              fontSize: '10px', 
+              color: eomInfo.isNearEOM ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)', 
+              fontWeight: 600 
+            }}>
+              {eomInfo.isNearEOM ? 'Mulai evaluasi AI &rarr;' : 'Catat via chat &rarr;'}
+            </div>
           </div>
         </motion.div>
       </motion.div>

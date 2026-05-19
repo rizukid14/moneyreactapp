@@ -24,16 +24,124 @@ const ChatBot: React.FC = () => {
   const { 
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
     currencySymbol, isChatOpen, setIsChatOpen,
-    recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode
+    recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
+    startOfMonthDay
   } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const getDaysToEOM = () => {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth() + 1; // 1-indexed
+    const year = today.getFullYear();
+
+    const startDay = startOfMonthDay || 1;
+    let endYear = year;
+    let endMonth = month;
+    let endDay = startDay - 1;
+
+    if (startDay === 1) {
+      const lastDayOfCalMonth = new Date(year, month, 0).getDate();
+      endDay = lastDayOfCalMonth;
+    } else {
+      if (day >= startDay) {
+        endMonth = month + 1;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = year + 1;
+        }
+      }
+    }
+
+    const eomDate = new Date(endYear, endMonth - 1, endDay);
+    const todayDate = new Date(year, month - 1, day);
+    const diffTime = eomDate.getTime() - todayDate.getTime();
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return { days, dateStr: `${endDay}/${endMonth}/${endYear}` };
+  };
+
+  const triggerEOMReview = async () => {
+    setIsLoading(true);
+    const { dateStr } = getDaysToEOM();
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: 'Tolong berikan evaluasi dan nasihat akhir bulan saya berdasarkan transaksi yang ada.' }],
+          categories,
+          assets: assets.map(a => ({
+            ...a,
+            balance: getAssetBalance(a.id)
+          })),
+          transactions: transactions.slice(0, 150).map(t => ({
+            type: t.type,
+            amount: t.amount,
+            category: t.category,
+            note: t.note,
+            date: t.date
+          })),
+          contacts: contacts.map(c => ({ name: c.name })),
+          recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
+            type: rt.type,
+            amount: rt.amount,
+            category: rt.category,
+            frequency: rt.frequency,
+            startDate: rt.startDate,
+            note: rt.note
+          })),
+          subscriptions: subscriptions.filter(s => s.isActive).map(s => ({
+            name: s.name,
+            amount: s.amount,
+            billingCycle: s.billingCycle,
+            nextBillingDate: s.nextBillingDate
+          })),
+          budgetMode,
+          monthlyIncome,
+          zbbMode,
+          startOfMonthDay: startOfMonthDay || 1,
+          currentDate: getLocalDate(),
+          currentTime: getLocalTime(),
+          appKnowledge: {
+            currentVersion: 'v1.0.18',
+            latestFeatures: []
+          }
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch from chat API');
+
+      const data = await response.json();
+      
+      setMessages([
+        { role: 'assistant', content: `Halo! Karena hari ini mendekati akhir bulan finansialmu (${dateStr}), saya telah menganalisis keuangan bulananmu secara otomatis:` },
+        { role: 'assistant', content: data.content }
+      ]);
+
+    } catch (error) {
+      console.error(error);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Maaf, gagal membuat evaluasi akhir bulan otomatis.' }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (isChatOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isChatOpen]);
+
+  useEffect(() => {
+    if (isChatOpen && messages.length === 1) {
+      const { days } = getDaysToEOM();
+      if (days >= 0 && days <= 5) {
+        triggerEOMReview();
+      }
+    }
+  }, [isChatOpen, messages.length]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -81,6 +189,7 @@ const ChatBot: React.FC = () => {
           budgetMode,
           monthlyIncome,
           zbbMode,
+          startOfMonthDay: startOfMonthDay || 1,
           currentDate: getLocalDate(),
           currentTime: getLocalTime(),
           appKnowledge: {
