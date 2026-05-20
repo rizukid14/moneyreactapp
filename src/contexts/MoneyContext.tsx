@@ -14,7 +14,7 @@ import {
   dbGetAllBudgetReallocations, dbPutBudgetReallocation, dbDeleteBudgetReallocation,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
-  dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync,
+  dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync, localDbGetSetting,
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -381,6 +381,32 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [monthlyIncome, setMonthlyIncomeState] = useState<number>(0);
   const [monthlyIncomes, setMonthlyIncomes] = useState<MonthlyIncome[]>([]);
   const [budgetReallocations, setBudgetReallocations] = useState<BudgetReallocation[]>([]);
+  const applySettingsToState = useCallback((s: Record<string, any>, options?: { lockAppOnPin?: boolean }) => {
+    if (s.user) setUser(s.user);
+    // PIN: hanya lock app jika dipanggil dari bootstrap (saat app baru buka)
+    // Dari pullFromCloud, PIN disimpan ke IDB tapi app tidak langsung dikunci
+    if (s.pin) {
+      setPin(s.pin);
+      if (options?.lockAppOnPin !== false) setIsAppLocked(true);
+    }
+    if (s.pin === null || s.pin === undefined) { setPin(null); }
+    if (s.theme) {
+      setTheme(s.theme as 'light' | 'dark');
+      try { localStorage.setItem('moneyapp-theme', s.theme); } catch {}
+    }
+    if (s.isPrivateMode !== undefined) setIsPrivateMode(s.isPrivateMode);
+    if (s.defaultAssetId !== undefined) setDefaultAssetIdState(s.defaultAssetId);
+    if (s.startOfMonthDay) setStartOfMonthDayState(s.startOfMonthDay);
+    if (s.currencySymbol) setCurrencySymbolState(s.currencySymbol);
+    if (s.defaultTransactionGrouping) setDefaultTransactionGroupingState(s.defaultTransactionGrouping);
+    if (s.assetCarouselCards?.length) setAssetCarouselCardsState(s.assetCarouselCards);
+    if (s.statsCarouselCards?.length) setStatsCarouselCardsState(s.statsCarouselCards);
+    if (s.defaultStatsView) setDefaultStatsViewState(s.defaultStatsView);
+    if (s.chartStyle) setChartStyleState(s.chartStyle as 'area' | 'line');
+    if (s.budgetMode) setBudgetModeState(s.budgetMode);
+    if (s.zbbMode) setZbbModeState(s.zbbMode);
+    if (s.monthlyIncome !== undefined) setMonthlyIncomeState(s.monthlyIncome);
+  }, []);
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -393,6 +419,18 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (u) {
         setAuthUser(u);
         await migrateFromIndexedDBToFirebase();
+
+        // Pull jika ini akun yang berbeda dari yang terakhir login di device ini.
+        // Handles: (1) device lama dengan data stale, (2) logout → login akun berbeda.
+        // Device baru (IDB kosong) → lastUid undefined → skip (handled by IDB-first fallback).
+        const lastUid = await localDbGetSetting('last_synced_uid');
+        if (lastUid && lastUid !== u.uid) {
+          // Akun berbeda → pull data Firestore akun baru ke IDB.
+          // pullCollectionIntoIDB() otomatis membersihkan "zombies" (data akun lama
+          // yang tidak ada di Firestore akun baru), tidak menimpa pending_sync items.
+          await dbForceCloudSync();
+        }
+        await dbPutSetting('last_synced_uid', u.uid);
       } else {
         setAuthUser(null);
       }
@@ -509,32 +547,38 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
 
-      if (profile) setUser(profile);
-      if (savedPin) { setPin(savedPin); setIsAppLocked(true); }
-      if (savedTheme) {
-        setTheme(savedTheme as 'light' | 'dark');
-        try { localStorage.setItem('moneyapp-theme', savedTheme); } catch { }
-      }
-      if (savedPrivacy !== undefined) setIsPrivateMode(savedPrivacy);
-      if (savedDefaultAssetId) setDefaultAssetIdState(savedDefaultAssetId);
-      if (savedStartMonth) setStartOfMonthDayState(savedStartMonth);
-      if (savedCurrency) setCurrencySymbolState(savedCurrency);
-      if (savedGrouping) setDefaultTransactionGroupingState(savedGrouping);
+      const settingsToApply: Record<string, any> = {};
+      if (profile) settingsToApply.user = profile;
+      if (savedPin) settingsToApply.pin = savedPin;
+      if (savedTheme) settingsToApply.theme = savedTheme;
+      if (savedPrivacy !== undefined) settingsToApply.isPrivateMode = savedPrivacy;
+      if (savedDefaultAssetId) settingsToApply.defaultAssetId = savedDefaultAssetId;
+      if (savedStartMonth) settingsToApply.startOfMonthDay = savedStartMonth;
+      if (savedCurrency) settingsToApply.currencySymbol = savedCurrency;
+      if (savedGrouping) settingsToApply.defaultTransactionGrouping = savedGrouping;
+      
       const savedCarousel = await dbGetSetting('assetCarouselCards') as string[] | undefined;
-      if (savedCarousel && Array.isArray(savedCarousel) && savedCarousel.length > 0) setAssetCarouselCardsState(savedCarousel);
+      if (savedCarousel && Array.isArray(savedCarousel) && savedCarousel.length > 0) settingsToApply.assetCarouselCards = savedCarousel;
+      
       const savedStatsCarousel = await dbGetSetting('statsCarouselCards') as string[] | undefined;
-      if (savedStatsCarousel && Array.isArray(savedStatsCarousel) && savedStatsCarousel.length > 0) setStatsCarouselCardsState(savedStatsCarousel);
+      if (savedStatsCarousel && Array.isArray(savedStatsCarousel) && savedStatsCarousel.length > 0) settingsToApply.statsCarouselCards = savedStatsCarousel;
+      
       const savedDefaultStatsView = await dbGetSetting('defaultStatsView') as string | undefined;
-      if (savedDefaultStatsView) setDefaultStatsViewState(savedDefaultStatsView);
+      if (savedDefaultStatsView) settingsToApply.defaultStatsView = savedDefaultStatsView;
+      
       const savedChartStyle = await dbGetSetting('chartStyle') as 'area' | 'line' | undefined;
-      if (savedChartStyle) setChartStyleState(savedChartStyle);
+      if (savedChartStyle) settingsToApply.chartStyle = savedChartStyle;
 
       const savedBudgetMode = await dbGetSetting('budgetMode') as BudgetMode | undefined;
+      if (savedBudgetMode) settingsToApply.budgetMode = savedBudgetMode;
+      
       const savedZbbMode = await dbGetSetting('zbbMode') as 'flexible' | 'strict' | undefined;
+      if (savedZbbMode) settingsToApply.zbbMode = savedZbbMode;
+      
       const savedMonthlyIncome = await dbGetSetting('monthlyIncome') as number | undefined;
-      if (savedBudgetMode) setBudgetModeState(savedBudgetMode);
-      if (savedZbbMode) setZbbModeState(savedZbbMode);
-      if (savedMonthlyIncome) setMonthlyIncomeState(savedMonthlyIncome);
+      if (savedMonthlyIncome) settingsToApply.monthlyIncome = savedMonthlyIncome;
+
+      applySettingsToState(settingsToApply);
 
       // --- Migration: budgets collection -> settings/budgets ---
       if (isFirebaseConfigured && auth.currentUser) {
@@ -1709,10 +1753,16 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setSubscriptions(dbSubs);
       setTrips(dbTrips as Trip[]);
       setTripExpenses(dbTripEx as TripExpense[]);
+      
+      // TAMBAHAN: reload settings ke React state
+      const { dbGetAllSettings } = await import('../lib/db');
+      const freshSettings = await dbGetAllSettings();
+      applySettingsToState(freshSettings, { lockAppOnPin: false });
+
       await refreshSyncCount();
     }
     return result;
-  }, [refreshSyncCount]);
+  }, [refreshSyncCount, applySettingsToState]);
 
   const setBudgetMode = useCallback((mode: BudgetMode) => {
     setBudgetModeState(mode);

@@ -511,6 +511,16 @@ export const dbDeleteGoal = async (id: string) => {
 };
 
 // ─── Settings ────────────────────────────────────────────────────────────────
+export const dbGetAllSettings = async (): Promise<Record<string, any>> => {
+  const db = await getDB();
+  const keys = await db.getAllKeys('settings');
+  const result: Record<string, any> = {};
+  for (const key of keys) {
+    result[key as string] = await db.get('settings', key as string);
+  }
+  return result;
+};
+
 export const dbGetSetting = async (key: string) => {
   const local = await localDbGetSetting(key);
   // IDB-first: only fetch from Firestore if we have no local value
@@ -639,6 +649,7 @@ export interface SharedSplit {
   secondarySplits?: any[]; // Store the other mode's data
   settlementMode?: 'simple' | 'detailed'; // Current active mode
   lineItems?: any[];      // For normal split
+  itemAssignments?: Record<number, string[]>; // For normal split
   tripExpenses?: any[];   // For trip
   members?: any[];        // For trip
   sourceId?: string;      // ID of the original trip or split to prevent duplicates

@@ -76,13 +76,16 @@ const ChatBot: React.FC = () => {
             ...a,
             balance: getAssetBalance(a.id)
           })),
-          transactions: transactions.slice(0, 150).map(t => ({
-            type: t.type,
-            amount: t.amount,
-            category: t.category,
-            note: t.note,
-            date: t.date
-          })),
+          transactions: [...transactions]
+            .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
+            .slice(0, 150)
+            .map(t => ({
+              type: t.type,
+              amount: t.amount,
+              category: t.category,
+              note: t.note,
+              date: t.date
+            })),
           contacts: contacts.map(c => ({ name: c.name })),
           recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
             type: rt.type,
@@ -169,13 +172,16 @@ const ChatBot: React.FC = () => {
             ...a,
             balance: getAssetBalance(a.id)
           })),
-          transactions: transactions.slice(0, 150).map(t => ({
-            type: t.type,
-            amount: t.amount,
-            category: t.category,
-            note: t.note,
-            date: t.date
-          })),
+          transactions: [...transactions]
+            .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
+            .slice(0, 150)
+            .map(t => ({
+              type: t.type,
+              amount: t.amount,
+              category: t.category,
+              note: t.note,
+              date: t.date
+            })),
           contacts: contacts.map(c => ({ name: c.name })),
           recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
             type: rt.type,

@@ -253,7 +253,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
           totalAmount,
           currencySymbol,
           splits,
-          lineItems: localLineItems
+          lineItems: localLineItems,
+          itemAssignments
         });
       }
     } catch (err) {
@@ -280,7 +281,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         totalAmount,
         currencySymbol,
         splits,
-        lineItems: localLineItems
+        lineItems: localLineItems,
+        itemAssignments
       });
       setActiveSharedId(sharedId);
       

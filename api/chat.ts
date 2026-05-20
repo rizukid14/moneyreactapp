@@ -108,10 +108,63 @@ export default async function handler(req: any, res: any) {
     }
 
     // Pre-calculate financial month metrics for high-fidelity insights
-    const currentPeriodTxs = transactions?.filter((t: any) => {
+    let effectiveStartStr = startStr;
+    let effectiveEndStr = endStr;
+
+    let currentPeriodTxs = transactions?.filter((t: any) => {
       if (!t.date) return false;
       return t.date >= startStr && t.date <= endStr;
     }) || [];
+
+    // FALLBACK: If the computed period yields no transactions but we have transactions,
+    // detect the most recent financial month from the actual transaction dates.
+    // This prevents showing Rp 0 / Rp 0 when data exists but belongs to a past period.
+    if (currentPeriodTxs.length === 0 && transactions?.length > 0 && startStr) {
+      const allDates = (transactions as any[])
+        .filter((t: any) => t.date)
+        .map((t: any) => t.date as string)
+        .sort();
+      const latestDate = allDates[allDates.length - 1]; // most recent tx date
+
+      if (latestDate) {
+        // Derive the financial period that contains latestDate
+        const lParts = latestDate.split('-');
+        const lYear = parseInt(lParts[0]);
+        const lMonth = parseInt(lParts[1]);
+        const lDay = parseInt(lParts[2]);
+        const startDay = startOfMonthDay || 1;
+
+        let fbStartYear = lYear;
+        let fbStartMonth = lMonth;
+        let fbEndYear = lYear;
+        let fbEndMonth = lMonth;
+
+        if (startDay === 1) {
+          const lastDayOfCal = new Date(lYear, lMonth, 0).getDate();
+          effectiveStartStr = `${lYear}-${String(lMonth).padStart(2, '0')}-01`;
+          effectiveEndStr = `${lYear}-${String(lMonth).padStart(2, '0')}-${String(lastDayOfCal).padStart(2, '0')}`;
+        } else {
+          if (lDay >= startDay) {
+            fbEndMonth = lMonth + 1;
+            if (fbEndMonth > 12) { fbEndMonth = 1; fbEndYear = lYear + 1; }
+          } else {
+            fbStartMonth = lMonth - 1;
+            if (fbStartMonth < 1) { fbStartMonth = 12; fbStartYear = lYear - 1; }
+            fbEndMonth = lMonth;
+            fbEndYear = lYear;
+          }
+          const lastDayOfEndMonth = new Date(fbEndYear, fbEndMonth, 0).getDate();
+          const actualEndDay = Math.min(startDay - 1, lastDayOfEndMonth);
+          effectiveStartStr = `${fbStartYear}-${String(fbStartMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`;
+          effectiveEndStr = `${fbEndYear}-${String(fbEndMonth).padStart(2, '0')}-${String(actualEndDay).padStart(2, '0')}`;
+        }
+
+        currentPeriodTxs = (transactions as any[]).filter((t: any) => {
+          if (!t.date) return false;
+          return t.date >= effectiveStartStr && t.date <= effectiveEndStr;
+        });
+      }
+    }
 
     const periodIncome = currentPeriodTxs
       .filter((t: any) => t.type === 'pendapatan')
@@ -128,7 +181,7 @@ export default async function handler(req: any, res: any) {
       const catBudgets = (budgets || []).filter((b: any) => b.categoryId === cat.id);
       let limit = 0;
       if (catBudgets.length > 0) {
-        const endParts = endStr.split('-');
+        const endParts = effectiveEndStr.split('-');
         const endMonthVal = endParts.length === 3 ? parseInt(endParts[1]) : 0;
         const endYearVal = endParts.length === 3 ? parseInt(endParts[0]) : 0;
         const currentBudget = catBudgets.find((b: any) => b.month === endMonthVal && b.year === endYearVal);
@@ -153,8 +206,14 @@ export default async function handler(req: any, res: any) {
       };
     });
 
+    // Note if we used a fallback period instead of the current one
+    const usedFallbackPeriod = effectiveStartStr !== startStr || effectiveEndStr !== endStr;
+    const periodNote = usedFallbackPeriod
+      ? `\n⚠️ NOTE: No transactions found in current period (${startStr} to ${endStr}). Showing metrics for the most recent period found in data instead.`
+      : '';
+
     let financialMetricsSummary = `
-=== PRE-COMPUTED PERIOD FINANCIAL METRICS (${startStr || "N/A"} to ${endStr || "N/A"}) ===
+=== PRE-COMPUTED PERIOD FINANCIAL METRICS (${effectiveStartStr || "N/A"} to ${effectiveEndStr || "N/A"}) ===${periodNote}
 - Total Income: Rp ${periodIncome.toLocaleString('id-ID')}
 - Total Expenses: Rp ${periodExpenses.toLocaleString('id-ID')}
 - Net Savings: Rp ${periodSavings.toLocaleString('id-ID')} (Savings Rate: ${savingsRate}%)
@@ -195,7 +254,11 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
 
     // 3. Dynamic Context Downscaling & Smart Date Override
     const maxTxs = (isStatsRelated || isHistoryRelated || isDateRelated || isEndOfMonthRelated || isNearEndOfMonth) ? 100 : 15;
-    const slicedTxs = transactions?.slice(0, maxTxs) || [];
+    const slicedTxs = (isEndOfMonthRelated || isNearEndOfMonth)
+      ? (transactions || [])
+          .filter((t: any) => t.date >= effectiveStartStr && t.date <= effectiveEndStr)
+          .slice(0, maxTxs)
+      : (transactions || []).slice(0, maxTxs);
     
     const categoryList = categories?.length > 0 
       ? categories.map((c: any) => {
@@ -314,7 +377,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
     if (isEndOfMonthRelated || isNearEndOfMonth) {
       modularRules += `
 === END OF MONTH FINANCIAL ADVICE RULES ===
-- The user's current financial month is from ${startStr || "N/A"} to ${endStr || "N/A"} (based on startOfMonthDay preference: ${startOfMonthDay || 1}).
+- The user's current financial month is from ${effectiveStartStr || "N/A"} to ${effectiveEndStr || "N/A"} (based on startOfMonthDay preference: ${startOfMonthDay || 1}).
 - Today is ${daysToEOM} days away from the end of their financial month.
 - Since we are evaluating or close to the end of the financial month, you MUST:
   1. Provide a comprehensive, professional, and detailed report of their monthly performance. Use headers, bold key numbers, and structured bullet points.

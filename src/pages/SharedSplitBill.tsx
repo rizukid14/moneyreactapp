@@ -11,7 +11,8 @@ import {
   Wallet,
   Info,
   CheckCircle2,
-  PlusCircle
+  PlusCircle,
+  X
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { dbGetSharedSplit, type SharedSplit } from '../lib/db';
@@ -33,6 +34,7 @@ const SharedSplitBill: React.FC = () => {
   
   const [selectedExpense, setSelectedExpense] = useState<any>(null);
   const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
+  const [selectedContactForItems, setSelectedContactForItems] = useState<any>(null);
 
   useEffect(() => {
     const fetchSplit = async () => {
@@ -323,10 +325,12 @@ const SharedSplitBill: React.FC = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 + idx * 0.05 }}
+                onClick={() => split.type !== 'trip' && setSelectedContactForItems(item)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderRadius: '24px',
                   background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                  cursor: split.type !== 'trip' ? 'pointer' : 'default'
                 }}
               >
                 {split.type === 'trip' ? (
@@ -582,6 +586,93 @@ const SharedSplitBill: React.FC = () => {
               }}
             >
               Batal
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Contact Items Modal for Non-Trip Splits */}
+      {selectedContactForItems && (
+        <div 
+          onClick={() => setSelectedContactForItems(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '20px'
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '380px', width: '100%', background: 'var(--bg-card)', borderRadius: '32px',
+              padding: '28px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px rgba(0,0,0,0.2)',
+              maxHeight: '80vh', overflowY: 'auto'
+            }}
+            className="custom-scrollbar"
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Rincian Tagihan</h3>
+              <button onClick={() => setSelectedContactForItems(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', padding: '16px', background: 'var(--bg-neutral)', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '14px', background: selectedContactForItems.isPayer ? 'var(--success-glow)' : 'var(--bg-main)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 900,
+                color: selectedContactForItems.isPayer ? 'var(--success)' : 'var(--primary)'
+              }}>
+                {selectedContactForItems.contactName.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{selectedContactForItems.contactName}</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>
+                  {split?.currencySymbol}{(Number(selectedContactForItems.amount) || 0).toLocaleString('id-ID')}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
+                Item yang Dibayar
+              </h4>
+              {(!split.itemAssignments || Object.keys(split.itemAssignments).length === 0) ? (
+                <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-neutral)', borderRadius: '16px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  <ShoppingBag size={24} style={{ opacity: 0.5, marginBottom: '8px', display: 'inline-block' }} />
+                  <div>Tagihan ini dibagi rata / secara custom tanpa rincian item.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {split.lineItems?.map((item: any, idx: number) => {
+                    const assignees = split.itemAssignments?.[idx] || [];
+                    if (!assignees.includes(selectedContactForItems.id)) return null;
+                    const share = item.amount / assignees.length;
+                    return (
+                      <div key={idx} style={{ padding: '12px 16px', background: 'var(--bg-neutral)', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '2px' }}>{item.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dibagi {assignees.length} orang</div>
+                        </div>
+                        <div style={{ fontWeight: 800, fontSize: '13px' }}>
+                          {split.currencySymbol}{Math.floor(share).toLocaleString('id-ID')}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedContactForItems(null)}
+              style={{
+                width: '100%', padding: '14px', borderRadius: '14px', background: 'var(--primary)',
+                border: 'none', fontWeight: 800, fontSize: '14px',
+                color: 'white', cursor: 'pointer', boxShadow: '0 4px 12px var(--primary-glow)'
+              }}
+            >
+              Tutup
             </button>
           </motion.div>
         </div>
