@@ -709,7 +709,7 @@ const ReceiptScanner: React.FC = () => {
 
       {stage === 'crop' && (
         <div style={{ width: '100%' }}>
-          <div className="card glass" style={{ 
+          <div className="card glass crop-actions-container" style={{ 
             position: 'fixed',
             bottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
             left: '50%',

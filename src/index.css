@@ -985,4 +985,14 @@ textarea:focus {
     width: 75px; /* Fits comfortably inside smaller cards on mobile */
     transform: scale(1);
   }
+}
+
+/* Shifting crop and scan floating actions on desktop so they don't overlap the sidebar */
+@media (min-width: 768px) {
+  .sidebar-nav ~ .main-content .crop-actions-container {
+    left: calc(50% + var(--sidebar-width) / 2) !important;
+  }
+  .sidebar-nav.collapsed ~ .main-content .crop-actions-container {
+    left: calc(50% + var(--sidebar-collapsed-width) / 2) !important;
+  }
 }
