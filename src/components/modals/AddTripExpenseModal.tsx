@@ -33,6 +33,10 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
   const [showOCRUI, setShowOCRUI] = useState(false);
   const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
 
+  const [taxAmount, setTaxAmount] = useState(0);
+  const [serviceAmount, setServiceAmount] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
+
   useEffect(() => {
     if (editingExpense) {
       setDescription(editingExpense.description);
@@ -81,6 +85,9 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       setOcrItems([]);
       setItemAssignments({});
       setShowOCRUI(false);
+      setTaxAmount(0);
+      setServiceAmount(0);
+      setDiscountAmount(0);
     }
   }, [editingExpense, isOpen, trip]);
 
@@ -100,6 +107,9 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       setAmount(result.amount.toString());
       setDescription(result.merchantName || description);
       setOcrItems(result.lineItems.map(item => ({ id: generateId(), name: item.name, amount: item.amount })));
+      setTaxAmount(result.taxAmount || 0);
+      setServiceAmount(result.serviceAmount || 0);
+      setDiscountAmount(result.discountAmount || 0);
 
       // Default assignments: everyone splits every item
       const initialAssignments: Record<number, string[]> = {};
@@ -164,6 +174,34 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       formatted[id] = amt > 0 ? amt.toString() : '';
     });
     setCustomAmounts(formatted);
+  };
+
+  const handleDistributeCharges = () => {
+    const subtotal = ocrItems.reduce((sum, item) => sum + item.amount, 0);
+    
+    if (subtotal === 0) {
+      alert('Tambahkan minimal satu item dengan nominal untuk distribusi');
+      return;
+    }
+
+    const totalAdjustment = taxAmount + serviceAmount - discountAmount;
+    const factor = (subtotal + totalAdjustment) / subtotal;
+
+    const next = ocrItems.map(item => ({
+      ...item,
+      amount: Math.round(item.amount * factor)
+    }));
+
+    setOcrItems(next);
+    
+    setTaxAmount(0);
+    setServiceAmount(0);
+    setDiscountAmount(0);
+    
+    const newTotal = next.reduce((sum, i) => sum + i.amount, 0);
+    setAmount(newTotal.toString());
+    
+    recalculateCustomAmounts(itemAssignments, next);
   };
 
   const toggleMember = (id: string) => {
@@ -577,6 +615,50 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                   style={{ padding: '8px 16px', borderRadius: '12px', background: 'var(--primary-glow)', border: 'none', color: 'var(--primary)', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                 >
                   <Plus size={16} /> Tambah Item
+                </button>
+              </div>
+
+              <div style={{ padding: '12px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>PAJAK</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={taxAmount ? taxAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setTaxAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ width: '100%', fontSize: '12px', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-neutral)' }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>SERVICE</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={serviceAmount ? serviceAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setServiceAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ width: '100%', fontSize: '12px', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-neutral)' }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DISKON</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      value={discountAmount ? discountAmount.toLocaleString('id-ID') : ''} 
+                      onChange={e => setDiscountAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                      style={{ width: '100%', fontSize: '12px', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-neutral)', color: 'var(--danger)' }}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <button 
+                  onClick={handleDistributeCharges}
+                  style={{ width: '100%', fontSize: '12px', padding: '10px', background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  Hitung Ulang & Distribusi ke Item
                 </button>
               </div>
 

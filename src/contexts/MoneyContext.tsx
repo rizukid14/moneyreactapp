@@ -305,6 +305,8 @@ interface MoneyContextType {
   setDefaultAssetId: (id: string | null) => void;
   startOfMonthDay: number;
   setStartOfMonthDay: (day: number) => void;
+  showDebtInTransactions: boolean;
+  setShowDebtInTransactions: (show: boolean) => void;
   currencySymbol: string;
   setCurrencySymbol: (symbol: string) => void;
   defaultTransactionGrouping: 'date' | 'category';
@@ -367,6 +369,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [defaultAssetId, setDefaultAssetIdState] = useState<string | null>(null);
   const [startOfMonthDay, setStartOfMonthDayState] = useState<number>(1);
+  const [showDebtInTransactions, setShowDebtInTransactionsState] = useState<boolean>(true);
   const [currencySymbol, setCurrencySymbolState] = useState<string>('Rp');
   const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'category'>('date');
   const [authUser, setAuthUser] = useState<any>(null);
@@ -397,6 +400,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (s.isPrivateMode !== undefined) setIsPrivateMode(s.isPrivateMode);
     if (s.defaultAssetId !== undefined) setDefaultAssetIdState(s.defaultAssetId);
     if (s.startOfMonthDay) setStartOfMonthDayState(s.startOfMonthDay);
+    if (s.showDebtInTransactions !== undefined) setShowDebtInTransactionsState(s.showDebtInTransactions);
     if (s.currencySymbol) setCurrencySymbolState(s.currencySymbol);
     if (s.defaultTransactionGrouping) setDefaultTransactionGroupingState(s.defaultTransactionGrouping);
     if (s.assetCarouselCards?.length) setAssetCarouselCardsState(s.assetCarouselCards);
@@ -531,6 +535,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const savedPrivacy = await dbGetSetting('isPrivateMode') as boolean | undefined;
       const savedDefaultAssetId = await dbGetSetting('defaultAssetId') as string | undefined;
       const savedStartMonth = await dbGetSetting('startOfMonthDay') as number | undefined;
+      const savedShowDebtInTx = await dbGetSetting('showDebtInTransactions') as boolean | undefined;
       const savedCurrency = await dbGetSetting('currencySymbol') as string | undefined;
       const savedGrouping = await dbGetSetting('defaultTransactionGrouping') as 'date' | 'category' | undefined;
 
@@ -554,6 +559,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedPrivacy !== undefined) settingsToApply.isPrivateMode = savedPrivacy;
       if (savedDefaultAssetId) settingsToApply.defaultAssetId = savedDefaultAssetId;
       if (savedStartMonth) settingsToApply.startOfMonthDay = savedStartMonth;
+      if (savedShowDebtInTx !== undefined) settingsToApply.showDebtInTransactions = savedShowDebtInTx;
       if (savedCurrency) settingsToApply.currencySymbol = savedCurrency;
       if (savedGrouping) settingsToApply.defaultTransactionGrouping = savedGrouping;
       
@@ -1663,6 +1669,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbPutSetting('startOfMonthDay', day);
   }, []);
 
+  const setShowDebtInTransactions = useCallback((show: boolean) => {
+    setShowDebtInTransactionsState(show);
+    dbPutSetting('showDebtInTransactions', show);
+  }, []);
+
   const setCurrencySymbol = useCallback((symbol: string) => {
     setCurrencySymbolState(symbol);
     dbPutSetting('currencySymbol', symbol);
@@ -1900,7 +1911,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     tripExpenses, addTripExpense, updateTripExpense, deleteTripExpense,
     addContact, updateContact, deleteContact, addGoal, updateGoal, deleteGoal,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
-    startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
+    startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards,
     statsCarouselCards, setStatsCarouselCards,
     defaultStatsView,
@@ -1928,7 +1939,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     tripExpenses, addTripExpense, updateTripExpense, deleteTripExpense,
     addContact, updateContact, deleteContact, addGoal, updateGoal, deleteGoal,
     user, pin, isAppLocked, setIsAppLocked, isChatOpen, setIsChatOpen, theme, isPrivateMode, defaultAssetId, setDefaultAssetId,
-    startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
+    startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, chartStyle, setChartStyle,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,

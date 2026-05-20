@@ -324,7 +324,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
 const Settings: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -1193,6 +1193,25 @@ const Settings: React.FC = () => {
                   <div style={{ border: 'solid var(--text-muted)', borderWidth: '0 2px 2px 0', display: 'inline-block', padding: '3px', transform: 'rotate(45deg)' }}></div>
                 </div>
               </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <HandCoins size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilkan Transaksi Hutang/Piutang</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Aktifkan ini jika Anda ingin aktivitas meminjam/membayar hutang piutang muncul di menu utama Transaksi.
+              </p>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600 }}>Tampilkan di Transaksi</span>
+                <input
+                  type="checkbox"
+                  checked={showDebtInTransactions}
+                  onChange={(e) => setShowDebtInTransactions(e.target.checked)}
+                  style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
+                />
+              </label>
             </div>
 
             <div style={{ marginBottom: 20 }}>

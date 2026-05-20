@@ -709,7 +709,18 @@ const ReceiptScanner: React.FC = () => {
 
       {stage === 'crop' && (
         <div style={{ width: '100%' }}>
-          <div className="card glass" style={{ marginBottom: '16px' }}>
+          <div className="card glass" style={{ 
+            position: 'fixed',
+            bottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'calc(100% - 40px)',
+            maxWidth: '500px',
+            zIndex: 100,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            margin: 0,
+            padding: '12px'
+          }}>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={runScan}>
                 <Scissors size={16} /> {cropRect && cropRect.w > 50 ? 'Crop & Scan' : 'Scan Gambar Penuh'}
@@ -717,7 +728,7 @@ const ReceiptScanner: React.FC = () => {
               <button className="btn" style={{ flex: 1 }} onClick={reset}>Batal</button>
             </div>
           </div>
-          <div style={{ borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border-color)', touchAction: 'none' }}>
+          <div style={{ borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border-color)', touchAction: 'none', marginBottom: '100px' }}>
             <canvas ref={canvasRef} style={{ width: '100%', display: 'block' }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
           </div>
         </div>

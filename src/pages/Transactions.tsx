@@ -126,7 +126,7 @@ const SparklingIcon = () => (
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
+  const { transactions, assets, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
   const { showToast } = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -200,6 +200,12 @@ const Transactions: React.FC = () => {
     let exp = 0;
 
     const filtered = transactions.filter(tx => {
+      // 0. Filter out debt transactions if disabled
+      const isDebtTx = ['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(tx.type);
+      if (!showDebtInTransactions && isDebtTx) {
+        return false;
+      }
+
       // 1. Search Query logic (Global)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -287,7 +293,7 @@ const Transactions: React.FC = () => {
     });
 
     return { groups: sortedGroups, monthlyIncome: inc, monthlyExpense: exp };
-  }, [transactions, viewDate, groupBy, searchQuery, getAssetName]);
+  }, [transactions, searchQuery, viewDate, startOfMonthDay, groupBy, showDebtInTransactions, getAssetName]);
 
   // ─── Spending Pace Logic ──────────────────────────────────────────────────
   const paceData = useMemo(() => {

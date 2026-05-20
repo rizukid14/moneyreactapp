@@ -7,6 +7,7 @@ import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
 import DebtOffsetModal from '../components/modals/DebtOffsetModal';
+import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 
@@ -33,10 +34,11 @@ const DebtCard: React.FC<{
   onToggleExpand: () => void;
   isExpanded: boolean;
   currencySymbol: string;
+  onHistoryClick?: (tx: Transaction) => void;
 }> = ({
   debt, onEdit, onDelete, onPay, onAddPrincipal, onSettle, onUnpay,
   liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded,
-  currencySymbol
+  currencySymbol, onHistoryClick
 }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const isHutang = debt.type === 'hutang';
@@ -250,7 +252,7 @@ const DebtCard: React.FC<{
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{fmt(debt.totalAmount, currencySymbol)}</span>
                 </div>
                 {history.map(tx => (
-                  <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={tx.id} onClick={() => onHistoryClick?.(tx)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: onHistoryClick ? 'pointer' : 'default', padding: '6px', borderRadius: '8px', margin: '0 -6px' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{tx.note}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{tx.date}</div>
@@ -269,11 +271,12 @@ const DebtCard: React.FC<{
   };
 
 const Debts: React.FC = () => {
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol, updateTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
+  const [editingHistoryTx, setEditingHistoryTx] = useState<Transaction | null>(null);
   const [filter, setFilter] = useState<'all' | 'hutang' | 'piutang' | 'lunas'>('all');
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -558,6 +561,7 @@ const Debts: React.FC = () => {
               onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
               isExpanded={expandedDebtId === d.id}
               currencySymbol={currencySymbol}
+              onHistoryClick={(tx) => setEditingHistoryTx(tx)}
             />
           ))
         )}
@@ -636,6 +640,17 @@ const Debts: React.FC = () => {
           totalPiutang={offsetTarget.p}
           offsetAmount={offsetTarget.amt}
           currencySymbol={currencySymbol}
+        />
+      )}
+
+      {editingHistoryTx && (
+        <TransactionModal
+          isOpen={!!editingHistoryTx}
+          onClose={() => setEditingHistoryTx(null)}
+          assets={assets}
+          addTransaction={() => ({} as any)} // Not used when editing
+          updateTransaction={updateTransaction}
+          editingTransaction={editingHistoryTx}
         />
       )}
 

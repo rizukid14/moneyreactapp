@@ -61,24 +61,66 @@ const ChatBot: React.FC = () => {
     return { days, dateStr: `${endDay}/${endMonth}/${endYear}` };
   };
 
+  const getCurrentFinancialMonthDates = () => {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth() + 1; // 1-12
+    const year = today.getFullYear();
+    const startDay = startOfMonthDay || 1;
+
+    let startYear = year;
+    let startMonth = month;
+    let endYear = year;
+    let endMonth = month;
+    let endDay = startDay - 1;
+
+    if (startDay === 1) {
+      endDay = new Date(year, month, 0).getDate();
+    } else {
+      if (day >= startDay) {
+        endMonth = month + 1;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = year + 1;
+        }
+      } else {
+        startMonth = month - 1;
+        if (startMonth < 1) {
+          startMonth = 12;
+          startYear = year - 1;
+        }
+      }
+    }
+
+    const format = (y: number, m: number, d: number) => 
+      `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    
+    return {
+      startDateStr: format(startYear, startMonth, startDay),
+      endDateStr: format(endYear, endMonth, endDay)
+    };
+  };
+
   const triggerEOMReview = async () => {
     setIsLoading(true);
     const { dateStr } = getDaysToEOM();
+    const { startDateStr, endDateStr } = getCurrentFinancialMonthDates();
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [{ role: 'user', content: 'Tolong berikan evaluasi dan nasihat akhir bulan saya berdasarkan transaksi yang ada.' }],
+          messages: [{ role: 'user', content: `Tolong berikan evaluasi dan nasihat akhir bulan saya berdasarkan transaksi dari tanggal ${startDateStr} sampai ${endDateStr}.` }],
           categories,
           assets: assets.map(a => ({
             ...a,
             balance: getAssetBalance(a.id)
           })),
           transactions: [...transactions]
+            .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
+            .filter(t => t.date >= startDateStr && t.date <= endDateStr)
             .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
-            .slice(0, 150)
             .map(t => ({
               type: t.type,
               amount: t.amount,
@@ -161,6 +203,8 @@ const ChatBot: React.FC = () => {
     setInput('');
     setIsLoading(true);
 
+    const { startDateStr, endDateStr } = getCurrentFinancialMonthDates();
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -173,8 +217,9 @@ const ChatBot: React.FC = () => {
             balance: getAssetBalance(a.id)
           })),
           transactions: [...transactions]
+            .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
+            .filter(t => t.date >= startDateStr && t.date <= endDateStr)
             .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
-            .slice(0, 150)
             .map(t => ({
               type: t.type,
               amount: t.amount,
