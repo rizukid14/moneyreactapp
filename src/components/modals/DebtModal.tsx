@@ -25,7 +25,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   const [type, setType]                           = useState<'hutang' | 'piutang'>('hutang');
   const [contact, setContact]                     = useState('');
   const [description, setDescription]             = useState('');
-  const [totalAmount, setTotalAmount]             = useState('');
+  const [principalAmount, setPrincipalAmount]     = useState('');
+  const [hasInterest, setHasInterest]             = useState(false);
+  const [interestType, setInterestType]           = useState<'fixed' | 'percentage'>('fixed');
+  const [interestRate, setInterestRate]           = useState('');
+  const [interestAmount, setInterestAmount]       = useState('');
   const [dueDate, setDueDate]                     = useState('');
   const [isInstallment, setIsInstallment]         = useState(false);
   const [installmentAmount, setInstallmentAmount] = useState('');
@@ -58,7 +62,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setType(editingDebt.type);
       setContact(editingDebt.contact);
       setDescription(editingDebt.description);
-      setTotalAmount(editingDebt.totalAmount.toLocaleString('id-ID'));
+      setPrincipalAmount((editingDebt.principalAmount || editingDebt.totalAmount).toLocaleString('id-ID'));
+      setHasInterest(!!editingDebt.interestAmount);
+      setInterestType(editingDebt.interestType || 'fixed');
+      setInterestRate(editingDebt.interestRate ? String(editingDebt.interestRate) : '');
+      setInterestAmount(editingDebt.interestAmount ? editingDebt.interestAmount.toLocaleString('id-ID') : '');
       setDueDate(editingDebt.dueDate || '');
       setIsInstallment(editingDebt.isInstallment);
       setInstallmentAmount(editingDebt.installmentAmount?.toLocaleString('id-ID') || '');
@@ -75,7 +83,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setType(defaultType || 'hutang');
       setContact('');
       setDescription('');
-      setTotalAmount('');
+      setPrincipalAmount('');
+      setHasInterest(false);
+      setInterestType('fixed');
+      setInterestRate('');
+      setInterestAmount('');
       setDueDate('');
       setIsInstallment(false);
       setInstallmentAmount('');
@@ -91,37 +103,52 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
     }
   }, [isOpen, editingDebt, defaultAssetId]);
 
-  // Auto-calculate installment amount
   useEffect(() => {
-    if (isInstallment && totalAmount && totalInstallments) {
+    if (isInstallment && principalAmount && totalInstallments) {
       if (editingDebt) {
-        const origTotal = editingDebt.totalAmount.toLocaleString('id-ID');
+        const origTotal = (editingDebt.principalAmount || editingDebt.totalAmount).toLocaleString('id-ID');
         const origMonths = String(editingDebt.totalInstallments || '');
-        if (totalAmount === origTotal && totalInstallments === origMonths) {
+        if (principalAmount === origTotal && totalInstallments === origMonths) {
           return; // Skip auto-calculate on initial load if values haven't changed
         }
       }
 
-      const total = parseNum(totalAmount);
+      const calcPrincipal = parseNum(principalAmount);
+      const calcInterestAmt = hasInterest 
+        ? (interestType === 'fixed' ? parseNum(interestAmount) : Math.round(calcPrincipal * (Number(interestRate) / 100))) 
+        : 0;
+      const finalTotalAmount = calcPrincipal + calcInterestAmt;
+
+      const total = finalTotalAmount;
       const months = Number(totalInstallments);
       if (total > 0 && months > 0) {
         const calculated = Math.round(total / months);
         setInstallmentAmount(calculated.toLocaleString('id-ID'));
       }
     }
-  }, [totalAmount, totalInstallments, isInstallment, editingDebt]);
+  }, [principalAmount, interestAmount, interestRate, interestType, hasInterest, totalInstallments, isInstallment, editingDebt]);
 
 
   const parseNum = (s: string) => Number(s.replace(/\./g, ''));
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    const calcPrincipal = parseNum(principalAmount);
+    const calcInterestAmt = hasInterest 
+      ? (interestType === 'fixed' ? parseNum(interestAmount) : Math.round(calcPrincipal * (Number(interestRate) / 100))) 
+      : 0;
+    const finalTotalAmount = calcPrincipal + calcInterestAmt;
+
     onSave(
       {
         type,
         contact:      contact.trim(),
         description:  description.trim(),
-        totalAmount:  parseNum(totalAmount),
+        totalAmount:  finalTotalAmount,
+        principalAmount: calcPrincipal,
+        interestType: hasInterest ? interestType : undefined,
+        interestRate: hasInterest && interestType === 'percentage' ? Number(interestRate) : undefined,
+        interestAmount: hasInterest ? calcInterestAmt : undefined,
         dueDate:      dueDate || undefined,
         isPaid:       editingDebt?.isPaid || false,
         date:         createdAt,
@@ -226,13 +253,13 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Keterangan</label>
               <input type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} />
 
-              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Total Jumlah ({currencySymbol})</label>
+              <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Pokok Pinjaman ({currencySymbol})</label>
               <div style={{ display: 'flex', gap: '8px', marginBottom: 16 }}>
                 <CurrencyInput
                   required
                   placeholder="0"
-                  value={totalAmount}
-                  onChange={setTotalAmount}
+                  value={principalAmount}
+                  onChange={setPrincipalAmount}
                   style={{ flex: 1, marginBottom: 0 }}
                 />
                 <button
@@ -249,6 +276,53 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                   <Calculator size={20} />
                 </button>
               </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>Tambahkan Bunga?</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bunga akan digabung ke total tagihan final</div>
+                </div>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={hasInterest} onChange={(e) => setHasInterest(e.target.checked)} />
+                  <span className="slider round"></span>
+                </label>
+              </div>
+
+              {hasInterest && (
+                <div style={{ background: 'var(--bg-main)', padding: 12, borderRadius: 12, marginBottom: 16, border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => setInterestType('fixed')}
+                      style={{ flex: 1, padding: 8, borderRadius: 8, fontSize: 12, fontWeight: 600, border: interestType === 'fixed' ? `1px solid ${typeColor}` : '1px solid var(--border-color)', background: interestType === 'fixed' ? (type === 'hutang' ? 'var(--bg-expense)' : 'var(--success-glow)') : 'var(--bg-card)', color: interestType === 'fixed' ? typeColor : 'var(--text-muted)' }}
+                    >Nominal Tetap</button>
+                    <button
+                      type="button"
+                      onClick={() => setInterestType('percentage')}
+                      style={{ flex: 1, padding: 8, borderRadius: 8, fontSize: 12, fontWeight: 600, border: interestType === 'percentage' ? `1px solid ${typeColor}` : '1px solid var(--border-color)', background: interestType === 'percentage' ? (type === 'hutang' ? 'var(--bg-expense)' : 'var(--success-glow)') : 'var(--bg-card)', color: interestType === 'percentage' ? typeColor : 'var(--text-muted)' }}
+                    >Persentase (%)</button>
+                  </div>
+
+                  {interestType === 'fixed' ? (
+                    <div>
+                      <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Nominal Bunga ({currencySymbol})</label>
+                      <CurrencyInput required={hasInterest} placeholder="0" value={interestAmount} onChange={setInterestAmount} style={{ marginBottom: 0 }} />
+                    </div>
+                  ) : (
+                    <div>
+                      <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Persentase Bunga (%)</label>
+                      <input type="number" step="0.1" required={hasInterest} placeholder="misal: 5" value={interestRate} onChange={e => setInterestRate(e.target.value)} style={{ marginBottom: 0, width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '16px' }} />
+                    </div>
+                  )}
+                  
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Total Tagihan Akhir:</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: typeColor }}>
+                      {currencySymbol}{(parseNum(principalAmount) + (interestType === 'fixed' ? parseNum(interestAmount) : Math.round(parseNum(principalAmount) * (Number(interestRate) / 100)))).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
                 <div style={{ flex: 1 }}>
@@ -440,10 +514,10 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
     <CalculatorModal
       isOpen={calcOpen !== null}
       onClose={() => setCalcOpen(null)}
-      initialValue={calcOpen === 'total' ? totalAmount : installmentAmount}
+      initialValue={calcOpen === 'total' ? principalAmount : installmentAmount}
       onConfirm={(val) => {
         const formatted = val.toLocaleString('id-ID');
-        if (calcOpen === 'total') setTotalAmount(formatted);
+        if (calcOpen === 'total') setPrincipalAmount(formatted);
         else setInstallmentAmount(formatted);
       }}
     />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Target, Calculator, Wallet, ChevronRight } from 'lucide-react';
-import { type Goal, type Asset } from '../../contexts/MoneyContext';
+import { type Goal, type Asset, useMoney } from '../../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalculatorModal from './CalculatorModal';
 import AssetSelectModal from './AssetSelectModal';
@@ -13,7 +13,7 @@ interface GoalModalProps {
   onClose: () => void;
   goals: Goal[];
   assets: Asset[];
-  addGoal: (goal: Omit<Goal, 'id' | 'createdAt' | 'isCompleted'>) => void;
+  addGoal: (goal: Omit<Goal, 'id' | 'createdAt' | 'isCompleted'>) => Goal;
   updateGoal: (id: string, goal: Partial<Goal>) => void;
   editingGoal: Goal | null;
   currencySymbol: string;
@@ -23,12 +23,21 @@ const GoalModal: React.FC<GoalModalProps> = ({
   isOpen, onClose, assets, addGoal, updateGoal, editingGoal, currencySymbol 
 }) => {
   const { showToast } = useToast();
+  const { addRecurringTransaction } = useMoney();
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [targetDate, setTargetDate] = useState(getLocalDate());
   const [assetId, setAssetId] = useState<string | undefined>(undefined);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+
+  // Auto Tabungan State
+  const [isAutoTabungan, setIsAutoTabungan] = useState(false);
+  const [autoAmount, setAutoAmount] = useState('');
+  const [autoFrequency, setAutoFrequency] = useState<'daily'|'weekly'|'monthly'|'yearly'>('monthly');
+  const [autoStartDate, setAutoStartDate] = useState(getLocalDate());
+  const [autoFromAssetId, setAutoFromAssetId] = useState<string | undefined>(undefined);
+  const [isAutoFromAssetModalOpen, setIsAutoFromAssetModalOpen] = useState(false);
 
   useEffect(() => {
     if (editingGoal) {
@@ -41,6 +50,11 @@ const GoalModal: React.FC<GoalModalProps> = ({
       setTargetAmount('');
       setTargetDate(getLocalDate());
       setAssetId(undefined);
+      setIsAutoTabungan(false);
+      setAutoAmount('');
+      setAutoFrequency('monthly');
+      setAutoStartDate(getLocalDate());
+      setAutoFromAssetId(undefined);
     }
   }, [editingGoal, isOpen]);
 
@@ -70,12 +84,34 @@ const GoalModal: React.FC<GoalModalProps> = ({
     if (editingGoal) {
       updateGoal(editingGoal.id, goalData);
     } else {
-      addGoal(goalData);
+      const newGoal = addGoal(goalData);
+      
+      if (isAutoTabungan) {
+        const numericAutoAmount = Number(autoAmount.replace(/\./g, ''));
+        if (numericAutoAmount > 0 && autoFromAssetId && assetId) {
+          const rt = addRecurringTransaction({
+            type: 'transfer',
+            amount: numericAutoAmount,
+            category: 'Transfer',
+            note: `Tabungan: ${name.trim()}`,
+            frequency: autoFrequency,
+            startDate: autoStartDate,
+            isActive: true,
+            fromAssetId: autoFromAssetId,
+            toAssetId: assetId,
+            goalId: newGoal.id
+          });
+          updateGoal(newGoal.id, { recurringTransactionId: rt.id });
+        } else {
+          showToast('Data tabungan otomatis tidak lengkap. Pastikan nominal, sumber dana, dan rekening target sudah diisi.', 'warning');
+        }
+      }
     }
     onClose();
   };
 
   const selectedAsset = assets.find(a => a.id === assetId);
+  const selectedAutoFromAsset = assets.find(a => a.id === autoFromAssetId);
 
   return (
     <>
@@ -174,6 +210,85 @@ const GoalModal: React.FC<GoalModalProps> = ({
                   MoneyApp akan membantu memantau progres tabungan Anda berdasarkan transaksi yang dihubungkan ke target ini.
                 </p>
 
+                {!editingGoal && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', padding: '12px', background: 'var(--bg-card-solid)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <div>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>Tabung Otomatis</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Otomatis memotong saldo secara rutin</span>
+                      </div>
+                      <label className="toggle-switch">
+                        <input type="checkbox" checked={isAutoTabungan} onChange={e => setIsAutoTabungan(e.target.checked)} />
+                        <span className="slider round"></span>
+                      </label>
+                    </div>
+
+                    {isAutoTabungan && (
+                      <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '12px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
+                        
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
+                          Nominal Tabungan Rutin ({currencySymbol})
+                        </label>
+                        <CurrencyInput 
+                          required={isAutoTabungan}
+                          placeholder="Contoh: 500.000" 
+                          value={autoAmount} 
+                          onChange={setAutoAmount}
+                          style={{ marginBottom: '16px' }}
+                        />
+
+                        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>Siklus</label>
+                            <select 
+                              value={autoFrequency} 
+                              onChange={e => setAutoFrequency(e.target.value as any)}
+                              style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}
+                            >
+                              <option value="daily">Harian</option>
+                              <option value="weekly">Mingguan</option>
+                              <option value="monthly">Bulanan</option>
+                              <option value="yearly">Tahunan</option>
+                            </select>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>Tgl Mulai</label>
+                            <input 
+                              type="date" 
+                              required={isAutoTabungan}
+                              value={autoStartDate} 
+                              onChange={e => setAutoStartDate(e.target.value)}
+                              style={{ width: '100%', marginBottom: 0 }}
+                            />
+                          </div>
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
+                          Sumber Dana (Dipotong Dari)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsAutoFromAssetModalOpen(true)}
+                          style={{
+                            width: '100%', padding: '12px 16px', background: 'var(--bg-card-solid)',
+                            border: '1px solid var(--border-color)', borderRadius: '12px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            cursor: 'pointer', color: selectedAutoFromAsset ? 'var(--text-main)' : 'var(--text-muted)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Wallet size={16} color="var(--primary)" />
+                            <span style={{ fontSize: '14px', fontWeight: selectedAutoFromAsset ? 700 : 500 }}>
+                              {selectedAutoFromAsset ? selectedAutoFromAsset.name : '-- Pilih Rekening Sumber --'}
+                            </span>
+                          </div>
+                          <ChevronRight size={16} color="var(--text-muted)" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
                   {editingGoal ? 'Simpan Perubahan' : 'Buat Target Tabungan'}
                 </button>
@@ -196,6 +311,14 @@ const GoalModal: React.FC<GoalModalProps> = ({
         assets={assets.filter(a => !a.isDeleted)}
         selectedAssetId={assetId}
         onSelect={(id) => setAssetId(id)}
+      />
+
+      <AssetSelectModal
+        isOpen={isAutoFromAssetModalOpen}
+        onClose={() => setIsAutoFromAssetModalOpen(false)}
+        assets={assets.filter(a => !a.isDeleted)}
+        selectedAssetId={autoFromAssetId}
+        onSelect={(id) => setAutoFromAssetId(id)}
       />
     </>
   );

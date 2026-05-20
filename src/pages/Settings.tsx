@@ -324,7 +324,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
 const Settings: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction } = useMoney();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -1727,7 +1727,20 @@ const Settings: React.FC = () => {
           if (editingSub) {
             updateSubscription(editingSub, subData);
           } else {
-            addSubscription(subData);
+            const createdSub = addSubscription(subData);
+            if (window.confirm(`Apakah Anda ingin membuat transaksi rutin otomatis untuk langganan ${subData.name}?`)) {
+              const rt = addRecurringTransaction({
+                type: 'pengeluaran',
+                amount: subData.amount,
+                category: subData.category,
+                note: `Langganan: ${subData.name}`,
+                frequency: subData.billingCycle === 'monthly' ? 'monthly' : 'yearly',
+                startDate: subData.nextBillingDate,
+                isActive: true,
+                assetId: subData.assetId,
+              });
+              updateSubscription(createdSub.id, { recurringTransactionId: rt.id });
+            }
           }
           setActiveModal('subscriptions');
           setEditingSub(null);

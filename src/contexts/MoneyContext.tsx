@@ -75,6 +75,11 @@ export interface Debt {
   isPaid: boolean;
   date: string;                  // Occurrence date (YYYY-MM-DD)
   createdAt: string;
+  // Interest fields
+  principalAmount?: number;      // Original loan amount without interest
+  interestType?: 'fixed' | 'percentage';
+  interestRate?: number;         // percentage value
+  interestAmount?: number;       // calculated or fixed interest amount
   // Installment fields
   isInstallment: boolean;
   installmentAmount?: number;    // monthly payment amount
@@ -98,6 +103,7 @@ export interface Goal {
   createdAt: string;
   assetId?: string;
   isCompleted: boolean;
+  recurringTransactionId?: string;
 }
 
 export interface TripMember {
@@ -200,6 +206,7 @@ export interface RecurringTransaction {
   lastProcessedDate?: string; // YYYY-MM-DD
   endDate?: string;          // YYYY-MM-DD (Optional stop date)
   isActive: boolean;
+  goalId?: string;
 }
 
 export interface Subscription {
@@ -213,6 +220,7 @@ export interface Subscription {
   assetId: string;
   isActive: boolean;
   note?: string;
+  recurringTransactionId?: string;
 }
 
 // ─── Default seed data ───────────────────────────────────────────────────────
@@ -273,10 +281,10 @@ interface MoneyContextType {
   addContact: (contact: Omit<Contact, 'id'>) => void;
   updateContact: (id: string, contact: Partial<Contact>) => void;
   deleteContact: (id: string) => void;
-  addRecurringTransaction: (rt: Omit<RecurringTransaction, 'id'>) => void;
+  addRecurringTransaction: (rt: Omit<RecurringTransaction, 'id'>) => RecurringTransaction;
   updateRecurringTransaction: (id: string, rt: Partial<RecurringTransaction>) => void;
   deleteRecurringTransaction: (id: string) => void;
-  addSubscription: (sub: Omit<Subscription, 'id'>) => void;
+  addSubscription: (sub: Omit<Subscription, 'id'>) => Subscription;
   updateSubscription: (id: string, sub: Partial<Subscription>) => void;
   deleteSubscription: (id: string) => void;
   addTrip: (trip: Omit<Trip, 'id' | 'createdAt'>) => Promise<void>;
@@ -286,7 +294,7 @@ interface MoneyContextType {
   updateTripExpense: (id: string, expense: Partial<TripExpense>) => Promise<void>;
   deleteTripExpense: (id: string) => Promise<void>;
   payInstallment: (debtId: string) => void;
-  addGoal: (goal: Omit<Goal, 'id' | 'createdAt' | 'isCompleted'>) => void;
+  addGoal: (goal: Omit<Goal, 'id' | 'createdAt' | 'isCompleted'>) => Goal;
   updateGoal: (id: string, goal: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   settleDebt: (debtId: string, assetId?: string, date?: string, time?: string, amount?: number) => void;
@@ -931,6 +939,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
     setGoals(prev => [...prev, newGoal]);
     dbPutGoal(newGoal).then(refreshSyncCount);
+    return newGoal;
   }, [refreshSyncCount]);
 
   const updateGoal = useCallback((id: string, updatedGoal: Partial<Goal>) => {
@@ -952,7 +961,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
       return tx;
     }));
-    setGoals(prev => prev.filter(g => g.id !== id));
+    
+    setGoals(prev => {
+      const goalToDelete = prev.find(g => g.id === id);
+      if (goalToDelete?.recurringTransactionId) {
+        setRecurringTransactions(rts => rts.filter(rt => rt.id !== goalToDelete.recurringTransactionId));
+        import('../lib/db').then(m => m.dbDeleteRecurringTransaction(goalToDelete.recurringTransactionId!));
+      }
+      return prev.filter(g => g.id !== id);
+    });
     dbDeleteGoal(id).then(refreshSyncCount);
   }, [refreshSyncCount]);
 
@@ -1087,11 +1104,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Recurring Transactions ───────────────────────────────────────────────
   const addRecurringTransaction = useCallback((rtReq: Omit<RecurringTransaction, 'id'>) => {
+    const newRT: RecurringTransaction = { ...rtReq, id: generateId() };
     import('../lib/db').then(m => {
-      const newRT: RecurringTransaction = { ...rtReq, id: generateId() };
       setRecurringTransactions(prev => [...prev, newRT]);
       m.dbPutRecurringTransaction(newRT);
     });
+    return newRT;
   }, []);
 
   const updateRecurringTransaction = useCallback((id: string, updated: Partial<RecurringTransaction>) => {
@@ -1114,11 +1132,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Subscriptions ──────────────────────────────────────────────────────────
   const addSubscription = useCallback((subReq: Omit<Subscription, 'id'>) => {
+    const newSub: Subscription = { ...subReq, id: generateId() };
     import('../lib/db').then(m => {
-      const newSub: Subscription = { ...subReq, id: generateId() };
       setSubscriptions(prev => [...prev, newSub]);
       m.dbPutSubscription(newSub);
     });
+    return newSub;
   }, []);
 
   const updateSubscription = useCallback((id: string, updated: Partial<Subscription>) => {
@@ -1134,7 +1153,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const deleteSubscription = useCallback((id: string) => {
     import('../lib/db').then(m => {
-      setSubscriptions(prev => prev.filter(s => s.id !== id));
+      setSubscriptions(prev => {
+        const subToDelete = prev.find(s => s.id === id);
+        if (subToDelete?.recurringTransactionId) {
+          setRecurringTransactions(rts => rts.filter(rt => rt.id !== subToDelete.recurringTransactionId));
+          m.dbDeleteRecurringTransaction(subToDelete.recurringTransactionId);
+        }
+        return prev.filter(s => s.id !== id);
+      });
       m.dbDeleteSubscription(id);
     });
   }, []);
