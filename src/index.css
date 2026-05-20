@@ -987,12 +987,20 @@ textarea:focus {
   }
 }
 
+/* Styling crop and scan floating actions */
+.crop-actions-container {
+  /* On mobile, place it above bottom nav bar (var(--nav-height) = 68px) */
+  bottom: calc(var(--nav-height) + 16px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
 /* Shifting crop and scan floating actions on desktop so they don't overlap the sidebar */
 @media (min-width: 768px) {
   .sidebar-nav ~ .main-content .crop-actions-container {
+    bottom: 20px !important;
     left: calc(50% + var(--sidebar-width) / 2) !important;
   }
   .sidebar-nav.collapsed ~ .main-content .crop-actions-container {
+    bottom: 20px !important;
     left: calc(50% + var(--sidebar-collapsed-width) / 2) !important;
   }
 }
