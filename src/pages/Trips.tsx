@@ -5,6 +5,7 @@ import { useMoney, type Trip } from '../contexts/MoneyContext';
 import { useNavigate } from 'react-router-dom';
 import CreateTripModal from '../components/modals/CreateTripModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 
 const Trips: React.FC = () => {
   const { trips, tripExpenses, currencySymbol, deleteTrip } = useMoney();
@@ -33,7 +34,7 @@ const Trips: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: '16px' }}>
+      <div data-tour="trip-list" style={{ display: 'grid', gap: '16px' }}>
         {trips.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -166,6 +167,7 @@ const Trips: React.FC = () => {
       </div>
 
       <button
+        data-tour="add-trip"
         className="fab"
         onClick={() => setIsModalOpen(true)}
         aria-label="Tambah Trip"
@@ -192,6 +194,14 @@ const Trips: React.FC = () => {
         }}
         title="Hapus Trip"
         message="Apakah Anda yakin ingin menghapus data trip ini? Semua catatan pengeluaran di dalamnya juga akan terhapus."
+      />
+
+      <OnboardingTutorial 
+        pageKey="trips" 
+        steps={[
+          { targetSelector: '[data-tour="trip-list"]', title: '✈️ Daftar Trip', description: 'Lihat daftar perjalanan dan liburan yang kamu buat. Klik pada trip untuk melihat detail pengeluaran.' },
+          { targetSelector: '[data-tour="add-trip"]', title: '➕ Buat Trip Baru', description: 'Tap di sini untuk membuat catatan liburan baru.' }
+        ]} 
       />
     </div>
   );

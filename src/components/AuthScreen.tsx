@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { auth } from '../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { motion } from 'framer-motion';
-import { PiggyBank } from 'lucide-react';
+import { PiggyBank, Eye, EyeOff } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,6 +38,7 @@ export const AuthScreen: React.FC = () => {
   const toggleMode = () => {
     setIsLogin(!isLogin);
     setIsForgotPassword(false);
+    setShowPassword(false);
     setError('');
     setSuccessMsg('');
   };
@@ -83,7 +85,48 @@ export const AuthScreen: React.FC = () => {
                   </button>
                 )}
               </div>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} style={{ marginTop: '4px', padding: '12px', borderRadius: '12px' }} />
+              <div style={{ position: 'relative', marginTop: '4px' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  style={{
+                    width: '100%',
+                    height: '46px',
+                    padding: '12px 44px 12px 12px',
+                    borderRadius: '12px'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: 'calc(50% - 5px)',
+                    transform: 'translateY(-50%)',
+                    width: '32px',
+                    height: '32px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    lineHeight: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {showPassword
+                    ? <EyeOff size={18} style={{ display: 'block' }} />
+                    : <Eye size={18} style={{ display: 'block' }} />}
+                </button>
+              </div>
             </div>
           )}
           

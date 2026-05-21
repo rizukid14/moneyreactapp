@@ -21,6 +21,8 @@ import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
 import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
 import ContactModal from '../components/modals/ContactModal';
+import { useOnboarding } from '../contexts/OnboardingContext';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
@@ -325,6 +327,7 @@ const Settings: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction } = useMoney();
+  const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -421,7 +424,7 @@ const Settings: React.FC = () => {
       tierColor = 'linear-gradient(135deg, #ea580c 0%, #9a3412 100%)'; // Orange
       shadowColor = 'rgba(154, 52, 18, 0.35)';
     } else if (netWorth < 0) {
-            tierLabel = 'Pejuang Finansial ⚡';
+      tierLabel = 'Pejuang Finansial ⚡';
       tierColor = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)'; // Red
       shadowColor = 'rgba(153, 27, 27, 0.35)';
     }
@@ -476,12 +479,12 @@ const Settings: React.FC = () => {
         { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
         { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
         { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
+        { id: 'reset_tutorial', icon: RefreshCw, label: 'Ulangi Tutorial Aplikasi' },
       ]
     }
   ];
 
   const handleMenuClick = (id: string) => {
-    // ... existing handleMenuClick ...
     if (id === 'help') {
       window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp&body=Halo, saya butuh bantuan terkait...';
       return;
@@ -494,6 +497,10 @@ const Settings: React.FC = () => {
       navigate('/trips');
       return;
     }
+    if (id === 'reset_tutorial') {
+      resetAllTutorials();
+      return;
+    }
     setActiveModal(id);
     if (id === 'profile') {
       setTempName(user.name);
@@ -503,7 +510,6 @@ const Settings: React.FC = () => {
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // ... existing handleImageUpload ...
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -583,7 +589,7 @@ const Settings: React.FC = () => {
     if (!newCatName.trim()) return;
 
     // Validation: Check if name already exists (case-insensitive, within the same type)
-    const isDuplicate = categories.some(c => 
+    const isDuplicate = categories.some(c =>
       c.type === catTab &&
       c.name.toLowerCase() === newCatName.trim().toLowerCase()
     );
@@ -601,7 +607,7 @@ const Settings: React.FC = () => {
     if (!name.trim()) return;
 
     // Validation: Check if name already exists (case-insensitive, within the same type)
-    const isDuplicate = categories.some(c => 
+    const isDuplicate = categories.some(c =>
       c.type === catTab &&
       c.name.toLowerCase() === name.trim().toLowerCase() &&
       c.id !== id
@@ -621,7 +627,7 @@ const Settings: React.FC = () => {
     const cat = categories.find(c => c.id === catId);
     if (!cat) return;
 
-    const isDuplicate = cat.subcategories?.some(s => 
+    const isDuplicate = cat.subcategories?.some(s =>
       s.name.toLowerCase() === name.trim().toLowerCase()
     );
 
@@ -639,7 +645,7 @@ const Settings: React.FC = () => {
     const cat = categories.find(c => c.id === catId);
     if (!cat) return;
 
-    const isDuplicate = cat.subcategories?.some(s => 
+    const isDuplicate = cat.subcategories?.some(s =>
       s.name.toLowerCase() === name.trim().toLowerCase() &&
       s.id !== subId
     );
@@ -818,29 +824,29 @@ const Settings: React.FC = () => {
               </button>
             </div>
 
-            <div style={{ 
-              display: 'flex', 
-              height: '400px', 
-              border: '1px solid var(--border-color)', 
-              borderRadius: '16px', 
+            <div style={{
+              display: 'flex',
+              height: '400px',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
               overflow: 'hidden',
               marginBottom: '16px',
               background: 'var(--bg-main)'
             }}>
               {/* Left Panel: Categories */}
-              <div style={{ 
-                flex: 1, 
-                borderRight: '1px solid var(--border-color)', 
+              <div style={{
+                flex: 1,
+                borderRight: '1px solid var(--border-color)',
                 overflowY: 'auto',
                 padding: '8px 0'
               }}>
                 {filteredCats.map(c => {
                   const isActive = expandedCat === c.id;
                   return (
-                    <div 
+                    <div
                       key={c.id}
                       onClick={() => setExpandedCat(c.id)}
-                      style={{ 
+                      style={{
                         padding: '12px 16px',
                         cursor: 'pointer',
                         background: isActive ? 'var(--bg-card)' : 'transparent',
@@ -883,9 +889,9 @@ const Settings: React.FC = () => {
               </div>
 
               {/* Right Panel: Sub-categories */}
-              <div style={{ 
-                flex: 1.2, 
-                overflowY: 'auto', 
+              <div style={{
+                flex: 1.2,
+                overflowY: 'auto',
                 background: 'var(--bg-card-solid)',
                 display: 'flex',
                 flexDirection: 'column'
@@ -953,11 +959,11 @@ const Settings: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={handleAddCat} style={{ 
-              display: 'flex', 
-              gap: '8px', 
-              padding: '6px', 
-              background: 'rgba(0,0,0,0.1)', 
+            <form onSubmit={handleAddCat} style={{
+              display: 'flex',
+              gap: '8px',
+              padding: '6px',
+              background: 'rgba(0,0,0,0.1)',
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
               marginTop: '8px'
@@ -967,8 +973,8 @@ const Settings: React.FC = () => {
                 value={newCatName}
                 onChange={e => setNewCatName(e.target.value)}
                 placeholder="Buat kategori baru..."
-                style={{ 
-                  flex: 1, 
+                style={{
+                  flex: 1,
                   marginBottom: 0,
                   padding: '10px 14px',
                   background: 'var(--bg-card)',
@@ -994,7 +1000,7 @@ const Settings: React.FC = () => {
             <div className="modal-header">
               <h2 className="subtitle">Kelola Langganan</h2>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button 
+                <button
                   onClick={() => {
                     setEditingSub(null);
                     setNewSubName('');
@@ -1258,9 +1264,9 @@ const Settings: React.FC = () => {
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Pilih antara budget reguler atau Zero-Based (Envelope).
               </p>
-              <div style={{ 
-                display: 'flex', background: 'var(--bg-main)', padding: '4px', 
-                borderRadius: '12px', border: '1px solid var(--border-color)' 
+              <div style={{
+                display: 'flex', background: 'var(--bg-main)', padding: '4px',
+                borderRadius: '12px', border: '1px solid var(--border-color)'
               }}>
                 <button
                   type="button"
@@ -1297,10 +1303,10 @@ const Settings: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Disiplin ZBB (Strict Mode)</span>
                     <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', position: 'relative' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={zbbMode === 'strict'} 
-                        onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')} 
+                      <input
+                        type="checkbox"
+                        checked={zbbMode === 'strict'}
+                        onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')}
                         style={{ opacity: 0, position: 'absolute', width: 0, height: 0 }}
                       />
                       <div style={{
@@ -2041,7 +2047,7 @@ const Settings: React.FC = () => {
 
       <QuotaBanner />
 
-      <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+      <div data-tour="settings-profile" className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
         <div style={{
           width: 56, height: 56, borderRadius: '28px',
           backgroundColor: 'var(--primary)',
@@ -2062,73 +2068,75 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      {menuGroups.map((group) => (
-        <div key={group.title} style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', paddingLeft: '12px' }}>
-            {group.title}
-          </h3>
-          <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
-            {group.items.map((item, index) => {
-              const Icon = item.icon;
-              const isLast = index === group.items.length - 1;
-              
-              if ((item as any).isToggle) {
+      <div data-tour="settings-menu">
+        {menuGroups.map((group) => (
+          <div key={group.title} style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', paddingLeft: '12px' }}>
+              {group.title}
+            </h3>
+            <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
+              {group.items.map((item, index) => {
+                const Icon = item.icon;
+                const isLast = index === group.items.length - 1;
+
+                if ((item as any).isToggle) {
+                  return (
+                    <div key={item.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '16px 0',
+                      borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <Icon size={20} color="var(--text-muted)" style={{ marginRight: '20px' }} />
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
+                      </div>
+                      <div
+                        onClick={toggleTheme}
+                        style={{
+                          width: '44px', height: '24px', borderRadius: '12px',
+                          backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
+                          display: 'flex', alignItems: 'center', padding: '0 2px',
+                          cursor: 'pointer', transition: 'all 0.3s'
+                        }}>
+                        <div style={{
+                          width: '20px', height: '20px', borderRadius: '10px',
+                          backgroundColor: 'white',
+                          transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={item.id} style={{
+                  <div key={item.id} onClick={() => handleMenuClick(item.id)} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '16px 0',
                     borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+                    cursor: 'pointer'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <Icon size={20} color="var(--text-muted)" style={{ marginRight: '20px' }} />
+                      <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
                     </div>
-                    <div
-                      onClick={toggleTheme}
-                      style={{
-                        width: '44px', height: '24px', borderRadius: '12px',
-                        backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
-                        display: 'flex', alignItems: 'center', padding: '0 2px',
-                        cursor: 'pointer', transition: 'all 0.3s'
-                      }}>
-                      <div style={{
-                        width: '20px', height: '20px', borderRadius: '10px',
-                        backgroundColor: 'white',
-                        transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                      }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
+                      <ChevronRight size={20} color="var(--text-muted)" />
                     </div>
                   </div>
                 );
-              }
-
-              return (
-                <div key={item.id} onClick={() => handleMenuClick(item.id)} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-                  cursor: 'pointer'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
-                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
-                    <ChevronRight size={20} color="var(--text-muted)" />
-                  </div>
-                </div>
-              );
-            })}
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
 
+      </div>
       <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -2332,6 +2340,13 @@ const Settings: React.FC = () => {
           setEditingContact(null);
         }}
         editingContact={contacts.find(c => c.id === editingContact)}
+      />
+      <OnboardingTutorial
+        pageKey="settings"
+        steps={[
+          { targetSelector: '[data-tour="settings-profile"]', title: '👤 Profil Kamu', description: 'Atur nama, email, dan avatar kamu di sini.' },
+          { targetSelector: '[data-tour="settings-menu"]', title: '⚙️ Pengaturan Fitur', description: 'Temukan berbagai pengaturan mulai dari tema gelap, kategori, backup data, hingga mengulang tutorial.' }
+        ]}
       />
     </div>
   );

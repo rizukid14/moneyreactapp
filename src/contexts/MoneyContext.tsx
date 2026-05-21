@@ -14,7 +14,7 @@ import {
   dbGetAllBudgetReallocations, dbPutBudgetReallocation, dbDeleteBudgetReallocation,
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
-  dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync, localDbGetSetting,
+  dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync, localDbGetSetting, localDbPutSetting,
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -333,6 +333,7 @@ interface MoneyContextType {
   pendingSyncCount: number;
   syncData: () => Promise<{ success: number; failed: number; error?: string }>;
   pullFromCloud: () => Promise<{ total: number }>;
+  autoCloudSync: { status: 'idle' | 'pulling' | 'success' | 'error'; total?: number; message?: string };
   budgetMode: BudgetMode;
   setBudgetMode: (mode: BudgetMode) => void;
   zbbMode: 'flexible' | 'strict';
@@ -383,6 +384,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [authUser, setAuthUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(!isFirebaseConfigured);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [autoCloudSync, setAutoCloudSync] = useState<{ status: 'idle' | 'pulling' | 'success' | 'error'; total?: number; message?: string }>({ status: 'idle' });
   const [assetCarouselCards, setAssetCarouselCardsState] = useState<string[]>(['net_worth']);
   const [statsCarouselCards, setStatsCarouselCardsState] = useState<string[]>(['all', 'cash_bank', 'health']);
   const [defaultStatsView, setDefaultStatsViewState] = useState<string>('all');
@@ -429,22 +431,35 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
+        setIsReady(false);
         setAuthUser(u);
-        await migrateFromIndexedDBToFirebase();
+        const lastUid = await localDbGetSetting('last_synced_uid');
+        const sessionSyncedUid = sessionStorage.getItem('cloud_synced_uid');
+        const shouldPullFirst = !sessionSyncedUid || sessionSyncedUid !== u.uid || !lastUid || lastUid !== u.uid;
+        if (!shouldPullFirst) await migrateFromIndexedDBToFirebase();
 
         // Pull jika ini akun yang berbeda dari yang terakhir login di device ini.
         // Handles: (1) device lama dengan data stale, (2) logout → login akun berbeda.
         // Device baru (IDB kosong) → lastUid undefined → skip (handled by IDB-first fallback).
-        const lastUid = await localDbGetSetting('last_synced_uid');
-        if (lastUid && lastUid !== u.uid) {
+        if (shouldPullFirst) {
           // Akun berbeda → pull data Firestore akun baru ke IDB.
           // pullCollectionIntoIDB() otomatis membersihkan "zombies" (data akun lama
           // yang tidak ada di Firestore akun baru), tidak menimpa pending_sync items.
-          await dbForceCloudSync();
+          setAutoCloudSync({ status: 'pulling' });
+          try {
+            const result = await dbForceCloudSync();
+            setAutoCloudSync({ status: 'success', total: result.total });
+            sessionStorage.setItem('cloud_synced_uid', u.uid);
+          } catch (err: any) {
+            setAutoCloudSync({ status: 'error', message: err?.message || 'Gagal sinkronisasi dari cloud' });
+          }
         }
-        await dbPutSetting('last_synced_uid', u.uid);
+        if (!shouldPullFirst) setAutoCloudSync({ status: 'idle' });
+        await localDbPutSetting('last_synced_uid', u.uid);
       } else {
         setAuthUser(null);
+        setIsReady(false);
+        setAutoCloudSync({ status: 'idle' });
       }
       setAuthChecked(true);
     });
@@ -454,6 +469,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ── Bootstrap: migrate if needed, then load from IndexedDB ──────────────
   useEffect(() => {
     if (!authChecked) return; // Wait for initial auth check
+    if (isFirebaseConfigured && !authUser) return;
     const bootstrap = async () => {
       // One-time migration from localStorage
       await migrateFromLocalStorage();
@@ -514,14 +530,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       // Seed defaults if DB is empty
       if (dbAssets.length === 0) {
-        await dbPutAsset(DEFAULT_ASSET);
+        await dbPutAsset(DEFAULT_ASSET, { skipSync: true });
         setAssets([DEFAULT_ASSET]);
       } else {
         setAssets(dbAssets);
       }
 
       if (dbCats.length === 0) {
-        for (const c of DEFAULT_CATEGORIES) await dbPutCategory(c);
+        for (const c of DEFAULT_CATEGORIES) await dbPutCategory(c, { skipSync: true });
         setCategories(DEFAULT_CATEGORIES);
       } else {
         setCategories(dbCats);
@@ -616,7 +632,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setIsReady(true);
     };
     bootstrap();
-  }, [authChecked]);
+  }, [authChecked, authUser?.uid]);
 
   // ─── Apply theme ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1758,6 +1774,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const logOut = useCallback(async () => {
     if (isFirebaseConfigured) {
+      sessionStorage.removeItem('cloud_synced_uid');
+      setAutoCloudSync({ status: 'idle' });
       await signOut(auth);
     }
   }, []);
@@ -1854,14 +1872,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const validateTransactionBudget = useCallback((tx: Partial<Transaction>) => {
-    if (zbbMode !== 'strict') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
+    if (budgetMode !== 'zero-based' || zbbMode !== 'strict') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
     if (tx.type !== 'pengeluaran') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
     
     const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
     if (!cat) return { isValid: true, deficitCategory: null, deficitAmount: 0 };
 
     const txDate = tx.date ? new Date(tx.date) : new Date();
-    const m = txDate.getMonth();
+    const m = txDate.getMonth() + 1;
     const y = txDate.getFullYear();
 
     const budget = budgets.find(b => b.categoryId === cat.id && b.month === m && b.year === y);
@@ -1869,8 +1887,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return { isValid: false, deficitCategory: cat.id, deficitAmount: tx.amount || 0 };
     }
 
-    const periodStart = new Date(y, m - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
-    const periodEnd = new Date(y, m + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
+    const monthIndex = m - 1;
+    const periodStart = new Date(y, monthIndex - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
+    const periodEnd = new Date(y, monthIndex + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
     
     let spent = 0;
     transactions.forEach(t => {
@@ -1886,7 +1905,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     return { isValid: true, deficitCategory: null, deficitAmount: 0 };
-  }, [zbbMode, categories, budgets, transactions, startOfMonthDay]);
+  }, [budgetMode, zbbMode, categories, budgets, transactions, startOfMonthDay]);
 
   const moveBudgetMoney = useCallback((fromCategoryId: string | null, toCategoryId: string | null, amount: number, month: number, year: number) => {
     setBudgets(prev => {
@@ -1952,7 +1971,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
+    exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud, autoCloudSync,
     budgetMode, setBudgetMode, zbbMode, setZbbMode, monthlyIncome, setMonthlyIncome,
     monthlyIncomes, setMonthIncome, deleteMonthIncome,
     budgetReallocations, addBudgetReallocation, deleteBudgetReallocation,
@@ -1973,7 +1992,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     addBudget, updateBudget, deleteBudget,
     addDebt, updateDebt, deleteDebt, payInstallment, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt,
     getAssetBalance, updateUser, setAppPin, unlockApp, lockApp, toggleTheme, togglePrivateMode,
-    exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud,
+    exportData, importData, logOut, pendingSyncCount, syncData, pullFromCloud, autoCloudSync,
     budgetMode, setBudgetMode, zbbMode, setZbbMode, monthlyIncome, setMonthlyIncome,
     monthlyIncomes, setMonthIncome, deleteMonthIncome,
     budgetReallocations, addBudgetReallocation, deleteBudgetReallocation,

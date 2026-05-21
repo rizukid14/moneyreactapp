@@ -21,12 +21,12 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
   onClose,
   contacts,
   selectedContactName = '',
-  selectedContactNames = [],
+  selectedContactNames,
   onSelect,
   onSelectMultiple,
   isMultiple = false,
 }) => {
-  const { } = useMoney();
+  const {} = useMoney();
   const [searchQuery, setSearchQuery] = useState('');
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [tempSelected, setTempSelected] = useState<string[]>([]);
@@ -35,15 +35,18 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
-      setTempSelected(isMultiple ? selectedContactNames : []);
+      setTempSelected(isMultiple ? (selectedContactNames ?? []) : []);
     }
   }, [isOpen, isMultiple, selectedContactNames]);
 
   const filteredContacts = useMemo(() => {
-    if (!searchQuery.trim()) return contacts;
-    return contacts.filter(c =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return contacts;
+    return contacts.filter(c => {
+      const name = (c.name || '').toLowerCase();
+      const phone = (c.phone || '').toLowerCase();
+      return name.includes(q) || phone.includes(q);
+    });
   }, [contacts, searchQuery]);
 
   const handleSelect = (contactName: string) => {

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Check, AlertCircle } from 'lucide-react';
+import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
@@ -20,6 +20,10 @@ const ChatBot: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const speechBaseRef = useRef('');
+  const finalTranscriptRef = useRef('');
   
   const { 
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
@@ -280,6 +284,54 @@ const ChatBot: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVoiceInput = () => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
+      return;
+    }
+
+    const recognition = new SR();
+    recognition.lang = 'id-ID';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognitionRef.current = recognition;
+    speechBaseRef.current = input.trim();
+    finalTranscriptRef.current = '';
+    setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let newFinalText = '';
+      let interimText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) newFinalText += t;
+        else interimText += t;
+      }
+      if (newFinalText) finalTranscriptRef.current += newFinalText;
+      const combined = `${speechBaseRef.current} ${finalTranscriptRef.current} ${interimText}`.trim();
+      setInput(combined);
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      showToast('Gagal menangkap suara.', 'warning');
+    };
+    recognition.onend = () => {
+      const combined = `${speechBaseRef.current} ${finalTranscriptRef.current}`.trim();
+      if (combined) setInput(combined);
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.start();
   };
 
   const handleConfirmTransaction = (msgIndex: number, toolArgs: any) => {
@@ -689,6 +741,26 @@ const ChatBot: React.FC = () => {
                 }}
                 disabled={isLoading}
               />
+              <button
+                onClick={handleVoiceInput}
+                disabled={isLoading}
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  background: isListening ? 'var(--bg-neutral)' : 'var(--bg-income)',
+                  color: isListening ? 'var(--text-muted)' : 'var(--primary)',
+                  border: 'none',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  cursor: isLoading ? 'default' : 'pointer',
+                  flexShrink: 0
+                }}
+                title={isListening ? 'Sedang mendengar...' : 'Voice Input'}
+              >
+                {isListening ? <Square size={16} /> : <Mic size={16} />}
+              </button>
               <button 
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}

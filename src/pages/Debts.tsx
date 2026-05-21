@@ -10,6 +10,7 @@ import DebtOffsetModal from '../components/modals/DebtOffsetModal';
 import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -271,7 +272,7 @@ const DebtCard: React.FC<{
   };
 
 const Debts: React.FC = () => {
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol, updateTransaction } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol, updateTransaction, deleteTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
@@ -377,7 +378,7 @@ const Debts: React.FC = () => {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+      <div data-tour="debt-summary" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
         <div style={{
           background: 'var(--bg-card)',
           borderRadius: 16,
@@ -650,6 +651,7 @@ const Debts: React.FC = () => {
           assets={assets}
           addTransaction={() => ({} as any)} // Not used when editing
           updateTransaction={updateTransaction}
+          deleteTransaction={deleteTransaction}
           editingTransaction={editingHistoryTx}
         />
       )}
@@ -657,6 +659,7 @@ const Debts: React.FC = () => {
       {/* Floating Action Button (FAB) matching Transactions page (Dynamic Theme & Visibility) */}
       {filter !== 'lunas' && (
         <button
+          data-tour="add-debt"
           className="fab"
           onClick={openAdd}
           style={{
@@ -669,6 +672,14 @@ const Debts: React.FC = () => {
           <Plus size={32} strokeWidth={3} />
         </button>
       )}
+
+      <OnboardingTutorial 
+        pageKey="debts" 
+        steps={[
+          { targetSelector: '[data-tour="debt-summary"]', title: '📊 Ringkasan Hutang', description: 'Lihat total hutang (uang yang kamu pinjam) dan piutang (uangmu yang dipinjam orang lain).' },
+          { targetSelector: '[data-tour="add-debt"]', title: '📝 Tambah Catatan', description: 'Tap tombol ini untuk mencatat hutang atau piutang baru.' }
+        ]} 
+      />
     </div>
   );
 };

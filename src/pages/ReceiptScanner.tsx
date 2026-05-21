@@ -401,7 +401,9 @@ const ReceiptScanner: React.FC = () => {
       const finalNote = merchantName || 'Scan Otomatis';
       let finalDescription = '';
       if (selectedItems.length > 0) {
-        finalDescription = selectedItems.map(i => i.name).join(', ');
+        finalDescription = selectedItems
+          .map(i => `${i.name} - ${currencySymbol}${i.amount.toLocaleString('id-ID')}`)
+          .join('\n');
       }
 
       addTransaction({

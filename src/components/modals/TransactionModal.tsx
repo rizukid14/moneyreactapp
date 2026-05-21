@@ -11,6 +11,7 @@ import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
 import OverspendReallocationModal from './OverspendReallocationModal';
 import CurrencyInput from '../common/CurrencyInput';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -71,6 +72,25 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
   const [pendingTxData, setPendingTxData] = useState<any>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [pinnedPresetKeys, setPinnedPresetKeys] = useState<Record<'pengeluaran' | 'pendapatan' | 'transfer', string[]>>({
+    pengeluaran: [],
+    pendapatan: [],
+    transfer: []
+  });
+
+  type HabitPreset = {
+    id: string;
+    type: 'pengeluaran' | 'pendapatan' | 'transfer';
+    label: string;
+    amount: number;
+    category?: string;
+    subCategory?: string;
+    assetId?: string;
+    fromAssetId?: string;
+    toAssetId?: string;
+    note?: string;
+  };
 
   // ─── Draft Logic ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -393,6 +413,150 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   };
 
+  const handleDeleteCurrentTransaction = () => {
+    if (!editingTransaction || !deleteTransaction) return;
+
+    // If deleting a transfer, also remove linked admin fee transactions.
+    if (editingTransaction.type === 'transfer') {
+      transactions
+        .filter(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin')
+        .forEach(t => deleteTransaction(t.id));
+    }
+
+    deleteTransaction(editingTransaction.id);
+    showToast('Transaksi berhasil dihapus!', 'success');
+    setIsDeleteConfirmOpen(false);
+    onClose();
+  };
+
+  useEffect(() => {
+    const raw = localStorage.getItem('tx_pinned_presets');
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      setPinnedPresetKeys({
+        pengeluaran: Array.isArray(parsed?.pengeluaran) ? parsed.pengeluaran : [],
+        pendapatan: Array.isArray(parsed?.pendapatan) ? parsed.pendapatan : [],
+        transfer: Array.isArray(parsed?.transfer) ? parsed.transfer : []
+      });
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  const habitPresets = useMemo<HabitPreset[]>(() => {
+    const targetTypes: Transaction['type'][] =
+      type === 'transfer' ? ['transfer'] : [type];
+    const txs = transactions.filter(t => targetTypes.includes(t.type) && t.amount > 0);
+    if (txs.length === 0) return [];
+
+    if (type === 'transfer') {
+      const map = new Map<string, { count: number; last: Transaction }>();
+      txs.forEach(t => {
+        const key = `${t.fromAssetId || ''}|${t.toAssetId || ''}|${(t.note || '').trim().toLowerCase()}`;
+        const prev = map.get(key);
+        if (!prev) map.set(key, { count: 1, last: t });
+        else {
+          const newer = (new Date(t.date).getTime() > new Date(prev.last.date).getTime()) ? t : prev.last;
+          map.set(key, { count: prev.count + 1, last: newer });
+        }
+      });
+
+      return Array.from(map.values())
+        .sort((a, b) => (b.count - a.count) || (new Date(b.last.date).getTime() - new Date(a.last.date).getTime()))
+        .slice(0, 4)
+        .map((item, idx) => {
+          const fromName = assets.find(a => a.id === item.last.fromAssetId)?.name || 'Dari';
+          const toName = assets.find(a => a.id === item.last.toAssetId)?.name || 'Ke';
+          return {
+            id: `tf-${idx}-${item.last.id}`,
+            type: 'transfer',
+            label: `${fromName} -> ${toName}`,
+            amount: item.last.amount,
+            fromAssetId: item.last.fromAssetId,
+            toAssetId: item.last.toAssetId,
+            note: item.last.note
+          };
+        });
+    }
+
+    const map = new Map<string, { count: number; last: Transaction }>();
+    txs.forEach(t => {
+      const key = `${t.category || ''}|${t.subCategory || ''}|${t.assetId || ''}|${(t.note || '').trim().toLowerCase()}`;
+      const prev = map.get(key);
+      if (!prev) map.set(key, { count: 1, last: t });
+      else {
+        const newer = (new Date(t.date).getTime() > new Date(prev.last.date).getTime()) ? t : prev.last;
+        map.set(key, { count: prev.count + 1, last: newer });
+      }
+    });
+
+    return Array.from(map.values())
+      .sort((a, b) => (b.count - a.count) || (new Date(b.last.date).getTime() - new Date(a.last.date).getTime()))
+      .slice(0, 4)
+      .map((item, idx) => ({
+        id: `tx-${idx}-${item.last.id}`,
+        type: type as 'pengeluaran' | 'pendapatan',
+        label: item.last.subCategory ? `${item.last.category} -> ${item.last.subCategory}` : item.last.category,
+        amount: item.last.amount,
+        category: item.last.category,
+        subCategory: item.last.subCategory,
+        assetId: item.last.assetId,
+        note: item.last.note
+      }));
+  }, [type, transactions, assets]);
+
+  const presetKey = (preset: HabitPreset) => JSON.stringify({
+    type: preset.type,
+    label: preset.label,
+    amount: preset.amount,
+    category: preset.category || '',
+    subCategory: preset.subCategory || '',
+    assetId: preset.assetId || '',
+    fromAssetId: preset.fromAssetId || '',
+    toAssetId: preset.toAssetId || '',
+    note: (preset.note || '').trim().toLowerCase()
+  });
+
+  const mergedPresets = useMemo(() => {
+    const t = type === 'transfer' ? 'transfer' : type;
+    const pinned = pinnedPresetKeys[t as 'pengeluaran' | 'pendapatan' | 'transfer'] || [];
+    const list = [...habitPresets];
+    list.sort((a, b) => {
+      const aPinned = pinned.includes(presetKey(a)) ? 1 : 0;
+      const bPinned = pinned.includes(presetKey(b)) ? 1 : 0;
+      return bPinned - aPinned;
+    });
+    return list;
+  }, [habitPresets, pinnedPresetKeys, type]);
+
+  const togglePinPreset = (preset: HabitPreset) => {
+    const t = preset.type;
+    const key = presetKey(preset);
+    setPinnedPresetKeys(prev => {
+      const current = prev[t] || [];
+      const nextType = current.includes(key)
+        ? current.filter(k => k !== key)
+        : [key, ...current];
+      const next = { ...prev, [t]: nextType };
+      localStorage.setItem('tx_pinned_presets', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const applyHabitPreset = (preset: HabitPreset) => {
+    setAmount(preset.amount.toLocaleString('id-ID'));
+    if (preset.type === 'transfer') {
+      setFromAssetId(preset.fromAssetId || fromAssetId);
+      setToAssetId(preset.toAssetId || toAssetId);
+    } else {
+      setCategory(preset.category || '');
+      setSubCategory(preset.subCategory || '');
+      if (preset.assetId) setAssetId(preset.assetId);
+    }
+    setNote(preset.note || '');
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -462,6 +626,61 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           fontWeight: 700, color: type === 'transfer' ? 'var(--text-main)' : 'var(--text-muted)'
                         }}
                       >Transfer</button>
+                    </div>
+                  )}
+
+                  {!editingTransaction && mergedPresets.length > 0 && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.04em' }}>
+                        Preset Kebiasaan
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="custom-scrollbar">
+                        {mergedPresets.map(preset => {
+                          const isPinned = pinnedPresetKeys[preset.type]?.includes(presetKey(preset));
+                          return (
+                            <div
+                              key={preset.id}
+                              style={{
+                                flexShrink: 0,
+                                border: `1px solid ${isPinned ? 'var(--primary)' : 'var(--border-color)'}`,
+                                borderRadius: '10px',
+                                background: isPinned ? 'var(--bg-income)' : 'var(--bg-card)',
+                                padding: '8px 10px',
+                                minWidth: '160px'
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => applyHabitPreset(preset)}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', padding: 0 }}
+                              >
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {preset.label}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                  {currencySymbol}{preset.amount.toLocaleString('id-ID')}
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => togglePinPreset(preset)}
+                                style={{
+                                  marginTop: '6px',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: isPinned ? 'var(--primary)' : 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  padding: 0
+                                }}
+                              >
+                                {isPinned ? 'Unpin' : 'Pin'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
@@ -825,18 +1044,35 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="submit"
-                      onClick={() => { submitActionRef.current = 'close'; }}
-                      className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
-                      style={{
-                        width: '100%',
-                        backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
-                        color: type === 'transfer' ? 'white' : undefined
-                      }}
-                    >
-                      Simpan Perubahan
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {deleteTransaction && (
+                        <button
+                          type="button"
+                          onClick={() => setIsDeleteConfirmOpen(true)}
+                          className="btn"
+                          style={{
+                            flex: 1,
+                            background: 'var(--bg-expense)',
+                            color: 'var(--danger)',
+                            border: '1px solid var(--danger-glow)'
+                          }}
+                        >
+                          Hapus Transaksi
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        onClick={() => { submitActionRef.current = 'close'; }}
+                        className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
+                        style={{
+                          flex: 1,
+                          backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
+                          color: type === 'transfer' ? 'white' : undefined
+                        }}
+                      >
+                        Simpan Perubahan
+                      </button>
+                    </div>
                   )}
                   </div>
                 </form>
@@ -900,6 +1136,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         deficitAmount={reallocationModal.deficitAmount}
         month={reallocationModal.month}
         year={reallocationModal.year}
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleDeleteCurrentTransaction}
+        title="Hapus Transaksi"
+        message="Apakah Anda yakin ingin menghapus transaksi ini?"
       />
     </>
   );

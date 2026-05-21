@@ -4,7 +4,7 @@ import { CloudUpload, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { isFirebaseConfigured } from '../lib/firebase';
 
 export const QuotaBanner: React.FC = () => {
-    const { pendingSyncCount, syncData } = useMoney();
+    const { pendingSyncCount, syncData, autoCloudSync } = useMoney();
     const [isSyncing, setIsSyncing] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [syncError, setSyncError] = useState(false);
@@ -13,7 +13,7 @@ export const QuotaBanner: React.FC = () => {
     // Hide completely if Firebase is not configured (cloud sync is disabled)
     if (!isFirebaseConfigured) return null;
 
-    if (pendingSyncCount === 0 && !showSuccess && !syncError && !errorMessage) return null;
+    if (autoCloudSync.status !== 'pulling' && pendingSyncCount === 0 && !showSuccess && !syncError && !errorMessage) return null;
 
     const handleSync = async () => {
         setIsSyncing(true);
@@ -71,6 +71,17 @@ export const QuotaBanner: React.FC = () => {
                 <div className="quota-banner-content">
                     <AlertCircle size={18} style={{ color: 'var(--danger)' }} />
                     <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Sync Gagal: Kuota Firestore masih penuh.</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (autoCloudSync.status === 'pulling') {
+        return (
+            <div className="quota-banner fade-in">
+                <div className="quota-banner-content">
+                    <Loader2 className="animate-spin" size={18} />
+                    <span>Sedang sinkronisasi data dari cloud...</span>
                 </div>
             </div>
         );

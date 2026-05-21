@@ -195,7 +195,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                       <Wallet size={18} color={'var(--text-muted)'} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</div>
+                      <div style={{ fontWeight: 800, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeAssets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                         Saldo: {currencySymbol}{getAssetBalance(selectedAssetId).toLocaleString('id-ID')}
                       </div>
@@ -230,7 +230,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               <AssetSelectModal
                 isOpen={isAssetSelectOpen}
                 onClose={() => setIsAssetSelectOpen(false)}
-                assets={assets}
+                assets={activeAssets}
                 selectedAssetId={selectedAssetId}
                 onSelect={(id) => { setSelectedAssetId(id); setIsAssetSelectOpen(false); }}
               />

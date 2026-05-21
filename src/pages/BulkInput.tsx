@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, Loader2, X, Sparkles, ChevronLeft } from 'lucide-react';
+import { AlertCircle, Loader2, X, Sparkles, ChevronLeft, Mic, Square } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
@@ -19,6 +19,58 @@ const BulkInput: React.FC = () => {
   
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
   const [pendingAction, setPendingAction] = useState<boolean>(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = React.useRef<any>(null);
+  const speechBaseRef = React.useRef('');
+  const finalTranscriptRef = React.useRef('');
+
+  const handleSpeechToText = () => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
+      return;
+    }
+
+    const recognition = new SR();
+    recognition.lang = 'id-ID';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognitionRef.current = recognition;
+    speechBaseRef.current = inputText.trim();
+    finalTranscriptRef.current = '';
+    setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let newFinalText = '';
+      let interimText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) newFinalText += t;
+        else interimText += t;
+      }
+      if (newFinalText) finalTranscriptRef.current += newFinalText;
+      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current} ${interimText}`.trim();
+      setInputText(combined);
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      showToast('Gagal menangkap suara.', 'warning');
+    };
+    recognition.onend = () => {
+      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current}`.trim();
+      if (combined) setInputText(combined);
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.start();
+  };
 
   const performSave = () => {
     const toSave = results.filter(r => r.selected);
@@ -173,6 +225,22 @@ const BulkInput: React.FC = () => {
                 color: 'var(--text-main)', fontSize: '14px', resize: 'vertical'
               }}
             />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button
+                type="button"
+                onClick={handleSpeechToText}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: isListening ? 'var(--bg-neutral)' : 'var(--bg-income)',
+                  color: isListening ? 'var(--text-muted)' : 'var(--primary)',
+                  border: '1px solid var(--border-color)', borderRadius: '10px',
+                  padding: '8px 10px', cursor: 'pointer', fontWeight: 700, fontSize: '12px'
+                }}
+              >
+                {isListening ? <Square size={14} /> : <Mic size={14} />}
+                {isListening ? 'Mendengar...' : 'Voice Input'}
+              </button>
+            </div>
           </div>
 
           <button

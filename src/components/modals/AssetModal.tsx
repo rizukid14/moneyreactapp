@@ -62,8 +62,9 @@ const AssetModal: React.FC<AssetModalProps> = ({
     if (!name.trim()) return;
 
     // Validation: Check if name already exists (case-insensitive)
-    const isDuplicate = existingAssets.some(a => 
-      a.name.toLowerCase() === name.trim().toLowerCase() && 
+    const isDuplicate = existingAssets.some(a =>
+      !a.isDeleted &&
+      a.name.toLowerCase() === name.trim().toLowerCase() &&
       (!editingAsset || a.id !== editingAsset.id)
     );
 

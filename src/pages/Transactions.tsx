@@ -9,6 +9,7 @@ import TransactionItem from '../components/transactions/TransactionItem';
 import TransactionModal from '../components/modals/TransactionModal';
 import DatePickerModal from '../components/modals/DatePickerModal';
 import WhatsNewModal from '../components/modals/WhatsNewModal';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 import { useToast } from '../components/common/Toast';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -538,7 +539,7 @@ const Transactions: React.FC = () => {
 
       {/* Month Switcher */}
       {!searchQuery && (
-        <div className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
+        <div data-tour="month-nav" className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button onClick={() => changeMonth(-1)} className="btn-icon">
               <ChevronLeft size={24} />
@@ -638,6 +639,7 @@ const Transactions: React.FC = () => {
         )}
         {/* Bento Card 1: Pemasukan */}
         <motion.div
+          data-tour="income-card"
           role="button"
           aria-label="Tambah Pemasukan"
           variants={itemVariants}
@@ -683,6 +685,7 @@ const Transactions: React.FC = () => {
 
         {/* Bento Card 2: Pengeluaran */}
         <motion.div
+          data-tour="expense-card"
           role="button"
           aria-label="Catat Pengeluaran"
           variants={itemVariants}
@@ -728,6 +731,7 @@ const Transactions: React.FC = () => {
 
         {/* Bento Card 3: Quick AI Scanner */}
         <motion.div
+          data-tour="ai-scanner"
           variants={itemVariants}
           whileHover={{ scale: 1.01, y: -2 }}
           style={{
@@ -1113,6 +1117,16 @@ const Transactions: React.FC = () => {
       <WhatsNewModal
         isOpen={isWhatsNewOpen}
         onClose={closeWhatsNew}
+      />
+
+      <OnboardingTutorial 
+        pageKey="transactions" 
+        steps={[
+          { targetSelector: '[data-tour="income-card"]', title: '💰 Catat Pemasukan', description: 'Tap kartu ini untuk menambahkan pemasukan seperti gaji, bonus, atau pendapatan lain.' },
+          { targetSelector: '[data-tour="expense-card"]', title: '💸 Catat Pengeluaran', description: 'Tap kartu ini untuk mencatat pengeluaran harian kamu dengan cepat.' },
+          { targetSelector: '[data-tour="ai-scanner"]', title: '🤖 Scanner AI Cerdas', description: 'Pindai struk belanja dengan kamera atau ketik banyak transaksi sekaligus dengan bantuan AI.' },
+          { targetSelector: '[data-tour="month-nav"]', title: '📅 Navigasi Bulan', description: 'Geser kiri-kanan untuk melihat transaksi bulan lalu atau bulan depan. Tap untuk pilih bulan spesifik.' },
+        ]} 
       />
     </div>
   );

@@ -68,6 +68,7 @@ export const localDbGetAllCategories = async (): Promise<Category[]> => (await g
 export const localDbGetAllBudgets = async (): Promise<any[]> => (await getDB()).getAll('budgets');
 export const localDbGetAllGoals = async (): Promise<Goal[]> => (await getDB()).getAll('goals');
 export const localDbGetSetting = async (key: string) => (await getDB()).get('settings', key);
+export const localDbPutSetting = async (key: string, value: any) => (await getDB()).put('settings', value, key);
 
 // ─── FIRESTORE (Cloud Sync) ──────────────────────────────────────────────────
 const getUid = () => {
@@ -222,8 +223,10 @@ export const dbGetAllAssets = async (): Promise<Asset[]> => {
   } catch (e) { return local; }
 };
 
-export const dbPutAsset = async (asset: Asset) => {
+export const dbPutAsset = async (asset: Asset, options?: { skipSync?: boolean }) => {
   await (await getDB()).put('assets', asset);
+  if (options?.skipSync) return;
+
   await recordPendingSync({ id: asset.id, collection: 'assets', operation: 'PUT', data: asset });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
@@ -298,8 +301,10 @@ export const dbGetAllCategories = async (): Promise<Category[]> => {
   } catch (e) { return local; }
 };
 
-export const dbPutCategory = async (cat: Category) => {
+export const dbPutCategory = async (cat: Category, options?: { skipSync?: boolean }) => {
   await (await getDB()).put('categories', cat);
+  if (options?.skipSync) return;
+
   await recordPendingSync({ id: cat.id, collection: 'categories', operation: 'PUT', data: cat });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;

@@ -1,6 +1,7 @@
 import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MoneyProvider, useMoney } from './contexts/MoneyContext';
+import { OnboardingProvider } from './contexts/OnboardingContext';
 import Layout from './components/Layout';
 import LockScreen from './components/LockScreen';
 import SplashScreen from './components/SplashScreen';
@@ -81,7 +82,9 @@ function App() {
   return (
     <ToastProvider>
       <MoneyProvider>
-        <AppContent />
+        <OnboardingProvider>
+          <AppContent />
+        </OnboardingProvider>
       </MoneyProvider>
     </ToastProvider>
   );

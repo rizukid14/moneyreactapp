@@ -7,6 +7,7 @@ import StatDetailModal from '../components/modals/StatDetailModal';
 import type { StatDetailItem } from '../components/modals/StatDetailModal';
 import { formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 
 import { ALL_STATS_VIEWS } from './Settings';
 
@@ -92,14 +93,34 @@ const Statistics: React.FC = () => {
     if (activeViewId === 'cash_bank') includedAssetTypes = ['Cash', 'Bank Account', 'eWallet'];
     else if (activeViewId === 'investment') includedAssetTypes = ['Investment', 'Savings'];
 
+    const includedAssetIds = new Set(
+      assets
+        .filter(a => includedAssetTypes.includes(a.type))
+        .map(a => a.id)
+    );
+
+    const getTransferFlowForActiveView = (tx: typeof transactions[number]) => {
+      if (tx.type !== 'transfer') return null;
+      if (activeViewId === 'all' || activeViewId === 'health') return null;
+
+      const fromIncluded = !!tx.fromAssetId && includedAssetIds.has(tx.fromAssetId);
+      const toIncluded = !!tx.toAssetId && includedAssetIds.has(tx.toAssetId);
+
+      if (toIncluded && !fromIncluded) return 'income' as const;
+      if (fromIncluded && !toIncluded) return 'expense' as const;
+      return null;
+    };
+
     const statsTransactions = transactions.filter(tx => {
       if (activeViewId === 'all' || activeViewId === 'health') return true;
 
-      // Map assetId to its type
-      const txAsset = assets.find(a => a.id === tx.assetId || a.id === tx.fromAssetId || a.id === tx.toAssetId);
-      if (!txAsset) return false;
+      if (tx.type === 'transfer') {
+        const fromIncluded = !!tx.fromAssetId && includedAssetIds.has(tx.fromAssetId);
+        const toIncluded = !!tx.toAssetId && includedAssetIds.has(tx.toAssetId);
+        return fromIncluded || toIncluded;
+      }
 
-      return includedAssetTypes.includes(txAsset.type);
+      return !!tx.assetId && includedAssetIds.has(tx.assetId);
     });
 
     // ─── Phase 1: 6-Month Trend Data ───
@@ -152,14 +173,18 @@ const Statistics: React.FC = () => {
       if (txDate >= vPeriodStart && txDate < vPeriodEnd) {
         const subKey = tx.subCategory || tx.category;
 
-        if (tx.type === 'pendapatan') {
+        const transferFlow = getTransferFlowForActiveView(tx);
+        const isIncomeTx = tx.type === 'pendapatan' || transferFlow === 'income';
+        const isExpenseTx = tx.type === 'pengeluaran' || transferFlow === 'expense';
+
+        if (isIncomeTx) {
           thisMonthInc += tx.amount;
           if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === tx.category) {
             incBySubCategory[subKey] = (incBySubCategory[subKey] || 0) + tx.amount;
           }
           incByCategory[tx.category] = (incByCategory[tx.category] || 0) + tx.amount;
         }
-        if (tx.type === 'pengeluaran') {
+        if (isExpenseTx) {
           thisMonthExp += tx.amount;
           if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === tx.category) {
             expBySubCategory[subKey] = (expBySubCategory[subKey] || 0) + tx.amount;
@@ -168,8 +193,8 @@ const Statistics: React.FC = () => {
         }
 
         // Insight tracking
-        if (tx.type === 'pendapatan') txCountIncome++;
-        if (tx.type === 'pengeluaran') {
+        if (isIncomeTx) txCountIncome++;
+        if (isExpenseTx) {
           txCountExpense++;
           // Daily spending
           dailySpending[tx.date] = (dailySpending[tx.date] || 0) + tx.amount;
@@ -178,7 +203,7 @@ const Statistics: React.FC = () => {
             biggestExpenseTx = { note: tx.note || tx.category, amount: tx.amount, category: tx.category };
           }
         }
-        if (tx.type === 'pendapatan') {
+        if (isIncomeTx) {
           dailyIncome[tx.date] = (dailyIncome[tx.date] || 0) + tx.amount;
         }
         if (tx.type === 'transfer') txCountTransfer++;
@@ -192,8 +217,9 @@ const Statistics: React.FC = () => {
       // 2. Trend Data (Last 6 Periods)
       last6Months.forEach(m => {
         if (txDate >= m.periodStart && txDate < m.periodEnd) {
-          if (tx.type === 'pendapatan') m.pendapatan += tx.amount;
-          if (tx.type === 'pengeluaran') m.pengeluaran += tx.amount;
+          const transferFlow = getTransferFlowForActiveView(tx);
+          if (tx.type === 'pendapatan' || transferFlow === 'income') m.pendapatan += tx.amount;
+          if (tx.type === 'pengeluaran' || transferFlow === 'expense') m.pengeluaran += tx.amount;
         }
       });
     });
@@ -338,35 +364,45 @@ const Statistics: React.FC = () => {
     return dailyExpenseChart;
   }, [dailyExpenseChart, chartScale]);
 
-  useEffect(() => {
-    if (heatmapScrollRef.current && heatmapData && heatmapData.length > 0) {
-      // Find current selected/view month index (0-11)
-      const currentMonthIndex = viewDate.getMonth();
+  const scrollHeatmapToCurrentMonth = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (!heatmapScrollRef.current || !heatmapData || heatmapData.length === 0) return;
 
-      // Calculate column index of this month
-      // Heatmap starts on firstDow of January
-      const firstDow = heatmapData[0]?.firstDow || 0;
-      let offset = 0;
-      let targetCol = 0;
-      for (let m = 0; m < currentMonthIndex; m++) {
-        offset += heatmapData[m]?.cells.length || 0;
-      }
-      targetCol = Math.floor((firstDow + offset) / 7);
-
-      const CELL_WIDTH = 13;
-      const GAP_WIDTH = 4;
-      const colLeft = targetCol * (CELL_WIDTH + GAP_WIDTH);
-
-      const container = heatmapScrollRef.current;
-      const containerWidth = container.clientWidth;
-
-      // Scroll to center the month column
-      container.scrollTo({
-        left: Math.max(0, colLeft - containerWidth / 2 + 50), // +50 to show a bit of the previous month for context
-        behavior: 'smooth'
-      });
+    const currentMonthIndex = viewDate.getMonth();
+    const firstDow = heatmapData[0]?.firstDow || 0;
+    let offset = 0;
+    for (let m = 0; m < currentMonthIndex; m++) {
+      offset += heatmapData[m]?.cells.length || 0;
     }
+
+    const targetCol = Math.floor((firstDow + offset) / 7);
+    const CELL_WIDTH = 13;
+    const GAP_WIDTH = 4;
+    const colLeft = targetCol * (CELL_WIDTH + GAP_WIDTH);
+
+    const container = heatmapScrollRef.current;
+    const containerWidth = container.clientWidth;
+
+    container.scrollTo({
+      left: Math.max(0, colLeft - containerWidth / 2 + 50),
+      behavior
+    });
   }, [viewDate, heatmapData]);
+
+  useEffect(() => {
+    scrollHeatmapToCurrentMonth('smooth');
+  }, [scrollHeatmapToCurrentMonth]);
+
+  useEffect(() => {
+    const isAnalysisView = !['health', 'budget', 'goals', 'subs', 'forecast'].includes(activeViewId);
+    if (!isAnalysisView) return;
+
+    // Run after the analysis pane remounts/animates so ref + layout are ready.
+    const timer = window.setTimeout(() => {
+      scrollHeatmapToCurrentMonth('auto');
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [activeViewId, scrollHeatmapToCurrentMonth]);
 
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -514,7 +550,7 @@ const Statistics: React.FC = () => {
           >
 
             {/* Month Switcher Header */}
-            <div className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
+            <div data-tour="month-nav" className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button onClick={() => changeMonth(-1)} className="btn-icon">
                   <ChevronLeft size={24} />
@@ -538,7 +574,7 @@ const Statistics: React.FC = () => {
               </div>
             </div>
 
-            <div className="card glass">
+            <div data-tour="stats-chart" className="card glass">
               <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Tren 6 Bulan Terakhir</h2>
               <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer>
@@ -1286,7 +1322,7 @@ const Statistics: React.FC = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
-                <div className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
+                <div data-tour="stats-breakdown" className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
                   <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
                   <div style={{ width: '100%', height: 180 }}>
                     <ResponsiveContainer>
@@ -1515,6 +1551,15 @@ const Statistics: React.FC = () => {
       <StatDetailModal
         {...detailModalProps}
         onClose={() => setDetailModalProps(prev => ({ ...prev, isOpen: false }))}
+      />
+      
+      <OnboardingTutorial 
+        pageKey="statistics" 
+        steps={[
+          { targetSelector: '[data-tour="stats-chart"]', title: '📊 Grafik Tren', description: 'Lihat ringkasan tren pendapatan dan pengeluaran kamu selama 6 bulan terakhir.' },
+          { targetSelector: '[data-tour="stats-breakdown"]', title: '🥧 Rincian Kategori', description: 'Lihat detail pengeluaran berdasarkan kategori. Tap kategori untuk melihat sub-kategori.' },
+          { targetSelector: '[data-tour="month-nav"]', title: '📅 Navigasi Bulan', description: 'Ubah bulan untuk melihat statistik di bulan spesifik.' }
+        ]} 
       />
     </div>
   );
