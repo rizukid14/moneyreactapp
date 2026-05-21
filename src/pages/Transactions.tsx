@@ -1124,7 +1124,12 @@ const Transactions: React.FC = () => {
         steps={[
           { targetSelector: '[data-tour="income-card"]', title: '💰 Catat Pemasukan', description: 'Tap kartu ini untuk menambahkan pemasukan seperti gaji, bonus, atau pendapatan lain.' },
           { targetSelector: '[data-tour="expense-card"]', title: '💸 Catat Pengeluaran', description: 'Tap kartu ini untuk mencatat pengeluaran harian kamu dengan cepat.' },
-          { targetSelector: '[data-tour="ai-scanner"]', title: '🤖 Scanner AI Cerdas', description: 'Pindai struk belanja dengan kamera atau ketik banyak transaksi sekaligus dengan bantuan AI.' },
+          { targetSelector: '[data-tour="modal-amount"]', title: '💵 Nominal Transaksi', description: 'Masukkan nominal uang untuk transaksi ini.', onBeforeShow: () => handleAdd('pengeluaran') },
+          { targetSelector: '[data-tour="modal-category"]', title: '🏷️ Pilih Kategori', description: 'Pilih kategori pengeluaran agar laporan keuangan rapi.' },
+          { targetSelector: '[data-tour="modal-asset"]', title: '💳 Dompet / Rekening', description: 'Pilih sumber dana atau rekening yang digunakan untuk transaksi ini.' },
+          { targetSelector: '[data-tour="modal-note"]', title: '📝 Catatan Tambahan', description: 'Tulis keterangan singkat atau detail transaksi di sini.' },
+          { targetSelector: '[data-tour="modal-submit"]', title: '💾 Simpan Transaksi', description: 'Klik tombol simpan untuk mencatat transaksi ke database.' },
+          { targetSelector: '[data-tour="ai-scanner"]', title: '🤖 Scanner AI Cerdas', description: 'Pindai struk belanja dengan kamera atau ketik banyak transaksi sekaligus dengan bantuan AI.', onBeforeShow: () => handleCloseModal() },
           { targetSelector: '[data-tour="month-nav"]', title: '📅 Navigasi Bulan', description: 'Geser kiri-kanan untuk melihat transaksi bulan lalu atau bulan depan. Tap untuk pilih bulan spesifik.' },
         ]} 
       />

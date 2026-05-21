@@ -677,7 +677,11 @@ const Debts: React.FC = () => {
         pageKey="debts" 
         steps={[
           { targetSelector: '[data-tour="debt-summary"]', title: '📊 Ringkasan Hutang', description: 'Lihat total hutang (uang yang kamu pinjam) dan piutang (uangmu yang dipinjam orang lain).' },
-          { targetSelector: '[data-tour="add-debt"]', title: '📝 Tambah Catatan', description: 'Tap tombol ini untuk mencatat hutang atau piutang baru.' }
+          { targetSelector: '[data-tour="add-debt"]', title: '📝 Tambah Catatan', description: 'Tap tombol ini untuk mencatat hutang atau piutang baru.' },
+          { targetSelector: '[data-tour="debt-modal-contact"]', title: '👤 Pilih Kontak', description: 'Pilih siapa kontak / orang yang bersangkutan dengan hutang piutang ini.', onBeforeShow: () => openAdd() },
+          { targetSelector: '[data-tour="debt-modal-description"]', title: '📝 Keterangan', description: 'Tulis keterangan singkat untuk apa hutang piutang ini dibuat.' },
+          { targetSelector: '[data-tour="debt-modal-amount"]', title: '💵 Nominal Pokok', description: 'Masukkan jumlah uang atau nominal pokok hutang piutang.' },
+          { targetSelector: '[data-tour="debt-modal-submit"]', title: '💾 Simpan Catatan', description: 'Simpan catatan untuk mencatat data ini ke dalam sistem.' },
         ]} 
       />
     </div>

@@ -1121,6 +1121,7 @@ const Settings: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAssetSelectOpen(true)}
+                data-tour="pref-default-wallet"
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)',
@@ -1167,6 +1168,7 @@ const Settings: React.FC = () => {
                 <select
                   value={startOfMonthDay}
                   onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
+                  data-tour="pref-financial-cycle"
                   style={{
                     appearance: 'none',
                     WebkitAppearance: 'none',
@@ -1233,6 +1235,7 @@ const Settings: React.FC = () => {
                 value={currencySymbol}
                 onChange={(e) => setCurrencySymbol(e.target.value)}
                 placeholder="Simbol Mata Uang..."
+                data-tour="pref-currency"
                 style={{ width: '100%', padding: '12px', borderRadius: '12px', marginBottom: 0 }}
               />
             </div>
@@ -1264,10 +1267,13 @@ const Settings: React.FC = () => {
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Pilih antara budget reguler atau Zero-Based (Envelope).
               </p>
-              <div style={{
-                display: 'flex', background: 'var(--bg-main)', padding: '4px',
-                borderRadius: '12px', border: '1px solid var(--border-color)'
-              }}>
+              <div 
+                data-tour="pref-budget-mode"
+                style={{
+                  display: 'flex', background: 'var(--bg-main)', padding: '4px',
+                  borderRadius: '12px', border: '1px solid var(--border-color)'
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setBudgetMode('regular')}
@@ -2113,14 +2119,19 @@ const Settings: React.FC = () => {
                 }
 
                 return (
-                  <div key={item.id} onClick={() => handleMenuClick(item.id)} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '16px 0',
-                    borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-                    cursor: 'pointer'
-                  }}>
+                  <div
+                    key={item.id}
+                    onClick={() => handleMenuClick(item.id)}
+                    data-tour={item.id === 'preferences' ? 'settings-preferences' : undefined}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '16px 0',
+                      borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+                      cursor: 'pointer'
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                       <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
@@ -2345,7 +2356,12 @@ const Settings: React.FC = () => {
         pageKey="settings"
         steps={[
           { targetSelector: '[data-tour="settings-profile"]', title: '👤 Profil Kamu', description: 'Atur nama, email, dan avatar kamu di sini.' },
-          { targetSelector: '[data-tour="settings-menu"]', title: '⚙️ Pengaturan Fitur', description: 'Temukan berbagai pengaturan mulai dari tema gelap, kategori, backup data, hingga mengulang tutorial.' }
+          { targetSelector: '[data-tour="settings-preferences"]', title: '⚙️ Preferensi Aplikasi', description: 'Atur opsi kustomisasi seperti mata uang default, budgeting, dan siklus bulanan di sini.', onBeforeShow: () => setActiveModal(null) },
+          { targetSelector: '[data-tour="pref-default-wallet"]', title: '💳 Dompet Utama', description: 'Pilih dompet default yang akan terpilih secara otomatis saat membuat transaksi baru.', onBeforeShow: () => handleMenuClick('preferences') },
+          { targetSelector: '[data-tour="pref-financial-cycle"]', title: '📅 Siklus Finansial', description: 'Atur tanggal gajian atau awal siklus keuangan bulananmu.' },
+          { targetSelector: '[data-tour="pref-currency"]', title: '💱 Mata Uang', description: 'Ubah simbol mata uang (seperti Rp, $, dll.) sesuai keinginanmu.' },
+          { targetSelector: '[data-tour="pref-budget-mode"]', title: '🎯 Metode Budgeting', description: 'Pilih gaya budgeting: Reguler atau Zero-Based (ZBB).' },
+          { targetSelector: '[data-tour="settings-menu"]', title: '🛠️ Pengaturan Lainnya', description: 'Temukan berbagai pengaturan lainnya mulai dari kategori, backup data, hingga mengulang tutorial.', onBeforeShow: () => setActiveModal(null) }
         ]}
       />
     </div>

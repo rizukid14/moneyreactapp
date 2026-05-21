@@ -8,6 +8,7 @@ export interface TutorialStep {
   title: string;
   description: string;
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
+  onBeforeShow?: () => void;
 }
 
 interface OnboardingTutorialProps {
@@ -24,6 +25,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ pageKey, steps 
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [tooltipSize, setTooltipSize] = useState({ width: 300, height: 180 });
   const scrollIntervalRef = useRef<any>(null);
+  const lastExecutedIndexRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     if (isVisible && tooltipRef.current) {
@@ -59,6 +61,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ pageKey, steps 
     if (!isVisible) {
       setCurrentStepIndex(0);
       setTargetRect(null);
+      lastExecutedIndexRef.current = null;
       if (scrollIntervalRef.current) {
         clearInterval(scrollIntervalRef.current);
         scrollIntervalRef.current = null;
@@ -135,8 +138,12 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ pageKey, steps 
   }, [currentStep, isVisible, measureTarget]);
 
   useEffect(() => {
+    if (isVisible && currentStep?.onBeforeShow && lastExecutedIndexRef.current !== currentStepIndex) {
+      lastExecutedIndexRef.current = currentStepIndex;
+      currentStep.onBeforeShow();
+    }
     scrollToAndMeasure();
-  }, [scrollToAndMeasure, currentStepIndex]);
+  }, [scrollToAndMeasure, currentStepIndex, isVisible, currentStep]);
 
   useEffect(() => {
     const handleResizeOrScroll = () => {
@@ -152,6 +159,39 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ pageKey, steps 
       window.removeEventListener('scroll', handleResizeOrScroll, true);
     };
   }, [measureTarget]);
+
+  // Poll and observe DOM mutations to detect when elements appear (e.g. modals opening)
+  useEffect(() => {
+    if (!isVisible || !currentStep) return;
+
+    const checkAndMeasure = () => {
+      const element = document.querySelector(currentStep.targetSelector);
+      if (element) {
+        measureTarget();
+        return true;
+      }
+      return false;
+    };
+
+    checkAndMeasure();
+
+    const observer = new MutationObserver(() => {
+      checkAndMeasure();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    const interval = setInterval(checkAndMeasure, 250);
+
+    return () => {
+      observer.disconnect();
+      clearInterval(interval);
+    };
+  }, [currentStep, isVisible, measureTarget]);
+
 
 
   const handleNext = () => {

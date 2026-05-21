@@ -236,6 +236,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   marginBottom: 16, cursor: 'pointer'
                 }}
+                data-tour="debt-modal-contact"
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <User size={16} color={typeColor} />
@@ -251,7 +252,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               </button>
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Keterangan</label>
-              <input type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} />
+              <input type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} data-tour="debt-modal-description" />
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Pokok Pinjaman ({currencySymbol})</label>
               <div style={{ display: 'flex', gap: '8px', marginBottom: 16 }}>
@@ -261,6 +262,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                   value={principalAmount}
                   onChange={setPrincipalAmount}
                   style={{ flex: 1, marginBottom: 0 }}
+                  data-tour="debt-modal-amount"
                 />
                 <button
                   type="button"
@@ -502,6 +504,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                   width: '100%', marginTop: 14, fontWeight: 700,
                   background: typeColor, color: 'white', border: 'none', borderRadius: 12, padding: '13px',
                 }}
+                data-tour="debt-modal-submit"
               >
                 {editingDebt ? 'Simpan Perubahan' : 'Simpan'}
               </button>

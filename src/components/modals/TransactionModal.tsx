@@ -698,6 +698,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         value={amount}
                         onChange={handleRawAmountChange}
                         style={{ flex: 1, marginBottom: 0 }}
+                        data-tour="modal-amount"
                       />
                       <button
                         type="button"
@@ -724,6 +725,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             marginBottom: '16px', cursor: 'pointer', color: category ? 'var(--text-main)' : 'var(--text-muted)'
                           }}
+                          data-tour="modal-category"
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Folder size={18} color="var(--primary)" />
@@ -750,6 +752,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 marginBottom: '16px', cursor: 'pointer', color: selectedAsset ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
+                              data-tour="modal-asset"
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Wallet size={18} color="var(--primary)" />
@@ -808,6 +811,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
+                              data-tour="modal-asset"
                             >
                               <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {asset ? asset.name : '-- Dari --'}
@@ -835,6 +839,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
+                              data-tour="modal-asset"
                             >
                               <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {asset ? asset.name : '-- Ke --'}
@@ -927,7 +932,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0 }} />
                       <input type="time" required value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
                     </div>
-                    <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} />
+                    <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} data-tour="modal-note" />
                     
                     <div style={{ marginBottom: '16px' }}>
                       <textarea
@@ -1027,6 +1032,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         onClick={() => { submitActionRef.current = 'continue'; }}
                         className="btn"
                         style={{ flex: 1, border: `2px solid ${type === 'pendapatan' ? 'var(--primary)' : type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'}`, color: type === 'pendapatan' ? 'var(--primary)' : type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-main)' }}
+                        data-tour="modal-submit"
                       >
                         Simpan & Lanjut
                       </button>
@@ -1039,6 +1045,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
                           color: type === 'transfer' ? 'white' : undefined
                         }}
+                        data-tour="modal-submit"
                       >
                         {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
                       </button>
@@ -1069,6 +1076,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
                           color: type === 'transfer' ? 'white' : undefined
                         }}
+                        data-tour="modal-submit"
                       >
                         Simpan Perubahan
                       </button>
