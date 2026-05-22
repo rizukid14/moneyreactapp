@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Check, UserPlus, Save } from 'lucide-react';
+import { X, Check, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Contact } from '../../contexts/MoneyContext';
 
@@ -8,58 +8,62 @@ interface ContactSelectModalProps {
   onClose: () => void;
   contacts: Contact[];
   selectedContactName?: string;
-  onSelect: (contactName: string) => void;
+  selectedContactNames?: string[];
+  onSelect?: (contactName: string) => void;
+  onSelectMultiple?: (contactNames: string[]) => void;
+  isMultiple?: boolean;
 }
+
+import ContactModal from './ContactModal';
 
 const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
   isOpen,
   onClose,
   contacts,
   selectedContactName = '',
+  selectedContactNames,
   onSelect,
+  onSelectMultiple,
+  isMultiple = false,
 }) => {
-  const { addContact } = useMoney();
+  const {} = useMoney();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isAddingNew, setIsAddingNew] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newPhone, setNewPhone] = useState('');
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [tempSelected, setTempSelected] = useState<string[]>([]);
 
   // Reset state when modal opens
   React.useEffect(() => {
     if (isOpen) {
-      setIsAddingNew(false);
       setSearchQuery('');
-      setNewName('');
-      setNewPhone('');
+      setTempSelected(isMultiple ? (selectedContactNames ?? []) : []);
     }
-  }, [isOpen]);
+  }, [isOpen, isMultiple, selectedContactNames]);
 
   const filteredContacts = useMemo(() => {
-    if (!searchQuery.trim()) return contacts;
-    return contacts.filter(c =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return contacts;
+    return contacts.filter(c => {
+      const name = (c.name || '').toLowerCase();
+      const phone = (c.phone || '').toLowerCase();
+      return name.includes(q) || phone.includes(q);
+    });
   }, [contacts, searchQuery]);
 
   const handleSelect = (contactName: string) => {
-    onSelect(contactName);
-    onClose();
-    setSearchQuery('');
-    setIsAddingNew(false);
+    if (isMultiple) {
+      setTempSelected(prev => 
+        prev.includes(contactName) ? prev.filter(n => n !== contactName) : [...prev, contactName]
+      );
+    } else {
+      onSelect?.(contactName);
+      onClose();
+      setSearchQuery('');
+    }
   };
 
-  const handleAddNew = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    
-    addContact({
-      name: newName.trim(),
-      phone: newPhone.trim() || undefined
-    });
-    
-    handleSelect(newName.trim());
-    setNewName('');
-    setNewPhone('');
+  const handleConfirmMultiple = () => {
+    onSelectMultiple?.(tempSelected);
+    onClose();
   };
 
   return (
@@ -83,71 +87,15 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
             transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.5 }}
             style={{ padding: 0, height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
           >
-            {/* Header */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0,
             }}>
-              <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>
-                {isAddingNew ? 'Tambah Kontak Baru' : 'Pilih Kontak'}
-              </h2>
+              <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Kontak</h2>
               <button className="close-btn" onClick={onClose}><X size={20} /></button>
             </div>
 
-            {isAddingNew ? (
-              <form onSubmit={handleAddNew} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>Nama Kontak</label>
-                  <input 
-                    autoFocus
-                    required
-                    type="text" 
-                    placeholder="Masukkan nama..." 
-                    value={newName} 
-                    onChange={e => setNewName(e.target.value)} 
-                    style={{ width: '100%', marginBottom: 0 }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>Nomor Telepon (Opsional)</label>
-                  <input 
-                    type="tel" 
-                    placeholder="0812..." 
-                    value={newPhone} 
-                    onChange={e => setNewPhone(e.target.value)} 
-                    style={{ width: '100%', marginBottom: 0 }}
-                  />
-                </div>
-                
-                <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
-                  <button 
-                    type="button" 
-                    onClick={() => setIsAddingNew(false)}
-                    style={{ 
-                      flex: 1, 
-                      padding: '12px', 
-                      borderRadius: '12px', 
-                      border: '1px solid var(--border-color)', 
-                      background: 'var(--bg-neutral)',
-                      color: 'var(--text-muted)',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="btn" 
-                    style={{ flex: 2, background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                  >
-                    <Save size={18} /> Simpan & Pilih
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                 {/* Search & Add Bar */}
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', gap: 8 }}>
                   <div style={{ flex: 1 }}>
@@ -167,7 +115,7 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
                     />
                   </div>
                   <button 
-                    onClick={() => setIsAddingNew(true)}
+                    onClick={() => setIsContactModalOpen(true)}
                     style={{
                       padding: '0 12px',
                       background: 'var(--bg-income)',
@@ -197,7 +145,7 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
                         {contacts.length === 0 ? 'Belum ada kontak.' : 'Kontak tidak ditemukan.'}
                       </div>
                       <button 
-                        onClick={() => setIsAddingNew(true)}
+                        onClick={() => setIsContactModalOpen(true)}
                         className="btn"
                         style={{ padding: '10px 20px', fontSize: 13, background: 'var(--primary)', color: 'white' }}
                       >
@@ -206,7 +154,9 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
                     </div>
                   ) : (
                     filteredContacts.map(contact => {
-                      const isSelected = contact.name === selectedContactName;
+                      const isSelected = isMultiple 
+                        ? tempSelected.includes(contact.name)
+                        : contact.name === selectedContactName;
                       return (
                         <button
                           key={contact.id}
@@ -254,8 +204,25 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
                     })
                   )}
                 </div>
-              </>
-            )}
+
+                {isMultiple && (
+                  <div style={{ padding: '16px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
+                    <button 
+                      onClick={handleConfirmMultiple}
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '14px', borderRadius: '12px' }}
+                    >
+                      Pilih {tempSelected.length} Orang
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <ContactModal 
+                isOpen={isContactModalOpen}
+                onClose={() => setIsContactModalOpen(false)}
+                onSuccess={(name) => handleSelect(name)}
+              />
           </motion.div>
         </motion.div>
       )}

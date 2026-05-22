@@ -7,6 +7,7 @@ import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
 import type { CardId } from '../components/AssetSummaryCarousel';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 
 const getIconForType = (type: AssetType) => {
 // ... existing code ...
@@ -373,19 +374,21 @@ const Assets: React.FC = () => {
       </div>
 
       {/* Asset Summary Carousel */}
-      <AssetSummaryCarousel
-        cardIds={assetCarouselCards as CardId[]}
-        assets={assets}
-        balances={balances}
-        currencySymbol={currencySymbol}
-        isPrivateMode={isPrivateMode}
-        onTogglePrivate={togglePrivateMode}
-      />
+      <div data-tour="net-worth">
+        <AssetSummaryCarousel
+          cardIds={assetCarouselCards as CardId[]}
+          assets={assets}
+          balances={balances}
+          currencySymbol={currencySymbol}
+          isPrivateMode={isPrivateMode}
+          onTogglePrivate={togglePrivateMode}
+        />
+      </div>
 
       {/* Asset list */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 className="subtitle" style={{ margin: 0 }}>Daftar Rekening</h2>
-        <button onClick={handleAdd} style={{
+        <button data-tour="add-asset" onClick={handleAdd} style={{
           background: 'none', border: 'none', color: 'var(--primary)',
           display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '14px'
         }}>
@@ -557,6 +560,7 @@ const Assets: React.FC = () => {
         addTransaction={addTransaction}
         onDelete={deleteAsset}
         currencySymbol={currencySymbol}
+        existingAssets={assets}
       />
 
       {/* Asset detail drawer */}
@@ -588,6 +592,14 @@ const Assets: React.FC = () => {
         updateTransaction={updateTransaction}
         deleteTransaction={deleteTransaction}
         editingTransaction={editingTx}
+      />
+
+      <OnboardingTutorial 
+        pageKey="assets" 
+        steps={[
+          { targetSelector: '[data-tour="net-worth"]', title: '💼 Ringkasan Aset', description: 'Lihat total kekayaan bersih dan ringkasan keuangan kamu. Geser kartu ini untuk melihat metrik lainnya!' },
+          { targetSelector: '[data-tour="add-asset"]', title: '🏦 Tambah Rekening', description: 'Tap di sini untuk menambahkan rekening bank, dompet digital, atau aset tunai baru.' }
+        ]} 
       />
     </div>
   );

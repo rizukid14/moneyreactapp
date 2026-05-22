@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
@@ -7,7 +7,10 @@ import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
 import DebtOffsetModal from '../components/modals/DebtOffsetModal';
+import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import { useToast } from '../components/common/Toast';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -32,10 +35,11 @@ const DebtCard: React.FC<{
   onToggleExpand: () => void;
   isExpanded: boolean;
   currencySymbol: string;
+  onHistoryClick?: (tx: Transaction) => void;
 }> = ({
   debt, onEdit, onDelete, onPay, onAddPrincipal, onSettle, onUnpay,
   liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded,
-  currencySymbol
+  currencySymbol, onHistoryClick
 }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const isHutang = debt.type === 'hutang';
@@ -249,7 +253,7 @@ const DebtCard: React.FC<{
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{fmt(debt.totalAmount, currencySymbol)}</span>
                 </div>
                 {history.map(tx => (
-                  <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={tx.id} onClick={() => onHistoryClick?.(tx)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: onHistoryClick ? 'pointer' : 'default', padding: '6px', borderRadius: '8px', margin: '0 -6px' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{tx.note}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{tx.date}</div>
@@ -268,11 +272,12 @@ const DebtCard: React.FC<{
   };
 
 const Debts: React.FC = () => {
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol } = useMoney();
+  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol, updateTransaction, deleteTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
+  const [editingHistoryTx, setEditingHistoryTx] = useState<Transaction | null>(null);
   const [filter, setFilter] = useState<'all' | 'hutang' | 'piutang' | 'lunas'>('all');
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -332,6 +337,24 @@ const Debts: React.FC = () => {
       }));
   }, [debts, transactions]);
 
+  const { showToast } = useToast();
+
+  // Always keep ref to latest offsetDebt to avoid stale closure in the effect below
+  const offsetDebtRef = useRef(offsetDebt);
+  useEffect(() => { offsetDebtRef.current = offsetDebt; });
+
+  // Auto-offset: cascade — processes one contact per render cycle to stay fresh
+  useEffect(() => {
+    if (offsetPotentials.length === 0) return;
+    const p = offsetPotentials[0];
+    offsetDebtRef.current(p.contact);
+    showToast(
+      `↔ Potong silang otomatis: ${p.contact} · ${currencySymbol}${p.amt.toLocaleString('id-ID')}`,
+      'success'
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offsetPotentials]);
+
   const filtered = useMemo(() => {
     return debts.filter(d => {
       if (filter === 'lunas') return d.isPaid;
@@ -355,7 +378,7 @@ const Debts: React.FC = () => {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+      <div data-tour="debt-summary" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
         <div style={{
           background: 'var(--bg-card)',
           borderRadius: 16,
@@ -539,6 +562,7 @@ const Debts: React.FC = () => {
               onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
               isExpanded={expandedDebtId === d.id}
               currencySymbol={currencySymbol}
+              onHistoryClick={(tx) => setEditingHistoryTx(tx)}
             />
           ))
         )}
@@ -620,9 +644,22 @@ const Debts: React.FC = () => {
         />
       )}
 
+      {editingHistoryTx && (
+        <TransactionModal
+          isOpen={!!editingHistoryTx}
+          onClose={() => setEditingHistoryTx(null)}
+          assets={assets}
+          addTransaction={() => ({} as any)} // Not used when editing
+          updateTransaction={updateTransaction}
+          deleteTransaction={deleteTransaction}
+          editingTransaction={editingHistoryTx}
+        />
+      )}
+
       {/* Floating Action Button (FAB) matching Transactions page (Dynamic Theme & Visibility) */}
       {filter !== 'lunas' && (
         <button
+          data-tour="add-debt"
           className="fab"
           onClick={openAdd}
           style={{
@@ -635,6 +672,18 @@ const Debts: React.FC = () => {
           <Plus size={32} strokeWidth={3} />
         </button>
       )}
+
+      <OnboardingTutorial 
+        pageKey="debts" 
+        steps={[
+          { targetSelector: '[data-tour="debt-summary"]', title: '📊 Ringkasan Hutang', description: 'Lihat total hutang (uang yang kamu pinjam) dan piutang (uangmu yang dipinjam orang lain).' },
+          { targetSelector: '[data-tour="add-debt"]', title: '📝 Tambah Catatan', description: 'Tap tombol ini untuk mencatat hutang atau piutang baru.' },
+          { targetSelector: '[data-tour="debt-modal-contact"]', title: '👤 Pilih Kontak', description: 'Pilih siapa kontak / orang yang bersangkutan dengan hutang piutang ini.', onBeforeShow: () => openAdd() },
+          { targetSelector: '[data-tour="debt-modal-description"]', title: '📝 Keterangan', description: 'Tulis keterangan singkat untuk apa hutang piutang ini dibuat.' },
+          { targetSelector: '[data-tour="debt-modal-amount"]', title: '💵 Nominal Pokok', description: 'Masukkan jumlah uang atau nominal pokok hutang piutang.' },
+          { targetSelector: '[data-tour="debt-modal-submit"]', title: '💾 Simpan Catatan', description: 'Simpan catatan untuk mencatat data ini ke dalam sistem.' },
+        ]} 
+      />
     </div>
   );
 };

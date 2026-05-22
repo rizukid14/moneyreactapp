@@ -1,8 +1,15 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openai: OpenAI | null = null;
+
+const getOpenAI = () => {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY || 'mock-key',
+    });
+  }
+  return openai;
+};
 
 export const config = {
   api: {
@@ -64,7 +71,7 @@ export default async function handler(req: any, res: any) {
     
     Context: Today is ${new Date().toISOString().split('T')[0]}, currency is Indonesian Rupiah (IDR).`;
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
@@ -84,6 +91,10 @@ export default async function handler(req: any, res: any) {
       response_format: { type: "json_object" },
       temperature: 0,
     });
+
+    if (!response.choices || response.choices.length === 0) {
+      return res.status(500).json({ message: 'OpenAI returned an empty response.' });
+    }
 
     const text = response.choices[0].message.content;
     const parsedData = JSON.parse(text || '{}');

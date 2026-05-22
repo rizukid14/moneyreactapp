@@ -4,6 +4,7 @@ import { getLocalDate } from '../lib/utils';
 export interface LineItem {
   name: string;
   amount: number;
+  originalAmount?: number;
   selected: boolean;
 }
 
@@ -135,7 +136,6 @@ export const useReceiptOCR = () => {
         return amt > 0 && item.name;
       });
 
-      const itemsSubtotal = validItems.reduce((sum: number, i: any) => sum + i.amount, 0);
       const grandTotal = typeof result.amount === 'number' ? result.amount : 0;
       
       let mappedLineItems: LineItem[];
@@ -144,33 +144,15 @@ export const useReceiptOCR = () => {
       const tax = typeof result.taxAmount === 'number' ? result.taxAmount : 0;
       const service = typeof result.serviceChargeAmount === 'number' ? result.serviceChargeAmount : 0;
       const discount = typeof result.discountAmount === 'number' ? result.discountAmount : 0;
-      const netTaxOrDiscount = (tax + service) - discount; // Can be negative if discount is larger
       
 
 
-      if (netTaxOrDiscount !== 0 && itemsSubtotal > 0) {
-        // Distribute the net tax/discount proportionally
-        let distributed = 0;
-        mappedLineItems = validItems.map((item: any, idx: number) => {
-          const isLast = idx === validItems.length - 1;
-          const share = isLast
-            ? netTaxOrDiscount - distributed
-            : Math.round((item.amount / itemsSubtotal) * netTaxOrDiscount);
-          distributed += share;
-          
-          return {
-            name: item.name,
-            amount: Math.max(0, Math.round(item.amount + share)), // Ensure no item drops below 0
-            selected: true,
-          };
-        });
-      } else {
-        mappedLineItems = validItems.map((item: any) => ({
-          name: item.name,
-          amount: Math.round(item.amount),
-          selected: true,
-        }));
-      }
+      mappedLineItems = validItems.map((item: any) => ({
+        name: item.name,
+        amount: Math.round(item.amount),
+        originalAmount: Math.round(item.amount),
+        selected: true,
+      }));
 
       // Check if there's still a gap between the mapped items and the grand total
       // This indicates missing items OR unread discounts by the OCR

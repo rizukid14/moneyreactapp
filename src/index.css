@@ -19,8 +19,15 @@
   
   --success: hsl(145, 65%, 43%);
   --success-glow: hsla(145, 65%, 43%, 0.15);
+  --success-gradient: linear-gradient(135deg, hsl(145, 65%, 43%), hsl(145, 65%, 33%));
+
+  --warning: hsl(38, 85%, 50%);
+  --warning-glow: hsla(38, 85%, 50%, 0.15);
+  --warning-gradient: linear-gradient(135deg, hsl(38, 85%, 50%), hsl(38, 85%, 40%));
+
   --danger: hsl(355, 75%, 54%);
   --danger-glow: hsla(355, 75%, 54%, 0.15);
+  --danger-gradient: linear-gradient(135deg, hsl(355, 75%, 54%), hsl(355, 75%, 44%));
 
   /* Light Theme - Harmonized slate background and tinted cards */
   --bg-main: hsl(var(--n-h), 22%, 96.5%);
@@ -977,5 +984,23 @@ textarea:focus {
   .bento-robot-container svg {
     width: 75px; /* Fits comfortably inside smaller cards on mobile */
     transform: scale(1);
+  }
+}
+
+/* Styling crop and scan floating actions */
+.crop-actions-container {
+  /* On mobile, place it above bottom nav bar (var(--nav-height) = 68px) */
+  bottom: calc(var(--nav-height) + 16px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Shifting crop and scan floating actions on desktop so they don't overlap the sidebar */
+@media (min-width: 768px) {
+  .sidebar-nav ~ .main-content .crop-actions-container {
+    bottom: 20px !important;
+    left: calc(50% + var(--sidebar-width) / 2) !important;
+  }
+  .sidebar-nav.collapsed ~ .main-content .crop-actions-container {
+    bottom: 20px !important;
+    left: calc(50% + var(--sidebar-collapsed-width) / 2) !important;
   }
 }

@@ -7,6 +7,7 @@ import CategorySelectModal from '../modals/CategorySelectModal';
 import AssetSelectModal from '../modals/AssetSelectModal';
 import CalculatorModal from '../modals/CalculatorModal';
 import { getLocalDate } from '../../lib/utils';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface BulkResultsEditorProps {
   results: ParsedTransaction[];
@@ -303,13 +304,10 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                   <div style={{ gridColumn: '1 / -1', padding: '10px 12px', borderRadius: '10px', background: item.adminFee ? 'hsla(35, 90%, 55%, 0.08)' : 'var(--bg-main)', border: `1px solid ${item.adminFee ? 'hsla(35, 90%, 55%, 0.3)' : 'var(--border-color)'}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: item.adminFee ? '8px' : 0 }}>
                       <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>Biaya Admin</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
+                      <CurrencyInput
                         placeholder="0"
-                        value={item.adminFee ? item.adminFee.toLocaleString('id-ID') : ''}
-                        onChange={e => {
-                          const val = e.target.value.replace(/\D/g, '');
+                        value={item.adminFee || ''}
+                        onChange={val => {
                           updateResult(item.id, 'adminFee', val ? Number(val) : 0);
                         }}
                         style={{ width: '90px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', marginBottom: 0 }}
@@ -352,7 +350,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
         <button
           className="btn btn-primary"
           onClick={() => onSave(batchAssetId)}
-          disabled={!results.some(r => r.selected) || !batchAssetId || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.category))}
+          disabled={!results.some(r => r.selected) || (isMutation && !batchAssetId) || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.category))}
           style={{ width: '100%', marginTop: '16px', boxShadow: '0 4px 15px var(--primary-glow)' }}
         >
           Simpan Transaksi Terpilih

@@ -1,28 +1,140 @@
 import React, { useState } from 'react';
-import { AlertCircle, Loader2, X, Sparkles, ChevronLeft } from 'lucide-react';
+import { AlertCircle, Loader2, X, Sparkles, ChevronLeft, Mic, Square } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/common/Toast';
+import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
-  const { addTransaction, assets, categories, currencySymbol } = useMoney();
+  const { addTransaction, assets, categories, currencySymbol, validateTransactionBudget, zbbMode } = useMoney();
   const { parseData, isParsing, error, setError } = useBulkParseAI();
   const { showToast } = useToast();
 
   const [stage, setStage] = useState<'input' | 'results'>('input');
   const [inputText, setInputText] = useState('');
   const [results, setResults] = useState<ParsedTransaction[]>([]);
+  
+  const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+  const [pendingAction, setPendingAction] = useState<boolean>(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = React.useRef<any>(null);
+  const speechBaseRef = React.useRef('');
+  const finalTranscriptRef = React.useRef('');
 
-  const handleParse = async () => {
-    if (!inputText.trim()) {
+
+
+  const handleSpeechToText = () => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
+      return;
+    }
+
+    const recognition = new SR();
+    recognition.lang = 'id-ID';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognitionRef.current = recognition;
+    speechBaseRef.current = inputText.trim();
+    finalTranscriptRef.current = '';
+    setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let newFinalText = '';
+      let interimText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) newFinalText += t;
+        else interimText += t;
+      }
+      if (newFinalText) finalTranscriptRef.current += newFinalText;
+      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current} ${interimText}`.trim();
+      setInputText(combined);
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      showToast('Gagal menangkap suara.', 'warning');
+    };
+    recognition.onend = () => {
+      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current}`.trim();
+      if (combined) setInputText(combined);
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.start();
+  };
+
+  const performSave = () => {
+    const toSave = results.filter(r => r.selected);
+    toSave.forEach(tx => {
+      if (tx.type === 'transfer') {
+        addTransaction({
+          type: 'transfer',
+          amount: tx.amount,
+          date: tx.date,
+          note: tx.note || 'Transfer',
+          category: 'Transfer',
+          fromAssetId: tx.fromAsset,
+          toAssetId: tx.toAsset
+        });
+
+        if (tx.adminFee && tx.adminFee > 0) {
+          const feeAssetId = tx.adminFeeTarget === 'receiver' ? tx.toAsset : tx.fromAsset;
+          const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+          addTransaction({
+            type: 'pengeluaran',
+            amount: tx.adminFee,
+            category: 'Biaya Admin',
+            date: tx.date,
+            note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+            assetId: feeAssetId,
+          });
+        }
+      } else {
+        addTransaction({
+          type: tx.type,
+          amount: tx.amount,
+          date: tx.date,
+          note: tx.note,
+          category: tx.category,
+          subCategory: tx.subCategory || undefined,
+          assetId: tx.asset
+        });
+      }
+    });
+
+    showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
+    setStage('input');
+    setInputText('');
+    setResults([]);
+  };
+
+  const handleReallocationSuccess = () => {
+    setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+    if (pendingAction) {
+      performSave();
+    }
+    setPendingAction(false);
+  };
+
+  const handleParse = React.useCallback(async (textToParse?: string) => {
+    const text = typeof textToParse === 'string' ? textToParse : inputText;
+    if (!text.trim()) {
       showToast('Masukkan teks transaksi terlebih dahulu.', 'warning');
       return;
     }
     const activeAssets = assets.filter(a => !a.isDeleted);
-    const parsed = await parseData({ text: inputText, categories, assets: activeAssets });
+    const parsed = await parseData({ text, categories, assets: activeAssets });
     if (parsed && parsed.length > 0) {
       const augmented = parsed.map(tx => {
         const mapAsset = (assetName: string | undefined, defaultId = '') => {
@@ -45,6 +157,7 @@ const BulkInput: React.FC = () => {
         if (tx.category && tx.type !== 'transfer') {
           const matchedCat = categories.find(c =>
             c.type === tx.type &&
+            !c.isDeleted &&
             (c.name.toLowerCase() === tx.category.toLowerCase() ||
              c.name.toLowerCase().includes(tx.category.toLowerCase()) ||
              tx.category.toLowerCase().includes(c.name.toLowerCase()))
@@ -53,9 +166,10 @@ const BulkInput: React.FC = () => {
             matchedCategory = matchedCat.name;
             if (tx.subCategory && matchedCat.subcategories) {
               const matchedSub = matchedCat.subcategories.find((s: any) =>
-                s.name.toLowerCase() === tx.subCategory!.toLowerCase() ||
-                s.name.toLowerCase().includes(tx.subCategory!.toLowerCase()) ||
-                tx.subCategory!.toLowerCase().includes(s.name.toLowerCase())
+                !s.isDeleted &&
+                (s.name.toLowerCase() === tx.subCategory!.toLowerCase() ||
+                 s.name.toLowerCase().includes(tx.subCategory!.toLowerCase()) ||
+                 tx.subCategory!.toLowerCase().includes(s.name.toLowerCase()))
               );
               if (matchedSub) matchedSubCategory = matchedSub.name;
             }
@@ -77,8 +191,50 @@ const BulkInput: React.FC = () => {
     } else if (parsed && parsed.length === 0) {
       showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
     }
-  };
+  }, [inputText, assets, categories, parseData, showToast]);
 
+  // Check for shared text/url from PWA Share Target
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('shared') === 'true') {
+      const loadSharedText = async () => {
+        try {
+          if (!window.caches) return;
+          const cache = await window.caches.open('shared-data');
+          const metaRes = await cache.match('/shared-metadata.json');
+          if (metaRes) {
+            const meta = await metaRes.json();
+            
+            // Combine title, text, and URL
+            const parts = [];
+            if (meta.title) parts.push(meta.title);
+            if (meta.text) parts.push(meta.text);
+            if (meta.url) parts.push(meta.url);
+            const combinedText = parts.join('\n').trim();
+
+            if (combinedText) {
+              setInputText(combinedText);
+              showToast('Menerima catatan transaksi shared...', 'info');
+              // Parse the received text immediately
+              await handleParse(combinedText);
+            }
+            
+            // Clean up cache
+            await cache.delete('/shared-metadata.json');
+            await cache.delete('/shared-file.bin');
+          }
+        } catch (err) {
+          console.error('Error loading shared text:', err);
+          showToast('Gagal memuat teks transaksi yang dibagikan', 'error');
+        } finally {
+          // Clear query params without page reload
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      };
+      loadSharedText();
+    }
+  }, [showToast, assets, categories, handleParse]);
 
   return (
     <div className="page">
@@ -116,11 +272,27 @@ const BulkInput: React.FC = () => {
                 color: 'var(--text-main)', fontSize: '14px', resize: 'vertical'
               }}
             />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button
+                type="button"
+                onClick={handleSpeechToText}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: isListening ? 'var(--bg-neutral)' : 'var(--bg-income)',
+                  color: isListening ? 'var(--text-muted)' : 'var(--primary)',
+                  border: '1px solid var(--border-color)', borderRadius: '10px',
+                  padding: '8px 10px', cursor: 'pointer', fontWeight: 700, fontSize: '12px'
+                }}
+              >
+                {isListening ? <Square size={14} /> : <Mic size={14} />}
+                {isListening ? 'Mendengar...' : 'Voice Input'}
+              </button>
+            </div>
           </div>
 
           <button
             className="btn btn-primary"
-            onClick={handleParse}
+            onClick={() => handleParse()}
             disabled={isParsing || !inputText.trim()}
             style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
           >
@@ -156,50 +328,50 @@ const BulkInput: React.FC = () => {
               return;
             }
 
-            toSave.forEach(tx => {
-              if (tx.type === 'transfer') {
-                addTransaction({
-                  type: 'transfer',
-                  amount: tx.amount,
-                  date: tx.date,
-                  note: tx.note || 'Transfer',
-                  category: 'Transfer',
-                  fromAssetId: tx.fromAsset,
-                  toAssetId: tx.toAsset
-                });
+            if (zbbMode === 'strict') {
+              const expenses = toSave.filter(r => r.type === 'pengeluaran');
+              const grouped = expenses.reduce((acc, tx) => {
+                const key = `${tx.category}_${tx.date}`;
+                acc[key] = (acc[key] || 0) + tx.amount;
+                return acc;
+              }, {} as Record<string, number>);
 
-                if (tx.adminFee && tx.adminFee > 0) {
-                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? tx.toAsset : tx.fromAsset;
-                  const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
-                  addTransaction({
-                    type: 'pengeluaran',
-                    amount: tx.adminFee,
-                    category: 'Biaya Admin',
-                    date: tx.date,
-                    note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
-                    assetId: feeAssetId,
+              for (const key of Object.keys(grouped)) {
+                const [cat, dt] = key.split('_');
+                const validation = validateTransactionBudget({
+                  type: 'pengeluaran',
+                  amount: grouped[key],
+                  category: cat,
+                  date: dt
+                });
+                if (!validation.isValid) {
+                  setPendingAction(true);
+                  setReallocationModal({
+                    isOpen: true,
+                    deficitCategory: validation.deficitCategory,
+                    deficitAmount: validation.deficitAmount,
+                    month: new Date(dt).getMonth(),
+                    year: new Date(dt).getFullYear()
                   });
+                  return;
                 }
-              } else {
-                addTransaction({
-                  type: tx.type,
-                  amount: tx.amount,
-                  date: tx.date,
-                  note: tx.note,
-                  category: tx.category,
-                  subCategory: tx.subCategory || undefined,
-                  assetId: tx.asset
-                });
               }
-            });
+            }
 
-            showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
-            setStage('input');
-            setInputText('');
-            setResults([]);
+            performSave();
           }}
         />
       )}
+
+      <OverspendReallocationModal
+        isOpen={reallocationModal.isOpen}
+        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+        onSuccess={handleReallocationSuccess}
+        deficitCategoryId={reallocationModal.deficitCategory}
+        deficitAmount={reallocationModal.deficitAmount}
+        month={reallocationModal.month}
+        year={reallocationModal.year}
+      />
     </div>
   );
 };

@@ -1,20 +1,29 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
   LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, UserPlus, Save, Search
+  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, Save, Search, CreditCard, Calendar, ChevronLeft, Folder, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Share2, Plane
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
 import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/excelImport';
 import { BudgetManagement } from '../components/BudgetManagement';
+import { GoalManagement } from '../components/GoalManagement';
 import { QuotaBanner } from '../components/QuotaBanner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
 import { useToast } from '../components/common/Toast';
 import { changelogData, changelogTypeMeta } from '../data/changelog';
+import AssetSelectModal from '../components/modals/AssetSelectModal';
+import CategorySelectModal from '../components/modals/CategorySelectModal';
+import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
+import ContactModal from '../components/modals/ContactModal';
+import { useOnboarding } from '../contexts/OnboardingContext';
+import OnboardingTutorial from '../components/OnboardingTutorial';
+import CurrencyInput from '../components/common/CurrencyInput';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
@@ -177,10 +186,151 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
   );
 };
 
+// ─── StatsViewSettings ────────────────────────────────────────────────────────
+export const ALL_STATS_VIEWS = [
+  { id: 'all', label: 'Ringkasan Umum', description: 'Analisis semua aset' },
+  { id: 'cash_bank', label: 'Kas & Bank', description: 'Analisis tunai & rekening' },
+  { id: 'investment', label: 'Investasi & Tabungan', description: 'Analisis aset produktif' },
+  { id: 'budget', label: 'Anggaran', description: 'Pantau sisa budget bulanan' },
+  { id: 'goals', label: 'Tabungan', description: 'Progres target impian' },
+  { id: 'subs', label: 'Langganan', description: 'Biaya rutin bulanan' },
+  { id: 'health', label: 'Kesehatan Finansial', description: 'Skor kesehatan finansial' },
+  { id: 'forecast', label: 'Proyeksi Kas', description: 'Prediksi saldo 90 hari ke depan' },
+];
+
+interface StatsViewSettingsProps {
+  activeViews: string[];
+  onChange: (views: string[]) => void;
+  defaultView: string;
+  onDefaultChange: (id: string) => void;
+}
+
+const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onChange, defaultView, onDefaultChange }) => {
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const toggleView = (id: string) => {
+    if (activeViews.includes(id)) {
+      if (activeViews.length <= 1) return;
+      onChange(activeViews.filter(v => v !== id));
+      if (defaultView === id) {
+        const remaining = activeViews.filter(v => v !== id);
+        onDefaultChange(remaining[0]);
+      }
+    } else {
+      onChange([...activeViews, id]);
+    }
+  };
+
+  const handleDragStart = (i: number) => { dragIdx.current = i; };
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    setDragOverIdx(i);
+  };
+  const handleDrop = (i: number) => {
+    if (dragIdx.current === null || dragIdx.current === i) { setDragOverIdx(null); return; }
+    const next = [...activeViews];
+    const [moved] = next.splice(dragIdx.current, 1);
+    next.splice(i, 0, moved);
+    onChange(next);
+    dragIdx.current = null;
+    setDragOverIdx(null);
+  };
+
+  return (
+    <div style={{ marginBottom: 20, marginTop: 30, paddingTop: 30, borderTop: '1px solid var(--border-color)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <TrendingUp size={18} color="var(--primary)" />
+        <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilan Statistik</span>
+      </div>
+      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
+        Atur urutan dan tampilan di halaman Statistik.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+        {activeViews.map((id, i) => {
+          const def = ALL_STATS_VIEWS.find(v => v.id === id);
+          if (!def) return null;
+          const isDragOver = dragOverIdx === i;
+          const isDefault = defaultView === id;
+
+          return (
+            <div
+              key={id}
+              draggable
+              onDragStart={() => handleDragStart(i)}
+              onDragOver={e => handleDragOver(e, i)}
+              onDrop={() => handleDrop(i)}
+              onDragEnd={() => setDragOverIdx(null)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                borderRadius: 14, background: isDragOver ? 'var(--primary-glow)' : 'var(--bg-main)',
+                border: isDragOver ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)',
+                cursor: 'grab', transition: 'all 0.15s'
+              }}
+            >
+              <GripVertical size={16} color="var(--text-muted)" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => onDefaultChange(id)}
+                  style={{
+                    padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
+                    background: isDefault ? 'var(--primary)' : 'var(--bg-card)',
+                    color: isDefault ? 'white' : 'var(--text-muted)',
+                    border: '1px solid var(--border-color)', cursor: 'pointer'
+                  }}
+                >
+                  {isDefault ? 'Default' : 'Set Default'}
+                </button>
+                <button
+                  onClick={() => toggleView(id)}
+                  disabled={activeViews.length <= 1}
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', opacity: activeViews.length <= 1 ? 0.3 : 0.7 }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+        Tambah Tampilan
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {ALL_STATS_VIEWS.filter(v => !activeViews.includes(v.id)).map(def => (
+          <button
+            key={def.id}
+            onClick={() => toggleView(def.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14,
+              background: 'var(--bg-card)', border: '1.5px dashed var(--border-color)', cursor: 'pointer', textAlign: 'left'
+            }}
+          >
+            <Plus size={14} color="var(--primary)" />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const Settings: React.FC = () => {
+  const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping, assetCarouselCards, setAssetCarouselCards, chartStyle, setChartStyle, pullFromCloud, contacts, addContact, updateContact, deleteContact, transactions, getAssetBalance } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction } = useMoney();
+  const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
   );
@@ -236,11 +386,10 @@ const Settings: React.FC = () => {
   const [editingSubCatName, setEditingSubCatName] = useState('');
 
   // Contact State
-  const [newContactName, setNewContactName] = useState('');
-  const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactNote, setNewContactNote] = useState('');
   const [editingContact, setEditingContact] = useState<string | null>(null);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactSearchQuery, setContactSearchQuery] = useState('');
+  const [budgetTab, setBudgetTab] = useState<'budget' | 'goal'>('budget');
 
   const profileStats = React.useMemo(() => {
     const netWorth = assets.filter(a => !a.isDeleted).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
@@ -284,24 +433,73 @@ const Settings: React.FC = () => {
     return { netWorth, txCount, tierLabel, tierColor, shadowColor };
   }, [assets, transactions, getAssetBalance]);
 
-  const menuItems = [
-    // ... existing menuItems ...
-    { id: 'profile', icon: User, label: 'Profil Saya' },
-    { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
-    { id: 'contacts', icon: BookUser, label: 'Kontak' },
-    { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
-    { id: 'budgets', icon: Target, label: 'Anggaran & Target' },
-    { id: 'security', icon: Shield, label: 'Keamanan' },
-    { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
-    { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
-    { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
-    { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
+  // Subscription State
+  const [newSubName, setNewSubName] = useState('');
+  const [newSubAmount, setNewSubAmount] = useState('');
+  const [newSubCycle, setNewSubCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [newSubDate, setNewSubDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newSubCat, setNewSubCat] = useState('');
+  const [newSubAsset, setNewSubAsset] = useState(defaultAssetId || '');
+  const [editingSub, setEditingSub] = useState<string | null>(null);
+
+  // Modals
+  const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
+  const [isSubAssetSelectOpen, setIsSubAssetSelectOpen] = useState(false);
+  const [isSubCatSelectOpen, setIsSubCatSelectOpen] = useState(false);
+
+  const menuGroups = [
+    {
+      title: 'Akun & Personalisasi',
+      items: [
+        { id: 'profile', icon: User, label: 'Profil Saya' },
+        { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
+        { id: 'theme', icon: Moon, label: 'Tema Gelap', isToggle: true },
+        { id: 'security', icon: Shield, label: 'Keamanan' },
+      ]
+    },
+    {
+      title: 'Manajemen Keuangan',
+      items: [
+        { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
+        { id: 'budgets', icon: Target, label: 'Budgeting & Goals' },
+        { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
+        { id: 'subscriptions', icon: CreditCard, label: 'Langganan (Subs)' },
+      ]
+    },
+    {
+      title: 'Sosial & Fitur Berbagi',
+      items: [
+        { id: 'contacts', icon: BookUser, label: 'Daftar Kontak' },
+        { id: 'trips', icon: Plane, label: 'Holiday Trip (Bagi Biaya)' },
+        { id: 'shared_bills', icon: Share2, label: 'Shared Split Bills' },
+      ]
+    },
+    {
+      title: 'Data & Sistem',
+      items: [
+        { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
+        { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
+        { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
+        { id: 'reset_tutorial', icon: RefreshCw, label: 'Ulangi Tutorial Aplikasi' },
+      ]
+    }
   ];
 
   const handleMenuClick = (id: string) => {
-    // ... existing handleMenuClick ...
     if (id === 'help') {
       window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp&body=Halo, saya butuh bantuan terkait...';
+      return;
+    }
+    if (id === 'shared_bills') {
+      setIsSharedBillsOpen(true);
+      return;
+    }
+    if (id === 'trips') {
+      navigate('/trips');
+      return;
+    }
+    if (id === 'reset_tutorial') {
+      resetAllTutorials();
       return;
     }
     setActiveModal(id);
@@ -313,7 +511,6 @@ const Settings: React.FC = () => {
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // ... existing handleImageUpload ...
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -358,7 +555,7 @@ const Settings: React.FC = () => {
     setActiveModal(null);
   };
 
-  const handleSetPin = (e: React.FormEvent) => {
+  const handleSetPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPin.length < 6) {
       setPinError('PIN harus 6 digit');
@@ -368,7 +565,7 @@ const Settings: React.FC = () => {
       setPinError('PIN tidak cocok');
       return;
     }
-    setAppPin(newPin);
+    await setAppPin(newPin);
     setActiveModal(null);
     setNewPin(''); setConfirmPin(''); setPinError('');
     // alert is fine for success usually, or we can make it a Toast. 
@@ -379,8 +576,8 @@ const Settings: React.FC = () => {
     showConfirm(
       'Matikan PIN',
       'Apakah Anda yakin ingin mematikan keamanan PIN?',
-      () => {
-        setAppPin(null);
+      async () => {
+        await setAppPin(null);
         setActiveModal(null);
       },
       'warning',
@@ -391,8 +588,76 @@ const Settings: React.FC = () => {
   const handleAddCat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
+
+    // Validation: Check if name already exists (case-insensitive, within the same type)
+    const isDuplicate = categories.some(c =>
+      c.type === catTab &&
+      c.name.toLowerCase() === newCatName.trim().toLowerCase()
+    );
+
+    if (isDuplicate) {
+      showToast('Nama kategori sudah ada!', 'warning');
+      return;
+    }
+
     addCategory({ name: newCatName.trim(), type: catTab });
     setNewCatName('');
+  };
+
+  const handleUpdateCat = (id: string, name: string) => {
+    if (!name.trim()) return;
+
+    // Validation: Check if name already exists (case-insensitive, within the same type)
+    const isDuplicate = categories.some(c =>
+      c.type === catTab &&
+      c.name.toLowerCase() === name.trim().toLowerCase() &&
+      c.id !== id
+    );
+
+    if (isDuplicate) {
+      showToast('Nama kategori sudah ada!', 'warning');
+      return;
+    }
+
+    updateCategory(id, name.trim());
+    setEditingCatId(null);
+  };
+
+  const handleAddSubCat = (catId: string, name: string) => {
+    if (!name.trim()) return;
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+
+    const isDuplicate = cat.subcategories?.some(s =>
+      s.name.toLowerCase() === name.trim().toLowerCase()
+    );
+
+    if (isDuplicate) {
+      showToast('Nama sub-kategori sudah ada!', 'warning');
+      return;
+    }
+
+    addSubCategory(catId, name.trim());
+    setNewSubCatName('');
+  };
+
+  const handleUpdateSubCat = (catId: string, subId: string, name: string) => {
+    if (!name.trim()) return;
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+
+    const isDuplicate = cat.subcategories?.some(s =>
+      s.name.toLowerCase() === name.trim().toLowerCase() &&
+      s.id !== subId
+    );
+
+    if (isDuplicate) {
+      showToast('Nama sub-kategori sudah ada!', 'warning');
+      return;
+    }
+
+    updateSubCategory(catId, subId, name.trim());
+    setEditingSubCatId(null);
   };
 
   const { recurringTransactions, deleteRecurringTransaction, updateRecurringTransaction } = useMoney();
@@ -400,122 +665,37 @@ const Settings: React.FC = () => {
   const renderModalContent = () => {
     switch (activeModal) {
       case 'contacts':
-        const handleAddContact = (e: React.FormEvent) => {
-          e.preventDefault();
-          if (!newContactName.trim()) return;
-          if (editingContact) {
-            updateContact(editingContact, {
-              name: newContactName.trim(),
-              phone: newContactPhone.trim() || undefined,
-              note: newContactNote.trim() || undefined,
-            });
-            setEditingContact(null);
-          } else {
-            addContact({
-              name: newContactName.trim(),
-              phone: newContactPhone.trim() || undefined,
-              note: newContactNote.trim() || undefined,
-            });
-          }
-          setNewContactName('');
-          setNewContactPhone('');
-          setNewContactNote('');
-        };
-
         return (
           <>
             <div className="modal-header">
               <h2 className="subtitle">Daftar Kontak</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); setContactSearchQuery(''); }}><X /></button>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}><X /></button>
             </div>
 
             <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingBottom: '20px' }}>
-              
-              {/* Form Section - Only show when editing or via a toggle if we want to match exactly, 
-                  but for Settings it's better to stay accessible. Let's style it to match the modal's add form. */}
-              {(editingContact || contacts.length === 0 || newContactName) ? (
-                <div style={{ 
-                  padding: '20px', 
-                  background: 'var(--bg-main)',
-                  borderBottom: '1px solid var(--border-color)',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {editingContact ? <Edit2 size={16} /> : <UserPlus size={16} />}
-                    {editingContact ? 'Edit Kontak' : 'Tambah Kontak Baru'}
-                  </div>
-                  <form onSubmit={handleAddContact} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Nama Kontak</label>
-                      <input
-                        type="text"
-                        value={newContactName}
-                        onChange={e => setNewContactName(e.target.value)}
-                        placeholder="Masukkan nama..."
-                        style={{ width: '100%', marginBottom: 0 }}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Nomor Telepon (Opsional)</label>
-                      <input
-                        type="tel"
-                        value={newContactPhone}
-                        onChange={e => setNewContactPhone(e.target.value)}
-                        placeholder="0812..."
-                        style={{ width: '100%', marginBottom: 0 }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>Catatan (Opsional)</label>
-                      <input
-                        type="text"
-                        value={newContactNote}
-                        onChange={e => setNewContactNote(e.target.value)}
-                        placeholder="Contoh: Teman SD"
-                        style={{ width: '100%', marginBottom: 0 }}
-                      />
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                      {(editingContact || newContactName) && (
-                        <button 
-                          type="button" 
-                          onClick={() => { setEditingContact(null); setNewContactName(''); setNewContactPhone(''); setNewContactNote(''); }} 
-                          className="btn" 
-                          style={{ flex: 1, margin: 0, background: 'var(--bg-neutral)', color: 'var(--text-muted)', fontWeight: 700 }}
-                        >
-                          Batal
-                        </button>
-                      )}
-                      <button type="submit" className="btn btn-primary" style={{ flex: 2, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <Save size={18} /> {editingContact ? 'Simpan Perubahan' : 'Tambah Kontak'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              ) : (
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>DAFTAR KONTAK</span>
-                  <button 
-                    onClick={() => setNewContactName(' ')} // Trick to show form
-                    style={{ 
-                      padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)', 
-                      border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
-                    }}
-                  >
-                    <Plus size={14} /> Tambah
-                  </button>
-                </div>
-              )}
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>DAFTAR KONTAK</span>
+                <button
+                  onClick={() => {
+                    setEditingContact(null);
+                    setIsContactModalOpen(true);
+                  }}
+                  style={{
+                    padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)',
+                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={14} /> Tambah
+                </button>
+              </div>
 
               {/* Search Bar */}
               <div style={{ padding: '0 20px', marginBottom: '12px' }}>
                 <div style={{ position: 'relative' }}>
-                  <Search 
-                    size={18} 
-                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} 
+                  <Search
+                    size={18}
+                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
                   />
                   <input
                     type="text"
@@ -540,8 +720,8 @@ const Settings: React.FC = () => {
                 {(() => {
                   const filtered = contacts
                     .filter(c => c.name.toLowerCase().includes(contactSearchQuery.toLowerCase()))
-                    .sort((a,b) => a.name.localeCompare(b.name));
-                  
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
                   if (filtered.length === 0) {
                     return (
                       <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -553,10 +733,10 @@ const Settings: React.FC = () => {
                   }
 
                   return filtered.map(c => (
-                    <div key={c.id} style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center', 
+                    <div key={c.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
                       padding: '14px 20px',
                       background: editingContact === c.id ? 'var(--bg-income)' : 'transparent',
                       borderBottom: '1px solid var(--border-color)',
@@ -587,12 +767,7 @@ const Settings: React.FC = () => {
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => {
                           setEditingContact(c.id);
-                          setNewContactName(c.name);
-                          setNewContactPhone(c.phone || '');
-                          setNewContactNote(c.note || '');
-                          // Scroll to top
-                          const modal = document.querySelector('.modal-content');
-                          if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
+                          setIsContactModalOpen(true);
                         }} className="btn-icon" style={{ color: 'var(--primary)', padding: 6 }}>
                           <Edit2 size={18} />
                         </button>
@@ -615,7 +790,7 @@ const Settings: React.FC = () => {
         );
 
       case 'categories':
-        const filteredCats = categories.filter(c => c.type === catTab);
+        const filteredCats = categories.filter(c => !c.isDeleted && c.type === catTab);
         return (
           <>
             <div className="modal-header">
@@ -650,209 +825,285 @@ const Settings: React.FC = () => {
               </button>
             </div>
 
-            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px', paddingRight: '4px' }}>
-              {filteredCats.map(c => (
-                <div key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <div
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', cursor: 'pointer' }}
-                    onClick={() => setExpandedCat(expandedCat === c.id ? null : c.id)}
-                  >
+            <div style={{
+              display: 'flex',
+              height: '400px',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              marginBottom: '16px',
+              background: 'var(--bg-main)'
+            }}>
+              {/* Left Panel: Categories */}
+              <div style={{
+                flex: 1,
+                borderRight: '1px solid var(--border-color)',
+                overflowY: 'auto',
+                padding: '8px 0'
+              }}>
+                {filteredCats.map(c => {
+                  const isActive = expandedCat === c.id;
+                  return (
                     <div
-                      style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}
-                      onClick={(e) => {
-                        if (editingCatId === c.id) {
-                          e.stopPropagation();
-                        }
+                      key={c.id}
+                      onClick={() => setExpandedCat(c.id)}
+                      style={{
+                        padding: '12px 16px',
+                        cursor: 'pointer',
+                        background: isActive ? 'var(--bg-card)' : 'transparent',
+                        borderLeft: `4px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'all 0.2s'
                       }}
                     >
-                      <ChevronRight size={18} style={{ transform: expandedCat === c.id ? 'rotate(90deg)' : 'none', transition: 'all 0.2s', marginRight: '8px', color: 'var(--text-muted)' }} />
                       {editingCatId === c.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }} onClick={e => e.stopPropagation()}>
-                          <input
-                            type="text"
-                            value={editingCatName}
-                            onChange={e => setEditingCatName(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                if (editingCatName.trim()) {
-                                  updateCategory(c.id, editingCatName.trim());
-                                  setEditingCatId(null);
-                                }
-                              } else if (e.key === 'Escape') {
-                                setEditingCatId(null);
-                              }
-                            }}
-                            autoFocus
-                            style={{
-                              margin: 0, padding: '4px 8px', fontSize: '13px', fontWeight: 600,
-                              background: 'var(--bg-main)', border: '1.5px solid var(--primary)', borderRadius: '8px',
-                              color: 'var(--text-main)', width: '100%', maxWidth: '160px'
-                            }}
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (editingCatName.trim()) {
-                                updateCategory(c.id, editingCatName.trim());
-                                setEditingCatId(null);
-                              }
-                            }}
-                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--primary)', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            title="Simpan"
-                          >
-                            <Save size={14} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingCatId(null);
-                            }}
-                            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            title="Batal"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
+                        <input
+                          type="text"
+                          value={editingCatName}
+                          onChange={e => setEditingCatName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleUpdateCat(c.id, editingCatName);
+                            else if (e.key === 'Escape') setEditingCatId(null);
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          autoFocus
+                          style={{ margin: 0, padding: '4px 8px', fontSize: '13px', background: 'var(--bg-main)', border: '1px solid var(--primary)', borderRadius: '6px', width: '100%' }}
+                        />
                       ) : (
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</span>
+                        <>
+                          <span style={{ fontSize: '14px', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--text-main)' : 'var(--text-muted)' }}>{c.name}</span>
+                          <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                            <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                              <Edit2 size={12} />
+                            </button>
+                            <button onClick={() => showConfirm('Hapus Kategori', `Hapus "${c.name}"?`, () => deleteCategory(c.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </>
                       )}
                     </div>
-                    {editingCatId !== c.id && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingCatId(c.id);
-                          setEditingCatName(c.name);
-                        }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }} title="Edit Kategori">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={(e) => {
-                          e.stopPropagation();
-                          showConfirm(
-                            'Hapus Kategori',
-                            `Hapus kategori "${c.name}"? Semua data transaksi kategori ini akan kehilangan referensi kategorinya.`,
-                            () => deleteCategory(c.id)
-                          );
-                        }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '6px' }} title="Hapus Kategori">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  );
+                })}
+              </div>
 
-                  {expandedCat === c.id && (
-                    <div style={{ padding: '0 12px 12px 36px', background: 'var(--bg-main)', borderRadius: '0 0 8px 8px' }}>
-                      {(c.subcategories || []).map(sub => (
-                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-color)', fontSize: '13px' }}>
+              {/* Right Panel: Sub-categories */}
+              <div style={{
+                flex: 1.2,
+                overflowY: 'auto',
+                background: 'var(--bg-card-solid)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                {expandedCat ? (
+                  <>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.05)' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        Sub-kategori: {categories.find(c => c.id === expandedCat)?.name}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
+                      {(categories.find(c => c.id === expandedCat)?.subcategories || []).filter(sub => !sub.isDeleted).map(sub => (
+                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-color)' }}>
                           {editingSubCatId === sub.id ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
-                              <input
-                                type="text"
-                                value={editingSubCatName}
-                                onChange={e => setEditingSubCatName(e.target.value)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') {
-                                    if (editingSubCatName.trim()) {
-                                      updateSubCategory(c.id, sub.id, editingSubCatName.trim());
-                                      setEditingSubCatId(null);
-                                    }
-                                  } else if (e.key === 'Escape') {
-                                    setEditingSubCatId(null);
-                                  }
-                                }}
-                                autoFocus
-                                style={{
-                                  margin: 0, padding: '4px 8px', fontSize: '12px', fontWeight: 600,
-                                  background: 'var(--bg-card)', border: '1.5px solid var(--primary)', borderRadius: '8px',
-                                  color: 'var(--text-main)', width: '100%', maxWidth: '140px'
-                                }}
-                              />
-                              <button
-                                onClick={() => {
-                                  if (editingSubCatName.trim()) {
-                                    updateSubCategory(c.id, sub.id, editingSubCatName.trim());
-                                    setEditingSubCatId(null);
-                                  }
-                                }}
-                                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--primary)', cursor: 'pointer', padding: '3px 5px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Simpan"
-                              >
-                                <Save size={12} />
-                              </button>
-                              <button
-                                onClick={() => setEditingSubCatId(null)}
-                                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', padding: '3px 5px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Batal"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
+                            <input
+                              type="text"
+                              value={editingSubCatName}
+                              onChange={e => setEditingSubCatName(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleUpdateSubCat(expandedCat, sub.id, editingSubCatName);
+                                else if (e.key === 'Escape') setEditingSubCatId(null);
+                              }}
+                              autoFocus
+                              style={{ margin: 0, padding: '4px 8px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--primary)', borderRadius: '6px', width: '100%' }}
+                            />
                           ) : (
-                            <span style={{ color: 'var(--text-main)' }}>{sub.name}</span>
-                          )}
-
-                          {editingSubCatId !== sub.id && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <button onClick={() => {
-                                setEditingSubCatId(sub.id);
-                                setEditingSubCatName(sub.name);
-                              }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }} title="Edit Sub-kategori">
-                                <Edit2 size={12} />
-                              </button>
-                              <button onClick={() => {
-                                showConfirm(
-                                  'Hapus Sub-kategori',
-                                  `Apakah Anda yakin ingin menghapus sub-kategori "${sub.name}"?`,
-                                  () => deleteSubCategory(c.id, sub.id)
-                                );
-                              }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }} title="Hapus Sub-kategori">
-                                <X size={14} />
-                              </button>
-                            </div>
+                            <>
+                              <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{sub.name}</span>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                                  <Edit2 size={12} />
+                                </button>
+                                <button onClick={() => showConfirm('Hapus Sub-kategori', `Hapus "${sub.name}"?`, () => deleteSubCategory(expandedCat, sub.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
                       ))}
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    </div>
+                    {/* Add Sub-category Input */}
+                    <div style={{ padding: '12px', borderTop: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.1)' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <input
                           type="text"
                           value={newSubCatName}
                           onChange={e => setNewSubCatName(e.target.value)}
-                          placeholder="Sub-kategori..."
-                          style={{ flex: 1, marginBottom: 0, padding: '6px 10px', fontSize: '13px' }}
+                          onKeyDown={e => { if (e.key === 'Enter') handleAddSubCat(expandedCat, newSubCatName); }}
+                          placeholder="Tambah sub..."
+                          style={{ flex: 1, marginBottom: 0, padding: '8px 12px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                         />
-                        <button
-                          onClick={() => {
-                            if (newSubCatName.trim()) {
-                              addSubCategory(c.id, newSubCatName.trim());
-                              setNewSubCatName('');
-                            }
-                          }}
-                          className="btn btn-primary" style={{ padding: '0 12px', margin: 0, fontSize: '13px' }}>
-                          Tambah
+                        <button onClick={() => handleAddSubCat(expandedCat, newSubCatName)} className="btn btn-primary" style={{ padding: '0 12px', margin: 0, borderRadius: '8px' }}>
+                          <Plus size={16} />
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              ))}
-              {filteredCats.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Belum ada kategori.</div>
-              )}
+                  </>
+                ) : (
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
+                    Pilih kategori di kiri untuk mengelola sub-kategori.
+                  </div>
+                )}
+              </div>
             </div>
 
-            <form onSubmit={handleAddCat} style={{ display: 'flex', gap: '8px' }}>
+            <form onSubmit={handleAddCat} style={{
+              display: 'flex',
+              gap: '8px',
+              padding: '6px',
+              background: 'rgba(0,0,0,0.1)',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              marginTop: '8px'
+            }}>
               <input
                 type="text"
                 value={newCatName}
                 onChange={e => setNewCatName(e.target.value)}
-                placeholder="Nama kategori baru..."
-                style={{ flex: 1, marginBottom: 0 }}
+                placeholder="Buat kategori baru..."
+                style={{
+                  flex: 1,
+                  marginBottom: 0,
+                  padding: '10px 14px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  fontSize: '14px'
+                }}
                 required
               />
-              <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0 16px', margin: 0, display: 'flex', alignItems: 'center' }}>
-                <Plus size={20} />
+              <button type="submit" className="btn btn-primary" style={{ width: '50px', padding: 0, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }}>
+                <Plus size={22} />
               </button>
             </form>
+          </>
+        );
+      case 'subscriptions':
+        const totalMonthly = subscriptions
+          .filter(s => s.isActive)
+          .reduce((sum, s) => sum + (s.billingCycle === 'monthly' ? s.amount : s.amount / 12), 0);
+
+        return (
+          <>
+            <div className="modal-header">
+              <h2 className="subtitle">Kelola Langganan</h2>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => {
+                    setEditingSub(null);
+                    setNewSubName('');
+                    setNewSubAmount('');
+                    setNewSubDate(new Date().toISOString().split('T')[0]);
+                    setNewSubCycle('monthly');
+                    setNewSubAsset(defaultAssetId || '');
+                    setActiveModal('subscription_form');
+                  }}
+                  style={{
+                    padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)',
+                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={14} /> Tambah
+                </button>
+                <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+              </div>
+            </div>
+
+            <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingBottom: 20 }}>
+              {/* Summary Card */}
+              <div style={{
+                margin: '0 20px 20px', padding: '16px',
+                background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                borderRadius: '16px', color: 'white', boxShadow: '0 8px 16px var(--primary-glow)'
+              }}>
+                <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: 600 }}>Estimasi Pengeluaran Bulanan</div>
+                <div style={{ fontSize: '24px', fontWeight: 800, margin: '4px 0' }}>
+                  {currencySymbol}{totalMonthly.toLocaleString('id-ID')}
+                </div>
+                <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                  Berdasarkan {subscriptions.length} layanan aktif
+                </div>
+              </div>
+
+              {/* List */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '0 20px 10px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>DAFTAR LANGGANAN</div>
+                {subscriptions.map(s => (
+                  <div key={s.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px',
+                    borderBottom: '1px solid var(--border-color)',
+                    background: editingSub === s.id ? 'var(--bg-main)' : 'transparent',
+                    opacity: s.isActive ? 1 : 0.6
+                  }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 12, background: 'var(--bg-card)',
+                      color: 'var(--primary)', border: '1px solid var(--border-color)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800
+                    }}>
+                      {s.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <CreditCard size={10} /> {currencySymbol}{s.amount.toLocaleString('id-ID')} • <Calendar size={10} /> {s.nextBillingDate} ({s.billingCycle === 'monthly' ? 'Bln' : 'Thn'})
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => updateSubscription(s.id, { isActive: !s.isActive })}
+                        className="btn-icon"
+                        style={{ color: s.isActive ? 'var(--primary)' : 'var(--text-muted)', padding: 6 }}
+                      >
+                        <RefreshCw size={18} style={{ opacity: s.isActive ? 1 : 0.4 }} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingSub(s.id);
+                          setNewSubName(s.name);
+                          setNewSubAmount(s.amount.toString());
+                          setNewSubCycle(s.billingCycle);
+                          setNewSubDate(s.nextBillingDate);
+                          setNewSubAsset(s.assetId);
+                          setActiveModal('subscription_form');
+                        }}
+                        className="btn-icon"
+                        style={{ color: 'var(--primary)', padding: 6 }}
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => showConfirm('Hapus Langganan', `Hapus "${s.name}"?`, () => deleteSubscription(s.id))}
+                        className="btn-icon"
+                        style={{ color: 'var(--danger)', padding: 6 }}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {subscriptions.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 20px' }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>💳</div>
+                    <div style={{ fontWeight: 700 }}>Belum ada data langganan</div>
+                    <div style={{ fontSize: 12 }}>Catat biaya bulananmu di sini.</div>
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         );
       case 'preferences':
@@ -866,22 +1117,44 @@ const Settings: React.FC = () => {
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <Wallet size={18} color="var(--primary)" />
-                <span style={{ fontWeight: 700, fontSize: 14 }}>Dompet Default</span>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Dompet Utama</span>
               </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-                Pilih dompet yang akan otomatis terpilih saat Anda menambah transaksi baru.
-              </p>
-
-              <select
-                value={defaultAssetId || ''}
-                onChange={(e) => setDefaultAssetId(e.target.value || null)}
-                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
+              <button
+                type="button"
+                onClick={() => setIsAssetSelectOpen(true)}
+                data-tour="pref-default-wallet"
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                  borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                }}
               >
-                <option value="">-- Gunakan Paling Atas (Default) --</option>
-                {assets.filter(a => !a.isDeleted).map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {(() => {
+                    const asset = assets.find(a => a.id === defaultAssetId);
+                    if (!asset) return <Wallet size={18} color="var(--primary)" />;
+                    // Import icons or use a local helper. 
+                    // Since we already have Wallet, Landmark, etc. imported or available.
+                    let Icon = Wallet;
+                    let color = 'var(--primary)';
+                    switch (asset.type) {
+                      case 'Cash': Icon = Wallet; color = 'var(--secondary)'; break;
+                      case 'Bank Account': Icon = Landmark; color = 'var(--primary)'; break;
+                      case 'Credit Card': Icon = CreditCard; color = 'var(--danger)'; break;
+                      case 'eWallet': Icon = Smartphone; color = 'var(--success)'; break;
+                      case 'Savings': Icon = PiggyBank; color = '#3b82f6'; break;
+                      case 'Investment': Icon = TrendingUp; color = '#10b981'; break;
+                      case 'Loan': Icon = HandCoins; color = 'var(--danger)'; break;
+                    }
+                    return <Icon size={18} color={color} />;
+                  })()}
+                  <span style={{ fontWeight: 600, color: defaultAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                    {assets.find(a => a.id === defaultAssetId)?.name || 'Pilih Dompet Utama...'}
+                  </span>
+                </div>
+                <ChevronRight size={18} color="var(--text-muted)" />
+              </button>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 8 }}>Digunakan sebagai pilihan otomatis saat mencatat transaksi baru.</p>
             </div>
 
             <div style={{ marginBottom: 20 }}>
@@ -896,6 +1169,7 @@ const Settings: React.FC = () => {
                 <select
                   value={startOfMonthDay}
                   onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
+                  data-tour="pref-financial-cycle"
                   style={{
                     appearance: 'none',
                     WebkitAppearance: 'none',
@@ -932,6 +1206,25 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <HandCoins size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilkan Transaksi Hutang/Piutang</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Aktifkan ini jika Anda ingin aktivitas meminjam/membayar hutang piutang muncul di menu utama Transaksi.
+              </p>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600 }}>Tampilkan di Transaksi</span>
+                <input
+                  type="checkbox"
+                  checked={showDebtInTransactions}
+                  onChange={(e) => setShowDebtInTransactions(e.target.checked)}
+                  style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
+                />
+              </label>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <Wallet size={18} color="var(--primary)" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Mata Uang & Simbol</span>
               </div>
@@ -943,27 +1236,11 @@ const Settings: React.FC = () => {
                 value={currencySymbol}
                 onChange={(e) => setCurrencySymbol(e.target.value)}
                 placeholder="Simbol Mata Uang..."
+                data-tour="pref-currency"
                 style={{ width: '100%', padding: '12px', borderRadius: '12px', marginBottom: 0 }}
               />
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Tags size={18} color="var(--primary)" />
-                <span style={{ fontWeight: 700, fontSize: 14 }}>Grouping Transaksi Default</span>
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-                Cara default daftar transaksi dikelompokkan saat pertama kali dibuka.
-              </p>
-              <select
-                value={defaultTransactionGrouping}
-                onChange={(e) => setDefaultTransactionGrouping(e.target.value as 'date' | 'category')}
-                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
-              >
-                <option value="date">Kelompokkan per Tanggal</option>
-                <option value="category">Kelompokkan per Kategori</option>
-              </select>
-            </div>
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -983,10 +1260,93 @@ const Settings: React.FC = () => {
               </select>
             </div>
 
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Target size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Metode Budgeting</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Pilih antara budget reguler atau Zero-Based (Envelope).
+              </p>
+              <div 
+                data-tour="pref-budget-mode"
+                style={{
+                  display: 'flex', background: 'var(--bg-main)', padding: '4px',
+                  borderRadius: '12px', border: '1px solid var(--border-color)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setBudgetMode('regular')}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                    background: budgetMode === 'regular' ? 'var(--bg-card)' : 'transparent',
+                    color: budgetMode === 'regular' ? 'var(--primary)' : 'var(--text-muted)',
+                    fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: budgetMode === 'regular' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                  }}
+                >
+                  Reguler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBudgetMode('zero-based')}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                    background: budgetMode === 'zero-based' ? 'var(--bg-card)' : 'transparent',
+                    color: budgetMode === 'zero-based' ? 'var(--primary)' : 'var(--text-muted)',
+                    fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: budgetMode === 'zero-based' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                  }}
+                >
+                  Zero-Based
+                </button>
+              </div>
+
+              {budgetMode === 'zero-based' && (
+                <div style={{ marginTop: 12, padding: '12px', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Disiplin ZBB (Strict Mode)</span>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', position: 'relative' }}>
+                      <input
+                        type="checkbox"
+                        checked={zbbMode === 'strict'}
+                        onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')}
+                        style={{ opacity: 0, position: 'absolute', width: 0, height: 0 }}
+                      />
+                      <div style={{
+                        width: '40px', height: '24px', backgroundColor: zbbMode === 'strict' ? 'var(--primary)' : 'var(--border-color)',
+                        borderRadius: '12px', position: 'relative', transition: '0.3s'
+                      }}>
+                        <div style={{
+                          width: '18px', height: '18px', backgroundColor: 'white', borderRadius: '50%',
+                          position: 'absolute', top: '3px', left: zbbMode === 'strict' ? '19px' : '3px',
+                          transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    Jika aktif, setiap transaksi <strong>wajib</strong> memiliki sisa anggaran. Jika defisit, Anda akan dipaksa memindahkan dana dari kategori lain.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* ─── Rekap Aset Carousel ─────────────────────────────── */}
             <CarouselCardSettings
               activeCards={assetCarouselCards}
               onChange={setAssetCarouselCards}
+            />
+
+            {/* ─── Statistik View Selector ─────────────────────────── */}
+            <StatsViewSettings
+              activeViews={statsCarouselCards}
+              onChange={setStatsCarouselCards}
+              defaultView={defaultStatsView}
+              onDefaultChange={setDefaultStatsView}
             />
 
             <div className="card shadow-soft" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '12px' }}>
@@ -1084,9 +1444,9 @@ const Settings: React.FC = () => {
                     transition: 'transform 0.2s ease, background-color 0.2s ease',
                     border: '1px solid rgba(0,0,0,0.05)'
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15)'; e.currentTarget.style.backgroundColor = '#f8fafc'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)'; }}
-                  title="Ubah Foto"
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15)'; e.currentTarget.style.backgroundColor = '#f8fafc'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)'; }}
+                    title="Ubah Foto"
                   >
                     <Camera size={12} style={{ flexShrink: 0, display: 'block' }} />
                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
@@ -1139,13 +1499,13 @@ const Settings: React.FC = () => {
               </div>
 
               {/* Monthly Stats Capsule */}
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                background: 'rgba(0, 0, 0, 0.15)', 
-                padding: '10px 14px', 
-                borderRadius: '12px', 
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'rgba(0, 0, 0, 0.15)',
+                padding: '10px 14px',
+                borderRadius: '12px',
                 marginTop: '2px',
                 border: '1px solid rgba(255,255,255,0.06)'
               }}>
@@ -1157,24 +1517,24 @@ const Settings: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
               <div>
                 <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Nama Lengkap</label>
-                <input 
-                  type="text" 
-                  value={tempName} 
-                  onChange={e => setTempName(e.target.value)} 
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={e => setTempName(e.target.value)}
                   placeholder="Masukkan nama lengkap..."
                   style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', marginBottom: 0 }}
-                  required 
+                  required
                 />
               </div>
               <div>
                 <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Email</label>
-                <input 
-                  type="email" 
-                  value={tempEmail} 
-                  onChange={e => setTempEmail(e.target.value)} 
+                <input
+                  type="email"
+                  value={tempEmail}
+                  onChange={e => setTempEmail(e.target.value)}
                   placeholder="Masukkan email..."
                   style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', marginBottom: 0 }}
-                  required 
+                  required
                 />
               </div>
             </div>
@@ -1364,6 +1724,151 @@ const Settings: React.FC = () => {
           </>
         );
 
+      case 'subscription_form':
+        const handleSubFormSubmit = (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!newSubName.trim() || !newSubAmount) return;
+          const subData = {
+            name: newSubName.trim(),
+            amount: parseFloat(newSubAmount),
+            billingCycle: newSubCycle,
+            nextBillingDate: newSubDate,
+            category: newSubCat || 'Lainnya',
+            assetId: newSubAsset,
+            isActive: true,
+          };
+          if (editingSub) {
+            updateSubscription(editingSub, subData);
+          } else {
+            const createdSub = addSubscription(subData);
+            if (window.confirm(`Apakah Anda ingin membuat transaksi rutin otomatis untuk langganan ${subData.name}?`)) {
+              const rt = addRecurringTransaction({
+                type: 'pengeluaran',
+                amount: subData.amount,
+                category: subData.category,
+                note: `Langganan: ${subData.name}`,
+                frequency: subData.billingCycle === 'monthly' ? 'monthly' : 'yearly',
+                startDate: subData.nextBillingDate,
+                isActive: true,
+                assetId: subData.assetId,
+              });
+              updateSubscription(createdSub.id, { recurringTransactionId: rt.id });
+            }
+          }
+          setActiveModal('subscriptions');
+          setEditingSub(null);
+          setNewSubName(''); setNewSubAmount(''); setNewSubCat('');
+        };
+
+        return (
+          <>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button className="btn-icon" onClick={() => setActiveModal('subscriptions')} style={{ padding: 0 }}>
+                  <ChevronLeft size={20} />
+                </button>
+                <h2 className="subtitle" style={{ margin: 0 }}>{editingSub ? 'Edit Langganan' : 'Tambah Langganan'}</h2>
+              </div>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+            </div>
+
+            <div style={{ padding: '20px' }}>
+              <form onSubmit={handleSubFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Nama Layanan</label>
+                  <input
+                    type="text" placeholder="misal: Netflix, Spotify..."
+                    value={newSubName} onChange={e => setNewSubName(e.target.value)}
+                    style={{ width: '100%', marginBottom: 0 }} required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Harga</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'var(--text-muted)', fontWeight: 700 }}>{currencySymbol}</span>
+                      <CurrencyInput
+                        placeholder="0"
+                        value={newSubAmount} onChange={(val) => setNewSubAmount(val)}
+                        style={{ width: '100%', paddingLeft: 36, marginBottom: 0 }} required
+                      />
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Siklus</label>
+                    <select
+                      value={newSubCycle} onChange={e => setNewSubCycle(e.target.value as any)}
+                      style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: 14, fontWeight: 600 }}
+                    >
+                      <option value="monthly">Bulanan</option>
+                      <option value="yearly">Tahunan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tgl Perpanjang Berikutnya</label>
+                    <input
+                      type="date" value={newSubDate} onChange={e => setNewSubDate(e.target.value)}
+                      style={{ width: '100%', marginBottom: 0 }} required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Kategori</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsSubCatSelectOpen(true)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                      borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Folder size={18} color="var(--primary)" />
+                      <span style={{ fontWeight: 600, color: newSubCat ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {newSubCat || 'Pilih Kategori...'}
+                      </span>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Bayar Menggunakan</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsSubAssetSelectOpen(true)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                      borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Wallet size={18} color="var(--primary)" />
+                      <span style={{ fontWeight: 600, color: newSubAsset ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {assets.find(a => a.id === newSubAsset)?.name || 'Pilih Dompet...'}
+                      </span>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '14px', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <Save size={18} /> {editingSub ? 'Simpan Perubahan' : 'Tambah Langganan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </>
+        );
+
       case 'recurring':
         return (
           <>
@@ -1448,11 +1953,41 @@ const Settings: React.FC = () => {
       case 'budgets':
         return (
           <>
-            <div className="modal-header">
-              <h2 className="subtitle">Anggaran & Target</h2>
+            <div className="modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <h2 className="subtitle">Budgeting & Goals</h2>
               <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
             </div>
-            <BudgetManagement />
+
+            <div style={{ display: 'flex', gap: '8px', margin: '16px 0', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setBudgetTab('budget')}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13px',
+                  background: budgetTab === 'budget' ? 'var(--bg-card)' : 'transparent',
+                  color: budgetTab === 'budget' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: budgetTab === 'budget' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  cursor: 'pointer', transition: 'all 0.2s'
+                }}
+              >
+                Anggaran
+              </button>
+              <button
+                type="button"
+                onClick={() => setBudgetTab('goal')}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13px',
+                  background: budgetTab === 'goal' ? 'var(--bg-card)' : 'transparent',
+                  color: budgetTab === 'goal' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: budgetTab === 'goal' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  cursor: 'pointer', transition: 'all 0.2s'
+                }}
+              >
+                Tabungan
+              </button>
+            </div>
+
+            {budgetTab === 'budget' ? <BudgetManagement /> : <GoalManagement />}
           </>
         );
 
@@ -1500,7 +2035,7 @@ const Settings: React.FC = () => {
                 </div>
               ))}
               <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
-                Money Tracker v1.0.16 · Made with ❤️
+                Money Tracker v1.0.18 · Made with ❤️
               </div>
             </div>
           </>
@@ -1519,7 +2054,7 @@ const Settings: React.FC = () => {
 
       <QuotaBanner />
 
-      <div className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+      <div data-tour="settings-profile" className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
         <div style={{
           width: 56, height: 56, borderRadius: '28px',
           backgroundColor: 'var(--primary)',
@@ -1540,66 +2075,80 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <div className="card" style={{ padding: '8px 16px' }}>
-        {menuItems.map((item, index) => {
-          const Icon = item.icon;
-          const isLast = index === menuItems.length - 1;
-          return (
-            <React.Fragment key={item.id}>
-              <div onClick={() => handleMenuClick(item.id)} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '16px 0',
-                borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-                cursor: 'pointer'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '16px' }} />
-                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
-                  <ChevronRight size={20} color="var(--text-muted)" />
-                </div>
-              </div>
+      <div data-tour="settings-menu">
+        {menuGroups.map((group) => (
+          <div key={group.title} style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', paddingLeft: '12px' }}>
+              {group.title}
+            </h3>
+            <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
+              {group.items.map((item, index) => {
+                const Icon = item.icon;
+                const isLast = index === group.items.length - 1;
 
-              {/* Tema Row - Inserted after Security */}
-              {item.id === 'security' && (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: '1px solid var(--border-color)',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Moon size={20} color="var(--text-muted)" style={{ marginRight: '16px' }} />
-                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Tema Gelap</span>
-                  </div>
-                  <div
-                    onClick={toggleTheme}
-                    style={{
-                      width: '44px', height: '24px', borderRadius: '12px',
-                      backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
-                      display: 'flex', alignItems: 'center', padding: '0 2px',
-                      cursor: 'pointer', transition: 'all 0.3s'
+                if ((item as any).isToggle) {
+                  return (
+                    <div key={item.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '16px 0',
+                      borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
                     }}>
-                    <div style={{
-                      width: '20px', height: '20px', borderRadius: '10px',
-                      backgroundColor: 'white',
-                      transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                    }} />
-                  </div>
-                </div>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <Icon size={20} color="var(--text-muted)" style={{ marginRight: '20px' }} />
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
+                      </div>
+                      <div
+                        onClick={toggleTheme}
+                        style={{
+                          width: '44px', height: '24px', borderRadius: '12px',
+                          backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
+                          display: 'flex', alignItems: 'center', padding: '0 2px',
+                          cursor: 'pointer', transition: 'all 0.3s'
+                        }}>
+                        <div style={{
+                          width: '20px', height: '20px', borderRadius: '10px',
+                          backgroundColor: 'white',
+                          transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
+                    </div>
+                  );
+                }
 
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleMenuClick(item.id)}
+                    data-tour={item.id === 'preferences' ? 'settings-preferences' : undefined}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '16px 0',
+                      borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
+                      <ChevronRight size={20} color="var(--text-muted)" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+      </div>
       <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -1679,7 +2228,7 @@ const Settings: React.FC = () => {
           <LogOut size={20} /> Logout dari Akun
         </button>
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-          MoneyApp v1.0.16 • Dibuat dengan ❤️ by Dappal
+          MoneyApp v1.0.18 • Dibuat dengan ❤️ by Dappal
         </p>
       </div>
 
@@ -1767,6 +2316,54 @@ const Settings: React.FC = () => {
         message={confirmDialog.message}
         type={confirmDialog.type}
         confirmText={confirmDialog.confirmText}
+      />
+      <AssetSelectModal
+        isOpen={isAssetSelectOpen}
+        onClose={() => setIsAssetSelectOpen(false)}
+        assets={assets}
+        selectedAssetId={defaultAssetId || ''}
+        onSelect={id => setDefaultAssetId(id || null)}
+      />
+
+      <AssetSelectModal
+        isOpen={isSubAssetSelectOpen}
+        onClose={() => setIsSubAssetSelectOpen(false)}
+        assets={assets}
+        selectedAssetId={newSubAsset}
+        onSelect={setNewSubAsset}
+      />
+
+      <CategorySelectModal
+        isOpen={isSubCatSelectOpen}
+        onClose={() => setIsSubCatSelectOpen(false)}
+        categories={categories}
+        type="pengeluaran"
+        initialCategory={newSubCat}
+        onSelect={(cat) => setNewSubCat(cat)}
+      />
+      <SharedBillsManagerModal
+        isOpen={isSharedBillsOpen}
+        onClose={() => setIsSharedBillsOpen(false)}
+      />
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => {
+          setIsContactModalOpen(false);
+          setEditingContact(null);
+        }}
+        editingContact={contacts.find(c => c.id === editingContact)}
+      />
+      <OnboardingTutorial
+        pageKey="settings"
+        steps={[
+          { targetSelector: '[data-tour="settings-profile"]', title: '👤 Profil Kamu', description: 'Atur nama, email, dan avatar kamu di sini.' },
+          { targetSelector: '[data-tour="settings-preferences"]', title: '⚙️ Preferensi Aplikasi', description: 'Atur opsi kustomisasi seperti mata uang default, budgeting, dan siklus bulanan di sini.', onBeforeShow: () => setActiveModal(null) },
+          { targetSelector: '[data-tour="pref-default-wallet"]', title: '💳 Dompet Utama', description: 'Pilih dompet default yang akan terpilih secara otomatis saat membuat transaksi baru.', onBeforeShow: () => handleMenuClick('preferences') },
+          { targetSelector: '[data-tour="pref-financial-cycle"]', title: '📅 Siklus Finansial', description: 'Atur tanggal gajian atau awal siklus keuangan bulananmu.' },
+          { targetSelector: '[data-tour="pref-currency"]', title: '💱 Mata Uang', description: 'Ubah simbol mata uang (seperti Rp, $, dll.) sesuai keinginanmu.' },
+          { targetSelector: '[data-tour="pref-budget-mode"]', title: '🎯 Metode Budgeting', description: 'Pilih gaya budgeting: Reguler atau Zero-Based (ZBB).' },
+          { targetSelector: '[data-tour="settings-menu"]', title: '🛠️ Pengaturan Lainnya', description: 'Temukan berbagai pengaturan lainnya mulai dari kategori, backup data, hingga mengulang tutorial.', onBeforeShow: () => setActiveModal(null) }
+        ]}
       />
     </div>
   );

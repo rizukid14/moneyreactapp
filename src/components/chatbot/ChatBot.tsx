@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Check, AlertCircle } from 'lucide-react';
+import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
@@ -20,16 +20,182 @@ const ChatBot: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const speechBaseRef = useRef('');
+  const finalTranscriptRef = useRef('');
   
-  const { categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, currencySymbol, isChatOpen, setIsChatOpen } = useMoney();
+  const { 
+    categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
+    currencySymbol, isChatOpen, setIsChatOpen,
+    recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
+    startOfMonthDay, budgets, goals
+  } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const getDaysToEOM = () => {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth() + 1; // 1-indexed
+    const year = today.getFullYear();
+
+    const startDay = startOfMonthDay || 1;
+    let endYear = year;
+    let endMonth = month;
+    let endDay = startDay - 1;
+
+    if (startDay === 1) {
+      const lastDayOfCalMonth = new Date(year, month, 0).getDate();
+      endDay = lastDayOfCalMonth;
+    } else {
+      if (day >= startDay) {
+        endMonth = month + 1;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = year + 1;
+        }
+      }
+    }
+
+    const eomDate = new Date(endYear, endMonth - 1, endDay);
+    const todayDate = new Date(year, month - 1, day);
+    const diffTime = eomDate.getTime() - todayDate.getTime();
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return { days, dateStr: `${endDay}/${endMonth}/${endYear}` };
+  };
+
+  const getCurrentFinancialMonthDates = () => {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth() + 1; // 1-12
+    const year = today.getFullYear();
+    const startDay = startOfMonthDay || 1;
+
+    let startYear = year;
+    let startMonth = month;
+    let endYear = year;
+    let endMonth = month;
+    let endDay = startDay - 1;
+
+    if (startDay === 1) {
+      endDay = new Date(year, month, 0).getDate();
+    } else {
+      if (day >= startDay) {
+        endMonth = month + 1;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = year + 1;
+        }
+      } else {
+        startMonth = month - 1;
+        if (startMonth < 1) {
+          startMonth = 12;
+          startYear = year - 1;
+        }
+      }
+    }
+
+    const format = (y: number, m: number, d: number) => 
+      `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    
+    return {
+      startDateStr: format(startYear, startMonth, startDay),
+      endDateStr: format(endYear, endMonth, endDay)
+    };
+  };
+
+  const triggerEOMReview = async () => {
+    setIsLoading(true);
+    const { dateStr } = getDaysToEOM();
+    const { startDateStr, endDateStr } = getCurrentFinancialMonthDates();
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Tolong berikan evaluasi dan nasihat akhir bulan saya berdasarkan transaksi dari tanggal ${startDateStr} sampai ${endDateStr}.` }],
+          categories,
+          assets: assets.map(a => ({
+            ...a,
+            balance: getAssetBalance(a.id)
+          })),
+          transactions: [...transactions]
+            .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
+            .filter(t => t.date >= startDateStr && t.date <= endDateStr)
+            .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
+            .map(t => ({
+              type: t.type,
+              amount: t.amount,
+              category: t.category,
+              note: t.note,
+              date: t.date
+            })),
+          contacts: contacts.map(c => ({ name: c.name })),
+          recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
+            type: rt.type,
+            amount: rt.amount,
+            category: rt.category,
+            frequency: rt.frequency,
+            startDate: rt.startDate,
+            note: rt.note
+          })),
+          subscriptions: subscriptions.filter(s => s.isActive).map(s => ({
+            name: s.name,
+            amount: s.amount,
+            billingCycle: s.billingCycle,
+            nextBillingDate: s.nextBillingDate
+          })),
+          budgetMode,
+          monthlyIncome,
+          zbbMode,
+          startOfMonthDay: startOfMonthDay || 1,
+          currentDate: getLocalDate(),
+          currentTime: getLocalTime(),
+          budgets,
+          goals,
+          appKnowledge: {
+            currentVersion: 'v1.0.18',
+            latestFeatures: []
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to fetch from chat API');
+      }
+
+      const data = await response.json();
+      
+      setMessages([
+        { role: 'assistant', content: `Halo! Karena hari ini mendekati akhir bulan finansialmu (${dateStr}), saya telah menganalisis keuangan bulananmu secara otomatis:` },
+        { role: 'assistant', content: data.content }
+      ]);
+
+    } catch (error) {
+      console.error(error);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Maaf, gagal membuat evaluasi akhir bulan otomatis.' }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (isChatOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isChatOpen]);
+
+  useEffect(() => {
+    if (isChatOpen && messages.length === 1) {
+      const { days } = getDaysToEOM();
+      if (days >= 0 && days <= 5) {
+        triggerEOMReview();
+      }
+    }
+  }, [isChatOpen, messages.length]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -40,6 +206,8 @@ const ChatBot: React.FC = () => {
     setMessages(newMessages);
     setInput('');
     setIsLoading(true);
+
+    const { startDateStr, endDateStr } = getCurrentFinancialMonthDates();
 
     try {
       const response = await fetch('/api/chat', {
@@ -52,20 +220,55 @@ const ChatBot: React.FC = () => {
             ...a,
             balance: getAssetBalance(a.id)
           })),
-          transactions: transactions.slice(0, 150).map(t => ({
-            type: t.type,
-            amount: t.amount,
-            category: t.category,
-            note: t.note,
-            date: t.date
-          })),
+          transactions: [...transactions]
+            .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
+            .filter(t => t.date >= startDateStr && t.date <= endDateStr)
+            .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
+            .map(t => ({
+              type: t.type,
+              amount: t.amount,
+              category: t.category,
+              note: t.note,
+              date: t.date
+            })),
           contacts: contacts.map(c => ({ name: c.name })),
+          recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
+            type: rt.type,
+            amount: rt.amount,
+            category: rt.category,
+            frequency: rt.frequency,
+            startDate: rt.startDate,
+            note: rt.note
+          })),
+          subscriptions: subscriptions.filter(s => s.isActive).map(s => ({
+            name: s.name,
+            amount: s.amount,
+            billingCycle: s.billingCycle,
+            nextBillingDate: s.nextBillingDate
+          })),
+          budgetMode,
+          monthlyIncome,
+          zbbMode,
+          startOfMonthDay: startOfMonthDay || 1,
           currentDate: getLocalDate(),
-          currentTime: getLocalTime()
+          currentTime: getLocalTime(),
+          budgets,
+          goals,
+          appKnowledge: {
+            currentVersion: 'v1.0.18',
+            latestFeatures: [
+              'Zero-Based Budgeting (ZBB): Fitur alokasi pendapatan secara ketat di mana setiap pemasukan harus dialokasikan ke amplop kategori sampai habis bersisa 0.',
+              'ZBB Strict Mode: Sistem pemblokiran/pencegatan otomatis pada transaksi (manual, struk OCR, maupun mutasi) jika nominal melebihi sisa limit kategori, mengharuskan pemindahan/realokasi anggaran sebelum lanjut.',
+              'Tampilan UI Envelope System pada halaman budgeting dengan dukungan penguncian (lock) pendapatan.'
+            ]
+          }
         })
       });
 
-      if (!response.ok) throw new Error('Failed to fetch from chat API');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to fetch from chat API');
+      }
 
       const data = await response.json();
       
@@ -81,6 +284,54 @@ const ChatBot: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVoiceInput = () => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
+      return;
+    }
+
+    const recognition = new SR();
+    recognition.lang = 'id-ID';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognitionRef.current = recognition;
+    speechBaseRef.current = input.trim();
+    finalTranscriptRef.current = '';
+    setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let newFinalText = '';
+      let interimText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) newFinalText += t;
+        else interimText += t;
+      }
+      if (newFinalText) finalTranscriptRef.current += newFinalText;
+      const combined = `${speechBaseRef.current} ${finalTranscriptRef.current} ${interimText}`.trim();
+      setInput(combined);
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      showToast('Gagal menangkap suara.', 'warning');
+    };
+    recognition.onend = () => {
+      const combined = `${speechBaseRef.current} ${finalTranscriptRef.current}`.trim();
+      if (combined) setInput(combined);
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.start();
   };
 
   const handleConfirmTransaction = (msgIndex: number, toolArgs: any) => {
@@ -146,6 +397,7 @@ const ChatBot: React.FC = () => {
         description: toolArgs.description || '',
         totalAmount: Number(toolArgs.amount),
         isPaid: false,
+        date: toolArgs.date || getLocalDate(),
         createdAt: toolArgs.date ? `${toolArgs.date}T${getLocalTime()}:00` : new Date().toISOString(),
         isInstallment: toolArgs.isInstallment || false,
         totalInstallments: toolArgs.totalInstallments,
@@ -252,7 +504,7 @@ const ChatBot: React.FC = () => {
                     lineHeight: 1.5,
                     whiteSpace: 'pre-wrap'
                   }}>
-                    {msg.content}
+                    {renderMarkdown(msg.content)}
                   </div>
                 )}
 
@@ -489,6 +741,26 @@ const ChatBot: React.FC = () => {
                 }}
                 disabled={isLoading}
               />
+              <button
+                onClick={handleVoiceInput}
+                disabled={isLoading}
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  background: isListening ? 'var(--bg-neutral)' : 'var(--bg-income)',
+                  color: isListening ? 'var(--text-muted)' : 'var(--primary)',
+                  border: 'none',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  cursor: isLoading ? 'default' : 'pointer',
+                  flexShrink: 0
+                }}
+                title={isListening ? 'Sedang mendengar...' : 'Voice Input'}
+              >
+                {isListening ? <Square size={16} /> : <Mic size={16} />}
+              </button>
               <button 
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
@@ -521,3 +793,90 @@ const ChatBot: React.FC = () => {
 };
 
 export default ChatBot;
+
+// --- Native Safe Markdown Parser for Chat Messages ---
+const parseInlineMarkdown = (text: string): React.ReactNode[] => {
+  const regex = /(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const splitParts = text.split(regex);
+
+  return splitParts.map((part, index) => {
+    if (part.startsWith('***') && part.endsWith('***')) {
+      return <strong key={index}><em>{part.slice(3, -3)}</em></strong>;
+    }
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+};
+
+const renderMarkdown = (content: string): React.ReactNode => {
+  if (!content) return null;
+
+  const blocks = content.split('\n');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {blocks.map((block, idx) => {
+        const trimmed = block.trim();
+        if (!trimmed) {
+          return <div key={idx} style={{ height: '6px' }} />;
+        }
+
+        // Headings
+        if (trimmed.startsWith('### ')) {
+          return (
+            <h4 key={idx} style={{ margin: '8px 0 4px 0', fontSize: '14px', fontWeight: 800, color: 'inherit' }}>
+              {parseInlineMarkdown(trimmed.substring(4))}
+            </h4>
+          );
+        }
+        if (trimmed.startsWith('## ')) {
+          return (
+            <h3 key={idx} style={{ margin: '12px 0 6px 0', fontSize: '15px', fontWeight: 800, color: 'inherit' }}>
+              {parseInlineMarkdown(trimmed.substring(3))}
+            </h3>
+          );
+        }
+        if (trimmed.startsWith('# ')) {
+          return (
+            <h2 key={idx} style={{ margin: '14px 0 8px 0', fontSize: '16px', fontWeight: 800, color: 'inherit' }}>
+              {parseInlineMarkdown(trimmed.substring(2))}
+            </h2>
+          );
+        }
+
+        // Bullet lists
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          return (
+            <div key={idx} style={{ display: 'flex', gap: '6px', paddingLeft: '4px', margin: '2px 0', lineHeight: 1.4 }}>
+              <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>•</span>
+              <span style={{ flex: 1 }}>{parseInlineMarkdown(trimmed.substring(2))}</span>
+            </div>
+          );
+        }
+
+        // Ordered lists
+        const orderedMatch = trimmed.match(/^(\d+)\.\s(.*)/);
+        if (orderedMatch) {
+          return (
+            <div key={idx} style={{ display: 'flex', gap: '6px', paddingLeft: '4px', margin: '2px 0', lineHeight: 1.4 }}>
+              <span style={{ color: 'var(--primary)', fontWeight: 'bold', minWidth: '14px' }}>{orderedMatch[1]}.</span>
+              <span style={{ flex: 1 }}>{parseInlineMarkdown(orderedMatch[2])}</span>
+            </div>
+          );
+        }
+
+        // Normal paragraph text
+        return (
+          <div key={idx} style={{ margin: 0, lineHeight: 1.4 }}>
+            {parseInlineMarkdown(block)}
+          </div>
+        );
+      })}
+    </div>
+  );
+};

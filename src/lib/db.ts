@@ -1,11 +1,13 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { collection, doc, getDocs, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db as firestore, isFirebaseConfigured } from './firebase';
-import type { Asset, Transaction, Category, UserProfile, Contact } from '../contexts/MoneyContext';
+import type { Asset, Transaction, Category, UserProfile, Contact, Goal } from '../contexts/MoneyContext';
+import { query, where, orderBy } from 'firebase/firestore';
+import { generateId } from './utils';
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 6;
+const DB_VERSION = 10;
 
 export interface SyncItem {
   id: string;
@@ -23,8 +25,14 @@ export interface MoneyAppDB {
   debts: { key: string; value: any };
   recurring_transactions: { key: string; value: any };
   contacts: { key: string; value: Contact };
+  goals: { key: string; value: Goal };
+  subscriptions: { key: string; value: any };
   settings: { key: string; value: string | number | boolean | UserProfile | null };
   pending_sync: { key: string; value: SyncItem };
+  trips: { key: string; value: any };
+  trip_expenses: { key: string; value: any };
+  monthly_incomes: { key: string; value: any };
+  budget_reallocations: { key: string; value: any };
 }
 
 let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
@@ -40,8 +48,14 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('debts')) db.createObjectStore('debts', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('recurring_transactions')) db.createObjectStore('recurring_transactions', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('contacts')) db.createObjectStore('contacts', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('goals')) db.createObjectStore('goals', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('subscriptions')) db.createObjectStore('subscriptions', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
         if (!db.objectStoreNames.contains('pending_sync')) db.createObjectStore('pending_sync', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('trips')) db.createObjectStore('trips', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('trip_expenses')) db.createObjectStore('trip_expenses', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('monthly_incomes')) db.createObjectStore('monthly_incomes', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('budget_reallocations')) db.createObjectStore('budget_reallocations', { keyPath: 'id' });
       },
     });
   }
@@ -52,7 +66,9 @@ export const localDbGetAllAssets = async (): Promise<Asset[]> => (await getDB())
 export const localDbGetAllTransactions = async (): Promise<Transaction[]> => (await getDB()).getAll('transactions');
 export const localDbGetAllCategories = async (): Promise<Category[]> => (await getDB()).getAll('categories');
 export const localDbGetAllBudgets = async (): Promise<any[]> => (await getDB()).getAll('budgets');
+export const localDbGetAllGoals = async (): Promise<Goal[]> => (await getDB()).getAll('goals');
 export const localDbGetSetting = async (key: string) => (await getDB()).get('settings', key);
+export const localDbPutSetting = async (key: string, value: any) => (await getDB()).put('settings', value, key);
 
 // ─── FIRESTORE (Cloud Sync) ──────────────────────────────────────────────────
 const getUid = () => {
@@ -118,9 +134,11 @@ export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: 
   const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as T));
   const db = await getDB();
   const store = idbStoreName || colName;
-  
-  // 1. Put all valid items from cloud into IDB
+
+  // 1. Put items from cloud into IDB, but only if they don't have pending local changes
   for (const item of items) {
+    const pending = await db.get('pending_sync', item.id as string);
+    if (pending) continue; // Don't overwrite local changes (PUT or DELETE) with cloud data
     await (db as any).put(store as any, item);
   }
 
@@ -162,6 +180,12 @@ export const dbForceCloudSync = async (): Promise<{ total: number }> => {
       ['debts', 'debts'],
       ['recurring_transactions', 'recurring_transactions'],
       ['contacts', 'contacts'],
+      ['subscriptions', 'subscriptions'],
+      ['goals', 'goals'],
+      ['trips', 'trips'],
+      ['trip_expenses', 'trip_expenses'],
+      ['monthly_incomes', 'monthly_incomes'],
+      ['budget_reallocations', 'budget_reallocations'],
     ];
 
     for (const [fsCol, idbStore] of collections) {
@@ -199,8 +223,10 @@ export const dbGetAllAssets = async (): Promise<Asset[]> => {
   } catch (e) { return local; }
 };
 
-export const dbPutAsset = async (asset: Asset) => {
+export const dbPutAsset = async (asset: Asset, options?: { skipSync?: boolean }) => {
   await (await getDB()).put('assets', asset);
+  if (options?.skipSync) return;
+
   await recordPendingSync({ id: asset.id, collection: 'assets', operation: 'PUT', data: asset });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
@@ -275,8 +301,10 @@ export const dbGetAllCategories = async (): Promise<Category[]> => {
   } catch (e) { return local; }
 };
 
-export const dbPutCategory = async (cat: Category) => {
+export const dbPutCategory = async (cat: Category, options?: { skipSync?: boolean }) => {
   await (await getDB()).put('categories', cat);
+  if (options?.skipSync) return;
+
   await recordPendingSync({ id: cat.id, collection: 'categories', operation: 'PUT', data: cat });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
@@ -421,7 +449,83 @@ export const dbDeleteContact = async (id: string) => {
     .catch(() => { });
 };
 
+// ─── Subscriptions ───────────────────────────────────────────────────────────
+export const dbGetAllSubscriptions = async (): Promise<any[]> => {
+  const local = await (await getDB()).getAll('subscriptions');
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
+  try {
+    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'subscriptions')));
+    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const db = await getDB();
+    for (const item of cloud) await db.put('subscriptions', item);
+    return cloud;
+  } catch (e) { return local; }
+};
+
+export const dbPutSubscription = async (sub: any) => {
+  await (await getDB()).put('subscriptions', sub);
+  await recordPendingSync({ id: sub.id, collection: 'subscriptions', operation: 'PUT', data: sub });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'subscriptions', sub.id), sanitizeForFirestore(sub))
+    .then(() => removePendingSync(sub.id))
+    .catch(() => { });
+};
+
+export const dbDeleteSubscription = async (id: string) => {
+  await (await getDB()).delete('subscriptions', id);
+  await recordPendingSync({ id, collection: 'subscriptions', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'subscriptions', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
+// ─── Goals ────────────────────────────────────────────────────────────────────
+export const dbGetAllGoals = async (): Promise<Goal[]> => {
+  const local = await localDbGetAllGoals();
+  if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
+  try {
+    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'goals')));
+    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Goal));
+    const db = await getDB();
+    for (const item of cloud) await db.put('goals', item);
+    return cloud;
+  } catch (e) { return local; }
+};
+
+export const dbPutGoal = async (goal: Goal) => {
+  await (await getDB()).put('goals', goal);
+  await recordPendingSync({ id: goal.id, collection: 'goals', operation: 'PUT', data: goal });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'goals', goal.id), sanitizeForFirestore(goal))
+    .then(() => removePendingSync(goal.id))
+    .catch(() => { });
+};
+
+export const dbDeleteGoal = async (id: string) => {
+  await (await getDB()).delete('goals', id);
+  await recordPendingSync({ id, collection: 'goals', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'goals', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
 // ─── Settings ────────────────────────────────────────────────────────────────
+export const dbGetAllSettings = async (): Promise<Record<string, any>> => {
+  const db = await getDB();
+  const keys = await db.getAllKeys('settings');
+  const result: Record<string, any> = {};
+  for (const key of keys) {
+    result[key as string] = await db.get('settings', key as string);
+  }
+  return result;
+};
+
 export const dbGetSetting = async (key: string) => {
   const local = await localDbGetSetting(key);
   // IDB-first: only fetch from Firestore if we have no local value
@@ -458,14 +562,14 @@ export const dbDeleteSetting = async (key: string) => {
 
 // ─── Export/Import ───────────────────────────────────────────────────────────
 export const dbExportAll = async () => {
-  const [assets, transactions, categories, budgets, recurring, debts] = await Promise.all([
+  const [assets, transactions, categories, budgets, recurring, debts, subscriptions, goals] = await Promise.all([
     dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(),
-    dbGetAllBudgets(), dbGetAllRecurringTransactions(), dbGetAllDebts()
+    dbGetAllBudgets(), dbGetAllRecurringTransactions(), dbGetAllDebts(), dbGetAllSubscriptions(), dbGetAllGoals()
   ]);
   const user = await dbGetSetting('user');
   const pin = await dbGetSetting('pin');
   const theme = await dbGetSetting('theme');
-  return { assets, transactions, categories, budgets, recurring, debts, user, pin, theme, exportedAt: new Date().toISOString() };
+  return { assets, transactions, categories, budgets, recurring, debts, subscriptions, goals, user, pin, theme, exportedAt: new Date().toISOString() };
 };
 
 export const dbImportAll = async (data: any) => {
@@ -474,14 +578,17 @@ export const dbImportAll = async (data: any) => {
   if (data.categories) for (const c of data.categories) await dbPutCategory(c);
   if (data.debts) for (const d of data.debts) await dbPutDebt(d);
   if (data.recurring) for (const r of data.recurring) await dbPutRecurringTransaction(r);
+  if (data.subscriptions) for (const s of data.subscriptions) await dbPutSubscription(s);
   if (data.budgets) for (const b of data.budgets) await dbPutBudget(b);
+  if (data.goals) for (const g of data.goals) await dbPutGoal(g);
   if (data.user) await dbPutSetting('user', data.user);
   if (data.pin) await dbPutSetting('pin', data.pin);
 };
 
 // ─── Sync Logic ──────────────────────────────────────────────────────────────
-export const dbSyncPendingItems = async (): Promise<{ success: number; failed: number }> => {
-  if (!isFirebaseConfigured || !auth.currentUser) return { success: 0, failed: 0 };
+export const dbSyncPendingItems = async (): Promise<{ success: number; failed: number; error?: string }> => {
+  if (!isFirebaseConfigured) return { success: 0, failed: 0, error: 'NO_FIREBASE' };
+  if (!auth.currentUser) return { success: 0, failed: 0, error: 'NOT_LOGGED_IN' };
   const db = await getDB();
   const pending = await db.getAll('pending_sync');
   let success = 0;
@@ -500,6 +607,7 @@ export const dbSyncPendingItems = async (): Promise<{ success: number; failed: n
       await db.delete('pending_sync', item.id);
       success++;
     } catch (e) {
+      console.error('[Sync Error] Failed to sync item:', item, e);
       failed++;
       break;
     }
@@ -512,9 +620,10 @@ export const migrateFromIndexedDBToFirebase = async (): Promise<boolean> => {
   try {
     const isMigrated = await dbGetSetting('idb_to_firebase_migrated');
     if (isMigrated) return false;
-    const [assets, txs, cats, budgets, debts, recurring] = await Promise.all([
+    const [assets, txs, cats, budgets, debts, recurring, subscriptions, goals] = await Promise.all([
       localDbGetAllAssets(), localDbGetAllTransactions(), localDbGetAllCategories(),
-      localDbGetAllBudgets(), localDbGetAllDebts(), (await getDB()).getAll('recurring_transactions')
+      localDbGetAllBudgets(), localDbGetAllDebts(), (await getDB()).getAll('recurring_transactions'), (await getDB()).getAll('subscriptions'),
+      localDbGetAllGoals()
     ]);
     const promises: Promise<any>[] = [];
     assets.forEach(a => promises.push(dbPutAsset(a)));
@@ -523,10 +632,208 @@ export const migrateFromIndexedDBToFirebase = async (): Promise<boolean> => {
     budgets.forEach(b => promises.push(dbPutBudget(b)));
     debts.forEach(d => promises.push(dbPutDebt(d)));
     recurring.forEach(r => promises.push(dbPutRecurringTransaction(r)));
+    subscriptions.forEach(s => promises.push(dbPutSubscription(s)));
+    goals.forEach(g => promises.push(dbPutGoal(g)));
     await Promise.all(promises);
     await dbPutSetting('idb_to_firebase_migrated', true);
     return true;
   } catch (e) { return false; }
 };
 
+// ─── Shared Split Bills & Trips ──────────────────────────────────────────────
+export interface SharedSplit {
+  id: string;
+  creatorId: string;
+  type?: 'split' | 'trip'; // Distinguish between normal split and trip
+  merchantName: string;   // For trip: used as Trip Name
+  date: string;           // For trip: used as Start Date
+  endDate?: string;       // For trip
+  totalAmount: number;
+  currencySymbol: string;
+  splits: any[];
+  secondarySplits?: any[]; // Store the other mode's data
+  settlementMode?: 'simple' | 'detailed'; // Current active mode
+  lineItems?: any[];      // For normal split
+  itemAssignments?: Record<number, string[]>; // For normal split
+  tripExpenses?: any[];   // For trip
+  members?: any[];        // For trip
+  sourceId?: string;      // ID of the original trip or split to prevent duplicates
+  createdAt: number;
+}
+
+export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorId' | 'createdAt'>): Promise<string> => {
+  if (!isFirebaseConfigured || !auth.currentUser) throw new Error("Cloud sync required to share.");
+
+  let id = generateId();
+  
+  // Check if a link for this source already exists to prevent duplicates
+  if (data.sourceId) {
+    const q = query(
+      collection(firestore, 'shared_splits'),
+      where('creatorId', '==', getUid()),
+      where('sourceId', '==', data.sourceId)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      id = snap.docs[0].id;
+    }
+  }
+
+  const sharedSplit: SharedSplit = {
+    ...data,
+    id,
+    creatorId: getUid(),
+    createdAt: Date.now(),
+  };
+
+  await setDoc(doc(firestore, 'shared_splits', id), sanitizeForFirestore(sharedSplit));
+  return id;
+};
+
+export const dbGetSharedSplit = async (id: string): Promise<SharedSplit | null> => {
+  if (!isFirebaseConfigured) return null;
+  try {
+    const docSnap = await getDoc(doc(firestore, 'shared_splits', id));
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as SharedSplit;
+    }
+  } catch (e) {
+    console.error('Failed to fetch shared split:', e);
+  }
+  return null;
+};
+
+export const dbDeleteSharedSplit = async (id: string) => {
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  await deleteDoc(doc(firestore, 'shared_splits', id));
+};
+
+export const dbGetMySharedSplits = async (): Promise<SharedSplit[]> => {
+  if (!isFirebaseConfigured || !auth.currentUser) return [];
+  try {
+    const q = query(
+      collection(firestore, 'shared_splits'),
+      where('creatorId', '==', getUid()),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as SharedSplit));
+  } catch (e) {
+    console.error('Failed to fetch my shared splits:', e);
+    return [];
+  }
+};
+
 export const migrateFromLocalStorage = async () => false;
+
+// ─── Trips ────────────────────────────────────────────────────────────────────
+export const dbGetAllTrips = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('trips');
+};
+
+export const dbPutTrip = async (trip: any) => {
+  const db = await getDB();
+  await db.put('trips', trip);
+  await recordPendingSync({ id: trip.id, collection: 'trips', operation: 'PUT', data: trip });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'trips', trip.id), sanitizeForFirestore(trip))
+    .then(() => removePendingSync(trip.id))
+    .catch(() => { });
+};
+
+export const dbDeleteTrip = async (id: string) => {
+  const db = await getDB();
+  await db.delete('trips', id);
+  await recordPendingSync({ id, collection: 'trips', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'trips', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
+// ─── Trip Expenses ────────────────────────────────────────────────────────────
+export const dbGetAllTripExpenses = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('trip_expenses');
+};
+
+export const dbPutTripExpense = async (expense: any) => {
+  const db = await getDB();
+  await db.put('trip_expenses', expense);
+  await recordPendingSync({ id: expense.id, collection: 'trip_expenses', operation: 'PUT', data: expense });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'trip_expenses', expense.id), sanitizeForFirestore(expense))
+    .then(() => removePendingSync(expense.id))
+    .catch(() => { });
+};
+
+export const dbDeleteTripExpense = async (id: string) => {
+  const db = await getDB();
+  await db.delete('trip_expenses', id);
+  await recordPendingSync({ id, collection: 'trip_expenses', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'trip_expenses', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
+// ─── Monthly Incomes ──────────────────────────────────────────────────────────
+export const dbGetAllMonthlyIncomes = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('monthly_incomes');
+};
+
+export const dbPutMonthlyIncome = async (item: any) => {
+  const db = await getDB();
+  await db.put('monthly_incomes', item);
+  await recordPendingSync({ id: item.id, collection: 'monthly_incomes', operation: 'PUT', data: item });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'monthly_incomes', item.id), sanitizeForFirestore(item))
+    .then(() => removePendingSync(item.id))
+    .catch(() => { });
+};
+
+export const dbDeleteMonthlyIncome = async (id: string) => {
+  const db = await getDB();
+  await db.delete('monthly_incomes', id);
+  await recordPendingSync({ id, collection: 'monthly_incomes', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'monthly_incomes', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
+// ─── Budget Reallocations ─────────────────────────────────────────────────────
+export const dbGetAllBudgetReallocations = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('budget_reallocations');
+};
+
+export const dbPutBudgetReallocation = async (item: any) => {
+  const db = await getDB();
+  await db.put('budget_reallocations', item);
+  await recordPendingSync({ id: item.id, collection: 'budget_reallocations', operation: 'PUT', data: item });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'budget_reallocations', item.id), sanitizeForFirestore(item))
+    .then(() => removePendingSync(item.id))
+    .catch(() => { });
+};
+
+export const dbDeleteBudgetReallocation = async (id: string) => {
+  const db = await getDB();
+  await db.delete('budget_reallocations', id);
+  await recordPendingSync({ id, collection: 'budget_reallocations', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'budget_reallocations', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};

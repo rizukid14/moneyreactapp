@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, LayoutGrid, Calendar, Tag, CreditCard, Sparkles, ArrowUpCircle, ArrowDownCircle, RefreshCw, Camera, Search, X, MessageCircle, AlertCircle, Flame, Gauge } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
@@ -9,6 +9,7 @@ import TransactionItem from '../components/transactions/TransactionItem';
 import TransactionModal from '../components/modals/TransactionModal';
 import DatePickerModal from '../components/modals/DatePickerModal';
 import WhatsNewModal from '../components/modals/WhatsNewModal';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 import { useToast } from '../components/common/Toast';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -126,13 +127,13 @@ const SparklingIcon = () => (
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, defaultTransactionGrouping, setIsChatOpen } = useMoney();
+  const { transactions, assets, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
   const { showToast } = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isCopyMode, setIsCopyMode] = useState(false);
-  const [initialType, setInitialType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
+  const [initialType, setInitialType] = useState<Transaction['type']>('pengeluaran');
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => {
@@ -147,7 +148,7 @@ const Transactions: React.FC = () => {
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
 
   React.useEffect(() => {
-    const hasSeen = localStorage.getItem('whats_new_seen_v15');
+    const hasSeen = localStorage.getItem('whats_new_seen_v1_0_17');
     if (!hasSeen) {
       const timer = setTimeout(() => setIsWhatsNewOpen(true), 1500);
       return () => clearTimeout(timer);
@@ -156,14 +157,17 @@ const Transactions: React.FC = () => {
 
   const closeWhatsNew = () => {
     setIsWhatsNewOpen(false);
-    localStorage.setItem('whats_new_seen_v15', 'true');
+    localStorage.setItem('whats_new_seen_v1_0_17', 'true');
   };
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const toggleGroup = useCallback((groupId: string) => {
-    setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
-  }, []);
+    setCollapsedGroups(prev => {
+      const isCurrentlyCollapsed = prev[groupId] ?? (groupBy === 'date' && groupId !== getLocalDate());
+      return { ...prev, [groupId]: !isCurrentlyCollapsed };
+    });
+  }, [groupBy]);
 
   const getAssetName = useCallback((id?: string) => {
     const asset = assets.find(a => a.id === id);
@@ -197,6 +201,12 @@ const Transactions: React.FC = () => {
     let exp = 0;
 
     const filtered = transactions.filter(tx => {
+      // 0. Filter out debt transactions if disabled
+      const isDebtTx = ['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(tx.type);
+      if (!showDebtInTransactions && isDebtTx) {
+        return false;
+      }
+
       // 1. Search Query logic (Global)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -284,7 +294,105 @@ const Transactions: React.FC = () => {
     });
 
     return { groups: sortedGroups, monthlyIncome: inc, monthlyExpense: exp };
-  }, [transactions, viewDate, groupBy, searchQuery, getAssetName]);
+  }, [transactions, searchQuery, viewDate, startOfMonthDay, groupBy, showDebtInTransactions, getAssetName]);
+
+  // ─── Spending Pace Logic ──────────────────────────────────────────────────
+  const paceData = useMemo(() => {
+    const now = new Date();
+    const vM = viewDate.getMonth();
+    const vY = viewDate.getFullYear();
+    const isCurrentPeriod = vM === now.getMonth() && vY === now.getFullYear();
+
+    if (!isCurrentPeriod || searchQuery) return null;
+
+    const totalDays = new Date(vY, vM + 1, 0).getDate();
+    const daysPassed = now.getDate();
+    const expectedSpendPercent = daysPassed / totalDays;
+
+    const globalBudget = budgets.find(b => b.categoryId === null && b.month === vM && b.year === vY);
+    if (!globalBudget || globalBudget.limit <= 0) return null;
+
+    return { totalDays, daysPassed, expectedSpendPercent, globalLimit: globalBudget.limit };
+  }, [viewDate, budgets, searchQuery]);
+
+  const paceInfo = useMemo(() => {
+    if (!paceData) return null;
+    const { totalDays, daysPassed, expectedSpendPercent, globalLimit } = paceData;
+    const actualSpendPercent = monthlyExpense / globalLimit;
+    const diff = actualSpendPercent - expectedSpendPercent;
+
+    let status: 'on_track' | 'warning' | 'danger' = 'on_track';
+    if (diff > 0.2 || actualSpendPercent > 1.0) status = 'danger';
+    else if (diff > 0.1) status = 'warning';
+
+    const dailyRate = monthlyExpense / daysPassed;
+    const remainingBudget = globalLimit - monthlyExpense;
+    const daysRemaining = dailyRate > 0 ? Math.floor(remainingBudget / dailyRate) : (totalDays - daysPassed);
+
+    return {
+      expectedSpendPercent,
+      actualSpendPercent,
+      status,
+      daysRemaining: Math.max(0, daysRemaining),
+      globalLimit
+    };
+  }, [paceData, monthlyExpense]);
+
+  // --- Pace Notification ---
+  React.useEffect(() => {
+    if (!paceInfo) return;
+
+    const { status, actualSpendPercent, expectedSpendPercent } = paceInfo;
+    if (status === 'on_track') return;
+
+    const currentMonthKey = `${new Date().getFullYear()}-${new Date().getMonth()}`;
+    const lastNotified = localStorage.getItem(`pace_notified_${currentMonthKey}`);
+
+    if (lastNotified !== status) {
+      const message = status === 'danger'
+        ? `Pengeluaran terlalu cepat! Terpakai ${Math.round(actualSpendPercent * 100)}% anggaran, padahal baru ${Math.round(expectedSpendPercent * 100)}% bulan berlalu.`
+        : `Peringatan: Pengeluaran sedikit lebih cepat dari seharusnya (${Math.round(actualSpendPercent * 100)}% anggaran vs ${Math.round(expectedSpendPercent * 100)}% waktu).`;
+
+      showToast(message, status === 'danger' ? 'error' : 'warning');
+      localStorage.setItem(`pace_notified_${currentMonthKey}`, status);
+    }
+  }, [paceInfo, showToast]);
+
+  const eomInfo = useMemo(() => {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth() + 1; // 1-indexed
+    const year = today.getFullYear();
+
+    const startDay = startOfMonthDay || 1;
+    let endYear = year;
+    let endMonth = month;
+    let endDay = startDay - 1;
+
+    if (startDay === 1) {
+      const lastDayOfCalMonth = new Date(year, month, 0).getDate();
+      endDay = lastDayOfCalMonth;
+    } else {
+      if (day >= startDay) {
+        endMonth = month + 1;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = year + 1;
+        }
+      }
+    }
+
+    const eomDate = new Date(endYear, endMonth - 1, endDay);
+    const todayDate = new Date(year, month - 1, day);
+    const diffTime = eomDate.getTime() - todayDate.getTime();
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return {
+      isNearEOM: days >= 0 && days <= 5,
+      days,
+      dateStr: `${endDay}/${endMonth}/${endYear}`
+    };
+  }, [startOfMonthDay]);
 
   const changeMonth = useCallback((offset: number) => {
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -313,7 +421,7 @@ const Transactions: React.FC = () => {
     setIsModalOpen(true);
   }, []);
 
-  const handleAdd = (type: 'pengeluaran' | 'pendapatan' | 'transfer' = 'pengeluaran') => {
+  const handleAdd = (type: Transaction['type'] = 'pengeluaran') => {
     setEditingTransaction(null);
     setIsCopyMode(false);
     setInitialType(type);
@@ -328,6 +436,68 @@ const Transactions: React.FC = () => {
 
   return (
     <div className="page">
+      {/* Subscription Alert */}
+      {(() => {
+        const upcomingSubs = subscriptions.filter(s => {
+          if (!s.isActive || !s.nextBillingDate) return false;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const billingDate = new Date(s.nextBillingDate);
+          billingDate.setHours(0, 0, 0, 0);
+          const diffTime = billingDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 3;
+        });
+
+        if (upcomingSubs.length === 0) return null;
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              marginBottom: '16px',
+              padding: '12px 16px',
+              background: 'linear-gradient(135deg, #fff3cd, #ffeeba)',
+              border: '1px solid #ffeeba',
+              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+            }}
+          >
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'rgba(133, 100, 4, 0.1)', color: '#856404',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <AlertCircle size={20} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#856404' }}>Langganan Segera Berakhir</div>
+              <div style={{ fontSize: '11px', color: '#856404', opacity: 0.8, fontWeight: 600 }}>
+                {upcomingSubs.length === 1
+                  ? `"${upcomingSubs[0].name}" akan jatuh tempo dalam ${Math.ceil((new Date(upcomingSubs[0].nextBillingDate).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))} hari.`
+                  : `${upcomingSubs.length} langganan akan jatuh tempo dalam 3 hari ke depan.`
+                }
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/settings')}
+              style={{
+                background: '#856404', color: 'white', border: 'none',
+                padding: '6px 12px', borderRadius: '8px', fontSize: '11px',
+                fontWeight: 700, cursor: 'pointer'
+              }}
+            >
+              Lihat
+            </button>
+          </motion.div>
+        );
+      })()}
+
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="title" style={{ margin: 0 }}>Transaksi</h1>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -369,7 +539,7 @@ const Transactions: React.FC = () => {
 
       {/* Month Switcher */}
       {!searchQuery && (
-        <div className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
+        <div data-tour="month-nav" className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button onClick={() => changeMonth(-1)} className="btn-icon">
               <ChevronLeft size={24} />
@@ -406,8 +576,70 @@ const Transactions: React.FC = () => {
           marginBottom: '24px'
         }}
       >
+        {/* Pace Indicator Card */}
+        {paceInfo && (
+          <motion.div
+            variants={itemVariants}
+            whileHover={{ scale: 1.01 }}
+            style={{
+              gridColumn: 'span 2',
+              background: paceInfo.status === 'danger' ? 'var(--danger-gradient)' : paceInfo.status === 'warning' ? 'var(--warning-gradient)' : 'var(--success-gradient)',
+              color: 'white',
+              borderRadius: '24px',
+              padding: '18px 20px',
+              boxShadow: paceInfo.status === 'danger' ? '0 8px 24px var(--danger-glow)' : paceInfo.status === 'warning' ? '0 8px 24px var(--warning-glow)' : '0 8px 24px var(--success-glow)',
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}
+          >
+            {/* Abstract Background Decoration */}
+            <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.2, transform: 'rotate(-15deg)' }}>
+              <Gauge size={100} strokeWidth={1} />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', position: 'relative', zIndex: 1 }}>
+              <div style={{
+                width: '42px', height: '42px', borderRadius: '14px',
+                background: 'rgba(255, 255, 255, 0.22)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <Flame size={24} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.85, marginBottom: '2px' }}>
+                  Laju Pengeluaran: {paceInfo.status === 'on_track' ? 'Aman' : paceInfo.status === 'warning' ? 'Peringatan' : 'Bahaya'}
+                </div>
+                <div style={{ fontSize: '15px', fontWeight: 800, lineHeight: 1.2 }}>
+                  {paceInfo.status === 'on_track'
+                    ? "Pengeluaran Anda terkendali bulan ini."
+                    : `Terpakai ${Math.round(paceInfo.actualSpendPercent * 100)}% anggaran dalam ${Math.round(paceInfo.expectedSpendPercent * 100)}% waktu.`}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '4px', overflow: 'hidden' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(paceInfo.actualSpendPercent * 100, 100)}%` }}
+                  style={{ height: '100%', background: 'white', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '11px', fontWeight: 700 }}>
+                <span style={{ opacity: 0.9 }}>{paceInfo.status === 'danger' ? 'Terlalu Cepat!' : paceInfo.status === 'warning' ? 'Sedikit Cepat' : 'Sesuai Target'}</span>
+                <span style={{ opacity: 0.95, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                  Estimasi: {paceInfo.daysRemaining} hari tersisa
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
         {/* Bento Card 1: Pemasukan */}
         <motion.div
+          data-tour="income-card"
           role="button"
           aria-label="Tambah Pemasukan"
           variants={itemVariants}
@@ -453,6 +685,7 @@ const Transactions: React.FC = () => {
 
         {/* Bento Card 2: Pengeluaran */}
         <motion.div
+          data-tour="expense-card"
           role="button"
           aria-label="Catat Pengeluaran"
           variants={itemVariants}
@@ -498,6 +731,7 @@ const Transactions: React.FC = () => {
 
         {/* Bento Card 3: Quick AI Scanner */}
         <motion.div
+          data-tour="ai-scanner"
           variants={itemVariants}
           whileHover={{ scale: 1.01, y: -2 }}
           style={{
@@ -544,7 +778,7 @@ const Transactions: React.FC = () => {
               }}
             >
               <Camera size={14} style={{ color: '#a855f7', flexShrink: 0 }} />
-              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>Struk OCR</span>
+              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>Pindai AI</span>
             </motion.button>
             <motion.button
               aria-label="Scan Bulk AI"
@@ -573,7 +807,7 @@ const Transactions: React.FC = () => {
               }}
             >
               <Sparkles size={14} style={{ color: '#3b82f6', flexShrink: 0 }} />
-              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>Bulk AI</span>
+              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>Input AI</span>
             </motion.button>
           </div>
         </motion.div>
@@ -581,17 +815,21 @@ const Transactions: React.FC = () => {
         {/* Bento Card 4: Chatbot Assistant */}
         <motion.div
           role="button"
-          aria-label="Tanya Bot Asisten"
+          aria-label={eomInfo.isNearEOM ? "Evaluasi Tutup Buku Akhir Bulan AI" : "Tanya Bot Asisten"}
           variants={itemVariants}
           whileHover={{ scale: 1.01, y: -2 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setIsChatOpen(true)}
           style={{
-            background: 'var(--bg-card)',
-            border: '1.5px solid var(--border-color)',
+            background: eomInfo.isNearEOM
+              ? 'linear-gradient(135deg, hsl(270, 75%, 60%), hsl(250, 80%, 55%))'
+              : 'var(--bg-card)',
+            border: eomInfo.isNearEOM ? 'none' : '1.5px solid var(--border-color)',
             borderRadius: '20px',
             padding: '12px 14px',
-            boxShadow: '0 4px 16px rgba(59, 130, 246, 0.12)',
+            boxShadow: eomInfo.isNearEOM
+              ? '0 8px 24px rgba(168, 85, 247, 0.4)'
+              : '0 4px 16px rgba(59, 130, 246, 0.12)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
@@ -603,18 +841,56 @@ const Transactions: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '100%' }}>
               <span style={{ position: 'relative', display: 'flex', height: '7px', width: '7px', marginRight: '5px' }}>
-                <span style={{ animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite', position: 'absolute', display: 'inline-flex', height: '7px', width: '7px', borderRadius: '50%', background: 'var(--success)', opacity: 0.75 }} />
-                <span style={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', height: '7px', width: '7px', background: 'var(--success)' }} />
+                <span style={{
+                  animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite',
+                  position: 'absolute',
+                  display: 'inline-flex',
+                  height: '7px',
+                  width: '7px',
+                  borderRadius: '50%',
+                  background: eomInfo.isNearEOM ? 'hsl(45, 100%, 65%)' : 'var(--success)',
+                  opacity: 0.75
+                }} />
+                <span style={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  borderRadius: '50%',
+                  height: '7px',
+                  width: '7px',
+                  background: eomInfo.isNearEOM ? 'hsl(45, 100%, 50%)' : 'var(--success)'
+                }} />
               </span>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '1' }}>MoneyBot</span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                color: eomInfo.isNearEOM ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                lineHeight: '1'
+              }}>
+                {eomInfo.isNearEOM ? 'EOM Alert 💡' : 'MoneyBot'}
+              </span>
             </div>
             <div style={{ height: '0px', display: 'flex', alignItems: 'center', overflow: 'visible' }}>
               <MagicRobotSVG size={46} />
             </div>
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1px' }}>Tanya Bot Asisten</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>Catat via chat &rarr;</div>
+            <div style={{
+              fontSize: '13px',
+              fontWeight: 800,
+              color: eomInfo.isNearEOM ? 'white' : 'var(--text-main)',
+              marginBottom: '1px'
+            }}>
+              {eomInfo.isNearEOM ? 'Nasihat Akhir Bulan' : 'Tanya Bot Asisten'}
+            </div>
+            <div style={{
+              fontSize: '10px',
+              color: eomInfo.isNearEOM ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)',
+              fontWeight: 600
+            }}>
+              {eomInfo.isNearEOM ? 'Mulai evaluasi AI ' : 'Catat via chat '}
+            </div>
           </div>
         </motion.div>
       </motion.div>
@@ -772,7 +1048,7 @@ const Transactions: React.FC = () => {
             <button
               className="fab-mini"
               onClick={() => navigate('/scan')}
-              title="Scan Struk (OCR)"
+              title="Pindai AI (Struk/Mutasi)"
               style={{ background: 'var(--bg-card)', color: 'hsl(270,70%,60%)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
               <Camera size={20} />
@@ -780,7 +1056,7 @@ const Transactions: React.FC = () => {
             <button
               className="fab-mini"
               onClick={() => navigate('/bulk-input')}
-              title="Bulk Input (AI)"
+              title="Input AI (Teks)"
               style={{ background: 'var(--bg-card)', color: 'var(--primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
               <Sparkles size={20} />
@@ -841,6 +1117,21 @@ const Transactions: React.FC = () => {
       <WhatsNewModal
         isOpen={isWhatsNewOpen}
         onClose={closeWhatsNew}
+      />
+
+      <OnboardingTutorial 
+        pageKey="transactions" 
+        steps={[
+          { targetSelector: '[data-tour="income-card"]', title: '💰 Catat Pemasukan', description: 'Tap kartu ini untuk menambahkan pemasukan seperti gaji, bonus, atau pendapatan lain.' },
+          { targetSelector: '[data-tour="expense-card"]', title: '💸 Catat Pengeluaran', description: 'Tap kartu ini untuk mencatat pengeluaran harian kamu dengan cepat.' },
+          { targetSelector: '[data-tour="modal-amount"]', title: '💵 Nominal Transaksi', description: 'Masukkan nominal uang untuk transaksi ini.', onBeforeShow: () => handleAdd('pengeluaran') },
+          { targetSelector: '[data-tour="modal-category"]', title: '🏷️ Pilih Kategori', description: 'Pilih kategori pengeluaran agar laporan keuangan rapi.' },
+          { targetSelector: '[data-tour="modal-asset"]', title: '💳 Dompet / Rekening', description: 'Pilih sumber dana atau rekening yang digunakan untuk transaksi ini.' },
+          { targetSelector: '[data-tour="modal-note"]', title: '📝 Catatan Tambahan', description: 'Tulis keterangan singkat atau detail transaksi di sini.' },
+          { targetSelector: '[data-tour="modal-submit"]', title: '💾 Simpan Transaksi', description: 'Klik tombol simpan untuk mencatat transaksi ke database.' },
+          { targetSelector: '[data-tour="ai-scanner"]', title: '🤖 Scanner AI Cerdas', description: 'Pindai struk belanja dengan kamera atau ketik banyak transaksi sekaligus dengan bantuan AI.', onBeforeShow: () => handleCloseModal() },
+          { targetSelector: '[data-tour="month-nav"]', title: '📅 Navigasi Bulan', description: 'Geser kiri-kanan untuk melihat transaksi bulan lalu atau bulan depan. Tap untuk pilih bulan spesifik.' },
+        ]} 
       />
     </div>
   );

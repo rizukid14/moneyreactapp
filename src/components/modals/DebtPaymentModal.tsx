@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Check, ArrowRightLeft, Wallet, ChevronRight } from 'lucide-react';
+import { X, Check, ArrowRightLeft, Wallet } from 'lucide-react';
+import AssetSelectModal from './AssetSelectModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getLocalDate, getLocalTime, formatCurrency } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
-import AssetSelectModal from './AssetSelectModal';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface DebtPaymentModalProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ interface DebtPaymentModalProps {
 const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   isOpen, onClose, onConfirm, debt, assets, paidAmountFromTxs, currencySymbol
 }) => {
-  const { defaultAssetId: globalDefaultAssetId } = useMoney();
+  const { defaultAssetId: globalDefaultAssetId, getAssetBalance } = useMoney();
   const isHutang = debt.type === 'hutang';
   const activeAssets = assets.filter(a => !a.isDeleted);
 
@@ -32,7 +33,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   const [note, setNote] = useState('');
   const [isFullSettle, setIsFullSettle] = useState(true);
   const [lastOpen, setLastOpen] = useState(false);
-  const [assetModalOpen, setAssetModalOpen] = useState(false);
+  const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
 
   React.useEffect(() => {
     if (isOpen && !lastOpen) {
@@ -50,10 +51,9 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
     setLastOpen(isOpen);
   }, [isOpen, lastOpen, debt, remaining, debtDefaultAssetId, globalDefaultAssetId, activeAssets]);
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '');
-    setAmount(val);
-    const numVal = Number(val);
+  const handleRawAmountChange = (rawVal: string) => {
+    setAmount(rawVal);
+    const numVal = Number(rawVal);
     if (numVal >= remaining) {
       setIsFullSettle(true);
     } else {
@@ -116,11 +116,9 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 </label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={Number(amount).toLocaleString('id-ID')}
-                    onChange={handleAmountChange}
+                  <CurrencyInput
+                    value={amount}
+                    onChange={handleRawAmountChange}
                     style={{ width: '100%', paddingLeft: 40, fontWeight: 800, fontSize: 18, marginBottom: 0 }}
                   />
                 </div>
@@ -176,45 +174,35 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                   {isHutang ? '🏦 Bayar dari:' : '🏦 Terima ke:'}
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setAssetModalOpen(true)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    background: 'var(--bg-card-solid)',
-                    border: '2px solid var(--border-color)',
-                    borderRadius: 'var(--radius-sm)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    marginBottom: 0,
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)';
-                    (e.currentTarget as HTMLElement).style.background = 'var(--bg-main)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-color)';
-                    (e.currentTarget as HTMLElement).style.background = 'var(--bg-card-solid)';
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Wallet size={16} color="var(--primary)" />
-                    <span
-                      style={{
-                        fontSize: 13,
-                        fontWeight: selectedAssetId ? 600 : 400,
-                        color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)',
-                      }}
-                    >
-                      {selectedAssetId ? activeAssets.find(a => a.id === selectedAssetId)?.name : '-- Pilih Rekening --'}
-                    </span>
-                  </div>
-                  <ChevronRight size={16} color="var(--text-muted)" />
-                </button>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsAssetSelectOpen(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: `1.5px solid var(--border-color)`,
+                      width: '100%', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left',
+                      color: 'var(--text-main)'
+                    }}
+                  >
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '10px',
+                      background: 'var(--bg-card)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    }}>
+                      <Wallet size={18} color={'var(--text-muted)'} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeAssets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        Saldo: {currencySymbol}{getAssetBalance(selectedAssetId).toLocaleString('id-ID')}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>Ganti</div>
+                  </button>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
@@ -239,7 +227,15 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               </div>
             </div>
 
-            <button
+              <AssetSelectModal
+                isOpen={isAssetSelectOpen}
+                onClose={() => setIsAssetSelectOpen(false)}
+                assets={activeAssets}
+                selectedAssetId={selectedAssetId}
+                onSelect={(id) => { setSelectedAssetId(id); setIsAssetSelectOpen(false); }}
+              />
+
+              <button
               onClick={handleConfirm}
               className="btn"
               style={{
@@ -261,13 +257,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               {isFullSettle ? 'Konfirmasi Pelunasan' : 'Konfirmasi Pembayaran Cicilan'}
             </button>
 
-            <AssetSelectModal
-              isOpen={assetModalOpen}
-              onClose={() => setAssetModalOpen(false)}
-              assets={activeAssets}
-              selectedAssetId={selectedAssetId}
-              onSelect={(id) => setSelectedAssetId(id)}
-            />
+
           </motion.div>
         </motion.div>
       )}

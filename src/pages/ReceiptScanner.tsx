@@ -1,12 +1,16 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal, ChevronLeft } from 'lucide-react';
+import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal, ChevronLeft, ChevronRight, Folder, Wallet } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
 import SplitBillModal from '../components/modals/SplitBillModal';
+import AssetSelectModal from '../components/modals/AssetSelectModal';
+import CategorySelectModal from '../components/modals/CategorySelectModal';
+import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 import { useNavigate } from 'react-router-dom';
+import CurrencyInput from '../components/common/CurrencyInput';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -20,10 +24,13 @@ const CONFIDENCE_BADGE = {
 
 const ReceiptScanner: React.FC = () => {
   const navigate = useNavigate();
-  const { addTransaction, addDebt, assets, categories, currencySymbol, defaultAssetId: contextDefaultAssetId } = useMoney();
+  const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId, validateTransactionBudget, zbbMode } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { showToast } = useToast();
+
+  const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+  const [pendingAction, setPendingAction] = useState<{ type: 'save_main' | 'save_line_items' | 'save_mutasi' | 'split', data?: any } | null>(null);
 
   // Stage management
   const [stage, setStage] = useState<Stage>('upload');
@@ -61,9 +68,52 @@ const ReceiptScanner: React.FC = () => {
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<'name' | 'amount' | null>(null);
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
-
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check for shared image files from PWA Share Target
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('shared') === 'true') {
+      const loadSharedData = async () => {
+        try {
+          if (!window.caches) return;
+          const cache = await window.caches.open('shared-data');
+          const metaRes = await cache.match('/shared-metadata.json');
+          if (metaRes) {
+            const meta = await metaRes.json();
+            if (meta.hasFile) {
+              const fileRes = await cache.match('/shared-file.bin');
+              if (fileRes) {
+                const blob = await fileRes.blob();
+                const file = new File([blob], meta.title || 'shared-receipt.jpg', { type: blob.type });
+                const url = URL.createObjectURL(file);
+                
+                setPreviewUrl(url);
+                setImageFile(file);
+                setCropRect(null);
+                setStage('crop');
+                showToast('Gambar transaksi berhasil diterima!', 'success');
+              }
+            }
+            // Clean up cache
+            await cache.delete('/shared-metadata.json');
+            await cache.delete('/shared-file.bin');
+          }
+        } catch (err) {
+          console.error('Error loading shared file:', err);
+          showToast('Gagal memuat gambar transaksi yang dibagikan', 'error');
+        } finally {
+          // Clear query params without page reload
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      };
+      loadSharedData();
+    }
+  }, [showToast]);
 
   const reset = useCallback(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -226,11 +276,11 @@ const ReceiptScanner: React.FC = () => {
           let matchedCategory = '';
           let matchedSubCategory = '';
           if (tx.category && tx.type !== 'transfer') {
-            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type);
+            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type && !c.isDeleted);
             if (matchedCat) {
               matchedCategory = matchedCat.name;
               if (tx.subCategory && matchedCat.subcategories) {
-                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategory!.toLowerCase());
+                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategory!.toLowerCase() && !s.isDeleted);
                 if (matchedSub) matchedSubCategory = matchedSub.name;
               }
             }
@@ -296,13 +346,15 @@ const ReceiptScanner: React.FC = () => {
       if (ocrResult.suggestedCategory) {
         const matchedCat = categories.find(c =>
           c.name.toLowerCase() === ocrResult.suggestedCategory.toLowerCase() &&
-          c.type === 'pengeluaran'
+          c.type === 'pengeluaran' &&
+          !c.isDeleted
         );
         if (matchedCat) {
           setSelectedCategory(matchedCat.name);
           if (ocrResult.suggestedSubCategory && matchedCat.subcategories) {
             const matchedSub = matchedCat.subcategories.find(s =>
-              s.name.toLowerCase() === ocrResult.suggestedSubCategory!.toLowerCase()
+              s.name.toLowerCase() === ocrResult.suggestedSubCategory!.toLowerCase() &&
+              !s.isDeleted
             );
             if (matchedSub) setSelectedSubCategory(matchedSub.name);
           }
@@ -359,18 +411,44 @@ const ReceiptScanner: React.FC = () => {
 
   const handleSaveMain = () => {
     if (!result) return;
-    // editableAmount state is always raw digits — parse directly
     const finalAmount = parseInt(editableAmount) || 0;
     if (finalAmount <= 0) { showToast('Isi nominal terlebih dahulu', 'warning'); return; }
     if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
 
+    if (zbbMode === 'strict' && selectedType === 'pengeluaran') {
+      const validation = validateTransactionBudget({
+        type: selectedType,
+        amount: finalAmount,
+        category: selectedCategory || 'Belanja (OCR)',
+        date: selectedDate
+      });
+      if (!validation.isValid) {
+        setPendingAction({ type: 'save_main' });
+        setReallocationModal({
+          isOpen: true,
+          deficitCategory: validation.deficitCategory,
+          deficitAmount: validation.deficitAmount,
+          month: new Date(selectedDate).getMonth(),
+          year: new Date(selectedDate).getFullYear()
+        });
+        return;
+      }
+    }
+
+    performSaveMain();
+  };
+
+  const performSaveMain = () => {
+    const finalAmount = parseInt(editableAmount) || 0;
     try {
       // Build note and description with line items if they exist
       const selectedItems = lineItems.filter(i => i.selected);
       const finalNote = merchantName || 'Scan Otomatis';
       let finalDescription = '';
       if (selectedItems.length > 0) {
-        finalDescription = selectedItems.map(i => i.name).join(', ');
+        finalDescription = selectedItems
+          .map(i => `${i.name} - ${currencySymbol}${i.amount.toLocaleString('id-ID')}`)
+          .join('\n');
       }
 
       addTransaction({
@@ -397,6 +475,33 @@ const ReceiptScanner: React.FC = () => {
     const toSave = lineItems.filter(i => i.selected && i.amount !== 0);
     if (toSave.length === 0) { showToast('Pilih minimal 1 item dengan nominal selain 0', 'warning'); return; }
 
+    const totalSaveAmount = toSave.reduce((sum, item) => sum + item.amount, 0);
+
+    if (zbbMode === 'strict' && selectedType === 'pengeluaran') {
+      const validation = validateTransactionBudget({
+        type: selectedType,
+        amount: totalSaveAmount,
+        category: selectedCategory || 'Belanja (OCR)',
+        date: selectedDate
+      });
+      if (!validation.isValid) {
+        setPendingAction({ type: 'save_line_items' });
+        setReallocationModal({
+          isOpen: true,
+          deficitCategory: validation.deficitCategory,
+          deficitAmount: validation.deficitAmount,
+          month: new Date(selectedDate).getMonth(),
+          year: new Date(selectedDate).getFullYear()
+        });
+        return;
+      }
+    }
+
+    performSaveLineItems();
+  };
+
+  const performSaveLineItems = () => {
+    const toSave = lineItems.filter(i => i.selected && i.amount !== 0);
     try {
       toSave.forEach(item => {
         addTransaction({
@@ -419,40 +524,93 @@ const ReceiptScanner: React.FC = () => {
   };
 
   const handleSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
+    const userSplit = splits.find(s => s.id === 'me');
+    const payer = splits.find(s => s.isPayer) || splits[0];
+    const isMePayer = payer.id === 'me';
+
+    if (isMePayer && zbbMode === 'strict' && userSplit && userSplit.amount > 0) {
+      const validation = validateTransactionBudget({
+        type: 'pengeluaran',
+        amount: userSplit.amount,
+        category: data.category || 'Belanja (OCR)',
+        date: selectedDate
+      });
+      if (!validation.isValid) {
+        setPendingAction({ type: 'split', data: { splits, data } });
+        setReallocationModal({
+          isOpen: true,
+          deficitCategory: validation.deficitCategory,
+          deficitAmount: validation.deficitAmount,
+          month: new Date(selectedDate).getMonth(),
+          year: new Date(selectedDate).getFullYear()
+        });
+        return;
+      }
+    }
+
+    performSplitSave(splits, data);
+  };
+
+  const performSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
     try {
       const userSplit = splits.find(s => s.id === 'me');
+      const payer = splits.find(s => s.isPayer) || splits[0];
+      const isMePayer = payer.id === 'me';
 
-      // 1. Save user's portion as a transaction
-      if (userSplit && userSplit.amount > 0) {
-        addTransaction({
-          type: 'pengeluaran',
-          amount: userSplit.amount,
-          category: data.category || 'Belanja (OCR)',
-          subCategory: data.subCategory || undefined,
-          date: selectedDate,
-          time: selectedTime,
-          note: merchantName || 'Split Bill',
-          assetId: data.assetId,
+      if (isMePayer) {
+        // CASE 1: I PAID -> Record my share as expense + others as receivables
+        // 1. My portion as a transaction
+        if (userSplit && userSplit.amount > 0) {
+          addTransaction({
+            type: 'pengeluaran',
+            amount: userSplit.amount,
+            category: data.category || 'Belanja (OCR)',
+            subCategory: data.subCategory || undefined,
+            date: selectedDate,
+            time: selectedTime,
+            note: merchantName || 'Split Bill',
+            assetId: data.assetId,
+          });
+        }
+
+        // 2. Others' portions as Piutang (Debts)
+        const others = splits.filter(s => s.id !== 'me' && s.amount > 0);
+        others.forEach(person => {
+          addDebt({
+            type: 'piutang',
+            contact: person.contactName,
+            description: `Split Bill: ${merchantName || 'Struk'}`,
+            totalAmount: person.amount,
+            isPaid: false,
+            date: selectedDate,
+            createdAt: new Date().toISOString(),
+            paymentAssetId: selectedAssetId,
+            isInstallment: false,
+            paidInstallments: 0
+          }, 'none', selectedCategory || 'Lainnya');
         });
+        showToast(`Split bill disimpan! (${others.length} piutang dicatat)`, 'success');
+      } else {
+        // CASE 2: SOMEONE ELSE PAID -> Record my share as a debt to them
+        if (userSplit && userSplit.amount > 0) {
+          addDebt({
+            type: 'hutang',
+            contact: payer.contactName,
+            description: `Split Bill (${merchantName || 'Struk'})`,
+            totalAmount: userSplit.amount,
+            isPaid: false,
+            date: selectedDate,
+            createdAt: new Date().toISOString(),
+            liabilityAssetId: '', // No asset affected yet as I haven't paid them back
+            isInstallment: false,
+            paidInstallments: 0
+          }, 'none', selectedCategory || 'Lainnya');
+          showToast(`Berhasil mencatat hutang ke ${payer.contactName}`, 'success');
+        } else {
+          showToast('Tidak ada bagian untuk Anda dalam split ini.', 'info');
+        }
       }
 
-      // 2. Save others' portions as Piutang (Debts)
-      const others = splits.filter(s => s.id !== 'me' && s.amount > 0);
-      others.forEach(person => {
-        addDebt({
-          type: 'piutang',
-          contact: person.contactName,
-          description: `Split Bill: ${merchantName || 'Struk'}`,
-          totalAmount: person.amount,
-          isPaid: false,
-          createdAt: new Date().toISOString(),
-          paymentAssetId: selectedAssetId, // The asset used to "lend" (pay for them)
-          isInstallment: false,
-          paidInstallments: 0
-        }, 'none', selectedCategory || 'Lainnya');
-      });
-
-      showToast(`Split bill berhasil disimpan! (${others.length} piutang dibuat)`, 'success');
       setIsSplitModalOpen(false);
       reset();
     } catch (e) {
@@ -486,8 +644,64 @@ const ReceiptScanner: React.FC = () => {
     setEditingItemIdx(0);
     setEditingField('name');
   };
+  const performSaveMutasi = (batchAssetId: string) => {
+    const toSave = mutasiResults.filter(r => r.selected);
+    toSave.forEach(tx => {
+      if (tx.type === 'transfer') {
+        const finalFrom = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : batchAssetId;
+        const finalTo = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : batchAssetId;
+        const newTx = addTransaction({
+          type: 'transfer',
+          amount: tx.amount,
+          date: tx.date,
+          note: tx.note || 'Transfer',
+          category: 'Transfer',
+          fromAssetId: finalFrom,
+          toAssetId: finalTo
+        });
+        if (tx.adminFee && tx.adminFee > 0) {
+          const feeAssetId = tx.adminFeeTarget === 'receiver' ? finalTo : finalFrom;
+          const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+          addTransaction({
+            type: 'pengeluaran',
+            amount: tx.adminFee,
+            category: 'Biaya Admin',
+            date: tx.date,
+            note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+            assetId: feeAssetId,
+            relatedId: newTx.id,
+          });
+        }
+      } else {
+        addTransaction({
+          type: tx.type,
+          amount: tx.amount,
+          date: tx.date,
+          note: tx.note,
+          category: tx.category,
+          subCategory: tx.subCategory || undefined,
+          assetId: batchAssetId
+        });
+      }
+    });
 
-  const selCat = categories.find(c => c.name === selectedCategory && c.type === selectedType);
+    showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
+    reset();
+  };
+
+  const handleReallocationSuccess = () => {
+    setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+    if (pendingAction?.type === 'save_main') {
+      performSaveMain();
+    } else if (pendingAction?.type === 'save_line_items') {
+      performSaveLineItems();
+    } else if (pendingAction?.type === 'split' && pendingAction.data) {
+      performSplitSave(pendingAction.data.splits, pendingAction.data.data);
+    } else if (pendingAction?.type === 'save_mutasi' && pendingAction.data?.batchAssetId) {
+      performSaveMutasi(pendingAction.data.batchAssetId);
+    }
+    setPendingAction(null);
+  };
 
   return (
     <div className="page">
@@ -495,7 +709,7 @@ const ReceiptScanner: React.FC = () => {
         <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
           <ChevronLeft size={20} />
         </button>
-        <h1 className="title" style={{ margin: 0 }}>Scan Struk</h1>
+        <h1 className="title" style={{ margin: 0 }}>{scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'}</h1>
       </div>
       <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />
 
@@ -503,8 +717,8 @@ const ReceiptScanner: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '10px' }}>
 
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)', marginBottom: '16px', width: '100%', maxWidth: '300px' }}>
-            <button onClick={() => setScanMode('struk')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'struk' ? 'var(--primary)' : 'transparent', color: scanMode === 'struk' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Struk (1 Tx)</button>
-            <button onClick={() => setScanMode('mutasi')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'mutasi' ? 'var(--primary)' : 'transparent', color: scanMode === 'mutasi' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Mutasi (Banyak Tx)</button>
+            <button onClick={() => setScanMode('struk')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'struk' ? 'var(--primary)' : 'transparent', color: scanMode === 'struk' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Pindai Struk</button>
+            <button onClick={() => setScanMode('mutasi')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'mutasi' ? 'var(--primary)' : 'transparent', color: scanMode === 'mutasi' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Pindai Mutasi</button>
           </div>
 
           <button onClick={() => fileInputRef.current?.click()} className="glass" style={{
@@ -521,10 +735,10 @@ const ReceiptScanner: React.FC = () => {
             }}>
               <Camera size={40} />
             </div>
-            <div style={{ fontWeight: 800, fontSize: '22px' }}>Ambil Foto Struk</div>
+            <div style={{ fontWeight: 800, fontSize: '22px' }}>{scanMode === 'struk' ? 'Ambil Foto Struk' : 'Ambil Foto Mutasi'}</div>
             <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <Lightbulb size={16} style={{ color: 'var(--secondary)' }} />
-              <span>Tips: Pastikan foto struk terlihat jelas dan terang</span>
+              <span>Tips: Pastikan foto {scanMode === 'struk' ? 'struk' : 'mutasi'} terlihat jelas dan terang</span>
             </div>
           </button>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', maxWidth: '300px', lineHeight: 1.5 }}>
@@ -542,7 +756,18 @@ const ReceiptScanner: React.FC = () => {
 
       {stage === 'crop' && (
         <div style={{ width: '100%' }}>
-          <div className="card glass" style={{ marginBottom: '16px' }}>
+          <div className="card glass crop-actions-container" style={{ 
+            position: 'fixed',
+            bottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'calc(100% - 40px)',
+            maxWidth: '500px',
+            zIndex: 100,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            margin: 0,
+            padding: '12px'
+          }}>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={runScan}>
                 <Scissors size={16} /> {cropRect && cropRect.w > 50 ? 'Crop & Scan' : 'Scan Gambar Penuh'}
@@ -550,7 +775,7 @@ const ReceiptScanner: React.FC = () => {
               <button className="btn" style={{ flex: 1 }} onClick={reset}>Batal</button>
             </div>
           </div>
-          <div style={{ borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border-color)', touchAction: 'none' }}>
+          <div style={{ borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border-color)', touchAction: 'none', marginBottom: '100px' }}>
             <canvas ref={canvasRef} style={{ width: '100%', display: 'block' }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
           </div>
         </div>
@@ -579,25 +804,55 @@ const ReceiptScanner: React.FC = () => {
             <div style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
                 <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{currencySymbol}</span>
-                <input type="text" inputMode="numeric" value={editableAmount ? parseInt(editableAmount).toLocaleString('id-ID') : ''} onChange={e => setEditableAmount(e.target.value.replace(/\D/g, ''))} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
+                <CurrencyInput value={editableAmount} onChange={val => setEditableAmount(val)} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
               </div>
 
-              <select value={selectedCategory} onChange={e => { setSelectedCategory(e.target.value); setSelectedSubCategory(''); }} style={{ marginBottom: '10px' }}>
-                <option value="">-- Pilih Kategori --</option>
-                {categories.filter(c => c.type === selectedType).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                {/* Category Selection */}
+                <button
+                  type="button"
+                  onClick={() => setIsCatModalOpen(true)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                    borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Folder size={18} color="var(--primary)" />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Kategori</span>
+                      <span style={{ fontWeight: 700, color: selectedCategory ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {selectedCategory || 'Pilih Kategori'}
+                        {selectedSubCategory && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> • {selectedSubCategory}</span>}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="var(--text-muted)" />
+                </button>
 
-              {selCat?.subcategories && selCat.subcategories.length > 0 && (
-                <select value={selectedSubCategory} onChange={e => setSelectedSubCategory(e.target.value)} style={{ marginBottom: '10px' }}>
-                  <option value="">-- Sub Kategori --</option>
-                  {selCat.subcategories.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
-                </select>
-              )}
-
-              <select value={selectedAssetId} onChange={e => setSelectedAssetId(e.target.value)} style={{ marginBottom: '12px' }}>
-                <option value="">-- Pilih Rekening --</option>
-                {assets.filter(a => !a.isDeleted).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+                {/* Asset Selection */}
+                <button
+                  type="button"
+                  onClick={() => setIsAssetModalOpen(true)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                    borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Wallet size={18} color="var(--primary)" />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Rekening</span>
+                      <span style={{ fontWeight: 700, color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="var(--text-muted)" />
+                </button>
+              </div>
 
               <div style={{ marginBottom: '12px' }}>
                 <input
@@ -615,33 +870,27 @@ const ReceiptScanner: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
                   <div>
                     <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>PAJAK</label>
-                    <input 
-                      type="text" 
-                      inputMode="numeric" 
-                      value={taxAmount ? taxAmount.toLocaleString('id-ID') : ''} 
-                      onChange={e => setTaxAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                    <CurrencyInput 
+                      value={taxAmount || ''} 
+                      onChange={val => setTaxAmount(parseInt(val) || 0)} 
                       style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
                       placeholder="0"
                     />
                   </div>
                   <div>
                     <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>SERVICE</label>
-                    <input 
-                      type="text" 
-                      inputMode="numeric" 
-                      value={serviceAmount ? serviceAmount.toLocaleString('id-ID') : ''} 
-                      onChange={e => setServiceAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                    <CurrencyInput 
+                      value={serviceAmount || ''} 
+                      onChange={val => setServiceAmount(parseInt(val) || 0)} 
                       style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
                       placeholder="0"
                     />
                   </div>
                   <div>
                     <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DISKON</label>
-                    <input 
-                      type="text" 
-                      inputMode="numeric" 
-                      value={discountAmount ? discountAmount.toLocaleString('id-ID') : ''} 
-                      onChange={e => setDiscountAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                    <CurrencyInput 
+                      value={discountAmount || ''} 
+                      onChange={val => setDiscountAmount(parseInt(val) || 0)} 
                       style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0, color: 'var(--danger)' }}
                       placeholder="0"
                     />
@@ -734,25 +983,29 @@ const ReceiptScanner: React.FC = () => {
 
                   <div style={{ flexShrink: 0, minWidth: '80px', textAlign: 'right' }}>
                     {editingItemIdx === idx && editingField === 'amount' ? (
-                      <input
+                      <CurrencyInput
                         autoFocus
-                        type="text"
-                        inputMode="numeric"
-                        value={item.amount === 0 ? '' : item.amount.toLocaleString('id-ID')}
-                        onChange={e => editItem(idx, 'amount', e.target.value)}
+                        value={item.amount === 0 ? '' : item.amount}
+                        onChange={val => editItem(idx, 'amount', val)}
                         onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
                         style={{ width: '80px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '4px 8px', borderRadius: '6px', marginBottom: 0 }}
                       />
                     ) : (
-                      <span
+                      <div 
                         onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('amount'); }}
-                        style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', cursor: 'text' }}
-                        title="Tap untuk edit nominal"
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', cursor: 'text' }}
                       >
-                        {currencySymbol}{item.amount.toLocaleString('id-ID')}
-                      </span>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)' }}>
+                          {currencySymbol}{item.amount.toLocaleString('id-ID')}
+                        </span>
+                        {item.originalAmount && item.amount !== item.originalAmount && (
+                          <span style={{ fontSize: '9px', fontWeight: 800, color: item.amount > item.originalAmount ? 'var(--danger)' : 'var(--success)', opacity: 0.8 }}>
+                            {item.amount > item.originalAmount ? '+' : ''}{(item.amount - item.originalAmount).toLocaleString('id-ID')}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -807,7 +1060,7 @@ const ReceiptScanner: React.FC = () => {
                   </div>
                 )}
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.7, marginTop: '2px', fontStyle: 'italic' }}>
-                  * Nilai di atas sudah didistribusikan secara proporsional ke harga item di bawah.
+                  * Gunakan tombol "Hitung Ulang & Distribusi" untuk memasukkan Pajak/Service ke harga item secara proporsional.
                 </div>
               </div>
             )}
@@ -872,50 +1125,37 @@ const ReceiptScanner: React.FC = () => {
               return;
             }
 
-            toSave.forEach(tx => {
-              if (tx.type === 'transfer') {
-                // Ensure one side is the batch asset
-                const finalFrom = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : batchAssetId;
-                const finalTo = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : batchAssetId;
+            if (zbbMode === 'strict') {
+              const expenses = toSave.filter(r => r.type === 'pengeluaran');
+              const grouped = expenses.reduce((acc, tx) => {
+                const key = `${tx.category}_${tx.date}`;
+                acc[key] = (acc[key] || 0) + tx.amount;
+                return acc;
+              }, {} as Record<string, number>);
 
-                const newTx = addTransaction({
-                  type: 'transfer',
-                  amount: tx.amount,
-                  date: tx.date,
-                  note: tx.note || 'Transfer',
-                  category: 'Transfer',
-                  fromAssetId: finalFrom,
-                  toAssetId: finalTo
+              for (const key of Object.keys(grouped)) {
+                const [cat, dt] = key.split('_');
+                const validation = validateTransactionBudget({
+                  type: 'pengeluaran',
+                  amount: grouped[key],
+                  category: cat,
+                  date: dt
                 });
-
-                if (tx.adminFee && tx.adminFee > 0) {
-                  const feeAssetId = tx.adminFeeTarget === 'receiver' ? finalTo : finalFrom;
-                  const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
-                  addTransaction({
-                    type: 'pengeluaran',
-                    amount: tx.adminFee,
-                    category: 'Biaya Admin',
-                    date: tx.date,
-                    note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
-                    assetId: feeAssetId,
-                    relatedId: newTx.id,
+                if (!validation.isValid) {
+                  setPendingAction({ type: 'save_mutasi', data: { batchAssetId } });
+                  setReallocationModal({
+                    isOpen: true,
+                    deficitCategory: validation.deficitCategory,
+                    deficitAmount: validation.deficitAmount,
+                    month: new Date(dt).getMonth(),
+                    year: new Date(dt).getFullYear()
                   });
+                  return; 
                 }
-              } else {
-                addTransaction({
-                  type: tx.type,
-                  amount: tx.amount,
-                  date: tx.date,
-                  note: tx.note,
-                  category: tx.category,
-                  subCategory: tx.subCategory || undefined,
-                  assetId: batchAssetId
-                });
               }
-            });
+            }
 
-            showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
-            reset();
+            performSaveMutasi(batchAssetId);
           }}
         />
       )}
@@ -923,16 +1163,51 @@ const ReceiptScanner: React.FC = () => {
       <SplitBillModal
         isOpen={isSplitModalOpen}
         onClose={() => setIsSplitModalOpen(false)}
-        totalAmount={parseInt(editableAmount) || 0}
+        totalAmount={
+          lineItems.some(i => i.selected)
+            ? lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0)
+            : (parseInt(editableAmount) || 0)
+        }
         merchantName={merchantName}
         date={selectedDate}
-        lineItems={lineItems}
+        lineItems={lineItems.some(i => i.selected) ? lineItems.filter(i => i.selected) : lineItems}
         assets={assets}
         categories={categories}
         initialAssetId={selectedAssetId}
         initialCategory={selectedCategory}
         initialSubCategory={selectedSubCategory}
         onSave={handleSplitSave}
+      />
+
+      <AssetSelectModal
+        isOpen={isAssetModalOpen}
+        onClose={() => setIsAssetModalOpen(false)}
+        assets={assets}
+        selectedAssetId={selectedAssetId}
+        onSelect={setSelectedAssetId}
+      />
+
+      <CategorySelectModal
+        isOpen={isCatModalOpen}
+        onClose={() => setIsCatModalOpen(false)}
+        categories={categories}
+        type={selectedType}
+        initialCategory={selectedCategory}
+        initialSubCategory={selectedSubCategory}
+        onSelect={(cat, sub) => {
+          setSelectedCategory(cat);
+          setSelectedSubCategory(sub);
+        }}
+      />
+
+      <OverspendReallocationModal
+        isOpen={reallocationModal.isOpen}
+        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+        onSuccess={handleReallocationSuccess}
+        deficitCategoryId={reallocationModal.deficitCategory}
+        deficitAmount={reallocationModal.deficitAmount}
+        month={reallocationModal.month}
+        year={reallocationModal.year}
       />
     </div>
   );

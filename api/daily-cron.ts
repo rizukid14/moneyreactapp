@@ -151,6 +151,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
                             assetId: rt.assetId || null,
                             fromAssetId: rt.fromAssetId || null,
                             toAssetId: rt.toAssetId || null,
+                            goalId: rt.goalId || null,
                             date: txDate,
                             note: `${rt.note} [Auto:${rt.id}]`,
                         };

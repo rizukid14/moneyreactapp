@@ -3,7 +3,9 @@ import { X, Trash2, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getLocalDate } from '../../lib/utils';
 import type { Asset, AssetType, Transaction } from '../../contexts/MoneyContext';
+import { useToast } from '../common/Toast';
 import ConfirmDialog from '../common/ConfirmDialog';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface AssetModalProps {
   isOpen: boolean;
@@ -15,9 +17,14 @@ interface AssetModalProps {
   addTransaction?: (tx: Omit<Transaction, 'id'>) => void;
   onDelete?: (id: string) => void;
   currencySymbol: string;
+  existingAssets: Asset[];
 }
 
-const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, updateAsset, editingAsset, currentBalance, addTransaction, onDelete, currencySymbol }) => {
+const AssetModal: React.FC<AssetModalProps> = ({ 
+  isOpen, onClose, addAsset, updateAsset, editingAsset, 
+  currentBalance, addTransaction, onDelete, currencySymbol, existingAssets 
+}) => {
+  const { showToast } = useToast();
   const [name, setName] = useState('');
   const [type, setType] = useState<AssetType>('Cash');
   const [initialBalance, setInitialBalance] = useState('');
@@ -41,33 +48,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
     }
   }, [editingAsset, isOpen, currentBalance]);
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const isNegative = val.startsWith('-');
-    const numericValue = val.replace(/\D/g, '');
-    
-    if (!numericValue) {
-      setInitialBalance(isNegative ? '-' : '');
-      return;
-    }
-    
-    const formatted = Number(numericValue).toLocaleString('id-ID');
-    setInitialBalance(isNegative ? `-${formatted}` : formatted);
-  };
 
-  const handleAdjustedBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const isNegative = val.startsWith('-');
-    const numericValue = val.replace(/\D/g, '');
-    
-    if (!numericValue) {
-      setAdjustedBalance(isNegative ? '-' : '');
-      return;
-    }
-    
-    const formatted = Number(numericValue).toLocaleString('id-ID');
-    setAdjustedBalance(isNegative ? `-${formatted}` : formatted);
-  };
 
   const parseNumber = (val: string) => {
     if (!val || val === '-') return 0;
@@ -78,8 +59,22 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return;
+
+    // Validation: Check if name already exists (case-insensitive)
+    const isDuplicate = existingAssets.some(a =>
+      !a.isDeleted &&
+      a.name.toLowerCase() === name.trim().toLowerCase() &&
+      (!editingAsset || a.id !== editingAsset.id)
+    );
+
+    if (isDuplicate) {
+      showToast('Nama rekening sudah ada!', 'warning');
+      return;
+    }
+
     const assetData = {
-      name,
+      name: name.trim(),
       type,
       initialBalance: parseNumber(initialBalance),
       isHidden,
@@ -119,6 +114,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
+            style={{ zIndex: 4000 }}
           >
             <motion.div 
               className="modal-content" 
@@ -158,24 +154,20 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, addAsset, upda
                 
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>Keuangan</label>
-                  <input 
-                    type="text" 
-                    inputMode="numeric" 
+                  <CurrencyInput 
                     placeholder={`Saldo Awal (${currencySymbol})`} 
                     value={initialBalance} 
-                    onChange={handleAmountChange} 
+                    onChange={setInitialBalance} 
                     style={{ marginBottom: '12px' }}
                   />
 
                   {editingAsset && currentBalance !== undefined && (
                     <div style={{ padding: '16px', background: 'var(--bg-income)', borderRadius: '16px', border: '1.5px solid var(--primary-glow)' }}>
                       <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', display: 'block', marginBottom: '8px' }}>Penyesuaian Saldo Berjalan</label>
-                      <input 
-                        type="text" 
-                        inputMode="numeric" 
+                      <CurrencyInput 
                         placeholder="Saldo saat ini" 
                         value={adjustedBalance} 
-                        onChange={handleAdjustedBalanceChange} 
+                        onChange={setAdjustedBalance} 
                         style={{ marginBottom: '8px', fontWeight: 800, color: 'var(--primary)', border: '2px solid var(--primary)', fontSize: '16px' }}
                       />
                       <div style={{ fontSize: '11px', color: 'var(--primary)', opacity: 0.8, lineHeight: 1.4 }}>

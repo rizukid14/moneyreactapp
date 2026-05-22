@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ArrowRightLeft, AlertTriangle, Calculator, Folder, ChevronRight, Wallet } from 'lucide-react';
+import { X, ArrowRightLeft, AlertTriangle, Calculator, Folder, ChevronRight, Wallet, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Asset, RecurringTransaction, Transaction } from '../../contexts/MoneyContext';
 import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
+import GoalSelectModal from './GoalSelectModal';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
+import OverspendReallocationModal from './OverspendReallocationModal';
+import CurrencyInput from '../common/CurrencyInput';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -19,16 +23,16 @@ interface TransactionModalProps {
   deleteTransaction?: (id: string) => void;
   editingTransaction?: Transaction | null;
   isCopyMode?: boolean;
-  initialType?: 'pengeluaran' | 'pendapatan' | 'transfer';
+  initialType?: Transaction['type'];
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories, budgets, transactions, defaultAssetId, currencySymbol } = useMoney();
+  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode } = useMoney();
   const { showToast } = useToast();
-  const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
+  const [type, setType] = useState<Transaction['type']>('pengeluaran');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
@@ -39,10 +43,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [assetSelectingField, setAssetSelectingField] = useState<'assetId' | 'fromAssetId' | 'toAssetId'>('assetId');
   const [assetId, setAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [fromAssetId, setFromAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
+  const [goalId, setGoalId] = useState<string | undefined>(undefined);
 
   // Recurring state
   const [isRecurring, setIsRecurring] = useState(false);
@@ -64,6 +70,28 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     return saved ? JSON.parse(saved) : {};
   });
 
+  const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+  const [pendingTxData, setPendingTxData] = useState<any>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [pinnedPresetKeys, setPinnedPresetKeys] = useState<Record<'pengeluaran' | 'pendapatan' | 'transfer', string[]>>({
+    pengeluaran: [],
+    pendapatan: [],
+    transfer: []
+  });
+
+  type HabitPreset = {
+    id: string;
+    type: 'pengeluaran' | 'pendapatan' | 'transfer';
+    label: string;
+    amount: number;
+    category?: string;
+    subCategory?: string;
+    assetId?: string;
+    fromAssetId?: string;
+    toAssetId?: string;
+    note?: string;
+  };
+
   // ─── Draft Logic ────────────────────────────────────────────────────────
   useEffect(() => {
     if (editingTransaction) {
@@ -78,6 +106,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setAssetId(editingTransaction.assetId || activeAssets[0]?.id || '');
       setFromAssetId(editingTransaction.fromAssetId || activeAssets[0]?.id || '');
       setToAssetId(editingTransaction.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
+      setGoalId(editingTransaction.goalId);
 
       // Initialize admin fee state for transfers
       if (editingTransaction.type === 'transfer') {
@@ -121,6 +150,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setAssetId(defaultAssetId || activeAssets[0]?.id || '');
         setFromAssetId(defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
+        setGoalId(undefined);
         setIsRecurring(false);
         setRecurringEndDate('');
       }
@@ -159,7 +189,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     if (isOpen && !editingTransaction && !isSavingRef.current) {
       const currentDraft = {
         type, amount, category, subCategory, date, time, note, description,
-        assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate
+        assetId, fromAssetId, toAssetId, goalId, isRecurring, frequency, recurringEndDate
       };
       setAllDrafts(prev => {
         const next = { ...prev, [type]: currentDraft };
@@ -227,24 +257,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     return alerts;
   }, [type, amount, date, category, budgets, transactions, categories, editingTransaction]);
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const el = e.target;
-    const oldCursor = el.selectionStart || 0;
-    const oldLength = el.value.length;
-
-    const numericValue = el.value.replace(/\D/g, '');
-    if (!numericValue) { setAmount(''); return; }
-
-    const newVal = Number(numericValue).toLocaleString('id-ID');
-    setAmount(newVal);
-
-    window.requestAnimationFrame(() => {
-      if (amountRef.current) {
-        const diff = newVal.length - oldLength;
-        const newCursor = Math.max(0, oldCursor + diff);
-        amountRef.current.setSelectionRange(newCursor, newCursor);
-      }
-    });
+  const handleRawAmountChange = (val: string) => {
+    setAmount(val);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -261,13 +275,33 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       subCategory: type === 'transfer' ? undefined : (subCategory || undefined),
       date,
       time,
-      note,
-      description: description || undefined,
+      note: note.trim(),
+      description: description.trim() || undefined,
       assetId: type !== 'transfer' ? assetId : undefined,
       fromAssetId: type === 'transfer' ? fromAssetId : undefined,
       toAssetId: type === 'transfer' ? toAssetId : undefined,
+      goalId,
     };
 
+    if (zbbMode === 'strict' && type === 'pengeluaran') {
+      const validation = validateTransactionBudget({ ...txData, id: editingTransaction?.id });
+      if (!validation.isValid) {
+        setPendingTxData(txData);
+        setReallocationModal({
+          isOpen: true,
+          deficitCategory: validation.deficitCategory,
+          deficitAmount: validation.deficitAmount,
+          month: new Date(date).getMonth(),
+          year: new Date(date).getFullYear()
+        });
+        return; // Intercept and wait for reallocation
+      }
+    }
+
+    performSave(txData);
+  };
+
+  const performSave = (txData: any) => {
     if (editingTransaction && updateTransaction && !isCopyMode) {
       updateTransaction(editingTransaction.id, txData);
 
@@ -339,6 +373,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setSubCategory('');
       setNote('');
       setIsRecurring(false);
+      setGoalId(undefined);
       setAdminFee('');
       setAdminFeeTarget('sender');
 
@@ -368,6 +403,158 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     } else {
       showToast('Transaksi berhasil ditambahkan!', 'success');
     }
+  };
+
+  const handleReallocationSuccess = () => {
+    setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+    if (pendingTxData) {
+      performSave(pendingTxData);
+      setPendingTxData(null);
+    }
+  };
+
+  const handleDeleteCurrentTransaction = () => {
+    if (!editingTransaction || !deleteTransaction) return;
+
+    // If deleting a transfer, also remove linked admin fee transactions.
+    if (editingTransaction.type === 'transfer') {
+      transactions
+        .filter(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin')
+        .forEach(t => deleteTransaction(t.id));
+    }
+
+    deleteTransaction(editingTransaction.id);
+    showToast('Transaksi berhasil dihapus!', 'success');
+    setIsDeleteConfirmOpen(false);
+    onClose();
+  };
+
+  useEffect(() => {
+    const raw = localStorage.getItem('tx_pinned_presets');
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      setPinnedPresetKeys({
+        pengeluaran: Array.isArray(parsed?.pengeluaran) ? parsed.pengeluaran : [],
+        pendapatan: Array.isArray(parsed?.pendapatan) ? parsed.pendapatan : [],
+        transfer: Array.isArray(parsed?.transfer) ? parsed.transfer : []
+      });
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  const habitPresets = useMemo<HabitPreset[]>(() => {
+    const targetTypes: Transaction['type'][] =
+      type === 'transfer' ? ['transfer'] : [type];
+    const txs = transactions.filter(t => targetTypes.includes(t.type) && t.amount > 0);
+    if (txs.length === 0) return [];
+
+    if (type === 'transfer') {
+      const map = new Map<string, { count: number; last: Transaction }>();
+      txs.forEach(t => {
+        const key = `${t.fromAssetId || ''}|${t.toAssetId || ''}|${(t.note || '').trim().toLowerCase()}`;
+        const prev = map.get(key);
+        if (!prev) map.set(key, { count: 1, last: t });
+        else {
+          const newer = (new Date(t.date).getTime() > new Date(prev.last.date).getTime()) ? t : prev.last;
+          map.set(key, { count: prev.count + 1, last: newer });
+        }
+      });
+
+      return Array.from(map.values())
+        .sort((a, b) => (b.count - a.count) || (new Date(b.last.date).getTime() - new Date(a.last.date).getTime()))
+        .slice(0, 4)
+        .map((item, idx) => {
+          const fromName = assets.find(a => a.id === item.last.fromAssetId)?.name || 'Dari';
+          const toName = assets.find(a => a.id === item.last.toAssetId)?.name || 'Ke';
+          return {
+            id: `tf-${idx}-${item.last.id}`,
+            type: 'transfer',
+            label: `${fromName} -> ${toName}`,
+            amount: item.last.amount,
+            fromAssetId: item.last.fromAssetId,
+            toAssetId: item.last.toAssetId,
+            note: item.last.note
+          };
+        });
+    }
+
+    const map = new Map<string, { count: number; last: Transaction }>();
+    txs.forEach(t => {
+      const key = `${t.category || ''}|${t.subCategory || ''}|${t.assetId || ''}|${(t.note || '').trim().toLowerCase()}`;
+      const prev = map.get(key);
+      if (!prev) map.set(key, { count: 1, last: t });
+      else {
+        const newer = (new Date(t.date).getTime() > new Date(prev.last.date).getTime()) ? t : prev.last;
+        map.set(key, { count: prev.count + 1, last: newer });
+      }
+    });
+
+    return Array.from(map.values())
+      .sort((a, b) => (b.count - a.count) || (new Date(b.last.date).getTime() - new Date(a.last.date).getTime()))
+      .slice(0, 4)
+      .map((item, idx) => ({
+        id: `tx-${idx}-${item.last.id}`,
+        type: type as 'pengeluaran' | 'pendapatan',
+        label: item.last.subCategory ? `${item.last.category} -> ${item.last.subCategory}` : item.last.category,
+        amount: item.last.amount,
+        category: item.last.category,
+        subCategory: item.last.subCategory,
+        assetId: item.last.assetId,
+        note: item.last.note
+      }));
+  }, [type, transactions, assets]);
+
+  const presetKey = (preset: HabitPreset) => JSON.stringify({
+    type: preset.type,
+    label: preset.label,
+    amount: preset.amount,
+    category: preset.category || '',
+    subCategory: preset.subCategory || '',
+    assetId: preset.assetId || '',
+    fromAssetId: preset.fromAssetId || '',
+    toAssetId: preset.toAssetId || '',
+    note: (preset.note || '').trim().toLowerCase()
+  });
+
+  const mergedPresets = useMemo(() => {
+    const t = type === 'transfer' ? 'transfer' : type;
+    const pinned = pinnedPresetKeys[t as 'pengeluaran' | 'pendapatan' | 'transfer'] || [];
+    const list = [...habitPresets];
+    list.sort((a, b) => {
+      const aPinned = pinned.includes(presetKey(a)) ? 1 : 0;
+      const bPinned = pinned.includes(presetKey(b)) ? 1 : 0;
+      return bPinned - aPinned;
+    });
+    return list;
+  }, [habitPresets, pinnedPresetKeys, type]);
+
+  const togglePinPreset = (preset: HabitPreset) => {
+    const t = preset.type;
+    const key = presetKey(preset);
+    setPinnedPresetKeys(prev => {
+      const current = prev[t] || [];
+      const nextType = current.includes(key)
+        ? current.filter(k => k !== key)
+        : [key, ...current];
+      const next = { ...prev, [t]: nextType };
+      localStorage.setItem('tx_pinned_presets', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const applyHabitPreset = (preset: HabitPreset) => {
+    setAmount(preset.amount.toLocaleString('id-ID'));
+    if (preset.type === 'transfer') {
+      setFromAssetId(preset.fromAssetId || fromAssetId);
+      setToAssetId(preset.toAssetId || toAssetId);
+    } else {
+      setCategory(preset.category || '');
+      setSubCategory(preset.subCategory || '');
+      if (preset.assetId) setAssetId(preset.assetId);
+    }
+    setNote(preset.note || '');
   };
 
   return (
@@ -403,38 +590,99 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 </div>
               ) : (
                 <form onSubmit={handleSave}>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setType('pengeluaran')}
-                      style={{
-                        flex: 1, padding: '10px', borderRadius: '8px',
-                        border: type === 'pengeluaran' ? '2px solid var(--secondary)' : '1px solid var(--border-color)',
-                        background: type === 'pengeluaran' ? 'var(--bg-expense)' : 'var(--bg-card)',
-                        fontWeight: 700, color: type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'
-                      }}
-                    >Pengeluaran</button>
-                    <button
-                      type="button"
-                      onClick={() => setType('pendapatan')}
-                      style={{
-                        flex: 1, padding: '10px', borderRadius: '8px',
-                        border: type === 'pendapatan' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                        background: type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-card)',
-                        fontWeight: 700, color: type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)'
-                      }}
-                    >Pendapatan</button>
-                    <button
-                      type="button"
-                      onClick={() => setType('transfer')}
-                      style={{
-                        flex: 1, padding: '10px', borderRadius: '8px',
-                        border: type === 'transfer' ? '2px solid var(--text-muted)' : '1px solid var(--border-color)',
-                        background: type === 'transfer' ? 'var(--bg-neutral)' : 'var(--bg-card)',
-                        fontWeight: 700, color: type === 'transfer' ? 'var(--text-main)' : 'var(--text-muted)'
-                      }}
-                    >Transfer</button>
-                  </div>
+                  {['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(type) ? (
+                    <div style={{ padding: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '16px', textAlign: 'center', fontWeight: 700, color: 'var(--text-main)' }}>
+                      Tipe: {type === 'piutang_keluar' ? 'Memberi Pinjaman' : type === 'piutang_masuk' ? 'Pelunasan Piutang' : type === 'hutang_masuk' ? 'Terima Pinjaman' : 'Bayar Hutang'}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setType('pengeluaran')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '8px',
+                          border: type === 'pengeluaran' ? '2px solid var(--secondary)' : '1px solid var(--border-color)',
+                          background: type === 'pengeluaran' ? 'var(--bg-expense)' : 'var(--bg-card)',
+                          fontWeight: 700, color: type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'
+                        }}
+                      >Pengeluaran</button>
+                      <button
+                        type="button"
+                        onClick={() => setType('pendapatan')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '8px',
+                          border: type === 'pendapatan' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                          background: type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-card)',
+                          fontWeight: 700, color: type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)'
+                        }}
+                      >Pendapatan</button>
+                      <button
+                        type="button"
+                        onClick={() => setType('transfer')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '8px',
+                          border: type === 'transfer' ? '2px solid var(--text-muted)' : '1px solid var(--border-color)',
+                          background: type === 'transfer' ? 'var(--bg-neutral)' : 'var(--bg-card)',
+                          fontWeight: 700, color: type === 'transfer' ? 'var(--text-main)' : 'var(--text-muted)'
+                        }}
+                      >Transfer</button>
+                    </div>
+                  )}
+
+                  {!editingTransaction && mergedPresets.length > 0 && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.04em' }}>
+                        Preset Kebiasaan
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="custom-scrollbar">
+                        {mergedPresets.map(preset => {
+                          const isPinned = pinnedPresetKeys[preset.type]?.includes(presetKey(preset));
+                          return (
+                            <div
+                              key={preset.id}
+                              style={{
+                                flexShrink: 0,
+                                border: `1px solid ${isPinned ? 'var(--primary)' : 'var(--border-color)'}`,
+                                borderRadius: '10px',
+                                background: isPinned ? 'var(--bg-income)' : 'var(--bg-card)',
+                                padding: '8px 10px',
+                                minWidth: '160px'
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => applyHabitPreset(preset)}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', padding: 0 }}
+                              >
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {preset.label}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                  {currencySymbol}{preset.amount.toLocaleString('id-ID')}
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => togglePinPreset(preset)}
+                                style={{
+                                  marginTop: '6px',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: isPinned ? 'var(--primary)' : 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  padding: 0
+                                }}
+                              >
+                                {isPinned ? 'Unpin' : 'Pin'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   <motion.div
                     key={type}
@@ -443,15 +691,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     transition={{ duration: 0.15, ease: "easeOut" }}
                   >
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                      <input
+                      <CurrencyInput
                         ref={amountRef}
-                        type="text"
-                        inputMode="numeric"
                         required
                         placeholder={`Nominal (${currencySymbol})`}
                         value={amount}
-                        onChange={handleAmountChange}
+                        onChange={handleRawAmountChange}
                         style={{ flex: 1, marginBottom: 0 }}
+                        data-tour="modal-amount"
                       />
                       <button
                         type="button"
@@ -478,6 +725,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             marginBottom: '16px', cursor: 'pointer', color: category ? 'var(--text-main)' : 'var(--text-muted)'
                           }}
+                          data-tour="modal-category"
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Folder size={18} color="var(--primary)" />
@@ -504,6 +752,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 marginBottom: '16px', cursor: 'pointer', color: selectedAsset ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
+                              data-tour="modal-asset"
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Wallet size={18} color="var(--primary)" />
@@ -515,6 +764,33 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             </button>
                           );
                         })()}
+
+                        {/* Goal Selector (for pendapatan / pengeluaran) */}
+                        {goals.length > 0 && (
+                          <div style={{ marginBottom: '16px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block', letterSpacing: '0.04em' }}>
+                              Hubungkan ke Tabungan (Opsional)
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setIsGoalModalOpen(true)}
+                              style={{
+                                width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
+                                border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Target size={18} color="var(--primary)" />
+                                <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
+                                  {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
+                                </span>
+                              </div>
+                              <ChevronRight size={18} color="var(--text-muted)" />
+                            </button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
@@ -535,6 +811,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
+                              data-tour="modal-asset"
                             >
                               <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {asset ? asset.name : '-- Dari --'}
@@ -562,6 +839,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
+                              data-tour="modal-asset"
                             >
                               <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {asset ? asset.name : '-- Ke --'}
@@ -572,6 +850,33 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         })()}
                       </div>
 
+                      {/* Goal Selector (within transfer) */}
+                      {goals.length > 0 && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block', letterSpacing: '0.04em' }}>
+                            Hubungkan ke Tabungan (Opsional)
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsGoalModalOpen(true)}
+                            style={{
+                              width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
+                              border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <Target size={18} color="var(--primary)" />
+                              <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
+                                {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
+                              </span>
+                            </div>
+                            <ChevronRight size={18} color="var(--text-muted)" />
+                          </button>
+                        </div>
+                      )}
+
                       {/* Admin Fee Section */}
                       <div style={{
                         padding: '10px 12px', borderRadius: '10px',
@@ -581,15 +886,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: adminFee ? '10px' : 0 }}>
                           <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>Biaya Admin</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
+                          <CurrencyInput
                             placeholder="0"
                             value={adminFee}
-                            onChange={e => {
-                              const numericValue = e.target.value.replace(/\D/g, '');
-                              setAdminFee(numericValue ? Number(numericValue).toLocaleString('id-ID') : '');
-                            }}
+                            onChange={setAdminFee}
                             style={{
                               width: '100px', fontSize: '13px', fontWeight: 700, textAlign: 'right',
                               padding: '6px 10px', marginBottom: 0, borderRadius: '8px',
@@ -632,7 +932,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0 }} />
                       <input type="time" required value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
                     </div>
-                    <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} />
+                    <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} data-tour="modal-note" />
                     
                     <div style={{ marginBottom: '16px' }}>
                       <textarea
@@ -732,6 +1032,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         onClick={() => { submitActionRef.current = 'continue'; }}
                         className="btn"
                         style={{ flex: 1, border: `2px solid ${type === 'pendapatan' ? 'var(--primary)' : type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'}`, color: type === 'pendapatan' ? 'var(--primary)' : type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-main)' }}
+                        data-tour="modal-submit"
                       >
                         Simpan & Lanjut
                       </button>
@@ -744,23 +1045,42 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
                           color: type === 'transfer' ? 'white' : undefined
                         }}
+                        data-tour="modal-submit"
                       >
                         {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="submit"
-                      onClick={() => { submitActionRef.current = 'close'; }}
-                      className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
-                      style={{
-                        width: '100%',
-                        backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
-                        color: type === 'transfer' ? 'white' : undefined
-                      }}
-                    >
-                      Simpan Perubahan
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {deleteTransaction && (
+                        <button
+                          type="button"
+                          onClick={() => setIsDeleteConfirmOpen(true)}
+                          className="btn"
+                          style={{
+                            flex: 1,
+                            background: 'var(--bg-expense)',
+                            color: 'var(--danger)',
+                            border: '1px solid var(--danger-glow)'
+                          }}
+                        >
+                          Hapus Transaksi
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        onClick={() => { submitActionRef.current = 'close'; }}
+                        className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
+                        style={{
+                          flex: 1,
+                          backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
+                          color: type === 'transfer' ? 'white' : undefined
+                        }}
+                        data-tour="modal-submit"
+                      >
+                        Simpan Perubahan
+                      </button>
+                    </div>
                   )}
                   </div>
                 </form>
@@ -806,6 +1126,32 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           else if (assetSelectingField === 'fromAssetId') setFromAssetId(id);
           else setToAssetId(id);
         }}
+      />
+
+      <GoalSelectModal
+        isOpen={isGoalModalOpen}
+        onClose={() => setIsGoalModalOpen(false)}
+        goals={goals}
+        selectedGoalId={goalId}
+        onSelect={(id) => setGoalId(id)}
+      />
+
+      <OverspendReallocationModal
+        isOpen={reallocationModal.isOpen}
+        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+        onSuccess={handleReallocationSuccess}
+        deficitCategoryId={reallocationModal.deficitCategory}
+        deficitAmount={reallocationModal.deficitAmount}
+        month={reallocationModal.month}
+        year={reallocationModal.year}
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleDeleteCurrentTransaction}
+        title="Hapus Transaksi"
+        message="Apakah Anda yakin ingin menghapus transaksi ini?"
       />
     </>
   );

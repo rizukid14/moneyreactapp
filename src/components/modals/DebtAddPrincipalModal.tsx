@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Wallet, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
+import AssetSelectModal from './AssetSelectModal';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface DebtAddPrincipalModalProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
   const [time, setTime] = useState(getLocalTime());
   const [note, setNote] = useState('');
   const [lastOpen, setLastOpen] = useState(false);
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
 
   React.useEffect(() => {
     if (isOpen && !lastOpen) {
@@ -39,136 +42,127 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
     setLastOpen(isOpen);
   }, [isOpen, lastOpen, debt, debtDefaultAssetId, globalDefaultAssetId, activeAssets]);
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '');
-    setAmount(val);
+  const handleRawAmountChange = (raw: string) => {
+    setAmount(raw);
   };
 
   const handleConfirm = () => {
     const numAmount = Number(amount);
     if (numAmount <= 0) return;
 
-    const prefix = `Penambahan ${isHutang ? 'Hutang' : 'Piutang'}`;
-    const finalNote = note ? `${prefix}: ${note}` : `${prefix} Baru`;
-    onConfirm(numAmount, selectedAssetId, date, time, finalNote);
+    onConfirm(numAmount, selectedAssetId, date, time, note);
+    onClose();
   };
 
+  const selectedAsset = assets.find(a => a.id === selectedAssetId);
+
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="modal-overlay"
-          onClick={onClose}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.1 }}
-        >
+    <>
+      <AnimatePresence>
+        {isOpen && (
           <motion.div
-            className="modal-content"
-            onClick={e => e.stopPropagation()}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
+            className="modal-overlay"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ zIndex: 1100 }}
           >
-            <div className="modal-header">
-              <h2 className="subtitle" style={{ margin: 0 }}>
-                Tambah Nominal {isHutang ? 'Hutang' : 'Piutang'}
-              </h2>
-              <button className="close-btn" onClick={onClose}><X size={20} /></button>
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
-                Kontak: <strong>{debt.contact}</strong>
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Fitur ini akan menambah total nominal pada catatan ini dan mencatatnya sebagai transaksi baru.
-              </div>
-            </div>
-
-            <div className="card shadow-soft" style={{ padding: 16, marginBottom: 20, border: 'none', background: 'var(--bg-main)' }}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                  Tambahan Nominal:
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={amount ? Number(amount).toLocaleString('id-ID') : ''}
-                    onChange={handleAmountChange}
-                    placeholder="0"
-                    style={{ width: '100%', paddingLeft: 40, fontWeight: 800, fontSize: 18, marginBottom: 0 }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                  {isHutang ? '🏦 Uang Masuk ke:' : '🏦 Uang Keluar dari:'}
-                </label>
-                <select
-                  value={selectedAssetId}
-                  onChange={(e) => setSelectedAssetId(e.target.value)}
-                  style={{ width: '100%', marginBottom: 0 }}
-                >
-                  <option value="">-- Tidak Ada / Tunai --</option>
-                  {activeAssets.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                    Tanggal:
-                  </label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                    Jam:
-                  </label>
-                  <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
-                </div>
-              </div>
-              <div style={{ marginTop: 16 }}>
-                <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                  Catatan Tambahan:
-                </label>
-                <input type="text" placeholder="Catatan tambahan hutang" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
-              </div>
-            </div>
-
-            <button
-              onClick={handleConfirm}
-              className="btn"
-              style={{
-                width: '100%',
-                fontWeight: 700,
-                background: isHutang ? 'var(--danger)' : 'var(--primary)',
-                color: 'white',
-                border: 'none',
-                borderRadius: 12,
-                padding: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                boxShadow: `0 4px 15px ${isHutang ? 'var(--secondary-glow)' : 'var(--primary-glow)'}`
-              }}
+            <motion.div
+              className="modal-content"
+              onClick={e => e.stopPropagation()}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 600, mass: 0.5 }}
             >
-              <Plus size={18} />
-              Tambahkan Nominal
-            </button>
+              <div className="modal-header">
+                <h2 className="subtitle" style={{ margin: 0 }}>Tambah Pokok {isHutang ? 'Hutang' : 'Piutang'}</h2>
+                <button className="close-btn" onClick={onClose}><X size={24} /></button>
+              </div>
+
+              <div style={{ padding: '0 4px' }}>
+                <div style={{ background: 'var(--bg-main)', padding: 16, borderRadius: 16, marginBottom: 20, border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Nominal Tambahan:</div>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', left: 0, fontWeight: 800, color: 'var(--text-muted)', fontSize: 18 }}>{currencySymbol}</span>
+                    <CurrencyInput
+                      value={amount}
+                      onChange={handleRawAmountChange}
+                      placeholder="0"
+                      style={{ width: '100%', paddingLeft: 40, fontWeight: 800, fontSize: 18, marginBottom: 0 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                    {isHutang ? '🏦 Uang Masuk ke:' : '🏦 Uang Keluar dari:'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAssetModalOpen(true)}
+                    className="input-trigger"
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                      borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Wallet size={18} color="var(--primary)" />
+                      <span style={{ fontWeight: 600, color: selectedAsset ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {selectedAsset ? selectedAsset.name : '-- Tidak Ada / Tunai --'}
+                      </span>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                      Tanggal:
+                    </label>
+                    <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                      Jam:
+                    </label>
+                    <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                  </div>
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                    Catatan Tambahan:
+                  </label>
+                  <input type="text" placeholder="Catatan tambahan hutang" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                </div>
+              </div>
+
+              <button
+                onClick={handleConfirm}
+                className="btn btn-primary"
+                style={{
+                  width: '100%', marginTop: 24, height: 56, borderRadius: 16, fontWeight: 800
+                }}
+              >
+                Tambah Pokok
+              </button>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+
+      <AssetSelectModal
+        isOpen={isAssetModalOpen}
+        onClose={() => setIsAssetModalOpen(false)}
+        assets={assets}
+        selectedAssetId={selectedAssetId}
+        onSelect={setSelectedAssetId}
+      />
+    </>
   );
 };
 

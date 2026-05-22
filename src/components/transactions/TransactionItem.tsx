@@ -28,6 +28,14 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   const { currencySymbol } = useMoney();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
+  const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
+  const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
+  const isDebtTx = ['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(tx.type);
+
+  const iconColor = isDebtTx ? (isExpenseLike ? 'var(--warning)' : 'var(--info)') : (isExpenseLike ? 'var(--danger)' : isIncomeLike ? 'var(--primary)' : 'var(--text-muted)');
+  const bgColor = isDebtTx ? (isExpenseLike ? 'hsla(35, 100%, 50%, 0.1)' : 'hsla(210, 100%, 50%, 0.1)') : (isExpenseLike ? 'var(--bg-expense)' : isIncomeLike ? 'var(--bg-income)' : 'var(--bg-neutral)');
+  const amountColor = isDebtTx ? 'var(--text-main)' : (isIncomeLike ? 'var(--primary)' : 'var(--text-main)');
+
   return (
     <>
       <div className="card transaction-card" 
@@ -41,12 +49,12 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         }}>
         <div style={{
           width: 36, height: 36, borderRadius: '10px',
-          backgroundColor: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
+          backgroundColor: bgColor,
           display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '14px',
-          color: tx.type === 'pengeluaran' ? 'var(--danger)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
+          color: iconColor,
           flexShrink: 0
         }}>
-          {tx.type === 'pengeluaran' ? <ArrowDownRight size={18} /> : tx.type === 'pendapatan' ? <ArrowUpRight size={18} /> : <ArrowRightLeft size={18} />}
+          {isExpenseLike ? <ArrowDownRight size={18} /> : isIncomeLike ? <ArrowUpRight size={18} /> : <ArrowRightLeft size={18} />}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -76,11 +84,11 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         <div style={{
           fontWeight: 800,
           fontSize: '15px',
-          color: tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-main)',
+          color: amountColor,
           marginLeft: '12px',
           textAlign: 'right'
         }}>
-          {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}{currencySymbol}{tx.amount.toLocaleString('id-ID')}
+          {isExpenseLike ? '-' : isIncomeLike ? '+' : ''}{currencySymbol}{tx.amount.toLocaleString('id-ID')}
         </div>
 
         <div className="transaction-actions" style={{ display: 'flex', gap: '4px', marginLeft: '16px' }}>
