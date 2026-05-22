@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { X, Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, ExternalLink, Info, History as HistoryIcon } from 'lucide-react';
 import AssetSelectModal from './AssetSelectModal';
+import CurrencyInput from '../common/CurrencyInput';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
@@ -23,7 +24,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
   const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
-  const [settleAmount, setSettleAmount] = useState<number>(0);
+  const [settleAmount, setSettleAmount] = useState<string>('0');
 
   const settlement = useMemo(() => {
     // 1. Calculate net balances
@@ -437,15 +438,15 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
                   Jumlah Pembayaran
                 </label>
-                <input 
-                  type="number"
-                  value={settleAmount || ''}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
+                <CurrencyInput 
+                  value={settleAmount}
+                  onChange={(val) => {
+                    const numVal = parseInt(val) || 0;
                     const baseKey = `${settlingTx.from}-${settlingTx.to}-${settlingTx.idx}`;
                     const paidSoFar = trip.settlementPaidAmounts?.[baseKey] || 0;
                     const maxAllowed = Math.max(0, settlingTx.amount - paidSoFar);
-                    setSettleAmount(Math.min(maxAllowed, Math.max(0, val)));
+                    const finalNum = Math.min(maxAllowed, Math.max(0, numVal));
+                    setSettleAmount(finalNum.toString());
                   }}
                   placeholder="Masukkan nominal"
                   style={{
@@ -501,13 +502,13 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '12px' }}>
                 <button onClick={() => setSettlingTx(null)} className="btn btn-secondary">Batal</button>
                 <button 
-                  onClick={() => handleMarkAsPaid(settlingTx, settlingTx.idx, selectedAssetId, settleAmount)} 
-                  disabled={isProcessing || !selectedAssetId || settleAmount <= 0}
+                  onClick={() => handleMarkAsPaid(settlingTx, settlingTx.idx, selectedAssetId, parseInt(settleAmount) || 0)} 
+                  disabled={isProcessing || !selectedAssetId || (parseInt(settleAmount) || 0) <= 0}
                   className="btn btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: (!selectedAssetId || settleAmount <= 0) ? 0.5 : 1 }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: (!selectedAssetId || (parseInt(settleAmount) || 0) <= 0) ? 0.5 : 1 }}
                 >
-                  {isProcessing ? 'Memproses...' : !selectedAssetId ? 'Pilih Aset Dulu' : settleAmount <= 0 ? 'Nominal tidak valid' : 'Konfirmasi Pelunasan'}
-                  {!isProcessing && selectedAssetId && settleAmount > 0 && <ChevronRight size={18} />}
+                  {isProcessing ? 'Memproses...' : !selectedAssetId ? 'Pilih Aset Dulu' : (parseInt(settleAmount) || 0) <= 0 ? 'Nominal tidak valid' : 'Konfirmasi Pelunasan'}
+                  {!isProcessing && selectedAssetId && (parseInt(settleAmount) || 0) > 0 && <ChevronRight size={18} />}
                 </button>
               </div>
             </motion.div>
@@ -652,7 +653,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                            {(t.from === 'me' || t.to === 'me') && !isPaid && (
                              <button 
                                onClick={() => {
-                                 setSettleAmount(remainingAmt);
+                                 setSettleAmount(remainingAmt.toString());
                                  setSettlingTx({ ...t, idx });
                                }}
                                className="btn-icon"

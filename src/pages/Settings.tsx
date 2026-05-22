@@ -23,6 +23,7 @@ import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModa
 import ContactModal from '../components/modals/ContactModal';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import OnboardingTutorial from '../components/OnboardingTutorial';
+import CurrencyInput from '../components/common/CurrencyInput';
 
 // ─── CarouselCardSettings ─────────────────────────────────────────────────────
 const GACHA_EMOJI: Record<string, string> = {
@@ -789,7 +790,7 @@ const Settings: React.FC = () => {
         );
 
       case 'categories':
-        const filteredCats = categories.filter(c => c.type === catTab);
+        const filteredCats = categories.filter(c => !c.isDeleted && c.type === catTab);
         return (
           <>
             <div className="modal-header">
@@ -904,7 +905,7 @@ const Settings: React.FC = () => {
                       </span>
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
-                      {(categories.find(c => c.id === expandedCat)?.subcategories || []).map(sub => (
+                      {(categories.find(c => c.id === expandedCat)?.subcategories || []).filter(sub => !sub.isDeleted).map(sub => (
                         <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-color)' }}>
                           {editingSubCatId === sub.id ? (
                             <input
@@ -1787,9 +1788,9 @@ const Settings: React.FC = () => {
                     <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Harga</label>
                     <div style={{ position: 'relative' }}>
                       <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'var(--text-muted)', fontWeight: 700 }}>{currencySymbol}</span>
-                      <input
-                        type="number" placeholder="0"
-                        value={newSubAmount} onChange={e => setNewSubAmount(e.target.value)}
+                      <CurrencyInput
+                        placeholder="0"
+                        value={newSubAmount} onChange={(val) => setNewSubAmount(val)}
                         style={{ width: '100%', paddingLeft: 36, marginBottom: 0 }} required
                       />
                     </div>

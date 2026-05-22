@@ -10,6 +10,7 @@ import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
 import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 import { useNavigate } from 'react-router-dom';
+import CurrencyInput from '../components/common/CurrencyInput';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -71,6 +72,48 @@ const ReceiptScanner: React.FC = () => {
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check for shared image files from PWA Share Target
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('shared') === 'true') {
+      const loadSharedData = async () => {
+        try {
+          if (!window.caches) return;
+          const cache = await window.caches.open('shared-data');
+          const metaRes = await cache.match('/shared-metadata.json');
+          if (metaRes) {
+            const meta = await metaRes.json();
+            if (meta.hasFile) {
+              const fileRes = await cache.match('/shared-file.bin');
+              if (fileRes) {
+                const blob = await fileRes.blob();
+                const file = new File([blob], meta.title || 'shared-receipt.jpg', { type: blob.type });
+                const url = URL.createObjectURL(file);
+                
+                setPreviewUrl(url);
+                setImageFile(file);
+                setCropRect(null);
+                setStage('crop');
+                showToast('Gambar transaksi berhasil diterima!', 'success');
+              }
+            }
+            // Clean up cache
+            await cache.delete('/shared-metadata.json');
+            await cache.delete('/shared-file.bin');
+          }
+        } catch (err) {
+          console.error('Error loading shared file:', err);
+          showToast('Gagal memuat gambar transaksi yang dibagikan', 'error');
+        } finally {
+          // Clear query params without page reload
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      };
+      loadSharedData();
+    }
+  }, [showToast]);
 
   const reset = useCallback(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -233,11 +276,11 @@ const ReceiptScanner: React.FC = () => {
           let matchedCategory = '';
           let matchedSubCategory = '';
           if (tx.category && tx.type !== 'transfer') {
-            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type);
+            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type && !c.isDeleted);
             if (matchedCat) {
               matchedCategory = matchedCat.name;
               if (tx.subCategory && matchedCat.subcategories) {
-                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategory!.toLowerCase());
+                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategory!.toLowerCase() && !s.isDeleted);
                 if (matchedSub) matchedSubCategory = matchedSub.name;
               }
             }
@@ -303,13 +346,15 @@ const ReceiptScanner: React.FC = () => {
       if (ocrResult.suggestedCategory) {
         const matchedCat = categories.find(c =>
           c.name.toLowerCase() === ocrResult.suggestedCategory.toLowerCase() &&
-          c.type === 'pengeluaran'
+          c.type === 'pengeluaran' &&
+          !c.isDeleted
         );
         if (matchedCat) {
           setSelectedCategory(matchedCat.name);
           if (ocrResult.suggestedSubCategory && matchedCat.subcategories) {
             const matchedSub = matchedCat.subcategories.find(s =>
-              s.name.toLowerCase() === ocrResult.suggestedSubCategory!.toLowerCase()
+              s.name.toLowerCase() === ocrResult.suggestedSubCategory!.toLowerCase() &&
+              !s.isDeleted
             );
             if (matchedSub) setSelectedSubCategory(matchedSub.name);
           }
@@ -759,7 +804,7 @@ const ReceiptScanner: React.FC = () => {
             <div style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
                 <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{currencySymbol}</span>
-                <input type="text" inputMode="numeric" value={editableAmount ? parseInt(editableAmount).toLocaleString('id-ID') : ''} onChange={e => setEditableAmount(e.target.value.replace(/\D/g, ''))} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
+                <CurrencyInput value={editableAmount} onChange={val => setEditableAmount(val)} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
@@ -825,33 +870,27 @@ const ReceiptScanner: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
                   <div>
                     <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>PAJAK</label>
-                    <input 
-                      type="text" 
-                      inputMode="numeric" 
-                      value={taxAmount ? taxAmount.toLocaleString('id-ID') : ''} 
-                      onChange={e => setTaxAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                    <CurrencyInput 
+                      value={taxAmount || ''} 
+                      onChange={val => setTaxAmount(parseInt(val) || 0)} 
                       style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
                       placeholder="0"
                     />
                   </div>
                   <div>
                     <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>SERVICE</label>
-                    <input 
-                      type="text" 
-                      inputMode="numeric" 
-                      value={serviceAmount ? serviceAmount.toLocaleString('id-ID') : ''} 
-                      onChange={e => setServiceAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                    <CurrencyInput 
+                      value={serviceAmount || ''} 
+                      onChange={val => setServiceAmount(parseInt(val) || 0)} 
                       style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
                       placeholder="0"
                     />
                   </div>
                   <div>
                     <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DISKON</label>
-                    <input 
-                      type="text" 
-                      inputMode="numeric" 
-                      value={discountAmount ? discountAmount.toLocaleString('id-ID') : ''} 
-                      onChange={e => setDiscountAmount(parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                    <CurrencyInput 
+                      value={discountAmount || ''} 
+                      onChange={val => setDiscountAmount(parseInt(val) || 0)} 
                       style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0, color: 'var(--danger)' }}
                       placeholder="0"
                     />
@@ -944,12 +983,10 @@ const ReceiptScanner: React.FC = () => {
 
                   <div style={{ flexShrink: 0, minWidth: '80px', textAlign: 'right' }}>
                     {editingItemIdx === idx && editingField === 'amount' ? (
-                      <input
+                      <CurrencyInput
                         autoFocus
-                        type="text"
-                        inputMode="numeric"
-                        value={item.amount === 0 ? '' : item.amount.toLocaleString('id-ID')}
-                        onChange={e => editItem(idx, 'amount', e.target.value)}
+                        value={item.amount === 0 ? '' : item.amount}
+                        onChange={val => editItem(idx, 'amount', val)}
                         onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}

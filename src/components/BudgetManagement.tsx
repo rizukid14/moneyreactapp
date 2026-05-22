@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Wallet, ArrowRightLeft, HandCoins, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Wallet, ArrowRightLeft, HandCoins, Info, Folder, Check } from 'lucide-react';
 import { useMoney, type Budget } from '../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BudgetModal from './modals/BudgetModal';
@@ -249,14 +249,22 @@ export const BudgetManagement: React.FC = () => {
   };
 
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
-  const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
+  const categoryBudgets = currentMonthBudgets.filter(b => {
+    if (b.categoryId === null) return false;
+    const cat = categories.find(c => c.id === b.categoryId);
+    return cat && !cat.isDeleted;
+  });
   const globalPercent = globalBudget ? (spendingMap.total / globalBudget.limit) * 100 : 0;
 
   const copyFromPreviousMonth = () => {
     const prevMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
     const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
     
-    const prevBudgets = budgets.filter(b => b.month === prevMonth && b.year === prevYear && b.categoryId !== null);
+    const prevBudgets = budgets.filter(b => {
+      if (b.month !== prevMonth || b.year !== prevYear || b.categoryId === null) return false;
+      const cat = categories.find(c => c.id === b.categoryId);
+      return cat && !cat.isDeleted;
+    });
     
     prevBudgets.forEach(pb => {
       const existing = currentMonthBudgets.find(b => b.categoryId === pb.categoryId);
@@ -589,6 +597,8 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
   const [fromId, setFromId] = useState<string | null | 'unassigned'>('unassigned');
   const [toId, setToId] = useState<string | null | 'unassigned'>('');
   const [amount, setAmount] = useState<string>('');
+  const [isFromModalOpen, setIsFromModalOpen] = useState(false);
+  const [isToModalOpen, setIsToModalOpen] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -606,6 +616,8 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
         setFromId(unassignedMoney > 0 ? 'unassigned' : (budgets.find(b => b.categoryId !== null && (b.limit - (spendingMap[b.categoryId!] || 0)) > 0)?.categoryId || 'unassigned'));
       }
       setAmount('');
+      setIsFromModalOpen(false);
+      setIsToModalOpen(false);
     }
   }, [isOpen, defaultToId, unassignedMoney, budgets, spendingMap]);
 
@@ -645,25 +657,25 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'block' }}>DARI</label>
-            <select 
-              value={fromId || ''} 
-              onChange={e => setFromId(e.target.value === 'unassigned' ? 'unassigned' : e.target.value)}
-              style={{ width: '100%', padding: 12, borderRadius: 12 }}
+            <button
+              type="button"
+              onClick={() => setIsFromModalOpen(true)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                borderRadius: '12px', cursor: 'pointer', textAlign: 'left', color: 'var(--text-main)'
+              }}
             >
-              <option value="unassigned" disabled={unassignedMoney <= 0}>
-                Sisa Belum Dialokasikan (Tersedia: {fmt(unassignedMoney, currencySymbol)})
-              </option>
-              {budgets.filter(b => b.categoryId !== null).map(b => {
-                const cat = categories.find(c => c.id === b.categoryId);
-                const spent = spendingMap[b.categoryId!] || 0;
-                const rem = b.limit - spent;
-                return (
-                  <option key={b.id} value={b.categoryId!} disabled={rem <= 0}>
-                    {cat?.name || 'Kategori'} (Tersedia: {fmt(rem, currencySymbol)}) {rem <= 0 ? '• Anggaran Habis' : ''}
-                  </option>
-                );
-              })}
-            </select>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Folder size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 600 }}>
+                  {fromId === 'unassigned' ? `Sisa Belum Dialokasikan (Tersedia: ${fmt(unassignedMoney, currencySymbol)})` : (
+                    categories.find(c => c.id === fromId)?.name ? `${categories.find(c => c.id === fromId)?.name} (Tersedia: ${fmt(available, currencySymbol)})` : 'Pilih sumber...'
+                  )}
+                </span>
+              </div>
+              <ChevronRight size={18} color="var(--text-muted)" />
+            </button>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -674,21 +686,25 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
 
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'block' }}>KE</label>
-            <select 
-              value={toId || ''} 
-              onChange={e => setToId(e.target.value === 'unassigned' ? 'unassigned' : e.target.value)}
-              style={{ width: '100%', padding: 12, borderRadius: 12 }}
+            <button
+              type="button"
+              onClick={() => setIsToModalOpen(true)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                borderRadius: '12px', cursor: 'pointer', textAlign: 'left', color: 'var(--text-main)'
+              }}
             >
-              <option value="" disabled>Pilih target...</option>
-              <option value="unassigned">Sisa Belum Dialokasikan</option>
-              {budgets.filter(b => b.categoryId !== null).map(b => {
-                const cat = categories.find(c => c.id === b.categoryId);
-                return <option key={b.id} value={b.categoryId!}>{cat?.name || 'Kategori'}</option>;
-              })}
-              {categories.filter(c => c.type === 'pengeluaran' && !budgets.some(b => b.categoryId === c.id)).map(c => (
-                <option key={c.id} value={c.id}>{c.name} (Buat Amplop Baru)</option>
-              ))}
-            </select>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Folder size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 600 }}>
+                  {toId === 'unassigned' ? 'Sisa Belum Dialokasikan' : (
+                    categories.find(c => c.id === toId)?.name ? categories.find(c => c.id === toId)?.name : 'Pilih target...'
+                  )}
+                </span>
+              </div>
+              <ChevronRight size={18} color="var(--text-muted)" />
+            </button>
           </div>
 
           <div>
@@ -721,6 +737,250 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
           </button>
         </div>
       </motion.div>
+
+      {/* From Option Selection Modal */}
+      <AnimatePresence>
+        {isFromModalOpen && (
+          <motion.div
+            className="modal-overlay"
+            onClick={() => setIsFromModalOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ zIndex: 3100 }}
+          >
+            <motion.div
+              className="modal-content"
+              onClick={e => e.stopPropagation()}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              style={{ maxHeight: '60vh', overflowY: 'auto', padding: '20px' }}
+            >
+              <div className="modal-header">
+                <h3 className="subtitle" style={{ margin: 0 }}>Pilih Sumber Dana</h3>
+                <button className="close-btn" onClick={() => setIsFromModalOpen(false)}><X /></button>
+              </div>
+
+              <div style={{ display: 'grid', gap: '8px', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  disabled={unassignedMoney <= 0}
+                  onClick={() => {
+                    setFromId('unassigned');
+                    setIsFromModalOpen(false);
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                    borderRadius: '16px', width: '100%', textAlign: 'left', cursor: unassignedMoney > 0 ? 'pointer' : 'not-allowed',
+                    background: fromId === 'unassigned' ? 'var(--primary-glow)' : 'var(--bg-main)',
+                    border: `1.5px solid ${fromId === 'unassigned' ? 'var(--primary)' : 'var(--border-color)'}`,
+                    opacity: unassignedMoney > 0 ? 1 : 0.4,
+                    transition: 'all 0.2s',
+                    color: 'var(--text-main)'
+                  }}
+                >
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '10px',
+                    background: 'var(--bg-card)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Wallet size={18} color={fromId === 'unassigned' ? 'var(--primary)' : 'var(--text-muted)'} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px' }}>Sisa Belum Dialokasikan</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tersedia: {fmt(unassignedMoney, currencySymbol)}</div>
+                  </div>
+                  {fromId === 'unassigned' && <Check size={18} color="var(--primary)" />}
+                </button>
+
+                {budgets.filter(b => {
+                  if (b.categoryId === null) return false;
+                  const cat = categories.find(c => c.id === b.categoryId);
+                  return cat && !cat.isDeleted;
+                }).map(b => {
+                  const cat = categories.find(c => c.id === b.categoryId);
+                  const spent = spendingMap[b.categoryId!] || 0;
+                  const rem = b.limit - spent;
+                  const isSelected = fromId === b.categoryId;
+                  const hasMoney = rem > 0;
+
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      disabled={!hasMoney}
+                      onClick={() => {
+                        if (hasMoney) {
+                          setFromId(b.categoryId);
+                          setIsFromModalOpen(false);
+                        }
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                        borderRadius: '16px', width: '100%', textAlign: 'left', cursor: hasMoney ? 'pointer' : 'not-allowed',
+                        background: isSelected ? 'var(--primary-glow)' : 'var(--bg-main)',
+                        border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border-color)'}`,
+                        opacity: hasMoney ? 1 : 0.4,
+                        transition: 'all 0.2s',
+                        color: 'var(--text-main)'
+                      }}
+                    >
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'var(--bg-card)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <Folder size={18} color={isSelected ? 'var(--primary)' : 'var(--text-muted)'} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: '13px' }}>{cat?.name || 'Kategori'}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          Tersedia: {fmt(rem, currencySymbol)} {!hasMoney && '• Anggaran Habis'}
+                        </div>
+                      </div>
+                      {isSelected && <Check size={18} color="var(--primary)" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* To Option Selection Modal */}
+      <AnimatePresence>
+        {isToModalOpen && (
+          <motion.div
+            className="modal-overlay"
+            onClick={() => setIsToModalOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ zIndex: 3100 }}
+          >
+            <motion.div
+              className="modal-content"
+              onClick={e => e.stopPropagation()}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              style={{ maxHeight: '60vh', overflowY: 'auto', padding: '20px' }}
+            >
+              <div className="modal-header">
+                <h3 className="subtitle" style={{ margin: 0 }}>Pilih Target Dana</h3>
+                <button className="close-btn" onClick={() => setIsToModalOpen(false)}><X /></button>
+              </div>
+
+              <div style={{ display: 'grid', gap: '8px', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setToId('unassigned');
+                    setIsToModalOpen(false);
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                    borderRadius: '16px', width: '100%', textAlign: 'left', cursor: 'pointer',
+                    background: toId === 'unassigned' ? 'var(--primary-glow)' : 'var(--bg-main)',
+                    border: `1.5px solid ${toId === 'unassigned' ? 'var(--primary)' : 'var(--border-color)'}`,
+                    transition: 'all 0.2s',
+                    color: 'var(--text-main)'
+                  }}
+                >
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '10px',
+                    background: 'var(--bg-card)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Wallet size={18} color={toId === 'unassigned' ? 'var(--primary)' : 'var(--text-muted)'} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px' }}>Sisa Belum Dialokasikan</div>
+                  </div>
+                  {toId === 'unassigned' && <Check size={18} color="var(--primary)" />}
+                </button>
+
+                {budgets.filter(b => {
+                  if (b.categoryId === null) return false;
+                  const cat = categories.find(c => c.id === b.categoryId);
+                  return cat && !cat.isDeleted;
+                }).map(b => {
+                  const cat = categories.find(c => c.id === b.categoryId);
+                  const isSelected = toId === b.categoryId;
+
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        setToId(b.categoryId);
+                        setIsToModalOpen(false);
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                        borderRadius: '16px', width: '100%', textAlign: 'left', cursor: 'pointer',
+                        background: isSelected ? 'var(--primary-glow)' : 'var(--bg-main)',
+                        border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border-color)'}`,
+                        transition: 'all 0.2s',
+                        color: 'var(--text-main)'
+                      }}
+                    >
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'var(--bg-card)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <Folder size={18} color={isSelected ? 'var(--primary)' : 'var(--text-muted)'} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: '13px' }}>{cat?.name || 'Kategori'}</div>
+                      </div>
+                      {isSelected && <Check size={18} color="var(--primary)" />}
+                    </button>
+                  );
+                })}
+
+                {categories.filter(c => !c.isDeleted && c.type === 'pengeluaran' && !budgets.some(b => b.categoryId === c.id)).map(c => {
+                  const isSelected = toId === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setToId(c.id);
+                        setIsToModalOpen(false);
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                        borderRadius: '16px', width: '100%', textAlign: 'left', cursor: 'pointer',
+                        background: isSelected ? 'var(--primary-glow)' : 'var(--bg-main)',
+                        border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border-color)'}`,
+                        transition: 'all 0.2s',
+                        color: 'var(--text-main)'
+                      }}
+                    >
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'var(--bg-card)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <Folder size={18} color={isSelected ? 'var(--primary)' : 'var(--text-muted)'} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: '13px' }}>{c.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Buat Amplop Baru</div>
+                      </div>
+                      {isSelected && <Check size={18} color="var(--primary)" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

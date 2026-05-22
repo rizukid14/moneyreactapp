@@ -26,3 +26,63 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
+
+// Intercept Web Share Target POST requests
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  if (event.request.method === 'POST' && url.pathname === '/share-target') {
+    event.respondWith(
+      (async () => {
+        try {
+          const formData = await event.request.formData();
+          const title = formData.get('title') || '';
+          const text = formData.get('text') || '';
+          const sharedUrl = formData.get('url') || '';
+          const file = formData.get('files'); // matches manifest params.files name 'files'
+
+          // Open custom cache for shared data
+          const cache = await caches.open('shared-data');
+
+          // Store metadata
+          const metadata = {
+            title,
+            text,
+            url: sharedUrl,
+            hasFile: !!file
+          };
+
+          await cache.put(
+            new Request('/shared-metadata.json'),
+            new Response(JSON.stringify(metadata), {
+              headers: { 'Content-Type': 'application/json' }
+            })
+          );
+
+          // Store file blob if present
+          if (file) {
+            await cache.put(
+              new Request('/shared-file.bin'),
+              new Response(file, {
+                headers: {
+                  'Content-Type': file.type || 'application/octet-stream',
+                  'Content-Disposition': `attachment; filename="${file.name || 'shared-file'}"`
+                }
+              })
+            );
+          } else {
+            await cache.delete('/shared-file.bin');
+          }
+
+          // Redirect to appropriate route based on shared content
+          // If it contains a file, redirect to Receipt Scanner. Otherwise, redirect to Bulk Input.
+          const redirectUrl = file ? '/scan?shared=true' : '/bulk-input?shared=true';
+          return Response.redirect(redirectUrl, 303);
+        } catch (err) {
+          console.error('[sw] Error handling share target:', err);
+          return Response.redirect('/?shared-error=true', 303);
+        }
+      })()
+    );
+  }
+});

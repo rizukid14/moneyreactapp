@@ -24,6 +24,8 @@ const BulkInput: React.FC = () => {
   const speechBaseRef = React.useRef('');
   const finalTranscriptRef = React.useRef('');
 
+
+
   const handleSpeechToText = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
@@ -125,13 +127,14 @@ const BulkInput: React.FC = () => {
     setPendingAction(false);
   };
 
-  const handleParse = async () => {
-    if (!inputText.trim()) {
+  const handleParse = React.useCallback(async (textToParse?: string) => {
+    const text = typeof textToParse === 'string' ? textToParse : inputText;
+    if (!text.trim()) {
       showToast('Masukkan teks transaksi terlebih dahulu.', 'warning');
       return;
     }
     const activeAssets = assets.filter(a => !a.isDeleted);
-    const parsed = await parseData({ text: inputText, categories, assets: activeAssets });
+    const parsed = await parseData({ text, categories, assets: activeAssets });
     if (parsed && parsed.length > 0) {
       const augmented = parsed.map(tx => {
         const mapAsset = (assetName: string | undefined, defaultId = '') => {
@@ -154,6 +157,7 @@ const BulkInput: React.FC = () => {
         if (tx.category && tx.type !== 'transfer') {
           const matchedCat = categories.find(c =>
             c.type === tx.type &&
+            !c.isDeleted &&
             (c.name.toLowerCase() === tx.category.toLowerCase() ||
              c.name.toLowerCase().includes(tx.category.toLowerCase()) ||
              tx.category.toLowerCase().includes(c.name.toLowerCase()))
@@ -162,9 +166,10 @@ const BulkInput: React.FC = () => {
             matchedCategory = matchedCat.name;
             if (tx.subCategory && matchedCat.subcategories) {
               const matchedSub = matchedCat.subcategories.find((s: any) =>
-                s.name.toLowerCase() === tx.subCategory!.toLowerCase() ||
-                s.name.toLowerCase().includes(tx.subCategory!.toLowerCase()) ||
-                tx.subCategory!.toLowerCase().includes(s.name.toLowerCase())
+                !s.isDeleted &&
+                (s.name.toLowerCase() === tx.subCategory!.toLowerCase() ||
+                 s.name.toLowerCase().includes(tx.subCategory!.toLowerCase()) ||
+                 tx.subCategory!.toLowerCase().includes(s.name.toLowerCase()))
               );
               if (matchedSub) matchedSubCategory = matchedSub.name;
             }
@@ -186,8 +191,50 @@ const BulkInput: React.FC = () => {
     } else if (parsed && parsed.length === 0) {
       showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
     }
-  };
+  }, [inputText, assets, categories, parseData, showToast]);
 
+  // Check for shared text/url from PWA Share Target
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('shared') === 'true') {
+      const loadSharedText = async () => {
+        try {
+          if (!window.caches) return;
+          const cache = await window.caches.open('shared-data');
+          const metaRes = await cache.match('/shared-metadata.json');
+          if (metaRes) {
+            const meta = await metaRes.json();
+            
+            // Combine title, text, and URL
+            const parts = [];
+            if (meta.title) parts.push(meta.title);
+            if (meta.text) parts.push(meta.text);
+            if (meta.url) parts.push(meta.url);
+            const combinedText = parts.join('\n').trim();
+
+            if (combinedText) {
+              setInputText(combinedText);
+              showToast('Menerima catatan transaksi shared...', 'info');
+              // Parse the received text immediately
+              await handleParse(combinedText);
+            }
+            
+            // Clean up cache
+            await cache.delete('/shared-metadata.json');
+            await cache.delete('/shared-file.bin');
+          }
+        } catch (err) {
+          console.error('Error loading shared text:', err);
+          showToast('Gagal memuat teks transaksi yang dibagikan', 'error');
+        } finally {
+          // Clear query params without page reload
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      };
+      loadSharedText();
+    }
+  }, [showToast, assets, categories, handleParse]);
 
   return (
     <div className="page">
@@ -245,7 +292,7 @@ const BulkInput: React.FC = () => {
 
           <button
             className="btn btn-primary"
-            onClick={handleParse}
+            onClick={() => handleParse()}
             disabled={isParsing || !inputText.trim()}
             style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
           >

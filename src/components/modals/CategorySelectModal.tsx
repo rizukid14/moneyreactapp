@@ -24,18 +24,18 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
   // Filter and sort main categories alphabetically
   const sortedCategories = useMemo(() => {
-    let result = [...categories].filter(c => c.type === type);
+    let result = [...categories].filter(c => c.type === type && (!c.isDeleted || c.name === initialCategory));
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(c => 
         c.name.toLowerCase().includes(query) || 
-        c.subcategories?.some(s => s.name.toLowerCase().includes(query))
+        c.subcategories?.some(s => !s.isDeleted && s.name.toLowerCase().includes(query))
       );
     }
     
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [categories, type, searchQuery]);
+  }, [categories, type, searchQuery, initialCategory]);
 
   useEffect(() => {
     if (isOpen) {
@@ -54,7 +54,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   // Sort subcategories alphabetically
   const sortedSubcategories = useMemo(() => {
     if (!activeCategoryObj || !activeCategoryObj.subcategories) return [];
-    let result = [...activeCategoryObj.subcategories];
+    let result = [...activeCategoryObj.subcategories].filter(s => !s.isDeleted || s.name === initialSubCategory);
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -62,7 +62,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
     }
     
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeCategoryObj, searchQuery]);
+  }, [activeCategoryObj, searchQuery, initialSubCategory]);
 
   const handleCategoryClick = (catName: string) => {
     setActiveCategory(catName);

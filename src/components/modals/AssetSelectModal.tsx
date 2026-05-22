@@ -48,14 +48,14 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
         }
       }
       // Default to first type that has assets, or 'Cash'
-      const firstTypeWithAssets = ALL_TYPES.find(t => assets.some(a => a.type === t));
+      const firstTypeWithAssets = ALL_TYPES.find(t => assets.some(a => a.type === t && (!a.isDeleted || a.id === selectedAssetId)));
       setActiveType(firstTypeWithAssets || 'Cash');
     }
   }, [isOpen, selectedAssetId, assets]);
 
   // Assets of the active type, sorted alphabetically
   const filteredAssets = useMemo(() => {
-    let result = [...assets];
+    let result = assets.filter(a => !a.isDeleted || a.id === selectedAssetId);
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -65,7 +65,7 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
     }
     
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [assets, activeType, searchQuery]);
+  }, [assets, activeType, searchQuery, selectedAssetId]);
 
   const handleSelect = (assetId: string) => {
     onSelect(assetId);
@@ -163,7 +163,7 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                   {availableTypes.map(type => {
                     const meta = ASSET_TYPE_META[type];
                     const isActive = type === activeType && !searchQuery;
-                    const count = assets.filter(a => a.type === type).length;
+                    const count = assets.filter(a => a.type === type && (!a.isDeleted || a.id === selectedAssetId)).length;
 
                     return (
                       <button

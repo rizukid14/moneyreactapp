@@ -27,7 +27,11 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
 
   // Calculate unassigned money
   const currentMonthBudgets = budgets.filter(b => b.month === month && b.year === year);
-  const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
+  const categoryBudgets = currentMonthBudgets.filter(b => {
+    if (b.categoryId === null) return false;
+    const cat = categories.find(c => c.id === b.categoryId);
+    return cat && !cat.isDeleted;
+  });
   const totalBudgeted = categoryBudgets.reduce((sum, b) => sum + b.limit, 0);
   const currentMonthIncomeObj = monthlyIncomes.find(m => m.month === month && m.year === year);
   const monthlyIncomeAmount = currentMonthIncomeObj ? currentMonthIncomeObj.amount : 0;

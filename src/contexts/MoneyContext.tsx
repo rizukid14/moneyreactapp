@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import {
   dbGetAllAssets, dbPutAsset,
   dbGetAllTransactions, dbPutTransaction, dbDeleteTransaction,
-  dbGetAllCategories, dbPutCategory, dbDeleteCategory,
+  dbGetAllCategories, dbPutCategory,
   dbGetAllBudgets, dbPutBudget, dbDeleteBudget,
   dbGetAllDebts, dbPutDebt, dbDeleteDebt,
   dbGetAllGoals, dbPutGoal, dbDeleteGoal,
@@ -38,6 +38,7 @@ export interface UserProfile {
 export interface SubCategory {
   id: string;
   name: string;
+  isDeleted?: boolean;
 }
 
 export interface Category {
@@ -45,6 +46,7 @@ export interface Category {
   name: string;
   type: 'pengeluaran' | 'pendapatan';
   subcategories?: SubCategory[];
+  isDeleted?: boolean;
 }
 
 export interface Asset {
@@ -852,8 +854,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   const deleteCategory = useCallback((id: string) => {
-    setCategories(prev => prev.filter(c => c.id !== id));
-    dbDeleteCategory(id).then(refreshSyncCount);
+    setCategories(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const updated = { ...c, isDeleted: true };
+      dbPutCategory(updated).then(refreshSyncCount);
+      return updated;
+    }));
   }, [refreshSyncCount]);
 
   const addSubCategory = useCallback((categoryId: string, name: string) => {
@@ -868,11 +874,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const deleteSubCategory = useCallback((categoryId: string, subId: string) => {
     setCategories(prev => prev.map(c => {
       if (c.id !== categoryId) return c;
-      const updated = { ...c, subcategories: (c.subcategories || []).filter(sub => sub.id !== subId) };
-      dbPutCategory(updated);
+      const updatedSubcategories = (c.subcategories || []).map(sub => {
+        if (sub.id !== subId) return sub;
+        return { ...sub, isDeleted: true };
+      });
+      const updated = { ...c, subcategories: updatedSubcategories };
+      dbPutCategory(updated).then(refreshSyncCount);
       return updated;
     }));
-  }, []);
+  }, [refreshSyncCount]);
 
   const updateCategory = useCallback((id: string, name: string) => {
     let oldName = '';
