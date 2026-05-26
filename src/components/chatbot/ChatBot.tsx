@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square } from 'lucide-react';
+import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
@@ -513,6 +513,40 @@ const ChatBot: React.FC = () => {
       showToast(`Langganan ${toolArgs.name} berhasil ditambahkan!`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Gagal menambahkan langganan', 'error');
+    }
+  };
+
+  const handleExecuteTransferRecommendation = (msgIndex: number, transferIdx: number, tf: any) => {
+    try {
+      addTransaction({
+        type: 'transfer',
+        amount: Number(tf.amount),
+        date: getLocalDate(),
+        note: tf.reason || `Transfer Rekomendasi AI`,
+        category: 'Transfer',
+        fromAssetId: tf.fromAssetId,
+        toAssetId: tf.toAssetId,
+      });
+
+      setMessages(prev => prev.map((m, i) => {
+        if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+          const updatedTfs = (m.toolCall.arguments.transferRecommendations || []).map((t: any, idx: number) => 
+            idx === transferIdx ? { ...t, isExecuted: true } : t
+          );
+          return {
+            ...m,
+            toolCall: {
+              ...m.toolCall,
+              arguments: { ...m.toolCall.arguments, transferRecommendations: updatedTfs }
+            }
+          };
+        }
+        return m;
+      }));
+
+      showToast(`Berhasil mentransfer Rp${tf.amount.toLocaleString('id-ID')} dari ${tf.fromAssetName} ke ${tf.toAssetName}!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal melakukan transfer', 'error');
     }
   };
 
@@ -1273,6 +1307,80 @@ const ChatBot: React.FC = () => {
                         );
                       })}
                     </div>
+
+                    {msg.toolCall.arguments.transferRecommendations && msg.toolCall.arguments.transferRecommendations.length > 0 && (
+                      <div style={{ 
+                        marginTop: '16px', 
+                        borderTop: '1px dashed var(--border-color)', 
+                        paddingTop: '16px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '12px', 
+                        marginBottom: '16px' 
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
+                          <ArrowRight size={16} />
+                          <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                            Rekomendasi Transfer Saldo
+                          </span>
+                        </div>
+                        {msg.toolCall.arguments.transferRecommendations.map((tf: any, tfIdx: number) => (
+                          <div key={tfIdx} style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-card)', 
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                <span>{tf.fromAssetName}</span>
+                                <ArrowRight size={12} style={{ color: 'var(--text-muted)' }} />
+                                <span>{tf.toAssetName}</span>
+                              </div>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                                {currencySymbol}{tf.amount.toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                            {tf.reason && (
+                              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
+                                {tf.reason}
+                              </p>
+                            )}
+                            <button
+                              onClick={() => handleExecuteTransferRecommendation(idx, tfIdx, tf)}
+                              disabled={tf.isExecuted}
+                              style={{
+                                marginTop: '4px',
+                                width: '100%',
+                                padding: '6px',
+                                borderRadius: '8px',
+                                border: tf.isExecuted ? '1px solid var(--success-border, #10b981)' : 'none',
+                                background: tf.isExecuted ? 'rgba(16, 185, 129, 0.1)' : 'var(--success-text, #10b981)',
+                                color: tf.isExecuted ? 'var(--success-text, #10b981)' : 'white',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: tf.isExecuted ? 'default' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {tf.isExecuted ? (
+                                <>
+                                  <Check size={12} /> Berhasil Ditransfer
+                                </>
+                              ) : (
+                                'Transfer Sekarang'
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button 

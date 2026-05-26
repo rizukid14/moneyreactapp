@@ -303,7 +303,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
 - AI Advice: When talking about budgets or overbudgeting in ZBB, suggest reallocating money from an envelope with surplus budget to the deficient envelope.
 - Budget & Asset Recommendations:
   1. If the user asks for budget recommendations/planning, analyze their transaction history (expenses per category) and recurring transactions/subscriptions. Call the 'recommend_budget' tool to draft budget limits for various categories for the current or next month. Ensure each recommended limit covers active recurring/subscription expenses in that category plus a reasonable allowance based on average historical spending. Provide a clear justification in Indonesian.
-  2. If the user has multiple accounts (assets of type 'Cash', 'Bank Account', 'eWallet') and has concentrated balances in one account (like a salary account/checking account), or if an account is low on balance relative to upcoming bills, suggest a transfer from the high-balance account to the savings account, or to a dedicated account for category-specific spending (e.g. transfer Rp 1.5M from 'blu' to 'Mandiri' to fund the 'Makanan' budget). Use the existing 'create_transaction' tool with 'type': 'transfer' to draft these transfers.
+  2. If the user has multiple accounts (assets of type 'Cash', 'Bank Account', 'eWallet') and has concentrated balances in one account (like a salary account/checking account), or if an account is low on balance relative to upcoming bills, suggest a transfer from the high-balance account to the savings account, or to a dedicated account for category-specific spending (e.g. transfer Rp 1.5M from 'blu' to 'Mandiri' to fund the 'Makanan' budget). Provide these recommendations by populating the 'transferRecommendations' array parameter in the 'recommend_budget' tool call.
 `;
     }
 
@@ -478,6 +478,22 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
                     reason: { type: "string", description: "Brief reason/explanation in Indonesian for this limit." }
                   },
                   required: ["categoryId", "categoryName", "limit", "reason"]
+                }
+              },
+              transferRecommendations: {
+                type: "array",
+                description: "List of recommended transfers between accounts to fund specific categories or balance liquidity.",
+                items: {
+                  type: "object",
+                  properties: {
+                    fromAssetId: { type: "string", description: "Source asset ID." },
+                    fromAssetName: { type: "string", description: "Source asset name." },
+                    toAssetId: { type: "string", description: "Target asset ID." },
+                    toAssetName: { type: "string", description: "Target asset name." },
+                    amount: { type: "number", description: "Amount to transfer." },
+                    reason: { type: "string", description: "Reason for the transfer in Indonesian (e.g. 'Pindahkan Rp 1.5jt ke Mandiri untuk Makan')." }
+                  },
+                  required: ["fromAssetId", "fromAssetName", "toAssetId", "toAssetName", "amount", "reason"]
                 }
               },
               month: { type: "number", description: "Budget month (0-11, where 0 is January, 11 is December)." },
