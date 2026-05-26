@@ -1,5 +1,6 @@
 # 💰 MoneyApp
 
+
 > **A premium, full-featured personal finance manager** — built with React, TypeScript, Firebase, and a focus on beautiful mobile UX.
 
 ![Version](https://img.shields.io/badge/version-1.0.15-blue)
