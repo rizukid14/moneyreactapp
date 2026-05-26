@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
+import CategorySelectModal from '../modals/CategorySelectModal';
+import AssetSelectModal from '../modals/AssetSelectModal';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -29,6 +31,14 @@ const ChatBot: React.FC = () => {
   const recognitionRef = useRef<any>(null);
   const speechBaseRef = useRef('');
   const finalTranscriptRef = useRef('');
+
+  // States for custom selection modals
+  const [activeSelectCategoryMsgIdx, setActiveSelectCategoryMsgIdx] = useState<number | null>(null);
+  const [categoryModalType, setCategoryModalType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
+  const [categorySelectCallback, setCategorySelectCallback] = useState<((categoryName: string, subCategoryName: string) => void) | null>(null);
+  
+  const [activeSelectAssetMsgIdx, setActiveSelectAssetMsgIdx] = useState<number | null>(null);
+  const [assetSelectCallback, setAssetSelectCallback] = useState<((assetId: string) => void) | null>(null);
   
   const { 
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
@@ -725,72 +735,53 @@ const ChatBot: React.FC = () => {
                           </div>
 
                           {msg.toolCall.arguments.type !== 'transfer' && (
-                            <>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                                <select 
-                                  value={msg.toolCall.arguments.category || ''} 
-                                  onChange={(e) => {
-                                    handleUpdateDraftField(idx, 'category', e.target.value);
-                                    handleUpdateDraftField(idx, 'subCategory', '');
-                                  }}
-                                  style={{
-                                    background: 'var(--bg-neutral)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '8px',
-                                    padding: '4px 8px',
-                                    fontSize: '12px',
-                                    color: 'var(--text-main)',
-                                    outline: 'none',
-                                    width: '150px'
-                                  }}
-                                >
-                                  <option value="">Pilih Kategori...</option>
-                                  {categories.filter(c => !c.isDeleted && c.type === msg.toolCall?.arguments.type).map(c => (
-                                    <option key={c.id} value={c.name}>{c.name}</option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              {(() => {
-                                const selectedCat = categories.find(c => c.name === msg.toolCall?.arguments.category);
-                                const subcats = selectedCat?.subcategories?.filter(s => !s.isDeleted) || [];
-                                if (subcats.length === 0) return null;
-                                return (
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: 'var(--text-muted)' }}>Sub-Kategori:</span>
-                                    <select 
-                                      value={msg.toolCall.arguments.subCategory || ''} 
-                                      onChange={(e) => handleUpdateDraftField(idx, 'subCategory', e.target.value)}
-                                      style={{
-                                        background: 'var(--bg-neutral)',
-                                        border: '1px solid var(--border-color)',
-                                        borderRadius: '8px',
-                                        padding: '4px 8px',
-                                        fontSize: '12px',
-                                        color: 'var(--text-main)',
-                                        outline: 'none',
-                                        width: '150px'
-                                      }}
-                                    >
-                                      <option value="">Pilih Sub-Kategori...</option>
-                                      {subcats.map(s => (
-                                        <option key={s.id} value={s.name}>{s.name}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                );
-                              })()}
-                            </>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveSelectCategoryMsgIdx(idx);
+                                  const flowType = msg.toolCall?.arguments?.type === 'pendapatan' ? 'pendapatan' : 'pengeluaran';
+                                  setCategoryModalType(flowType);
+                                  setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
+                                    handleUpdateDraftField(idx, 'category', categoryName);
+                                    handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                  });
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '150px',
+                                  textAlign: 'right',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {msg.toolCall?.arguments?.category 
+                                  ? (msg.toolCall.arguments.subCategory 
+                                      ? `${msg.toolCall.arguments.category} (${msg.toolCall.arguments.subCategory})` 
+                                      : msg.toolCall.arguments.category)
+                                  : 'Pilih Kategori...'}
+                              </button>
+                            </div>
                           )}
 
                           {msg.toolCall.arguments.type === 'transfer' ? (
                             <>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--text-muted)' }}>Dari:</span>
-                                <select 
-                                  value={msg.toolCall.arguments.fromAssetId || ''} 
-                                  onChange={(e) => handleUpdateDraftField(idx, 'fromAssetId', e.target.value)}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveSelectAssetMsgIdx(idx);
+                                    setAssetSelectCallback(() => (assetId: string) => {
+                                      handleUpdateDraftField(idx, 'fromAssetId', assetId);
+                                    });
+                                  }}
                                   style={{
                                     background: 'var(--bg-neutral)',
                                     border: '1px solid var(--border-color)',
@@ -799,21 +790,25 @@ const ChatBot: React.FC = () => {
                                     fontSize: '12px',
                                     color: 'var(--text-main)',
                                     outline: 'none',
-                                    width: '150px'
+                                    width: '150px',
+                                    textAlign: 'right',
+                                    cursor: 'pointer'
                                   }}
                                 >
-                                  <option value="">Pilih Rekening Asal...</option>
-                                  {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
-                                    <option key={a.id} value={a.id}>{a.name}</option>
-                                  ))}
-                                </select>
+                                  {assets.find(a => a.id === msg.toolCall?.arguments?.fromAssetId)?.name || 'Pilih Rekening Asal...'}
+                                </button>
                               </div>
 
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--text-muted)' }}>Ke:</span>
-                                <select 
-                                  value={msg.toolCall.arguments.toAssetId || ''} 
-                                  onChange={(e) => handleUpdateDraftField(idx, 'toAssetId', e.target.value)}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveSelectAssetMsgIdx(idx);
+                                    setAssetSelectCallback(() => (assetId: string) => {
+                                      handleUpdateDraftField(idx, 'toAssetId', assetId);
+                                    });
+                                  }}
                                   style={{
                                     background: 'var(--bg-neutral)',
                                     border: '1px solid var(--border-color)',
@@ -822,14 +817,13 @@ const ChatBot: React.FC = () => {
                                     fontSize: '12px',
                                     color: 'var(--text-main)',
                                     outline: 'none',
-                                    width: '150px'
+                                    width: '150px',
+                                    textAlign: 'right',
+                                    cursor: 'pointer'
                                   }}
                                 >
-                                  <option value="">Pilih Rekening Tujuan...</option>
-                                  {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
-                                    <option key={a.id} value={a.id}>{a.name}</option>
-                                  ))}
-                                </select>
+                                  {assets.find(a => a.id === msg.toolCall?.arguments?.toAssetId)?.name || 'Pilih Rekening Tujuan...'}
+                                </button>
                               </div>
 
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -855,31 +849,56 @@ const ChatBot: React.FC = () => {
                                       textAlign: 'right'
                                     }}
                                   />
-                                  <select
-                                    value={msg.toolCall.arguments.adminFeeTarget || 'sender'}
-                                    onChange={(e) => handleUpdateDraftField(idx, 'adminFeeTarget', e.target.value)}
-                                    style={{
-                                      background: 'var(--bg-neutral)',
-                                      border: '1px solid var(--border-color)',
-                                      borderRadius: '8px',
-                                      padding: '4px',
-                                      fontSize: '11px',
-                                      color: 'var(--text-main)',
-                                      outline: 'none'
-                                    }}
-                                  >
-                                    <option value="sender">Pengirim</option>
-                                    <option value="receiver">Penerima</option>
-                                  </select>
+                                  <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '6px', padding: '2px', border: '1px solid var(--border-color)' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateDraftField(idx, 'adminFeeTarget', 'sender')}
+                                      style={{
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: 'none',
+                                        background: (msg.toolCall.arguments.adminFeeTarget || 'sender') === 'sender' ? 'var(--bg-neutral)' : 'transparent',
+                                        color: (msg.toolCall.arguments.adminFeeTarget || 'sender') === 'sender' ? 'var(--text-main)' : 'var(--text-muted)',
+                                        fontSize: '10px',
+                                        fontWeight: (msg.toolCall.arguments.adminFeeTarget || 'sender') === 'sender' ? 700 : 500,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                      }}
+                                    >
+                                      Pengirim
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateDraftField(idx, 'adminFeeTarget', 'receiver')}
+                                      style={{
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: 'none',
+                                        background: msg.toolCall.arguments.adminFeeTarget === 'receiver' ? 'var(--bg-neutral)' : 'transparent',
+                                        color: msg.toolCall.arguments.adminFeeTarget === 'receiver' ? 'var(--text-main)' : 'var(--text-muted)',
+                                        fontSize: '10px',
+                                        fontWeight: msg.toolCall.arguments.adminFeeTarget === 'receiver' ? 700 : 500,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                      }}
+                                    >
+                                      Penerima
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </>
                           ) : (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: 'var(--text-muted)' }}>Aset:</span>
-                              <select 
-                                value={msg.toolCall.arguments.assetId || ''} 
-                                onChange={(e) => handleUpdateDraftField(idx, 'assetId', e.target.value)}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveSelectAssetMsgIdx(idx);
+                                  setAssetSelectCallback(() => (assetId: string) => {
+                                    handleUpdateDraftField(idx, 'assetId', assetId);
+                                  });
+                                }}
                                 style={{
                                   background: 'var(--bg-neutral)',
                                   border: '1px solid var(--border-color)',
@@ -888,14 +907,13 @@ const ChatBot: React.FC = () => {
                                   fontSize: '12px',
                                   color: 'var(--text-main)',
                                   outline: 'none',
-                                  width: '150px'
+                                  width: '150px',
+                                  textAlign: 'right',
+                                  cursor: 'pointer'
                                 }}
                               >
-                                <option value="">Pilih Rekening...</option>
-                                {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
-                                  <option key={a.id} value={a.id}>{a.name}</option>
-                                ))}
-                              </select>
+                                {assets.find(a => a.id === msg.toolCall?.arguments?.assetId)?.name || 'Pilih Rekening...'}
+                              </button>
                             </div>
                           )}
 
@@ -977,11 +995,16 @@ const ChatBot: React.FC = () => {
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                            <select 
-                              value={msg.toolCall.arguments.category || ''} 
-                              onChange={(e) => {
-                                handleUpdateDraftField(idx, 'category', e.target.value);
-                                handleUpdateDraftField(idx, 'subCategory', '');
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectCategoryMsgIdx(idx);
+                                const flowType = msg.toolCall?.arguments?.type === 'hutang' ? 'pengeluaran' : 'pengeluaran';
+                                setCategoryModalType(flowType);
+                                setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
+                                  handleUpdateDraftField(idx, 'category', categoryName);
+                                  handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                });
                               }}
                               style={{
                                 background: 'var(--bg-neutral)',
@@ -991,51 +1014,29 @@ const ChatBot: React.FC = () => {
                                 fontSize: '12px',
                                 color: 'var(--text-main)',
                                 outline: 'none',
-                                width: '150px'
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
                               }}
                             >
-                              <option value="">Pilih Kategori...</option>
-                              {categories.filter(c => !c.isDeleted && c.type === (msg.toolCall?.arguments.type === 'hutang' ? 'pengeluaran' : 'pendapatan')).map(c => (
-                                <option key={c.id} value={c.name}>{c.name}</option>
-                              ))}
-                            </select>
+                              {msg.toolCall?.arguments?.category 
+                                ? (msg.toolCall.arguments.subCategory 
+                                    ? `${msg.toolCall.arguments.category} (${msg.toolCall.arguments.subCategory})` 
+                                    : msg.toolCall.arguments.category)
+                                : 'Pilih Kategori...'}
+                            </button>
                           </div>
-
-                          {(() => {
-                            const selectedCat = categories.find(c => c.name === msg.toolCall?.arguments.category);
-                            const subcats = selectedCat?.subcategories?.filter(s => !s.isDeleted) || [];
-                            if (subcats.length === 0) return null;
-                            return (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--text-muted)' }}>Sub-Kategori:</span>
-                                <select 
-                                  value={msg.toolCall.arguments.subCategory || ''} 
-                                  onChange={(e) => handleUpdateDraftField(idx, 'subCategory', e.target.value)}
-                                  style={{
-                                    background: 'var(--bg-neutral)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '8px',
-                                    padding: '4px 8px',
-                                    fontSize: '12px',
-                                    color: 'var(--text-main)',
-                                    outline: 'none',
-                                    width: '150px'
-                                  }}
-                                >
-                                  <option value="">Pilih Sub-Kategori...</option>
-                                  {subcats.map(s => (
-                                    <option key={s.id} value={s.name}>{s.name}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            );
-                          })()}
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Aset Terkait:</span>
-                            <select 
-                              value={msg.toolCall.arguments.assetId || ''} 
-                              onChange={(e) => handleUpdateDraftField(idx, 'assetId', e.target.value)}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectAssetMsgIdx(idx);
+                                setAssetSelectCallback(() => (assetId: string) => {
+                                  handleUpdateDraftField(idx, 'assetId', assetId);
+                                });
+                              }}
                               style={{
                                 background: 'var(--bg-neutral)',
                                 border: '1px solid var(--border-color)',
@@ -1044,14 +1045,13 @@ const ChatBot: React.FC = () => {
                                 fontSize: '12px',
                                 color: 'var(--text-main)',
                                 outline: 'none',
-                                width: '150px'
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
                               }}
                             >
-                              <option value="">Pilih Rekening...</option>
-                              {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
-                                <option key={a.id} value={a.id}>{a.name}</option>
-                              ))}
-                            </select>
+                              {assets.find(a => a.id === msg.toolCall?.arguments?.assetId)?.name || 'Pilih Rekening...'}
+                            </button>
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1127,30 +1127,59 @@ const ChatBot: React.FC = () => {
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Siklus:</span>
-                            <select 
-                              value={msg.toolCall.arguments.billingCycle || 'monthly'} 
-                              onChange={(e) => handleUpdateDraftField(idx, 'billingCycle', e.target.value)}
-                              style={{
-                                background: 'var(--bg-neutral)',
-                                border: '1px solid var(--border-color)',
-                                  borderRadius: '8px',
-                                  padding: '4px 8px',
-                                  fontSize: '12px',
-                                  color: 'var(--text-main)',
-                                  outline: 'none',
-                                  width: '150px'
-                              }}
-                            >
-                              <option value="monthly">Bulanan</option>
-                              <option value="yearly">Tahunan</option>
-                            </select>
+                            <div style={{ display: 'flex', background: 'var(--bg-neutral)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)', width: '150px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateDraftField(idx, 'billingCycle', 'monthly')}
+                                style={{
+                                  flex: 1,
+                                  padding: '4px 0',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  background: (msg.toolCall.arguments.billingCycle || 'monthly') === 'monthly' ? 'var(--bg-card)' : 'transparent',
+                                  color: (msg.toolCall.arguments.billingCycle || 'monthly') === 'monthly' ? 'var(--text-main)' : 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  fontWeight: (msg.toolCall.arguments.billingCycle || 'monthly') === 'monthly' ? 700 : 500,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                Bulanan
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateDraftField(idx, 'billingCycle', 'yearly')}
+                                style={{
+                                  flex: 1,
+                                  padding: '4px 0',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  background: msg.toolCall.arguments.billingCycle === 'yearly' ? 'var(--bg-card)' : 'transparent',
+                                  color: msg.toolCall.arguments.billingCycle === 'yearly' ? 'var(--text-main)' : 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  fontWeight: msg.toolCall.arguments.billingCycle === 'yearly' ? 700 : 500,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                Tahunan
+                              </button>
+                            </div>
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                            <select 
-                              value={msg.toolCall.arguments.category || ''} 
-                              onChange={(e) => handleUpdateDraftField(idx, 'category', e.target.value)}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectCategoryMsgIdx(idx);
+                                setCategoryModalType('pengeluaran');
+                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName?: string) => {
+                                  handleUpdateDraftField(idx, 'category', categoryName);
+                                });
+                              }}
                               style={{
                                 background: 'var(--bg-neutral)',
                                 border: '1px solid var(--border-color)',
@@ -1159,21 +1188,25 @@ const ChatBot: React.FC = () => {
                                 fontSize: '12px',
                                 color: 'var(--text-main)',
                                 outline: 'none',
-                                width: '150px'
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
                               }}
                             >
-                              <option value="">Pilih Kategori...</option>
-                              {categories.filter(c => !c.isDeleted && c.type === 'pengeluaran').map(c => (
-                                <option key={c.id} value={c.name}>{c.name}</option>
-                              ))}
-                            </select>
+                              {msg.toolCall?.arguments?.category || 'Pilih Kategori...'}
+                            </button>
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Sumber Rekening:</span>
-                            <select 
-                              value={msg.toolCall.arguments.assetId || ''} 
-                              onChange={(e) => handleUpdateDraftField(idx, 'assetId', e.target.value)}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectAssetMsgIdx(idx);
+                                setAssetSelectCallback(() => (assetId: string) => {
+                                  handleUpdateDraftField(idx, 'assetId', assetId);
+                                });
+                              }}
                               style={{
                                 background: 'var(--bg-neutral)',
                                 border: '1px solid var(--border-color)',
@@ -1182,14 +1215,13 @@ const ChatBot: React.FC = () => {
                                 fontSize: '12px',
                                 color: 'var(--text-main)',
                                 outline: 'none',
-                                width: '150px'
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
                               }}
                             >
-                              <option value="">Pilih Rekening...</option>
-                              {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
-                                <option key={a.id} value={a.id}>{a.name}</option>
-                              ))}
-                            </select>
+                              {assets.find(a => a.id === msg.toolCall?.arguments?.assetId)?.name || 'Pilih Rekening...'}
+                            </button>
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1400,15 +1432,17 @@ const ChatBot: React.FC = () => {
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <Plus size={14} /> Tambah:
                             </span>
-                            <select
-                              id={`add-cat-select-${idx}`}
-                              defaultValue=""
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val) {
-                                  handleAddDraftBudgetCategory(idx, val);
-                                  e.target.value = ""; // Reset dropdown selection after adding
-                                }
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectCategoryMsgIdx(idx);
+                                setCategoryModalType('pengeluaran');
+                                setCategorySelectCallback(() => (categoryName, subCategoryName) => {
+                                  const cat = categories.find(c => c.name === categoryName);
+                                  if (cat) {
+                                    handleAddDraftBudgetCategory(idx, cat.id);
+                                  }
+                                });
                               }}
                               style={{
                                 flex: 1,
@@ -1418,17 +1452,19 @@ const ChatBot: React.FC = () => {
                                 background: 'var(--bg-main)',
                                 color: 'var(--text-main)',
                                 fontSize: '12px',
-                                outline: 'none',
-                                cursor: 'pointer'
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                transition: 'background 0.2s'
                               }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-neutral)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-main)'}
                             >
-                              <option value="" disabled>-- Pilih Kategori --</option>
-                              {availableCategoriesToAdd.map(c => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                </option>
-                              ))}
-                            </select>
+                              Pilih Kategori...
+                            </button>
                           </div>
                         );
                       })()}
@@ -1651,6 +1687,39 @@ const ChatBot: React.FC = () => {
         </motion.div>
       )}
       </AnimatePresence>
+
+      {activeSelectCategoryMsgIdx !== null && (
+        <CategorySelectModal
+          isOpen={activeSelectCategoryMsgIdx !== null}
+          onClose={() => {
+            setActiveSelectCategoryMsgIdx(null);
+            setCategorySelectCallback(null);
+          }}
+          categories={categories}
+          type={categoryModalType}
+          onSelect={(categoryName, subCategoryName) => {
+            if (categorySelectCallback) {
+              categorySelectCallback(categoryName, subCategoryName);
+            }
+          }}
+        />
+      )}
+
+      {activeSelectAssetMsgIdx !== null && (
+        <AssetSelectModal
+          isOpen={activeSelectAssetMsgIdx !== null}
+          onClose={() => {
+            setActiveSelectAssetMsgIdx(null);
+            setAssetSelectCallback(null);
+          }}
+          assets={assets}
+          onSelect={(assetId) => {
+            if (assetSelectCallback) {
+              assetSelectCallback(assetId);
+            }
+          }}
+        />
+      )}
     </>
   );
 };

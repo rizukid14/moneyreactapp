@@ -240,16 +240,34 @@ const GoalModal: React.FC<GoalModalProps> = ({
                         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                           <div style={{ flex: 1 }}>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>Siklus</label>
-                            <select 
-                              value={autoFrequency} 
-                              onChange={e => setAutoFrequency(e.target.value as any)}
-                              style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}
-                            >
-                              <option value="daily">Harian</option>
-                              <option value="weekly">Mingguan</option>
-                              <option value="monthly">Bulanan</option>
-                              <option value="yearly">Tahunan</option>
-                            </select>
+                            <div style={{ display: 'flex', background: 'var(--bg-card-solid)', borderRadius: '12px', padding: '3px', border: '1px solid var(--border-color)' }}>
+                              {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((freq) => {
+                                const labels: Record<string, string> = { daily: 'Harian', weekly: 'Mingguan', monthly: 'Bulanan', yearly: 'Tahunan' };
+                                const isActive = autoFrequency === freq;
+                                return (
+                                  <button
+                                    key={freq}
+                                    type="button"
+                                    onClick={() => setAutoFrequency(freq)}
+                                    style={{
+                                      flex: 1,
+                                      padding: '8px 4px',
+                                      borderRadius: '9px',
+                                      border: 'none',
+                                      background: isActive ? 'var(--bg-neutral)' : 'transparent',
+                                      color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                                      fontSize: '12px',
+                                      fontWeight: isActive ? 700 : 500,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s',
+                                      textAlign: 'center'
+                                    }}
+                                  >
+                                    {labels[freq]}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                           <div style={{ flex: 1 }}>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>Tgl Mulai</label>
