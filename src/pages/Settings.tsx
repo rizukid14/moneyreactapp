@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
   Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
@@ -326,10 +326,21 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useToast();
   const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction } = useMoney();
   const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  // Deep linking: open modal based on navigation state
+  React.useEffect(() => {
+    if (location.state && typeof location.state === 'object' && 'activeModal' in location.state) {
+      const modal = (location.state as any).activeModal;
+      if (modal) {
+        setActiveModal(modal);
+      }
+    }
+  }, [location.state]);
   const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -1250,14 +1261,46 @@ const Settings: React.FC = () => {
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Pilih jenis grafik yang digunakan untuk menampilkan aktivitas pengeluaran harian Anda.
               </p>
-              <select
-                value={chartStyle}
-                onChange={(e) => setChartStyle(e.target.value as 'area' | 'line')}
-                style={{ width: '100%', padding: '12px', borderRadius: '12px' }}
-              >
-                <option value="area">Area Chart (Gradasi & Isian)</option>
-                <option value="line">Line Chart (Garis Glowing Premium)</option>
-              </select>
+              <div style={{ display: 'flex', background: 'var(--bg-card-solid)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)' }}>
+                <button
+                  type="button"
+                  onClick={() => setChartStyle('area')}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: chartStyle === 'area' ? 'var(--bg-neutral)' : 'transparent',
+                    color: chartStyle === 'area' ? 'var(--text-main)' : 'var(--text-muted)',
+                    fontSize: '14px',
+                    fontWeight: chartStyle === 'area' ? 700 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    textAlign: 'center'
+                  }}
+                >
+                  Area Chart (Gradasi & Isian)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartStyle('line')}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: chartStyle === 'line' ? 'var(--bg-neutral)' : 'transparent',
+                    color: chartStyle === 'line' ? 'var(--text-main)' : 'var(--text-muted)',
+                    fontSize: '14px',
+                    fontWeight: chartStyle === 'line' ? 700 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    textAlign: 'center'
+                  }}
+                >
+                  Line Chart (Garis Glowing)
+                </button>
+              </div>
             </div>
 
             <div style={{ marginBottom: 20 }}>
@@ -1803,13 +1846,46 @@ const Settings: React.FC = () => {
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Siklus</label>
-                    <select
-                      value={newSubCycle} onChange={e => setNewSubCycle(e.target.value as any)}
-                      style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: 14, fontWeight: 600 }}
-                    >
-                      <option value="monthly">Bulanan</option>
-                      <option value="yearly">Tahunan</option>
-                    </select>
+                    <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '12px', padding: '3px', border: '1px solid var(--border-color)', height: '45px', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => setNewSubCycle('monthly')}
+                        style={{
+                          flex: 1,
+                          height: '100%',
+                          borderRadius: '9px',
+                          border: 'none',
+                          background: newSubCycle === 'monthly' ? 'var(--bg-neutral)' : 'transparent',
+                          color: newSubCycle === 'monthly' ? 'var(--text-main)' : 'var(--text-muted)',
+                          fontSize: '13px',
+                          fontWeight: newSubCycle === 'monthly' ? 700 : 500,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          textAlign: 'center'
+                        }}
+                      >
+                        Bulanan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewSubCycle('yearly')}
+                        style={{
+                          flex: 1,
+                          height: '100%',
+                          borderRadius: '9px',
+                          border: 'none',
+                          background: newSubCycle === 'yearly' ? 'var(--bg-neutral)' : 'transparent',
+                          color: newSubCycle === 'yearly' ? 'var(--text-main)' : 'var(--text-muted)',
+                          fontSize: '13px',
+                          fontWeight: newSubCycle === 'yearly' ? 700 : 500,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          textAlign: 'center'
+                        }}
+                      >
+                        Tahunan
+                      </button>
+                    </div>
                   </div>
                 </div>
 
