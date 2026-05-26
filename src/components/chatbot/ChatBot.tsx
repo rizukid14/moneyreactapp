@@ -34,7 +34,7 @@ const ChatBot: React.FC = () => {
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
     currencySymbol, isChatOpen, setIsChatOpen,
     recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
-    startOfMonthDay, budgets, goals, addBudget, updateBudget
+    startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription
   } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -493,6 +493,29 @@ const ChatBot: React.FC = () => {
     }));
   };
 
+  const handleConfirmSubscription = (msgIndex: number, toolArgs: any) => {
+    try {
+      addSubscription({
+        name: toolArgs.name,
+        amount: Number(toolArgs.amount),
+        billingCycle: toolArgs.billingCycle,
+        nextBillingDate: toolArgs.nextBillingDate || getLocalDate(),
+        category: toolArgs.category,
+        assetId: toolArgs.assetId,
+        isActive: true,
+        note: toolArgs.note || ''
+      });
+
+      setMessages(prev => prev.map((m, i) => 
+        i === msgIndex ? { ...m, toolCall: undefined, content: `✅ Langganan ${toolArgs.name} berhasil dicatat!` } : m
+      ));
+      
+      showToast(`Langganan ${toolArgs.name} berhasil ditambahkan!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menambahkan langganan', 'error');
+    }
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -566,8 +589,7 @@ const ChatBot: React.FC = () => {
                     {renderMarkdown(msg.content)}
                   </div>
                 )}
-
-                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt') && (
+                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt' || msg.toolCall.name === 'create_subscription') && (
                   <div style={{
                     marginTop: '8px',
                     width: '100%',
@@ -580,7 +602,7 @@ const ChatBot: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
                       <AlertCircle size={16} />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : 'Draft Catatan Hutang'}
+                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : msg.toolCall.name === 'create_debt' ? 'Draft Catatan Hutang' : 'Draft Langganan Baru'}
                       </span>
                     </div>
                     
@@ -815,7 +837,7 @@ const ChatBot: React.FC = () => {
                             />
                           </div>
                         </>
-                      ) : (
+                      ) : msg.toolCall.name === 'create_debt' ? (
                         <>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
@@ -970,26 +992,185 @@ const ChatBot: React.FC = () => {
                             />
                           </div>
                         </>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Nama:</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.name || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'name', e.target.value)}
+                              placeholder="Nama langganan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600 }}>{currencySymbol}</span>
+                              <input 
+                                type="text" 
+                                value={msg.toolCall.arguments.amount === 0 || !msg.toolCall.arguments.amount ? '' : msg.toolCall.arguments.amount.toLocaleString('id-ID')}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                  handleUpdateDraftField(idx, 'amount', val);
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '120px',
+                                  textAlign: 'right',
+                                  fontWeight: 700
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Siklus:</span>
+                            <select 
+                              value={msg.toolCall.arguments.billingCycle || 'monthly'} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'billingCycle', e.target.value)}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '150px'
+                              }}
+                            >
+                              <option value="monthly">Bulanan</option>
+                              <option value="yearly">Tahunan</option>
+                            </select>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                            <select 
+                              value={msg.toolCall.arguments.category || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'category', e.target.value)}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px'
+                              }}
+                            >
+                              <option value="">Pilih Kategori...</option>
+                              {categories.filter(c => !c.isDeleted && c.type === 'pengeluaran').map(c => (
+                                <option key={c.id} value={c.name}>{c.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Sumber Rekening:</span>
+                            <select 
+                              value={msg.toolCall.arguments.assetId || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'assetId', e.target.value)}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px'
+                              }}
+                            >
+                              <option value="">Pilih Rekening...</option>
+                              {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
+                                <option key={a.id} value={a.id}>{a.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.note || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'note', e.target.value)}
+                              placeholder="Catatan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
+                          </div>
+                        </>
                       )}
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Tanggal:</span>
-                        <input 
-                          type="date" 
-                          value={msg.toolCall.arguments.date || getLocalDate()}
-                          onChange={(e) => handleUpdateDraftField(idx, 'date', e.target.value)}
-                          style={{ 
-                            background: 'var(--bg-neutral)', 
-                            border: '1px solid var(--border-color)', 
-                            borderRadius: '8px', 
-                            padding: '4px 8px', 
-                            fontSize: '12px', 
-                            color: 'var(--text-main)',
-                            cursor: 'pointer',
-                            outline: 'none'
-                          }}
-                        />
-                      </div>
+                      {msg.toolCall.name !== 'create_subscription' ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Tanggal:</span>
+                          <input 
+                            type="date" 
+                            value={msg.toolCall.arguments.date || getLocalDate()}
+                            onChange={(e) => handleUpdateDraftField(idx, 'date', e.target.value)}
+                            style={{ 
+                              background: 'var(--bg-neutral)', 
+                              border: '1px solid var(--border-color)', 
+                              borderRadius: '8px', 
+                              padding: '4px 8px', 
+                              fontSize: '12px', 
+                              color: 'var(--text-main)',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Tgl Tagihan:</span>
+                          <input 
+                            type="date" 
+                            value={msg.toolCall.arguments.nextBillingDate || getLocalDate()}
+                            onChange={(e) => handleUpdateDraftField(idx, 'nextBillingDate', e.target.value)}
+                            style={{ 
+                              background: 'var(--bg-neutral)', 
+                              border: '1px solid var(--border-color)', 
+                              borderRadius: '8px', 
+                              padding: '4px 8px', 
+                              fontSize: '12px', 
+                              color: 'var(--text-main)',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -1003,8 +1184,10 @@ const ChatBot: React.FC = () => {
                         onClick={() => {
                           if (msg.toolCall?.name === 'create_transaction') {
                             handleConfirmTransaction(idx, msg.toolCall.arguments);
+                          } else if (msg.toolCall?.name === 'create_debt') {
+                            handleConfirmDebt(idx, msg.toolCall.arguments);
                           } else {
-                            handleConfirmDebt(idx, msg.toolCall!.arguments);
+                            handleConfirmSubscription(idx, msg.toolCall!.arguments);
                           }
                         }}
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}

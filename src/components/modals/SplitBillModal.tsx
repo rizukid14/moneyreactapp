@@ -8,6 +8,8 @@ import { type LineItem } from '../../hooks/useReceiptOCR';
 import AssetSelectModal from './AssetSelectModal';
 import CategorySelectModal from './CategorySelectModal';
 import CurrencyInput from '../common/CurrencyInput';
+import { useToast } from '../common/Toast';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 interface SplitPerson {
   id: string;
@@ -48,10 +50,30 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   sourceId,
 }) => {
   const { contacts, currencySymbol } = useMoney();
+  const { showToast } = useToast();
   const [splits, setSplits] = useState<SplitPerson[]>([]);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [splitMethod, setSplitMethod] = useState<'equal' | 'custom' | 'items'>('equal');
   const [itemAssignments, setItemAssignments] = useState<Record<number, string[]>>({});
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'warning' | 'info' = 'danger', confirmText?: string) => {
+    setConfirmDialog({ isOpen: true, title, message, onConfirm, type, confirmText });
+  };
 
   const [selectedAssetId, setSelectedAssetId] = useState(initialAssetId || '');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
@@ -228,17 +250,17 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
   const handleSave = async () => {
     if (splits.length === 0) {
-      alert('Tambahkan minimal 1 orang untuk split bill');
+      showToast('Tambahkan minimal 1 orang untuk split bill', 'warning');
       return;
     }
 
     if (Math.abs(difference) > 0) {
-      alert(`Total split (${currencySymbol}${totalSplit.toLocaleString('id-ID')}) tidak sama dengan total tagihan (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`);
+      showToast(`Total split (${currencySymbol}${totalSplit.toLocaleString('id-ID')}) tidak sama dengan total tagihan (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`, 'warning');
       return;
     }
 
     if (!selectedAssetId) {
-      alert('Pilih rekening terlebih dahulu');
+      showToast('Pilih rekening terlebih dahulu', 'warning');
       return;
     }
 
@@ -301,7 +323,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       }
     } catch (err) {
       console.error('Failed to share:', err);
-      alert('Gagal membagikan split bill. Pastikan Anda sudah login dan sinkronisasi aktif.');
+      showToast('Gagal membagikan split bill. Pastikan Anda sudah login dan sinkronisasi aktif.', 'error');
     } finally {
       setIsSharing(false);
     }
@@ -309,16 +331,22 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
   const handleRevoke = async () => {
     if (!activeSharedId) return;
-    if (confirm('Apakah Anda yakin ingin menghapus link sharing ini? Orang lain tidak akan bisa melihat rincian lagi.')) {
-      try {
-        await dbDeleteSharedSplit(activeSharedId);
-        setActiveSharedId(null);
-        alert('Link sharing berhasil dihapus.');
-      } catch (err) {
-        console.error('Failed to revoke:', err);
-        alert('Gagal menghapus link sharing.');
-      }
-    }
+    showConfirm(
+      'Hapus Link Sharing',
+      'Apakah Anda yakin ingin menghapus link sharing ini? Orang lain tidak akan bisa melihat rincian lagi.',
+      async () => {
+        try {
+          await dbDeleteSharedSplit(activeSharedId);
+          setActiveSharedId(null);
+          showToast('Link sharing berhasil dihapus.', 'success');
+        } catch (err) {
+          console.error('Failed to revoke:', err);
+          showToast('Gagal menghapus link sharing.', 'error');
+        }
+      },
+      'danger',
+      'Hapus Link'
+    );
   };
 
   return (
@@ -947,6 +975,16 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
           setSelectedCategory(cat);
           setSelectedSubCategory(sub || '');
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        confirmText={confirmDialog.confirmText}
       />
     </>
   );

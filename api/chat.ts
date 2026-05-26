@@ -334,6 +334,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
 === SUBSCRIPTION & RECURRING RULES ===
 - Recurring Transactions: Logged for regular weekly, daily, monthly, or yearly transactions (e.g. salary, rent).
 - Subscriptions (Langganan): Supports services like Netflix, Spotify, iCloud. Integrates directly into the Cash Flow Forecast to predict upcoming bill dates.
+- Subscription Creation: If the user requests to create or add a subscription (e.g. "tambahkan langganan Netflix 150rb/bulan dari Rekening BCA"), call the 'create_subscription' tool. Ensure you set the billingCycle ('monthly' or 'yearly'), category (e.g., Tagihan or Hiburan), and assetId.
 `;
     }
 
@@ -437,6 +438,26 @@ RECENT UI/BEHAVIOR CHANGES:
 Keep these rules in mind when suggesting or auto-drafting transactions so the assistant's suggestions match the current UI.`;
 
     const tools = [
+      {
+        type: "function" as const,
+        function: {
+          name: "create_subscription",
+          description: "Draft a subscription service (e.g. Netflix, Spotify, iCloud) for the user to confirm.",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Name of the subscription (e.g. Netflix)." },
+              amount: { type: "number", description: "Billing amount." },
+              billingCycle: { type: "string", enum: ["monthly", "yearly"] },
+              nextBillingDate: { type: "string", description: "Next billing date (YYYY-MM-DD)." },
+              category: { type: "string", description: "Category of the subscription (e.g. Tagihan, Hiburan)." },
+              assetId: { type: "string", description: "Asset ID used to pay the subscription." },
+              note: { type: "string", description: "Optional notes for the subscription." }
+            },
+            required: ["name", "amount", "billingCycle", "nextBillingDate", "category", "assetId"]
+          }
+        }
+      },
       {
         type: "function" as const,
         function: {
@@ -644,7 +665,7 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
           });
         }
 
-        if (functionName === 'create_transaction' || functionName === 'create_debt' || functionName === 'recommend_budget') {
+        if (functionName === 'create_transaction' || functionName === 'create_debt' || functionName === 'recommend_budget' || functionName === 'create_subscription') {
           let parsedArgs = {};
           try {
             parsedArgs = typeof toolCall.function.arguments === 'string'
@@ -653,9 +674,15 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
           } catch (e) {
             console.error('Failed to parse tool arguments:', e);
           }
+          let fallbackContent = "Ini draft datanya, silakan dikonfirmasi ya!";
+          if (functionName === 'recommend_budget') {
+            fallbackContent = "Berikut rekomendasi anggaran yang telah saya buat berdasarkan analisis keuangan bulananmu. Silakan tinjau dan terapkan jika sesuai!";
+          } else if (functionName === 'create_subscription') {
+            fallbackContent = "Berikut draf langganan baru yang telah saya buat. Silakan konfirmasi untuk menyimpannya!";
+          }
           return res.status(200).json({
             role: "assistant",
-            content: message.content || (functionName === 'recommend_budget' ? "Berikut rekomendasi anggaran yang telah saya buat berdasarkan analisis keuangan bulananmu. Silakan tinjau dan terapkan jika sesuai!" : "Ini draft datanya, silakan dikonfirmasi ya!"),
+            content: message.content || fallbackContent,
             toolCall: {
               name: functionName,
               arguments: parsedArgs

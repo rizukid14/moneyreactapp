@@ -1741,19 +1741,25 @@ const Settings: React.FC = () => {
             updateSubscription(editingSub, subData);
           } else {
             const createdSub = addSubscription(subData);
-            if (window.confirm(`Apakah Anda ingin membuat transaksi rutin otomatis untuk langganan ${subData.name}?`)) {
-              const rt = addRecurringTransaction({
-                type: 'pengeluaran',
-                amount: subData.amount,
-                category: subData.category,
-                note: `Langganan: ${subData.name}`,
-                frequency: subData.billingCycle === 'monthly' ? 'monthly' : 'yearly',
-                startDate: subData.nextBillingDate,
-                isActive: true,
-                assetId: subData.assetId,
-              });
-              updateSubscription(createdSub.id, { recurringTransactionId: rt.id });
-            }
+            showConfirm(
+              'Transaksi Rutin',
+              `Apakah Anda ingin membuat transaksi rutin otomatis untuk langganan ${subData.name}?`,
+              () => {
+                const rt = addRecurringTransaction({
+                  type: 'pengeluaran',
+                  amount: subData.amount,
+                  category: subData.category,
+                  note: `Langganan: ${subData.name}`,
+                  frequency: subData.billingCycle === 'monthly' ? 'monthly' : 'yearly',
+                  startDate: subData.nextBillingDate,
+                  isActive: true,
+                  assetId: subData.assetId,
+                });
+                updateSubscription(createdSub.id, { recurringTransactionId: rt.id });
+              },
+              'info',
+              'Buat Transaksi'
+            );
           }
           setActiveModal('subscriptions');
           setEditingSub(null);
