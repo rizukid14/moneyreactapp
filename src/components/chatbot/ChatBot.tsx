@@ -131,8 +131,8 @@ const ChatBot: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Tolong berikan evaluasi dan nasihat akhir bulan saya berdasarkan transaksi dari tanggal ${startDateStr} sampai ${endDateStr}.` }],
-          categories,
-          assets: assets.map(a => ({
+          categories: categories.filter(c => !c.isDeleted),
+          assets: assets.filter(a => !a.isDeleted).map(a => ({
             ...a,
             balance: getAssetBalance(a.id)
           })),
@@ -230,8 +230,8 @@ const ChatBot: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          categories,
-          assets: assets.map(a => ({
+          categories: categories.filter(c => !c.isDeleted),
+          assets: assets.filter(a => !a.isDeleted).map(a => ({
             ...a,
             balance: getAssetBalance(a.id)
           })),

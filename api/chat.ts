@@ -268,7 +268,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
       : "None";
     
     const assetList = assets?.length > 0 
-      ? assets.map((a: any) => `- ID: "${a.id}", Name: "${a.name}", Type: "${a.type}", Balance: ${a.balance}`).join('\n') 
+      ? assets.filter((a: any) => !a.isDeleted).map((a: any) => `- ID: "${a.id}", Name: "${a.name}", Type: "${a.type}", Balance: ${a.balance}`).join('\n') 
       : "None";
 
     const contactList = (isDebtRelated || isTripRelated || isSettingsRelated)
@@ -304,7 +304,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
 - Budget & Asset Recommendations:
   1. If the user asks for budget recommendations/planning, analyze their transaction history (expenses per category) and recurring transactions/subscriptions. Call the 'recommend_budget' tool to draft budget limits for various categories for the current or next month. Ensure each recommended limit covers active recurring/subscription expenses in that category plus a reasonable allowance based on average historical spending. Provide a clear justification in Indonesian.
   2. ONLY include categories in the tool call's 'recommendations' array that actually require a non-zero budget limit (> 0) based on historical transactions, active recurring transactions, or active subscriptions. Do NOT include or draft categories that have a 0 budget recommendation.
-  3. If the user has multiple accounts (assets of type 'Cash', 'Bank Account', 'eWallet') and has concentrated balances in one account (like a salary account/checking account), or if an account is low on balance relative to upcoming bills, suggest a transfer from the high-balance account to the savings account, or to a dedicated account for category-specific spending (e.g. transfer Rp 1.5M from 'blu' to 'Mandiri' to fund the 'Makanan' budget). Provide these recommendations by populating the 'transferRecommendations' array parameter in the 'recommend_budget' tool call.
+  3. If the user has multiple accounts (assets of type 'Cash', 'Bank Account', 'eWallet') and has concentrated balances in one account (like a salary account/checking account), or if an account is low on balance relative to upcoming bills, suggest a transfer from the high-balance account to the savings account, or to a dedicated account for category-specific spending (e.g. transfer Rp 1.5M from 'blu' to 'Mandiri' to fund the 'Makanan' budget). Provide these recommendations by populating the 'transferRecommendations' array parameter in the 'recommend_budget' tool call. ONLY recommend transfers between liquid asset accounts (Cash, Bank Account, eWallet, Savings). Do NOT recommend transfers involving Credit Cards, Loans, or PayLater accounts (e.g. ShopeePay Later).
 `;
     }
 
@@ -483,7 +483,7 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
               },
               transferRecommendations: {
                 type: "array",
-                description: "List of recommended transfers between accounts to fund specific categories or balance liquidity.",
+                description: "List of recommended transfers between accounts to fund specific categories or balance liquidity. ONLY recommend transfers between liquid accounts (type: Cash, Bank Account, eWallet, Savings). NEVER recommend transfers involving Credit Cards, Loans, or PayLater accounts.",
                 items: {
                   type: "object",
                   properties: {
