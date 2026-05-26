@@ -427,13 +427,13 @@ const ChatBot: React.FC = () => {
     ));
   };
   
-  const handleUpdateDraftDate = (msgIndex: number, newDate: string) => {
+  const handleUpdateDraftField = (msgIndex: number, field: string, value: any) => {
     setMessages(prev => prev.map((m, i) => 
       i === msgIndex && m.toolCall ? { 
         ...m, 
         toolCall: { 
           ...m.toolCall, 
-          arguments: { ...m.toolCall.arguments, date: newDate } 
+          arguments: { ...m.toolCall.arguments, [field]: value } 
         } 
       } : m
     ));
@@ -587,93 +587,387 @@ const ChatBot: React.FC = () => {
                     <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                       {msg.toolCall.name === 'create_transaction' ? (
                         <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
                             <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
-                            <span style={{ fontWeight: 700, color: msg.toolCall.arguments.type === 'pendapatan' ? 'var(--success)' : 'var(--danger)' }}>
-                              {currencySymbol}{msg.toolCall.arguments.amount?.toLocaleString('id-ID')}
-                            </span>
-                          </div>
-                          {msg.toolCall.arguments.type !== 'transfer' && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                              <span style={{ fontWeight: 500 }}>
-                                {msg.toolCall.arguments.category}{msg.toolCall.arguments.subCategory ? ` > ${msg.toolCall.arguments.subCategory}` : ''}
-                              </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600 }}>{currencySymbol}</span>
+                              <input 
+                                type="text" 
+                                value={msg.toolCall.arguments.amount === 0 || !msg.toolCall.arguments.amount ? '' : msg.toolCall.arguments.amount.toLocaleString('id-ID')}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                  handleUpdateDraftField(idx, 'amount', val);
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '120px',
+                                  textAlign: 'right',
+                                  fontWeight: 700
+                                }}
+                              />
                             </div>
+                          </div>
+
+                          {msg.toolCall.arguments.type !== 'transfer' && (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                                <select 
+                                  value={msg.toolCall.arguments.category || ''} 
+                                  onChange={(e) => {
+                                    handleUpdateDraftField(idx, 'category', e.target.value);
+                                    handleUpdateDraftField(idx, 'subCategory', '');
+                                  }}
+                                  style={{
+                                    background: 'var(--bg-neutral)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    padding: '4px 8px',
+                                    fontSize: '12px',
+                                    color: 'var(--text-main)',
+                                    outline: 'none',
+                                    width: '150px'
+                                  }}
+                                >
+                                  <option value="">Pilih Kategori...</option>
+                                  {categories.filter(c => !c.isDeleted && c.type === msg.toolCall?.arguments.type).map(c => (
+                                    <option key={c.id} value={c.name}>{c.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {(() => {
+                                const selectedCat = categories.find(c => c.name === msg.toolCall?.arguments.category);
+                                const subcats = selectedCat?.subcategories?.filter(s => !s.isDeleted) || [];
+                                if (subcats.length === 0) return null;
+                                return (
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Sub-Kategori:</span>
+                                    <select 
+                                      value={msg.toolCall.arguments.subCategory || ''} 
+                                      onChange={(e) => handleUpdateDraftField(idx, 'subCategory', e.target.value)}
+                                      style={{
+                                        background: 'var(--bg-neutral)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '8px',
+                                        padding: '4px 8px',
+                                        fontSize: '12px',
+                                        color: 'var(--text-main)',
+                                        outline: 'none',
+                                        width: '150px'
+                                      }}
+                                    >
+                                      <option value="">Pilih Sub-Kategori...</option>
+                                      {subcats.map(s => (
+                                        <option key={s.id} value={s.name}>{s.name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                );
+                              })()}
+                            </>
                           )}
+
                           {msg.toolCall.arguments.type === 'transfer' ? (
                             <>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--text-muted)' }}>Dari:</span>
-                                <span style={{ fontWeight: 500 }}>
-                                  {assets.find(a => a.id === msg.toolCall?.arguments.fromAssetId)?.name || 'Tidak diketahui'}
-                                </span>
+                                <select 
+                                  value={msg.toolCall.arguments.fromAssetId || ''} 
+                                  onChange={(e) => handleUpdateDraftField(idx, 'fromAssetId', e.target.value)}
+                                  style={{
+                                    background: 'var(--bg-neutral)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    padding: '4px 8px',
+                                    fontSize: '12px',
+                                    color: 'var(--text-main)',
+                                    outline: 'none',
+                                    width: '150px'
+                                  }}
+                                >
+                                  <option value="">Pilih Rekening Asal...</option>
+                                  {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
+                                    <option key={a.id} value={a.id}>{a.name}</option>
+                                  ))}
+                                </select>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--text-muted)' }}>Ke:</span>
-                                <span style={{ fontWeight: 500 }}>
-                                  {assets.find(a => a.id === msg.toolCall?.arguments.toAssetId)?.name || 'Tidak diketahui'}
-                                </span>
+                                <select 
+                                  value={msg.toolCall.arguments.toAssetId || ''} 
+                                  onChange={(e) => handleUpdateDraftField(idx, 'toAssetId', e.target.value)}
+                                  style={{
+                                    background: 'var(--bg-neutral)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    padding: '4px 8px',
+                                    fontSize: '12px',
+                                    color: 'var(--text-main)',
+                                    outline: 'none',
+                                    width: '150px'
+                                  }}
+                                >
+                                  <option value="">Pilih Rekening Tujuan...</option>
+                                  {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
+                                    <option key={a.id} value={a.id}>{a.name}</option>
+                                  ))}
+                                </select>
                               </div>
-                              {msg.toolCall.arguments.adminFee > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <span style={{ color: 'var(--text-muted)' }}>Biaya Admin:</span>
-                                  <span style={{ fontWeight: 600, color: 'var(--danger)' }}>
-                                    {currencySymbol}{msg.toolCall.arguments.adminFee.toLocaleString('id-ID')} ({msg.toolCall.arguments.adminFeeTarget})
-                                  </span>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Biaya Admin:</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '11px' }}>{currencySymbol}</span>
+                                  <input 
+                                    type="text" 
+                                    value={msg.toolCall.arguments.adminFee === 0 || !msg.toolCall.arguments.adminFee ? '' : msg.toolCall.arguments.adminFee.toLocaleString('id-ID')}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                      handleUpdateDraftField(idx, 'adminFee', val);
+                                    }}
+                                    style={{
+                                      background: 'var(--bg-neutral)',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: '8px',
+                                      padding: '4px 8px',
+                                      fontSize: '12px',
+                                      color: 'var(--text-main)',
+                                      outline: 'none',
+                                      width: '60px',
+                                      textAlign: 'right'
+                                    }}
+                                  />
+                                  <select
+                                    value={msg.toolCall.arguments.adminFeeTarget || 'sender'}
+                                    onChange={(e) => handleUpdateDraftField(idx, 'adminFeeTarget', e.target.value)}
+                                    style={{
+                                      background: 'var(--bg-neutral)',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: '8px',
+                                      padding: '4px',
+                                      fontSize: '11px',
+                                      color: 'var(--text-main)',
+                                      outline: 'none'
+                                    }}
+                                  >
+                                    <option value="sender">Pengirim</option>
+                                    <option value="receiver">Penerima</option>
+                                  </select>
                                 </div>
-                              )}
+                              </div>
                             </>
                           ) : (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: 'var(--text-muted)' }}>Aset:</span>
-                              <span style={{ fontWeight: 500 }}>
-                                {assets.find(a => a.id === msg.toolCall?.arguments.assetId)?.name || 'Tidak diketahui'}
-                              </span>
+                              <select 
+                                value={msg.toolCall.arguments.assetId || ''} 
+                                onChange={(e) => handleUpdateDraftField(idx, 'assetId', e.target.value)}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '150px'
+                                }}
+                              >
+                                <option value="">Pilih Rekening...</option>
+                                {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
+                                  <option key={a.id} value={a.id}>{a.name}</option>
+                                ))}
+                              </select>
                             </div>
                           )}
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
-                            <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.note}</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.note || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'note', e.target.value)}
+                              placeholder="Catatan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
                           </div>
                         </>
                       ) : (
                         <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
                             <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Kontak:</span>
-                            <span style={{ fontWeight: 600 }}>{msg.toolCall.arguments.contactName}</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.contactName || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'contactName', e.target.value)}
+                              placeholder="Nama kontak..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
-                            <span style={{ fontWeight: 700, color: msg.toolCall.arguments.type === 'piutang' ? 'var(--success)' : 'var(--danger)' }}>
-                              {currencySymbol}{msg.toolCall.arguments.amount?.toLocaleString('id-ID')}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                            <span style={{ fontWeight: 500 }}>
-                              {msg.toolCall.arguments.category || 'Lainnya'}
-                            </span>
-                          </div>
-                          {msg.toolCall.arguments.assetId && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>Aset Terkait:</span>
-                              <span style={{ fontWeight: 500 }}>
-                                {assets.find(a => a.id === msg.toolCall?.arguments.assetId)?.name || 'Tidak diketahui'}
-                              </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600 }}>{currencySymbol}</span>
+                              <input 
+                                type="text" 
+                                value={msg.toolCall.arguments.amount === 0 || !msg.toolCall.arguments.amount ? '' : msg.toolCall.arguments.amount.toLocaleString('id-ID')}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                  handleUpdateDraftField(idx, 'amount', val);
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '120px',
+                                  textAlign: 'right',
+                                  fontWeight: 700
+                                }}
+                              />
                             </div>
-                          )}
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                            <select 
+                              value={msg.toolCall.arguments.category || ''} 
+                              onChange={(e) => {
+                                handleUpdateDraftField(idx, 'category', e.target.value);
+                                handleUpdateDraftField(idx, 'subCategory', '');
+                              }}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px'
+                              }}
+                            >
+                              <option value="">Pilih Kategori...</option>
+                              {categories.filter(c => !c.isDeleted && c.type === (msg.toolCall?.arguments.type === 'hutang' ? 'pengeluaran' : 'pendapatan')).map(c => (
+                                <option key={c.id} value={c.name}>{c.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {(() => {
+                            const selectedCat = categories.find(c => c.name === msg.toolCall?.arguments.category);
+                            const subcats = selectedCat?.subcategories?.filter(s => !s.isDeleted) || [];
+                            if (subcats.length === 0) return null;
+                            return (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Sub-Kategori:</span>
+                                <select 
+                                  value={msg.toolCall.arguments.subCategory || ''} 
+                                  onChange={(e) => handleUpdateDraftField(idx, 'subCategory', e.target.value)}
+                                  style={{
+                                    background: 'var(--bg-neutral)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    padding: '4px 8px',
+                                    fontSize: '12px',
+                                    color: 'var(--text-main)',
+                                    outline: 'none',
+                                    width: '150px'
+                                  }}
+                                >
+                                  <option value="">Pilih Sub-Kategori...</option>
+                                  {subcats.map(s => (
+                                    <option key={s.id} value={s.name}>{s.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            );
+                          })()}
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Aset Terkait:</span>
+                            <select 
+                              value={msg.toolCall.arguments.assetId || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'assetId', e.target.value)}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px'
+                              }}
+                            >
+                              <option value="">Pilih Rekening...</option>
+                              {assets.filter(a => !a.isDeleted && !a.isHidden).map(a => (
+                                <option key={a.id} value={a.id}>{a.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Keterangan:</span>
-                            <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.description || '-'}</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.description || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'description', e.target.value)}
+                              placeholder="Keterangan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
                           </div>
                         </>
                       )}
@@ -683,7 +977,7 @@ const ChatBot: React.FC = () => {
                         <input 
                           type="date" 
                           value={msg.toolCall.arguments.date || getLocalDate()}
-                          onChange={(e) => handleUpdateDraftDate(idx, e.target.value)}
+                          onChange={(e) => handleUpdateDraftField(idx, 'date', e.target.value)}
                           style={{ 
                             background: 'var(--bg-neutral)', 
                             border: '1px solid var(--border-color)', 
