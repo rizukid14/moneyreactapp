@@ -31,6 +31,7 @@ const ChatBot: React.FC = () => {
   const recognitionRef = useRef<any>(null);
   const speechBaseRef = useRef('');
   const finalTranscriptRef = useRef('');
+  const [selectedAssetTypes, setSelectedAssetTypes] = useState<string[]>(['Cash', 'Bank Account', 'eWallet', 'Savings', 'Investment']);
 
   // States for custom selection modals
   const [activeSelectCategoryMsgIdx, setActiveSelectCategoryMsgIdx] = useState<number | null>(null);
@@ -44,7 +45,8 @@ const ChatBot: React.FC = () => {
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
     currencySymbol, isChatOpen, setIsChatOpen,
     recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
-    startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription
+    startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription,
+    addRecurringTransaction
   } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -132,10 +134,12 @@ const ChatBot: React.FC = () => {
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Tolong berikan evaluasi dan nasihat akhir bulan saya berdasarkan transaksi dari tanggal ${startDateStr} sampai ${endDateStr}.` }],
           categories: categories.filter(c => !c.isDeleted),
-          assets: assets.filter(a => !a.isDeleted).map(a => ({
-            ...a,
-            balance: getAssetBalance(a.id)
-          })),
+          assets: assets
+            .filter(a => !a.isDeleted && !['Credit Card', 'Loan'].includes(a.type))
+            .map(a => ({
+              ...a,
+              balance: getAssetBalance(a.id)
+            })),
           transactions: [...transactions]
             .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
             .filter(t => t.date >= startDateStr && t.date <= endDateStr)
@@ -212,10 +216,11 @@ const ChatBot: React.FC = () => {
     }
   }, [isChatOpen, messages.length]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleSend = async (overrideText?: string) => {
+    const textToSend = overrideText || input;
+    if (!textToSend.trim()) return;
 
-    const userMsg: Message = { role: 'user', content: input };
+    const userMsg: Message = { role: 'user', content: textToSend };
     const newMessages = [...messages, userMsg];
     
     setMessages(newMessages);
@@ -231,10 +236,12 @@ const ChatBot: React.FC = () => {
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
           categories: categories.filter(c => !c.isDeleted),
-          assets: assets.filter(a => !a.isDeleted).map(a => ({
-            ...a,
-            balance: getAssetBalance(a.id)
-          })),
+          assets: assets
+            .filter(a => !a.isDeleted && !['Credit Card', 'Loan'].includes(a.type))
+            .map(a => ({
+              ...a,
+              balance: getAssetBalance(a.id)
+            })),
           transactions: [...transactions]
             .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
             .filter(t => t.date >= startDateStr && t.date <= endDateStr)
@@ -606,6 +613,40 @@ const ChatBot: React.FC = () => {
       showToast(`Berhasil mentransfer Rp${tf.amount.toLocaleString('id-ID')} dari ${tf.fromAssetName} ke ${tf.toAssetName}!`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Gagal melakukan transfer', 'error');
+    }
+  };
+
+  const handleExecuteRecurringRecommendation = (msgIndex: number, recIdx: number, rt: any) => {
+    try {
+      addRecurringTransaction({
+        type: rt.type,
+        amount: Number(rt.amount),
+        category: rt.category,
+        note: rt.note,
+        frequency: rt.frequency,
+        startDate: getLocalDate(),
+        isActive: true
+      });
+
+      setMessages(prev => prev.map((m, i) => {
+        if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+          const updatedRts = (m.toolCall.arguments.recurringRecommendations || []).map((t: any, idx: number) => 
+            idx === recIdx ? { ...t, isExecuted: true } : t
+          );
+          return {
+            ...m,
+            toolCall: {
+              ...m.toolCall,
+              arguments: { ...m.toolCall.arguments, recurringRecommendations: updatedRts }
+            }
+          };
+        }
+        return m;
+      }));
+
+      showToast(`Berhasil mengaktifkan transaksi rutin: ${rt.note}!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal mengaktifkan transaksi rutin', 'error');
     }
   };
 
@@ -1437,7 +1478,7 @@ const ChatBot: React.FC = () => {
                               onClick={() => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
-                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName?: string) => {
+                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName: string) => {
                                   const cat = categories.find(c => c.name === categoryName);
                                   if (cat) {
                                     handleAddDraftBudgetCategory(idx, cat.id);
@@ -1544,6 +1585,81 @@ const ChatBot: React.FC = () => {
                       </div>
                     )}
 
+                    {msg.toolCall.arguments.recurringRecommendations && msg.toolCall.arguments.recurringRecommendations.length > 0 && (
+                      <div style={{ 
+                        marginTop: '16px', 
+                        borderTop: '1px dashed var(--border-color)', 
+                        paddingTop: '16px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '12px', 
+                        marginBottom: '16px' 
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
+                          <ArrowRight size={16} />
+                          <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                            Rekomendasi Transaksi Rutin
+                          </span>
+                        </div>
+                        {msg.toolCall.arguments.recurringRecommendations.map((rt: any, rtIdx: number) => (
+                          <div key={rtIdx} style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-card)', 
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
+                                {rt.note} ({rt.frequency === 'monthly' ? 'Bulanan' : rt.frequency === 'weekly' ? 'Mingguan' : rt.frequency === 'daily' ? 'Harian' : 'Tahunan'})
+                              </span>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                                {currencySymbol}{rt.amount.toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Kategori: {rt.category} | Tipe: {rt.type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}
+                            </div>
+                            {rt.reason && (
+                              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
+                                {rt.reason}
+                              </p>
+                            )}
+                            <button
+                              onClick={() => handleExecuteRecurringRecommendation(idx, rtIdx, rt)}
+                              disabled={rt.isExecuted}
+                              style={{
+                                marginTop: '4px',
+                                width: '100%',
+                                padding: '6px',
+                                borderRadius: '8px',
+                                border: rt.isExecuted ? '1px solid var(--success-border, #10b981)' : 'none',
+                                background: rt.isExecuted ? 'rgba(16, 185, 129, 0.1)' : 'var(--success-text, #10b981)',
+                                color: rt.isExecuted ? 'var(--success-text, #10b981)' : 'white',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: rt.isExecuted ? 'default' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {rt.isExecuted ? (
+                                <>
+                                  <Check size={12} /> Aktif Berulang
+                                </>
+                              ) : (
+                                'Aktifkan Transaksi Rutin'
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button 
                         onClick={() => handleCancelTransaction(idx)}
@@ -1606,10 +1722,89 @@ const ChatBot: React.FC = () => {
 
           {/* Input Area */}
           <div style={{ 
-            padding: '16px 20px calc(16px + env(safe-area-inset-bottom, 0px))', 
+            padding: '12px 20px calc(16px + env(safe-area-inset-bottom, 0px))', 
             background: 'var(--bg-card)', 
             borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
           }}>
+            {/* Suggested Actions */}
+            {!isLoading && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '4px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Split Gaji Ke:</span>
+                  {['Cash', 'Bank Account', 'eWallet', 'Savings', 'Investment'].map((type) => {
+                    const isSelected = selectedAssetTypes.includes(type);
+                    const label = type === 'Bank Account' ? 'Bank' : type === 'eWallet' ? 'E-Wallet' : type === 'Savings' ? 'Tabungan' : type === 'Investment' ? 'Investasi' : 'Tunai';
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAssetTypes(prev => 
+                            prev.includes(type) 
+                              ? prev.filter(t => t !== type) 
+                              : [...prev, type]
+                          );
+                        }}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          background: isSelected ? 'var(--primary)' : 'var(--bg-neutral)',
+                          color: isSelected ? 'white' : 'var(--text-muted)',
+                          border: '1px solid var(--border-color)',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedAssetTypes.length === 0) {
+                        showToast('Pilih setidaknya satu tipe aset untuk split gajimu!', 'warning');
+                        return;
+                      }
+                      const typesStr = selectedAssetTypes.join(', ');
+                      handleSend(`Buat rencana keuangan bulan ini. Catatan: Untuk rekomendasi transfer (salary split), HANYA boleh merekomendasikan transfer ke rekening dengan tipe: ${typesStr}.`);
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    ✨ Buat Rencana Keuangan
+                  </button>
+                </div>
+              </div>
+            )}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1661,7 +1856,7 @@ const ChatBot: React.FC = () => {
                 {isListening ? <Square size={16} /> : <Mic size={16} />}
               </button>
               <button 
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!input.trim() || isLoading}
                 style={{
                   width: '44px',
