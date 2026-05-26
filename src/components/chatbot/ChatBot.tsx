@@ -14,6 +14,11 @@ interface Message {
   };
 }
 
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
 const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: 'Halo! Saya MoneyBot. Ada yang bisa saya bantu tentang MoneyApp atau pencatatan keuanganmu hari ini?' }
@@ -29,7 +34,7 @@ const ChatBot: React.FC = () => {
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
     currencySymbol, isChatOpen, setIsChatOpen,
     recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
-    startOfMonthDay, budgets, goals
+    startOfMonthDay, budgets, goals, addBudget, updateBudget
   } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -434,6 +439,60 @@ const ChatBot: React.FC = () => {
     ));
   };
 
+  const handleConfirmBudget = (msgIndex: number, toolArgs: any) => {
+    try {
+      const { recommendations, month, year } = toolArgs;
+      if (!recommendations || !Array.isArray(recommendations)) {
+        showToast('Rekomendasi tidak valid', 'warning');
+        return;
+      }
+
+      recommendations.forEach((rec: any) => {
+        const existing = budgets.find(
+          b => b.categoryId === rec.categoryId && b.month === month && b.year === year
+        );
+
+        if (existing) {
+          updateBudget(existing.id, { limit: Number(rec.limit) });
+        } else {
+          addBudget({
+            categoryId: rec.categoryId,
+            limit: Number(rec.limit),
+            period: 'monthly',
+            month,
+            year
+          });
+        }
+      });
+
+      setMessages(prev => prev.map((m, i) => 
+        i === msgIndex ? { ...m, toolCall: undefined, content: '✅ Rekomendasi anggaran berhasil diterapkan!' } : m
+      ));
+      
+      showToast('Anggaran berhasil diperbarui berdasarkan rekomendasi!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menerapkan anggaran', 'error');
+    }
+  };
+
+  const handleUpdateDraftBudgetLimit = (msgIndex: number, categoryId: string, newLimit: number) => {
+    setMessages(prev => prev.map((m, i) => {
+      if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+        const updatedRecs = m.toolCall.arguments.recommendations.map((rec: any) => 
+          rec.categoryId === categoryId ? { ...rec, limit: newLimit } : rec
+        );
+        return {
+          ...m,
+          toolCall: {
+            ...m.toolCall,
+            arguments: { ...m.toolCall.arguments, recommendations: updatedRecs }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -657,6 +716,99 @@ const ChatBot: React.FC = () => {
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                       >
                         <Check size={16} /> Konfirmasi
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {msg.toolCall && msg.toolCall.name === 'recommend_budget' && (
+                  <div style={{
+                    marginTop: '8px',
+                    width: '100%',
+                    background: 'var(--bg-main)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
+                      <AlertCircle size={16} />
+                      <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                        Rekomendasi Anggaran ({MONTH_NAMES[msg.toolCall.arguments.month] || msg.toolCall.arguments.month} {msg.toolCall.arguments.year})
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                      {msg.toolCall.arguments.recommendations.map((rec: any, recIdx: number) => {
+                        const existing = budgets.find(
+                          b => b.categoryId === rec.categoryId && b.month === msg.toolCall?.arguments.month && b.year === msg.toolCall?.arguments.year
+                        );
+
+                        return (
+                          <div key={rec.categoryId || recIdx} style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-card)', 
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{rec.categoryName}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{currencySymbol}</span>
+                                <input 
+                                  type="text"
+                                  value={rec.limit === 0 ? '' : rec.limit.toLocaleString('id-ID')}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                    handleUpdateDraftBudgetLimit(idx, rec.categoryId, val);
+                                  }}
+                                  style={{
+                                    width: '100px',
+                                    padding: '4px 8px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--bg-main)',
+                                    color: 'var(--text-main)',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    textAlign: 'right',
+                                    outline: 'none'
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            
+                            {existing && (
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                Limit saat ini: {currencySymbol}{existing.limit.toLocaleString('id-ID')}
+                              </div>
+                            )}
+
+                            {rec.reason && (
+                              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
+                                {rec.reason}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        onClick={() => handleCancelTransaction(idx)}
+                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Batal
+                      </button>
+                      <button 
+                        onClick={() => handleConfirmBudget(idx, msg.toolCall!.arguments)}
+                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                      >
+                        <Check size={16} /> Terapkan Anggaran
                       </button>
                     </div>
                   </div>
