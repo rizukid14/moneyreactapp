@@ -979,16 +979,36 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                             <div>
                               <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Frekuensi</label>
-                              <select
-                                value={frequency}
-                                onChange={e => setFrequency(e.target.value as any)}
-                                style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
-                              >
-                                <option value="daily">Harian</option>
-                                <option value="weekly">Mingguan</option>
-                                <option value="monthly">Bulanan</option>
-                                <option value="yearly">Tahunan</option>
-                              </select>
+                              <div style={{ display: 'flex', background: 'var(--bg-card-solid)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)', minWidth: '130px' }}>
+                                {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((freq) => {
+                                  const labels: Record<string, string> = { daily: 'H', weekly: 'M', monthly: 'B', yearly: 'T' };
+                                  const fullLabels: Record<string, string> = { daily: 'Harian', weekly: 'Mingguan', monthly: 'Bulanan', yearly: 'Tahunan' };
+                                  const isActive = frequency === freq;
+                                  return (
+                                    <button
+                                      key={freq}
+                                      type="button"
+                                      title={fullLabels[freq]}
+                                      onClick={() => setFrequency(freq)}
+                                      style={{
+                                        flex: 1,
+                                        padding: '6px 0',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        background: isActive ? 'var(--bg-neutral)' : 'transparent',
+                                        color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                                        fontSize: '11px',
+                                        fontWeight: isActive ? 700 : 500,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s',
+                                        textAlign: 'center'
+                                      }}
+                                    >
+                                      {labels[freq]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
                             <div>
                               <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Sampai Tanggal (Opsional)</label>

@@ -141,15 +141,47 @@ const AssetModal: React.FC<AssetModalProps> = ({
                     style={{ marginBottom: '12px' }}
                   />
                   
-                  <select value={type} onChange={e => setType(e.target.value as AssetType)} style={{ marginBottom: 0 }}>
-                    <option value="Cash">Tunai / Dompet</option>
-                    <option value="Bank Account">Rekening Bank</option>
-                    <option value="eWallet">E-Wallet (Gopay, OVO)</option>
-                    <option value="Savings">Tabungan</option>
-                    <option value="Investment">Investasi (Saham, Reksadana)</option>
-                    <option value="Credit Card">Kartu Kredit</option>
-                    <option value="Loan">Pinjaman / Hutang</option>
-                  </select>
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      value={type}
+                      onChange={e => setType(e.target.value as AssetType)}
+                      style={{
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        width: '100%',
+                        padding: '12px 16px',
+                        paddingRight: '40px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card-solid)',
+                        color: 'var(--text-main)',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        outline: 'none',
+                        marginBottom: 0
+                      }}
+                    >
+                      <option value="Cash">Tunai / Dompet</option>
+                      <option value="Bank Account">Rekening Bank</option>
+                      <option value="eWallet">E-Wallet (Gopay, OVO)</option>
+                      <option value="Savings">Tabungan</option>
+                      <option value="Investment">Investasi (Saham, Reksadana)</option>
+                      <option value="Credit Card">Kartu Kredit</option>
+                      <option value="Loan">Pinjaman / Hutang</option>
+                    </select>
+                    <div style={{
+                      position: 'absolute',
+                      right: '16px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      color: 'var(--text-muted)'
+                    }}>
+                      <div style={{ border: 'solid var(--text-muted)', borderWidth: '0 2px 2px 0', display: 'inline-block', padding: '3px', transform: 'rotate(45deg)' }}></div>
+                    </div>
+                  </div>
                 </div>
                 
                 <div style={{ marginBottom: '20px' }}>

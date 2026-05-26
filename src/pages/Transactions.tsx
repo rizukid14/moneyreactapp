@@ -130,6 +130,7 @@ const Transactions: React.FC = () => {
   const { transactions, assets, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
   const { showToast } = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSubBannerDismissed, setIsSubBannerDismissed] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isCopyMode, setIsCopyMode] = useState(false);
@@ -438,18 +439,46 @@ const Transactions: React.FC = () => {
     <div className="page">
       {/* Subscription Alert */}
       {(() => {
-        const upcomingSubs = subscriptions.filter(s => {
-          if (!s.isActive || !s.nextBillingDate) return false;
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const billingDate = new Date(s.nextBillingDate);
-          billingDate.setHours(0, 0, 0, 0);
-          const diffTime = billingDate.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays >= 0 && diffDays <= 3;
-        });
+        // Helper: parse date string (YYYY-MM-DD) as local date to avoid timezone offset issues
+        const parseLocalDate = (dateStr: string) => {
+          const [y, m, d] = dateStr.split('-').map(Number);
+          return new Date(y, m - 1, d);
+        };
 
-        if (upcomingSubs.length === 0) return null;
+        const todayLocal = new Date();
+        todayLocal.setHours(0, 0, 0, 0);
+
+        const upcomingSubs = subscriptions
+          .filter(s => {
+            if (!s.isActive || !s.nextBillingDate) return false;
+            const billingDate = parseLocalDate(s.nextBillingDate);
+            const diffDays = Math.round((billingDate.getTime() - todayLocal.getTime()) / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 && diffDays <= 3;
+          })
+          .map(s => ({
+            ...s,
+            diffDays: Math.round((parseLocalDate(s.nextBillingDate).getTime() - todayLocal.getTime()) / (1000 * 60 * 60 * 24))
+          }));
+
+        if (upcomingSubs.length === 0 || isSubBannerDismissed) return null;
+
+        const getDayLabel = (days: number) => {
+          if (days === 0) return 'hari ini';
+          if (days === 1) return 'besok';
+          return `${days} hari lagi`;
+        };
+
+        const getSubMessage = () => {
+          if (upcomingSubs.length === 1) {
+            return `"${upcomingSubs[0].name}" jatuh tempo ${getDayLabel(upcomingSubs[0].diffDays)}.`;
+          }
+          const allToday = upcomingSubs.every(s => s.diffDays === 0);
+          const minDays = Math.min(...upcomingSubs.map(s => s.diffDays));
+          const maxDays = Math.max(...upcomingSubs.map(s => s.diffDays));
+          if (allToday) return `${upcomingSubs.length} langganan jatuh tempo hari ini.`;
+          if (minDays === maxDays) return `${upcomingSubs.length} langganan jatuh tempo ${getDayLabel(minDays)}.`;
+          return `${upcomingSubs.length} langganan jatuh tempo dalam ${maxDays} hari ke depan.`;
+        };
 
         return (
           <motion.div
@@ -477,22 +506,31 @@ const Transactions: React.FC = () => {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '13px', fontWeight: 800, color: '#856404' }}>Langganan Segera Berakhir</div>
               <div style={{ fontSize: '11px', color: '#856404', opacity: 0.8, fontWeight: 600 }}>
-                {upcomingSubs.length === 1
-                  ? `"${upcomingSubs[0].name}" akan jatuh tempo dalam ${Math.ceil((new Date(upcomingSubs[0].nextBillingDate).getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))} hari.`
-                  : `${upcomingSubs.length} langganan akan jatuh tempo dalam 3 hari ke depan.`
-                }
+                {getSubMessage()}
               </div>
             </div>
-            <button
-              onClick={() => navigate('/settings')}
-              style={{
-                background: '#856404', color: 'white', border: 'none',
-                padding: '6px 12px', borderRadius: '8px', fontSize: '11px',
-                fontWeight: 700, cursor: 'pointer'
-              }}
-            >
-              Lihat
-            </button>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                onClick={() => navigate('/settings', { state: { activeModal: 'subscriptions' } })}
+                style={{
+                  background: '#856404', color: 'white', border: 'none',
+                  padding: '6px 12px', borderRadius: '8px', fontSize: '11px',
+                  fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                Lihat
+              </button>
+              <button
+                onClick={() => setIsSubBannerDismissed(true)}
+                style={{
+                  background: 'none', border: 'none', color: '#856404',
+                  padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center'
+                }}
+                title="Tutup"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </motion.div>
         );
       })()}

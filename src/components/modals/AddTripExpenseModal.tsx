@@ -6,6 +6,7 @@ import { useMoney, type Trip, type TripExpense, type TripExpenseSplit } from '..
 import { useReceiptOCR } from '../../hooks/useReceiptOCR';
 import { generateId, getLocalTime } from '../../lib/utils';
 import CurrencyInput from '../common/CurrencyInput';
+import { useToast } from '../common/Toast';
 
 interface AddTripExpenseModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface AddTripExpenseModalProps {
 
 const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClose, trip, editingExpense }) => {
   const { currencySymbol, assets, defaultAssetId, addTripExpense, updateTripExpense, addTransaction, addDebt } = useMoney();
+  const { showToast } = useToast();
   const { scanReceipt, isScanning } = useReceiptOCR();
 
   const [description, setDescription] = useState('');
@@ -180,7 +182,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
     const subtotal = ocrItems.reduce((sum, item) => sum + item.amount, 0);
     
     if (subtotal === 0) {
-      alert('Tambahkan minimal satu item dengan nominal untuk distribusi');
+      showToast('Tambahkan minimal satu item dengan nominal untuk distribusi', 'warning');
       return;
     }
 
@@ -253,7 +255,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
 
       const sum = splits.reduce((s, x) => s + x.amount, 0);
       if (Math.abs(sum - totalAmount) > 0.1) {
-        alert(`Total pembagian kustom (${sum.toLocaleString('id-ID')}) tidak sama dengan jumlah pengeluaran (${totalAmount.toLocaleString('id-ID')})!`);
+        showToast(`Total pembagian kustom (${sum.toLocaleString('id-ID')}) tidak sama dengan jumlah pengeluaran (${totalAmount.toLocaleString('id-ID')})!`, 'warning');
         return;
       }
     }

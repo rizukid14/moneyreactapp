@@ -242,7 +242,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
     // 2. Classifiers
     const isDebtRelated = /hutang|piutang|pinjam|budi|bayar|tagih|kontak|teman|debt|receivable|contact|lunas/i.test(userMessagesContext);
     const isTripRelated = /trip|liburan|travel|jalan|pantai|settle|patungan|kelompok|payer/i.test(userMessagesContext);
-    const isBudgetRelated = /budget|anggaran|zbb|amplop|envelope|strict|limit|income|gaji|pemasukan/i.test(userMessagesContext);
+    const isBudgetRelated = /budget|anggaran|zbb|amplop|envelope|strict|limit|income|gaji|pemasukan|rekomendasi|recommend/i.test(userMessagesContext);
     const isSubscriptionRelated = /subs|subscription|langganan|netflix|spotify|youtube|tagihan|rutin/i.test(userMessagesContext);
     const isAssetRelated = /asset|rekening|gacha|tier|sultan|emas|bronze|saldo|kekayaan|dompet|bca|gopay|ovo|dana|mandiri|cash/i.test(userMessagesContext);
     const isStatsRelated = /statistik|grafik|donat|pie|growth|forecast|proyeksi|cash flow|health|sehat/i.test(userMessagesContext);
@@ -253,19 +253,17 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
     const isEndOfMonthRelated = /akhir bulan|tutup buku|evaluasi bulanan|rekap bulanan|end of month|eom|nasihat akhir|saran akhir/i.test(userMessagesContext);
 
     // 3. Dynamic Context Downscaling & Smart Date Override
-    const maxTxs = (isStatsRelated || isHistoryRelated || isDateRelated || isEndOfMonthRelated || isNearEndOfMonth) ? 100 : 15;
-    const slicedTxs = (isEndOfMonthRelated || isNearEndOfMonth)
+    const maxTxs = (isStatsRelated || isHistoryRelated || isDateRelated || isEndOfMonthRelated || isNearEndOfMonth || isBudgetRelated) ? 100 : 15;
+    const slicedTxs = (isEndOfMonthRelated || isNearEndOfMonth || isBudgetRelated)
       ? (transactions || [])
           .filter((t: any) => t.date >= effectiveStartStr && t.date <= effectiveEndStr)
           .slice(0, maxTxs)
       : (transactions || []).slice(0, maxTxs);
     
     const categoryList = categories?.length > 0 
-      ? categories.map((c: any) => {
-          const subs = c.subcategories?.length > 0 
-            ? c.subcategories.map((s: any) => s.name).join(', ') 
-            : 'none';
-          return `${c.name} (${c.type}) [sub: ${subs}]`;
+      ? categories.filter((c: any) => !c.isDeleted).map((c: any) => {
+          const subs = c.subcategories?.filter((s: any) => !s.isDeleted).map((s: any) => s.name).join(', ') || 'none';
+          return `ID: "${c.id}" Name: "${c.name}" (${c.type}) [subs: ${subs}]`;
         }).join('; ') 
       : "None";
     
@@ -303,6 +301,10 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
 - ZBB Envelope System: In ZBB mode, every rupiah of income MUST be allocated to amplop (category limits) until remaining unassigned income is exactly 0. Income is locked for the month during ZBB allocation.
 - ZBB Strict Mode: If Strict ZBB is active, any transaction (manual, scan struk OCR, bank mutasi) that exceeds the remaining budget limit of its category is BLOCKED/INTERCEPTED by the system. The app forces the user to perform an envelope reallocation (move money between categories) in a modal before saving.
 - AI Advice: When talking about budgets or overbudgeting in ZBB, suggest reallocating money from an envelope with surplus budget to the deficient envelope.
+- Budget & Asset Recommendations:
+  1. If the user asks for budget recommendations/planning, analyze their transaction history (expenses per category) and recurring transactions/subscriptions. Call the 'recommend_budget' tool to draft budget limits for various categories for the current or next month. Ensure each recommended limit covers active recurring/subscription expenses in that category plus a reasonable allowance based on average historical spending. Provide a clear justification in Indonesian.
+  2. ONLY include categories in the tool call's 'recommendations' array that actually require a non-zero budget limit (> 0) based on historical transactions, active recurring transactions, or active subscriptions. Do NOT include or draft categories that have a 0 budget recommendation.
+  3. If the user has multiple accounts (assets of type 'Cash', 'Bank Account', 'eWallet') and has concentrated balances in one account (like a salary account/checking account), or if an account is low on balance relative to upcoming bills, suggest a transfer from the high-balance account to the savings account, or to a dedicated account for category-specific spending (e.g. transfer Rp 1.5M from 'blu' to 'Mandiri' to fund the 'Makanan' budget). Provide these recommendations by populating the 'transferRecommendations' array parameter in the 'recommend_budget' tool call.
 `;
     }
 
@@ -333,6 +335,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
 === SUBSCRIPTION & RECURRING RULES ===
 - Recurring Transactions: Logged for regular weekly, daily, monthly, or yearly transactions (e.g. salary, rent).
 - Subscriptions (Langganan): Supports services like Netflix, Spotify, iCloud. Integrates directly into the Cash Flow Forecast to predict upcoming bill dates.
+- Subscription Creation: If the user requests to create or add a subscription (e.g. "tambahkan langganan Netflix 150rb/bulan dari Rekening BCA"), call the 'create_subscription' tool. Ensure you set the billingCycle ('monthly' or 'yearly'), category (e.g., Tagihan or Hiburan), and assetId.
 `;
     }
 
@@ -436,6 +439,71 @@ RECENT UI/BEHAVIOR CHANGES:
 Keep these rules in mind when suggesting or auto-drafting transactions so the assistant's suggestions match the current UI.`;
 
     const tools = [
+      {
+        type: "function" as const,
+        function: {
+          name: "create_subscription",
+          description: "Draft a subscription service (e.g. Netflix, Spotify, iCloud) for the user to confirm.",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Name of the subscription (e.g. Netflix)." },
+              amount: { type: "number", description: "Billing amount." },
+              billingCycle: { type: "string", enum: ["monthly", "yearly"] },
+              nextBillingDate: { type: "string", description: "Next billing date (YYYY-MM-DD)." },
+              category: { type: "string", description: "Category of the subscription (e.g. Tagihan, Hiburan)." },
+              assetId: { type: "string", description: "Asset ID used to pay the subscription." },
+              note: { type: "string", description: "Optional notes for the subscription." }
+            },
+            required: ["name", "amount", "billingCycle", "nextBillingDate", "category", "assetId"]
+          }
+        }
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "recommend_budget",
+          description: "Provide budget recommendations for various categories based on user transactions and recurring items.",
+          parameters: {
+            type: "object",
+            properties: {
+              recommendations: {
+                type: "array",
+                description: "List of recommended category budgets.",
+                items: {
+                  type: "object",
+                  properties: {
+                    categoryId: { type: "string", description: "ID of the category (must match one of the active category IDs in context)." },
+                    categoryName: { type: "string", description: "Name of the category." },
+                    limit: { type: "number", description: "Recommended monthly budget limit (in user's currency)." },
+                    reason: { type: "string", description: "Brief reason/explanation in Indonesian for this limit." }
+                  },
+                  required: ["categoryId", "categoryName", "limit", "reason"]
+                }
+              },
+              transferRecommendations: {
+                type: "array",
+                description: "List of recommended transfers between accounts to fund specific categories or balance liquidity.",
+                items: {
+                  type: "object",
+                  properties: {
+                    fromAssetId: { type: "string", description: "Source asset ID." },
+                    fromAssetName: { type: "string", description: "Source asset name." },
+                    toAssetId: { type: "string", description: "Target asset ID." },
+                    toAssetName: { type: "string", description: "Target asset name." },
+                    amount: { type: "number", description: "Amount to transfer." },
+                    reason: { type: "string", description: "Reason for the transfer in Indonesian (e.g. 'Pindahkan Rp 1.5jt ke Mandiri untuk Makan')." }
+                  },
+                  required: ["fromAssetId", "fromAssetName", "toAssetId", "toAssetName", "amount", "reason"]
+                }
+              },
+              month: { type: "number", description: "Budget month (0-11, where 0 is January, 11 is December)." },
+              year: { type: "number", description: "Budget year (YYYY)." }
+            },
+            required: ["recommendations", "month", "year"]
+          }
+        }
+      },
       {
         type: "function" as const,
         function: {
@@ -614,7 +682,7 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
           });
         }
 
-        if (functionName === 'create_transaction' || functionName === 'create_debt') {
+        if (functionName === 'create_transaction' || functionName === 'create_debt' || functionName === 'recommend_budget' || functionName === 'create_subscription') {
           let parsedArgs = {};
           try {
             parsedArgs = typeof toolCall.function.arguments === 'string'
@@ -623,9 +691,15 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
           } catch (e) {
             console.error('Failed to parse tool arguments:', e);
           }
+          let fallbackContent = "Ini draft datanya, silakan dikonfirmasi ya!";
+          if (functionName === 'recommend_budget') {
+            fallbackContent = "Berikut rekomendasi anggaran yang telah saya buat berdasarkan analisis keuangan bulananmu. Silakan tinjau dan terapkan jika sesuai!";
+          } else if (functionName === 'create_subscription') {
+            fallbackContent = "Berikut draf langganan baru yang telah saya buat. Silakan konfirmasi untuk menyimpannya!";
+          }
           return res.status(200).json({
             role: "assistant",
-            content: message.content || "Ini draft datanya, silakan dikonfirmasi ya!",
+            content: message.content || fallbackContent,
             toolCall: {
               name: functionName,
               arguments: parsedArgs

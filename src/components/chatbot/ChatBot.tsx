@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square } from 'lucide-react';
+import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square, ArrowRight, Trash2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
+import CategorySelectModal from '../modals/CategorySelectModal';
+import AssetSelectModal from '../modals/AssetSelectModal';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -13,6 +15,11 @@ interface Message {
     arguments: any;
   };
 }
+
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
 
 const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
@@ -24,12 +31,20 @@ const ChatBot: React.FC = () => {
   const recognitionRef = useRef<any>(null);
   const speechBaseRef = useRef('');
   const finalTranscriptRef = useRef('');
+
+  // States for custom selection modals
+  const [activeSelectCategoryMsgIdx, setActiveSelectCategoryMsgIdx] = useState<number | null>(null);
+  const [categoryModalType, setCategoryModalType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
+  const [categorySelectCallback, setCategorySelectCallback] = useState<((categoryName: string, subCategoryName: string) => void) | null>(null);
+  
+  const [activeSelectAssetMsgIdx, setActiveSelectAssetMsgIdx] = useState<number | null>(null);
+  const [assetSelectCallback, setAssetSelectCallback] = useState<((assetId: string) => void) | null>(null);
   
   const { 
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
     currencySymbol, isChatOpen, setIsChatOpen,
     recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
-    startOfMonthDay, budgets, goals
+    startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription
   } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -422,16 +437,176 @@ const ChatBot: React.FC = () => {
     ));
   };
   
-  const handleUpdateDraftDate = (msgIndex: number, newDate: string) => {
+  const handleUpdateDraftField = (msgIndex: number, field: string, value: any) => {
     setMessages(prev => prev.map((m, i) => 
       i === msgIndex && m.toolCall ? { 
         ...m, 
         toolCall: { 
           ...m.toolCall, 
-          arguments: { ...m.toolCall.arguments, date: newDate } 
+          arguments: { ...m.toolCall.arguments, [field]: value } 
         } 
       } : m
     ));
+  };
+
+  const handleConfirmBudget = (msgIndex: number, toolArgs: any) => {
+    try {
+      const { recommendations, month, year } = toolArgs;
+      if (!recommendations || !Array.isArray(recommendations)) {
+        showToast('Rekomendasi tidak valid', 'warning');
+        return;
+      }
+
+      recommendations.forEach((rec: any) => {
+        const existing = budgets.find(
+          b => b.categoryId === rec.categoryId && b.month === month && b.year === year
+        );
+
+        if (existing) {
+          updateBudget(existing.id, { limit: Number(rec.limit) });
+        } else {
+          addBudget({
+            categoryId: rec.categoryId,
+            limit: Number(rec.limit),
+            period: 'monthly',
+            month,
+            year
+          });
+        }
+      });
+
+      setMessages(prev => prev.map((m, i) => 
+        i === msgIndex ? { ...m, toolCall: undefined, content: '✅ Rekomendasi anggaran berhasil diterapkan!' } : m
+      ));
+      
+      showToast('Anggaran berhasil diperbarui berdasarkan rekomendasi!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menerapkan anggaran', 'error');
+    }
+  };
+
+  const handleUpdateDraftBudgetLimit = (msgIndex: number, categoryId: string, newLimit: number) => {
+    setMessages(prev => prev.map((m, i) => {
+      if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+        const updatedRecs = m.toolCall.arguments.recommendations.map((rec: any) => 
+          rec.categoryId === categoryId ? { ...rec, limit: newLimit } : rec
+        );
+        return {
+          ...m,
+          toolCall: {
+            ...m.toolCall,
+            arguments: { ...m.toolCall.arguments, recommendations: updatedRecs }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const handleRemoveDraftBudgetCategory = (msgIndex: number, categoryId: string) => {
+    setMessages(prev => prev.map((m, i) => {
+      if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+        const updatedRecs = m.toolCall.arguments.recommendations.filter(
+          (rec: any) => rec.categoryId !== categoryId
+        );
+        return {
+          ...m,
+          toolCall: {
+            ...m.toolCall,
+            arguments: { ...m.toolCall.arguments, recommendations: updatedRecs }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const handleAddDraftBudgetCategory = (msgIndex: number, categoryId: string) => {
+    const cat = categories.find(c => c.id === categoryId);
+    if (!cat) return;
+
+    setMessages(prev => prev.map((m, i) => {
+      if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+        const exists = m.toolCall.arguments.recommendations.some((rec: any) => rec.categoryId === categoryId);
+        if (exists) {
+          showToast(`Kategori ${cat.name} sudah ada dalam rekomendasi!`, 'error');
+          return m;
+        }
+
+        const newRec = {
+          categoryId: cat.id,
+          categoryName: cat.name,
+          limit: 0,
+          reason: 'Ditambahkan manual'
+        };
+        const updatedRecs = [...m.toolCall.arguments.recommendations, newRec];
+        return {
+          ...m,
+          toolCall: {
+            ...m.toolCall,
+            arguments: { ...m.toolCall.arguments, recommendations: updatedRecs }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const handleConfirmSubscription = (msgIndex: number, toolArgs: any) => {
+    try {
+      addSubscription({
+        name: toolArgs.name,
+        amount: Number(toolArgs.amount),
+        billingCycle: toolArgs.billingCycle,
+        nextBillingDate: toolArgs.nextBillingDate || getLocalDate(),
+        category: toolArgs.category,
+        assetId: toolArgs.assetId,
+        isActive: true,
+        note: toolArgs.note || ''
+      });
+
+      setMessages(prev => prev.map((m, i) => 
+        i === msgIndex ? { ...m, toolCall: undefined, content: `✅ Langganan ${toolArgs.name} berhasil dicatat!` } : m
+      ));
+      
+      showToast(`Langganan ${toolArgs.name} berhasil ditambahkan!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menambahkan langganan', 'error');
+    }
+  };
+
+  const handleExecuteTransferRecommendation = (msgIndex: number, transferIdx: number, tf: any) => {
+    try {
+      addTransaction({
+        type: 'transfer',
+        amount: Number(tf.amount),
+        date: getLocalDate(),
+        note: tf.reason || `Transfer Rekomendasi AI`,
+        category: 'Transfer',
+        fromAssetId: tf.fromAssetId,
+        toAssetId: tf.toAssetId,
+      });
+
+      setMessages(prev => prev.map((m, i) => {
+        if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+          const updatedTfs = (m.toolCall.arguments.transferRecommendations || []).map((t: any, idx: number) => 
+            idx === transferIdx ? { ...t, isExecuted: true } : t
+          );
+          return {
+            ...m,
+            toolCall: {
+              ...m.toolCall,
+              arguments: { ...m.toolCall.arguments, transferRecommendations: updatedTfs }
+            }
+          };
+        }
+        return m;
+      }));
+
+      showToast(`Berhasil mentransfer Rp${tf.amount.toLocaleString('id-ID')} dari ${tf.fromAssetName} ke ${tf.toAssetName}!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal melakukan transfer', 'error');
+    }
   };
 
   return (
@@ -507,8 +682,7 @@ const ChatBot: React.FC = () => {
                     {renderMarkdown(msg.content)}
                   </div>
                 )}
-
-                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt') && (
+                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt' || msg.toolCall.name === 'create_subscription') && (
                   <div style={{
                     marginTop: '8px',
                     width: '100%',
@@ -521,122 +695,597 @@ const ChatBot: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
                       <AlertCircle size={16} />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : 'Draft Catatan Hutang'}
+                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : msg.toolCall.name === 'create_debt' ? 'Draft Catatan Hutang' : 'Draft Langganan Baru'}
                       </span>
                     </div>
                     
                     <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                       {msg.toolCall.name === 'create_transaction' ? (
                         <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
                             <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
-                            <span style={{ fontWeight: 700, color: msg.toolCall.arguments.type === 'pendapatan' ? 'var(--success)' : 'var(--danger)' }}>
-                              {currencySymbol}{msg.toolCall.arguments.amount?.toLocaleString('id-ID')}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600 }}>{currencySymbol}</span>
+                              <input 
+                                type="text" 
+                                value={msg.toolCall.arguments.amount === 0 || !msg.toolCall.arguments.amount ? '' : msg.toolCall.arguments.amount.toLocaleString('id-ID')}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                  handleUpdateDraftField(idx, 'amount', val);
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '120px',
+                                  textAlign: 'right',
+                                  fontWeight: 700
+                                }}
+                              />
+                            </div>
                           </div>
+
                           {msg.toolCall.arguments.type !== 'transfer' && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                              <span style={{ fontWeight: 500 }}>
-                                {msg.toolCall.arguments.category}{msg.toolCall.arguments.subCategory ? ` > ${msg.toolCall.arguments.subCategory}` : ''}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveSelectCategoryMsgIdx(idx);
+                                  const flowType = msg.toolCall?.arguments?.type === 'pendapatan' ? 'pendapatan' : 'pengeluaran';
+                                  setCategoryModalType(flowType);
+                                  setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
+                                    handleUpdateDraftField(idx, 'category', categoryName);
+                                    handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                  });
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '150px',
+                                  textAlign: 'right',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {msg.toolCall?.arguments?.category 
+                                  ? (msg.toolCall.arguments.subCategory 
+                                      ? `${msg.toolCall.arguments.category} (${msg.toolCall.arguments.subCategory})` 
+                                      : msg.toolCall.arguments.category)
+                                  : 'Pilih Kategori...'}
+                              </button>
                             </div>
                           )}
+
                           {msg.toolCall.arguments.type === 'transfer' ? (
                             <>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--text-muted)' }}>Dari:</span>
-                                <span style={{ fontWeight: 500 }}>
-                                  {assets.find(a => a.id === msg.toolCall?.arguments.fromAssetId)?.name || 'Tidak diketahui'}
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveSelectAssetMsgIdx(idx);
+                                    setAssetSelectCallback(() => (assetId: string) => {
+                                      handleUpdateDraftField(idx, 'fromAssetId', assetId);
+                                    });
+                                  }}
+                                  style={{
+                                    background: 'var(--bg-neutral)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    padding: '4px 8px',
+                                    fontSize: '12px',
+                                    color: 'var(--text-main)',
+                                    outline: 'none',
+                                    width: '150px',
+                                    textAlign: 'right',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {assets.find(a => a.id === msg.toolCall?.arguments?.fromAssetId)?.name || 'Pilih Rekening Asal...'}
+                                </button>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--text-muted)' }}>Ke:</span>
-                                <span style={{ fontWeight: 500 }}>
-                                  {assets.find(a => a.id === msg.toolCall?.arguments.toAssetId)?.name || 'Tidak diketahui'}
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveSelectAssetMsgIdx(idx);
+                                    setAssetSelectCallback(() => (assetId: string) => {
+                                      handleUpdateDraftField(idx, 'toAssetId', assetId);
+                                    });
+                                  }}
+                                  style={{
+                                    background: 'var(--bg-neutral)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    padding: '4px 8px',
+                                    fontSize: '12px',
+                                    color: 'var(--text-main)',
+                                    outline: 'none',
+                                    width: '150px',
+                                    textAlign: 'right',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {assets.find(a => a.id === msg.toolCall?.arguments?.toAssetId)?.name || 'Pilih Rekening Tujuan...'}
+                                </button>
                               </div>
-                              {msg.toolCall.arguments.adminFee > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <span style={{ color: 'var(--text-muted)' }}>Biaya Admin:</span>
-                                  <span style={{ fontWeight: 600, color: 'var(--danger)' }}>
-                                    {currencySymbol}{msg.toolCall.arguments.adminFee.toLocaleString('id-ID')} ({msg.toolCall.arguments.adminFeeTarget})
-                                  </span>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Biaya Admin:</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '11px' }}>{currencySymbol}</span>
+                                  <input 
+                                    type="text" 
+                                    value={msg.toolCall.arguments.adminFee === 0 || !msg.toolCall.arguments.adminFee ? '' : msg.toolCall.arguments.adminFee.toLocaleString('id-ID')}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                      handleUpdateDraftField(idx, 'adminFee', val);
+                                    }}
+                                    style={{
+                                      background: 'var(--bg-neutral)',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: '8px',
+                                      padding: '4px 8px',
+                                      fontSize: '12px',
+                                      color: 'var(--text-main)',
+                                      outline: 'none',
+                                      width: '60px',
+                                      textAlign: 'right'
+                                    }}
+                                  />
+                                  <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '6px', padding: '2px', border: '1px solid var(--border-color)' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateDraftField(idx, 'adminFeeTarget', 'sender')}
+                                      style={{
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: 'none',
+                                        background: (msg.toolCall.arguments.adminFeeTarget || 'sender') === 'sender' ? 'var(--bg-neutral)' : 'transparent',
+                                        color: (msg.toolCall.arguments.adminFeeTarget || 'sender') === 'sender' ? 'var(--text-main)' : 'var(--text-muted)',
+                                        fontSize: '10px',
+                                        fontWeight: (msg.toolCall.arguments.adminFeeTarget || 'sender') === 'sender' ? 700 : 500,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                      }}
+                                    >
+                                      Pengirim
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateDraftField(idx, 'adminFeeTarget', 'receiver')}
+                                      style={{
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: 'none',
+                                        background: msg.toolCall.arguments.adminFeeTarget === 'receiver' ? 'var(--bg-neutral)' : 'transparent',
+                                        color: msg.toolCall.arguments.adminFeeTarget === 'receiver' ? 'var(--text-main)' : 'var(--text-muted)',
+                                        fontSize: '10px',
+                                        fontWeight: msg.toolCall.arguments.adminFeeTarget === 'receiver' ? 700 : 500,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                      }}
+                                    >
+                                      Penerima
+                                    </button>
+                                  </div>
                                 </div>
-                              )}
+                              </div>
                             </>
                           ) : (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: 'var(--text-muted)' }}>Aset:</span>
-                              <span style={{ fontWeight: 500 }}>
-                                {assets.find(a => a.id === msg.toolCall?.arguments.assetId)?.name || 'Tidak diketahui'}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveSelectAssetMsgIdx(idx);
+                                  setAssetSelectCallback(() => (assetId: string) => {
+                                    handleUpdateDraftField(idx, 'assetId', assetId);
+                                  });
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '150px',
+                                  textAlign: 'right',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {assets.find(a => a.id === msg.toolCall?.arguments?.assetId)?.name || 'Pilih Rekening...'}
+                              </button>
                             </div>
                           )}
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
-                            <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.note}</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.note || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'note', e.target.value)}
+                              placeholder="Catatan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
+                          </div>
+                        </>
+                      ) : msg.toolCall.name === 'create_debt' ? (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
+                            <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Kontak:</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.contactName || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'contactName', e.target.value)}
+                              placeholder="Nama kontak..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600 }}>{currencySymbol}</span>
+                              <input 
+                                type="text" 
+                                value={msg.toolCall.arguments.amount === 0 || !msg.toolCall.arguments.amount ? '' : msg.toolCall.arguments.amount.toLocaleString('id-ID')}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                  handleUpdateDraftField(idx, 'amount', val);
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '120px',
+                                  textAlign: 'right',
+                                  fontWeight: 700
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectCategoryMsgIdx(idx);
+                                const flowType = msg.toolCall?.arguments?.type === 'hutang' ? 'pengeluaran' : 'pengeluaran';
+                                setCategoryModalType(flowType);
+                                setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
+                                  handleUpdateDraftField(idx, 'category', categoryName);
+                                  handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                });
+                              }}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {msg.toolCall?.arguments?.category 
+                                ? (msg.toolCall.arguments.subCategory 
+                                    ? `${msg.toolCall.arguments.category} (${msg.toolCall.arguments.subCategory})` 
+                                    : msg.toolCall.arguments.category)
+                                : 'Pilih Kategori...'}
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Aset Terkait:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectAssetMsgIdx(idx);
+                                setAssetSelectCallback(() => (assetId: string) => {
+                                  handleUpdateDraftField(idx, 'assetId', assetId);
+                                });
+                              }}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {assets.find(a => a.id === msg.toolCall?.arguments?.assetId)?.name || 'Pilih Rekening...'}
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Keterangan:</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.description || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'description', e.target.value)}
+                              placeholder="Keterangan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
                           </div>
                         </>
                       ) : (
                         <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Tipe:</span>
-                            <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{msg.toolCall.arguments.type}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Nama:</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.name || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'name', e.target.value)}
+                              placeholder="Nama langganan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Kontak:</span>
-                            <span style={{ fontWeight: 600 }}>{msg.toolCall.arguments.contactName}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: 'var(--text-muted)' }}>Nominal:</span>
-                            <span style={{ fontWeight: 700, color: msg.toolCall.arguments.type === 'piutang' ? 'var(--success)' : 'var(--danger)' }}>
-                              {currencySymbol}{msg.toolCall.arguments.amount?.toLocaleString('id-ID')}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
-                            <span style={{ fontWeight: 500 }}>
-                              {msg.toolCall.arguments.category || 'Lainnya'}
-                            </span>
-                          </div>
-                          {msg.toolCall.arguments.assetId && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>Aset Terkait:</span>
-                              <span style={{ fontWeight: 500 }}>
-                                {assets.find(a => a.id === msg.toolCall?.arguments.assetId)?.name || 'Tidak diketahui'}
-                              </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600 }}>{currencySymbol}</span>
+                              <input 
+                                type="text" 
+                                value={msg.toolCall.arguments.amount === 0 || !msg.toolCall.arguments.amount ? '' : msg.toolCall.arguments.amount.toLocaleString('id-ID')}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                  handleUpdateDraftField(idx, 'amount', val);
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '120px',
+                                  textAlign: 'right',
+                                  fontWeight: 700
+                                }}
+                              />
                             </div>
-                          )}
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Keterangan:</span>
-                            <span style={{ fontWeight: 500 }}>{msg.toolCall.arguments.description || '-'}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Siklus:</span>
+                            <div style={{ display: 'flex', background: 'var(--bg-neutral)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)', width: '150px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateDraftField(idx, 'billingCycle', 'monthly')}
+                                style={{
+                                  flex: 1,
+                                  padding: '4px 0',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  background: (msg.toolCall.arguments.billingCycle || 'monthly') === 'monthly' ? 'var(--bg-card)' : 'transparent',
+                                  color: (msg.toolCall.arguments.billingCycle || 'monthly') === 'monthly' ? 'var(--text-main)' : 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  fontWeight: (msg.toolCall.arguments.billingCycle || 'monthly') === 'monthly' ? 700 : 500,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                Bulanan
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateDraftField(idx, 'billingCycle', 'yearly')}
+                                style={{
+                                  flex: 1,
+                                  padding: '4px 0',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  background: msg.toolCall.arguments.billingCycle === 'yearly' ? 'var(--bg-card)' : 'transparent',
+                                  color: msg.toolCall.arguments.billingCycle === 'yearly' ? 'var(--text-main)' : 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  fontWeight: msg.toolCall.arguments.billingCycle === 'yearly' ? 700 : 500,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                Tahunan
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Kategori:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectCategoryMsgIdx(idx);
+                                setCategoryModalType('pengeluaran');
+                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName?: string) => {
+                                  handleUpdateDraftField(idx, 'category', categoryName);
+                                });
+                              }}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {msg.toolCall?.arguments?.category || 'Pilih Kategori...'}
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Sumber Rekening:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectAssetMsgIdx(idx);
+                                setAssetSelectCallback(() => (assetId: string) => {
+                                  handleUpdateDraftField(idx, 'assetId', assetId);
+                                });
+                              }}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {assets.find(a => a.id === msg.toolCall?.arguments?.assetId)?.name || 'Pilih Rekening...'}
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.note || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'note', e.target.value)}
+                              placeholder="Catatan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
                           </div>
                         </>
                       )}
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Tanggal:</span>
-                        <input 
-                          type="date" 
-                          value={msg.toolCall.arguments.date || getLocalDate()}
-                          onChange={(e) => handleUpdateDraftDate(idx, e.target.value)}
-                          style={{ 
-                            background: 'var(--bg-neutral)', 
-                            border: '1px solid var(--border-color)', 
-                            borderRadius: '8px', 
-                            padding: '4px 8px', 
-                            fontSize: '12px', 
-                            color: 'var(--text-main)',
-                            cursor: 'pointer',
-                            outline: 'none'
-                          }}
-                        />
-                      </div>
+                      {msg.toolCall.name !== 'create_subscription' ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Tanggal:</span>
+                          <input 
+                            type="date" 
+                            value={msg.toolCall.arguments.date || getLocalDate()}
+                            onChange={(e) => handleUpdateDraftField(idx, 'date', e.target.value)}
+                            style={{ 
+                              background: 'var(--bg-neutral)', 
+                              border: '1px solid var(--border-color)', 
+                              borderRadius: '8px', 
+                              padding: '4px 8px', 
+                              fontSize: '12px', 
+                              color: 'var(--text-main)',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Tgl Tagihan:</span>
+                          <input 
+                            type="date" 
+                            value={msg.toolCall.arguments.nextBillingDate || getLocalDate()}
+                            onChange={(e) => handleUpdateDraftField(idx, 'nextBillingDate', e.target.value)}
+                            style={{ 
+                              background: 'var(--bg-neutral)', 
+                              border: '1px solid var(--border-color)', 
+                              borderRadius: '8px', 
+                              padding: '4px 8px', 
+                              fontSize: '12px', 
+                              color: 'var(--text-main)',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -650,13 +1299,263 @@ const ChatBot: React.FC = () => {
                         onClick={() => {
                           if (msg.toolCall?.name === 'create_transaction') {
                             handleConfirmTransaction(idx, msg.toolCall.arguments);
+                          } else if (msg.toolCall?.name === 'create_debt') {
+                            handleConfirmDebt(idx, msg.toolCall.arguments);
                           } else {
-                            handleConfirmDebt(idx, msg.toolCall!.arguments);
+                            handleConfirmSubscription(idx, msg.toolCall!.arguments);
                           }
                         }}
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                       >
                         <Check size={16} /> Konfirmasi
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {msg.toolCall && msg.toolCall.name === 'recommend_budget' && (
+                  <div style={{
+                    marginTop: '8px',
+                    width: '100%',
+                    background: 'var(--bg-main)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
+                      <AlertCircle size={16} />
+                      <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                        Rekomendasi Anggaran ({MONTH_NAMES[msg.toolCall.arguments.month] || msg.toolCall.arguments.month} {msg.toolCall.arguments.year})
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                      {msg.toolCall.arguments.recommendations.map((rec: any, recIdx: number) => {
+                        const existing = budgets.find(
+                          b => b.categoryId === rec.categoryId && b.month === msg.toolCall?.arguments.month && b.year === msg.toolCall?.arguments.year
+                        );
+
+                        return (
+                          <div key={rec.categoryId || recIdx} style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-card)', 
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{rec.categoryName}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{currencySymbol}</span>
+                                  <input 
+                                    type="text"
+                                    value={rec.limit === 0 ? '' : rec.limit.toLocaleString('id-ID')}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                      handleUpdateDraftBudgetLimit(idx, rec.categoryId, val);
+                                    }}
+                                    style={{
+                                      width: '100px',
+                                      padding: '4px 8px',
+                                      borderRadius: '8px',
+                                      border: '1px solid var(--border-color)',
+                                      background: 'var(--bg-main)',
+                                      color: 'var(--text-main)',
+                                      fontSize: '12px',
+                                      fontWeight: 700,
+                                      textAlign: 'right',
+                                      outline: 'none'
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => handleRemoveDraftBudgetCategory(idx, rec.categoryId)}
+                                  title="Hapus Kategori"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#ef4444',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    borderRadius: '6px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'background 0.2s',
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {existing && (
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                Limit saat ini: {currencySymbol}{existing.limit.toLocaleString('id-ID')}
+                              </div>
+                            )}
+
+                            {rec.reason && (
+                              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
+                                {rec.reason}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {(() => {
+                        const draftCategoryIds = msg.toolCall.arguments.recommendations.map((r: any) => r.categoryId);
+                        const availableCategoriesToAdd = categories.filter(
+                          c => c.type === 'pengeluaran' && !c.isDeleted && !draftCategoryIds.includes(c.id)
+                        );
+
+                        if (availableCategoriesToAdd.length === 0) return null;
+
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            alignItems: 'center',
+                            background: 'var(--bg-card)',
+                            padding: '8px 12px',
+                            borderRadius: '12px',
+                            border: '1px dashed var(--border-color)',
+                            marginTop: '4px'
+                          }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Plus size={14} /> Tambah:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectCategoryMsgIdx(idx);
+                                setCategoryModalType('pengeluaran');
+                                setCategorySelectCallback(() => (categoryName, subCategoryName) => {
+                                  const cat = categories.find(c => c.name === categoryName);
+                                  if (cat) {
+                                    handleAddDraftBudgetCategory(idx, cat.id);
+                                  }
+                                });
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--bg-main)',
+                                color: 'var(--text-main)',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                transition: 'background 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-neutral)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-main)'}
+                            >
+                              Pilih Kategori...
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {msg.toolCall.arguments.transferRecommendations && msg.toolCall.arguments.transferRecommendations.length > 0 && (
+                      <div style={{ 
+                        marginTop: '16px', 
+                        borderTop: '1px dashed var(--border-color)', 
+                        paddingTop: '16px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '12px', 
+                        marginBottom: '16px' 
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
+                          <ArrowRight size={16} />
+                          <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                            Rekomendasi Transfer Saldo
+                          </span>
+                        </div>
+                        {msg.toolCall.arguments.transferRecommendations.map((tf: any, tfIdx: number) => (
+                          <div key={tfIdx} style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-card)', 
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                <span>{tf.fromAssetName}</span>
+                                <ArrowRight size={12} style={{ color: 'var(--text-muted)' }} />
+                                <span>{tf.toAssetName}</span>
+                              </div>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                                {currencySymbol}{tf.amount.toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                            {tf.reason && (
+                              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
+                                {tf.reason}
+                              </p>
+                            )}
+                            <button
+                              onClick={() => handleExecuteTransferRecommendation(idx, tfIdx, tf)}
+                              disabled={tf.isExecuted}
+                              style={{
+                                marginTop: '4px',
+                                width: '100%',
+                                padding: '6px',
+                                borderRadius: '8px',
+                                border: tf.isExecuted ? '1px solid var(--success-border, #10b981)' : 'none',
+                                background: tf.isExecuted ? 'rgba(16, 185, 129, 0.1)' : 'var(--success-text, #10b981)',
+                                color: tf.isExecuted ? 'var(--success-text, #10b981)' : 'white',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: tf.isExecuted ? 'default' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {tf.isExecuted ? (
+                                <>
+                                  <Check size={12} /> Berhasil Ditransfer
+                                </>
+                              ) : (
+                                'Transfer Sekarang'
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        onClick={() => handleCancelTransaction(idx)}
+                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Batal
+                      </button>
+                      <button 
+                        onClick={() => handleConfirmBudget(idx, msg.toolCall!.arguments)}
+                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                      >
+                        <Check size={16} /> Terapkan Anggaran
                       </button>
                     </div>
                   </div>
@@ -788,6 +1687,39 @@ const ChatBot: React.FC = () => {
         </motion.div>
       )}
       </AnimatePresence>
+
+      {activeSelectCategoryMsgIdx !== null && (
+        <CategorySelectModal
+          isOpen={activeSelectCategoryMsgIdx !== null}
+          onClose={() => {
+            setActiveSelectCategoryMsgIdx(null);
+            setCategorySelectCallback(null);
+          }}
+          categories={categories}
+          type={categoryModalType}
+          onSelect={(categoryName, subCategoryName) => {
+            if (categorySelectCallback) {
+              categorySelectCallback(categoryName, subCategoryName);
+            }
+          }}
+        />
+      )}
+
+      {activeSelectAssetMsgIdx !== null && (
+        <AssetSelectModal
+          isOpen={activeSelectAssetMsgIdx !== null}
+          onClose={() => {
+            setActiveSelectAssetMsgIdx(null);
+            setAssetSelectCallback(null);
+          }}
+          assets={assets}
+          onSelect={(assetId) => {
+            if (assetSelectCallback) {
+              assetSelectCallback(assetId);
+            }
+          }}
+        />
+      )}
     </>
   );
 };
