@@ -31,7 +31,6 @@ const ChatBot: React.FC = () => {
   const recognitionRef = useRef<any>(null);
   const speechBaseRef = useRef('');
   const finalTranscriptRef = useRef('');
-  const [selectedAssetTypes, setSelectedAssetTypes] = useState<string[]>(['Cash', 'Bank Account', 'eWallet', 'Savings', 'Investment']);
 
   // States for custom selection modals
   const [activeSelectCategoryMsgIdx, setActiveSelectCategoryMsgIdx] = useState<number | null>(null);
@@ -584,6 +583,16 @@ const ChatBot: React.FC = () => {
 
   const handleExecuteTransferRecommendation = (msgIndex: number, transferIdx: number, tf: any) => {
     try {
+      const fromAsset = assets.find(a => a.id === tf.fromAssetId);
+      const toAsset = assets.find(a => a.id === tf.toAssetId);
+
+      if (!fromAsset || fromAsset.isDeleted || ['Credit Card', 'Loan'].includes(fromAsset.type)) {
+        throw new Error('Rekening asal tidak valid atau merupakan kartu kredit/pinjaman.');
+      }
+      if (!toAsset || toAsset.isDeleted || ['Credit Card', 'Loan'].includes(toAsset.type)) {
+        throw new Error('Rekening tujuan tidak valid atau merupakan kartu kredit/pinjaman.');
+      }
+
       addTransaction({
         type: 'transfer',
         amount: Number(tf.amount),
@@ -1527,8 +1536,21 @@ const ChatBot: React.FC = () => {
                             Rekomendasi Transfer Saldo
                           </span>
                         </div>
-                        {msg.toolCall.arguments.transferRecommendations.map((tf: any, tfIdx: number) => (
-                          <div key={tfIdx} style={{ 
+                        {msg.toolCall.arguments.transferRecommendations.map((tf: any, tfIdx: number) => {
+                          const fromAsset = assets.find(a => a.id === tf.fromAssetId);
+                          const toAsset = assets.find(a => a.id === tf.toAssetId);
+                          
+                          // Skip rendering if it involves Credit Card, Loan, or deleted assets
+                          const isFromDebt = fromAsset && ['Credit Card', 'Loan'].includes(fromAsset.type);
+                          const isToDebt = toAsset && ['Credit Card', 'Loan'].includes(toAsset.type);
+                          const isDeleted = (fromAsset && fromAsset.isDeleted) || (toAsset && toAsset.isDeleted);
+                          
+                          if (isFromDebt || isToDebt || isDeleted || !fromAsset || !toAsset) {
+                            return null;
+                          }
+
+                          return (
+                            <div key={tfIdx} style={{ 
                             padding: '12px', 
                             background: 'var(--bg-card)', 
                             borderRadius: '12px',
@@ -1581,7 +1603,8 @@ const ChatBot: React.FC = () => {
                               )}
                             </button>
                           </div>
-                        ))}
+                        );
+                      })}
                       </div>
                     )}
 
@@ -1732,50 +1755,20 @@ const ChatBot: React.FC = () => {
             {/* Suggested Actions */}
             {!isLoading && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '4px' }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Split Gaji Ke:</span>
-                  {['Cash', 'Bank Account', 'eWallet', 'Savings', 'Investment'].map((type) => {
-                    const isSelected = selectedAssetTypes.includes(type);
-                    const label = type === 'Bank Account' ? 'Bank' : type === 'eWallet' ? 'E-Wallet' : type === 'Savings' ? 'Tabungan' : type === 'Investment' ? 'Investasi' : 'Tunai';
-                    return (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => {
-                          setSelectedAssetTypes(prev => 
-                            prev.includes(type) 
-                              ? prev.filter(t => t !== type) 
-                              : [...prev, type]
-                          );
-                        }}
-                        style={{
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          background: isSelected ? 'var(--primary)' : 'var(--bg-neutral)',
-                          color: isSelected ? 'white' : 'var(--text-muted)',
-                          border: '1px solid var(--border-color)',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div 
+                  className="hide-scrollbar"
+                  style={{ 
+                    display: 'flex', 
+                    gap: '6px', 
+                    overflowX: 'auto',
+                    margin: '0 -20px',
+                    padding: '4px 20px',
+                    scrollbarWidth: 'none',
+                  }}
+                >
                   <button
                     type="button"
-                    onClick={() => {
-                      if (selectedAssetTypes.length === 0) {
-                        showToast('Pilih setidaknya satu tipe aset untuk split gajimu!', 'warning');
-                        return;
-                      }
-                      const typesStr = selectedAssetTypes.join(', ');
-                      handleSend(`Buat rencana keuangan bulan ini. Catatan: Untuk rekomendasi transfer (salary split), HANYA boleh merekomendasikan transfer ke rekening dengan tipe: ${typesStr}.`);
-                    }}
+                    onClick={() => handleSend("Buat rencana keuangan bulan ini.")}
                     style={{
                       padding: '6px 12px',
                       borderRadius: '16px',
@@ -1789,7 +1782,8 @@ const ChatBot: React.FC = () => {
                       transition: 'all 0.2s',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: '4px',
+                      flexShrink: 0
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'var(--primary)';
@@ -1801,6 +1795,161 @@ const ChatBot: React.FC = () => {
                     }}
                   >
                     ✨ Buat Rencana Keuangan
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Tolong berikan analisis singkat kondisi keuangan saya bulan ini beserta pengeluaran terbesar.")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    📊 Analisis Pengeluaran
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Bagaimana proyeksi cash flow dan saldo rekening saya 30 hari ke depan?")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    🔮 Proyeksi Cash Flow
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Berapa batas aman belanja saya hari ini (Safe-to-Spend)?")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    🛡️ Batas Aman Belanja
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={triggerEOMReview}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    📅 Evaluasi Akhir Bulan
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Tolong jelaskan fitur-fitur utama di aplikasi ini.")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    ❓ Panduan Fitur
                   </button>
                 </div>
               </div>
