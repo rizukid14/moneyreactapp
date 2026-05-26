@@ -44,7 +44,8 @@ const ChatBot: React.FC = () => {
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
     currencySymbol, isChatOpen, setIsChatOpen,
     recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
-    startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription
+    startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription,
+    addRecurringTransaction
   } = useMoney();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -131,11 +132,13 @@ const ChatBot: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Tolong berikan evaluasi dan nasihat akhir bulan saya berdasarkan transaksi dari tanggal ${startDateStr} sampai ${endDateStr}.` }],
-          categories,
-          assets: assets.map(a => ({
-            ...a,
-            balance: getAssetBalance(a.id)
-          })),
+          categories: categories.filter(c => !c.isDeleted),
+          assets: assets
+            .filter(a => !a.isDeleted && !['Credit Card', 'Loan'].includes(a.type))
+            .map(a => ({
+              ...a,
+              balance: getAssetBalance(a.id)
+            })),
           transactions: [...transactions]
             .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
             .filter(t => t.date >= startDateStr && t.date <= endDateStr)
@@ -212,10 +215,11 @@ const ChatBot: React.FC = () => {
     }
   }, [isChatOpen, messages.length]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleSend = async (overrideText?: string) => {
+    const textToSend = overrideText || input;
+    if (!textToSend.trim()) return;
 
-    const userMsg: Message = { role: 'user', content: input };
+    const userMsg: Message = { role: 'user', content: textToSend };
     const newMessages = [...messages, userMsg];
     
     setMessages(newMessages);
@@ -230,11 +234,13 @@ const ChatBot: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          categories,
-          assets: assets.map(a => ({
-            ...a,
-            balance: getAssetBalance(a.id)
-          })),
+          categories: categories.filter(c => !c.isDeleted),
+          assets: assets
+            .filter(a => !a.isDeleted && !['Credit Card', 'Loan'].includes(a.type))
+            .map(a => ({
+              ...a,
+              balance: getAssetBalance(a.id)
+            })),
           transactions: [...transactions]
             .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
             .filter(t => t.date >= startDateStr && t.date <= endDateStr)
@@ -577,6 +583,16 @@ const ChatBot: React.FC = () => {
 
   const handleExecuteTransferRecommendation = (msgIndex: number, transferIdx: number, tf: any) => {
     try {
+      const fromAsset = assets.find(a => a.id === tf.fromAssetId);
+      const toAsset = assets.find(a => a.id === tf.toAssetId);
+
+      if (!fromAsset || fromAsset.isDeleted || ['Credit Card', 'Loan'].includes(fromAsset.type)) {
+        throw new Error('Rekening asal tidak valid atau merupakan kartu kredit/pinjaman.');
+      }
+      if (!toAsset || toAsset.isDeleted || ['Credit Card', 'Loan'].includes(toAsset.type)) {
+        throw new Error('Rekening tujuan tidak valid atau merupakan kartu kredit/pinjaman.');
+      }
+
       addTransaction({
         type: 'transfer',
         amount: Number(tf.amount),
@@ -606,6 +622,40 @@ const ChatBot: React.FC = () => {
       showToast(`Berhasil mentransfer Rp${tf.amount.toLocaleString('id-ID')} dari ${tf.fromAssetName} ke ${tf.toAssetName}!`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Gagal melakukan transfer', 'error');
+    }
+  };
+
+  const handleExecuteRecurringRecommendation = (msgIndex: number, recIdx: number, rt: any) => {
+    try {
+      addRecurringTransaction({
+        type: rt.type,
+        amount: Number(rt.amount),
+        category: rt.category,
+        note: rt.note,
+        frequency: rt.frequency,
+        startDate: getLocalDate(),
+        isActive: true
+      });
+
+      setMessages(prev => prev.map((m, i) => {
+        if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+          const updatedRts = (m.toolCall.arguments.recurringRecommendations || []).map((t: any, idx: number) => 
+            idx === recIdx ? { ...t, isExecuted: true } : t
+          );
+          return {
+            ...m,
+            toolCall: {
+              ...m.toolCall,
+              arguments: { ...m.toolCall.arguments, recurringRecommendations: updatedRts }
+            }
+          };
+        }
+        return m;
+      }));
+
+      showToast(`Berhasil mengaktifkan transaksi rutin: ${rt.note}!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal mengaktifkan transaksi rutin', 'error');
     }
   };
 
@@ -1437,7 +1487,7 @@ const ChatBot: React.FC = () => {
                               onClick={() => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
-                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName?: string) => {
+                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName: string) => {
                                   const cat = categories.find(c => c.name === categoryName);
                                   if (cat) {
                                     handleAddDraftBudgetCategory(idx, cat.id);
@@ -1486,8 +1536,21 @@ const ChatBot: React.FC = () => {
                             Rekomendasi Transfer Saldo
                           </span>
                         </div>
-                        {msg.toolCall.arguments.transferRecommendations.map((tf: any, tfIdx: number) => (
-                          <div key={tfIdx} style={{ 
+                        {msg.toolCall.arguments.transferRecommendations.map((tf: any, tfIdx: number) => {
+                          const fromAsset = assets.find(a => a.id === tf.fromAssetId);
+                          const toAsset = assets.find(a => a.id === tf.toAssetId);
+                          
+                          // Skip rendering if it involves Credit Card, Loan, or deleted assets
+                          const isFromDebt = fromAsset && ['Credit Card', 'Loan'].includes(fromAsset.type);
+                          const isToDebt = toAsset && ['Credit Card', 'Loan'].includes(toAsset.type);
+                          const isDeleted = (fromAsset && fromAsset.isDeleted) || (toAsset && toAsset.isDeleted);
+                          
+                          if (isFromDebt || isToDebt || isDeleted || !fromAsset || !toAsset) {
+                            return null;
+                          }
+
+                          return (
+                            <div key={tfIdx} style={{ 
                             padding: '12px', 
                             background: 'var(--bg-card)', 
                             borderRadius: '12px',
@@ -1537,6 +1600,82 @@ const ChatBot: React.FC = () => {
                                 </>
                               ) : (
                                 'Transfer Sekarang'
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                      </div>
+                    )}
+
+                    {msg.toolCall.arguments.recurringRecommendations && msg.toolCall.arguments.recurringRecommendations.length > 0 && (
+                      <div style={{ 
+                        marginTop: '16px', 
+                        borderTop: '1px dashed var(--border-color)', 
+                        paddingTop: '16px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '12px', 
+                        marginBottom: '16px' 
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
+                          <ArrowRight size={16} />
+                          <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                            Rekomendasi Transaksi Rutin
+                          </span>
+                        </div>
+                        {msg.toolCall.arguments.recurringRecommendations.map((rt: any, rtIdx: number) => (
+                          <div key={rtIdx} style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-card)', 
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
+                                {rt.note} ({rt.frequency === 'monthly' ? 'Bulanan' : rt.frequency === 'weekly' ? 'Mingguan' : rt.frequency === 'daily' ? 'Harian' : 'Tahunan'})
+                              </span>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                                {currencySymbol}{rt.amount.toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Kategori: {rt.category} | Tipe: {rt.type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}
+                            </div>
+                            {rt.reason && (
+                              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
+                                {rt.reason}
+                              </p>
+                            )}
+                            <button
+                              onClick={() => handleExecuteRecurringRecommendation(idx, rtIdx, rt)}
+                              disabled={rt.isExecuted}
+                              style={{
+                                marginTop: '4px',
+                                width: '100%',
+                                padding: '6px',
+                                borderRadius: '8px',
+                                border: rt.isExecuted ? '1px solid var(--success-border, #10b981)' : 'none',
+                                background: rt.isExecuted ? 'rgba(16, 185, 129, 0.1)' : 'var(--success-text, #10b981)',
+                                color: rt.isExecuted ? 'var(--success-text, #10b981)' : 'white',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: rt.isExecuted ? 'default' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {rt.isExecuted ? (
+                                <>
+                                  <Check size={12} /> Aktif Berulang
+                                </>
+                              ) : (
+                                'Aktifkan Transaksi Rutin'
                               )}
                             </button>
                           </div>
@@ -1606,10 +1745,215 @@ const ChatBot: React.FC = () => {
 
           {/* Input Area */}
           <div style={{ 
-            padding: '16px 20px calc(16px + env(safe-area-inset-bottom, 0px))', 
+            padding: '12px 20px calc(16px + env(safe-area-inset-bottom, 0px))', 
             background: 'var(--bg-card)', 
             borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
           }}>
+            {/* Suggested Actions */}
+            {!isLoading && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '4px' }}>
+                <div 
+                  className="hide-scrollbar"
+                  style={{ 
+                    display: 'flex', 
+                    gap: '6px', 
+                    overflowX: 'auto',
+                    margin: '0 -20px',
+                    padding: '4px 20px',
+                    scrollbarWidth: 'none',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Buat rencana keuangan bulan ini.")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    ✨ Buat Rencana Keuangan
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Tolong berikan analisis singkat kondisi keuangan saya bulan ini beserta pengeluaran terbesar.")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    📊 Analisis Pengeluaran
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Bagaimana proyeksi cash flow dan saldo rekening saya 30 hari ke depan?")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    🔮 Proyeksi Cash Flow
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Berapa batas aman belanja saya hari ini (Safe-to-Spend)?")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    🛡️ Batas Aman Belanja
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={triggerEOMReview}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    📅 Evaluasi Akhir Bulan
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSend("Tolong jelaskan fitur-fitur utama di aplikasi ini.")}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      background: 'var(--bg-neutral)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--bg-neutral)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                  >
+                    ❓ Panduan Fitur
+                  </button>
+                </div>
+              </div>
+            )}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1661,7 +2005,7 @@ const ChatBot: React.FC = () => {
                 {isListening ? <Square size={16} /> : <Mic size={16} />}
               </button>
               <button 
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!input.trim() || isLoading}
                 style={{
                   width: '44px',
