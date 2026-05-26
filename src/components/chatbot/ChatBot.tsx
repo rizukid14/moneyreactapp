@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square, ArrowRight } from 'lucide-react';
+import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square, ArrowRight, Trash2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
@@ -481,6 +481,55 @@ const ChatBot: React.FC = () => {
         const updatedRecs = m.toolCall.arguments.recommendations.map((rec: any) => 
           rec.categoryId === categoryId ? { ...rec, limit: newLimit } : rec
         );
+        return {
+          ...m,
+          toolCall: {
+            ...m.toolCall,
+            arguments: { ...m.toolCall.arguments, recommendations: updatedRecs }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const handleRemoveDraftBudgetCategory = (msgIndex: number, categoryId: string) => {
+    setMessages(prev => prev.map((m, i) => {
+      if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+        const updatedRecs = m.toolCall.arguments.recommendations.filter(
+          (rec: any) => rec.categoryId !== categoryId
+        );
+        return {
+          ...m,
+          toolCall: {
+            ...m.toolCall,
+            arguments: { ...m.toolCall.arguments, recommendations: updatedRecs }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const handleAddDraftBudgetCategory = (msgIndex: number, categoryId: string) => {
+    const cat = categories.find(c => c.id === categoryId);
+    if (!cat) return;
+
+    setMessages(prev => prev.map((m, i) => {
+      if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+        const exists = m.toolCall.arguments.recommendations.some((rec: any) => rec.categoryId === categoryId);
+        if (exists) {
+          showToast(`Kategori ${cat.name} sudah ada dalam rekomendasi!`, 'error');
+          return m;
+        }
+
+        const newRec = {
+          categoryId: cat.id,
+          categoryName: cat.name,
+          limit: 0,
+          reason: 'Ditambahkan manual'
+        };
+        const updatedRecs = [...m.toolCall.arguments.recommendations, newRec];
         return {
           ...m,
           toolCall: {
@@ -1267,28 +1316,50 @@ const ChatBot: React.FC = () => {
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{rec.categoryName}</span>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                                <input 
-                                  type="text"
-                                  value={rec.limit === 0 ? '' : rec.limit.toLocaleString('id-ID')}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value.replace(/\D/g, '')) || 0;
-                                    handleUpdateDraftBudgetLimit(idx, rec.categoryId, val);
-                                  }}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{currencySymbol}</span>
+                                  <input 
+                                    type="text"
+                                    value={rec.limit === 0 ? '' : rec.limit.toLocaleString('id-ID')}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                      handleUpdateDraftBudgetLimit(idx, rec.categoryId, val);
+                                    }}
+                                    style={{
+                                      width: '100px',
+                                      padding: '4px 8px',
+                                      borderRadius: '8px',
+                                      border: '1px solid var(--border-color)',
+                                      background: 'var(--bg-main)',
+                                      color: 'var(--text-main)',
+                                      fontSize: '12px',
+                                      fontWeight: 700,
+                                      textAlign: 'right',
+                                      outline: 'none'
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => handleRemoveDraftBudgetCategory(idx, rec.categoryId)}
+                                  title="Hapus Kategori"
                                   style={{
-                                    width: '100px',
-                                    padding: '4px 8px',
-                                    borderRadius: '8px',
-                                    border: '1px solid var(--border-color)',
-                                    background: 'var(--bg-main)',
-                                    color: 'var(--text-main)',
-                                    fontSize: '12px',
-                                    fontWeight: 700,
-                                    textAlign: 'right',
-                                    outline: 'none'
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#ef4444',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    borderRadius: '6px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'background 0.2s',
                                   }}
-                                />
+                                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               </div>
                             </div>
                             
@@ -1306,6 +1377,61 @@ const ChatBot: React.FC = () => {
                           </div>
                         );
                       })}
+
+                      {(() => {
+                        const draftCategoryIds = msg.toolCall.arguments.recommendations.map((r: any) => r.categoryId);
+                        const availableCategoriesToAdd = categories.filter(
+                          c => c.type === 'pengeluaran' && !c.isDeleted && !draftCategoryIds.includes(c.id)
+                        );
+
+                        if (availableCategoriesToAdd.length === 0) return null;
+
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            alignItems: 'center',
+                            background: 'var(--bg-card)',
+                            padding: '8px 12px',
+                            borderRadius: '12px',
+                            border: '1px dashed var(--border-color)',
+                            marginTop: '4px'
+                          }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Plus size={14} /> Tambah:
+                            </span>
+                            <select
+                              id={`add-cat-select-${idx}`}
+                              defaultValue=""
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val) {
+                                  handleAddDraftBudgetCategory(idx, val);
+                                  e.target.value = ""; // Reset dropdown selection after adding
+                                }
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--bg-main)',
+                                color: 'var(--text-main)',
+                                fontSize: '12px',
+                                outline: 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <option value="" disabled>-- Pilih Kategori --</option>
+                              {availableCategoriesToAdd.map(c => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {msg.toolCall.arguments.transferRecommendations && msg.toolCall.arguments.transferRecommendations.length > 0 && (
