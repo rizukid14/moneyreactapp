@@ -113,7 +113,14 @@ export const useReceiptOCR = () => {
         },
         body: JSON.stringify({ 
           image: base64,
-          categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s:any) => s.name) })),
+          categories: categories
+            ?.filter(c => !c.isDeleted)
+            .map(c => ({ 
+              name: c.name, 
+              subcategories: c.subcategories
+                ?.filter((s: any) => !s.isDeleted)
+                .map((s: any) => s.name) 
+            })),
           assets: assets?.map(a => ({ name: a.name, id: a.id })),
           defaultAssetId,
         }),

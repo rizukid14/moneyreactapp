@@ -95,7 +95,14 @@ export const useBulkParseAI = () => {
         body: JSON.stringify({
           text: text || '',
           image: imageBase64,
-          categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s: any) => ({ name: s.name })) })),
+          categories: categories
+            ?.filter(c => !c.isDeleted)
+            .map(c => ({ 
+              name: c.name, 
+              subcategories: c.subcategories
+                ?.filter((s: any) => !s.isDeleted)
+                .map((s: any) => ({ name: s.name })) 
+            })),
           assets: assets?.map(a => ({ name: a.name, id: a.id })),
           defaultAssetId,
           currentDate: getLocalDate()

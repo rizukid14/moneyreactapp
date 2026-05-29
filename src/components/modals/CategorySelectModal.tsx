@@ -24,7 +24,14 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
   // Filter and sort main categories alphabetically
   const sortedCategories = useMemo(() => {
-    let result = [...categories].filter(c => c.type === type && (!c.isDeleted || c.name === initialCategory));
+    const activeNames = new Set(
+      categories.filter(c => c.type === type && !c.isDeleted).map(c => c.name.toLowerCase())
+    );
+
+    let result = [...categories].filter(c => 
+      c.type === type && 
+      (!c.isDeleted || (c.name === initialCategory && !activeNames.has(c.name.toLowerCase())))
+    );
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -54,7 +61,14 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   // Sort subcategories alphabetically
   const sortedSubcategories = useMemo(() => {
     if (!activeCategoryObj || !activeCategoryObj.subcategories) return [];
-    let result = [...activeCategoryObj.subcategories].filter(s => !s.isDeleted || s.name === initialSubCategory);
+    
+    const activeSubNames = new Set(
+      activeCategoryObj.subcategories.filter(s => !s.isDeleted).map(s => s.name.toLowerCase())
+    );
+
+    let result = [...activeCategoryObj.subcategories].filter(s => 
+      !s.isDeleted || (s.name === initialSubCategory && !activeSubNames.has(s.name.toLowerCase()))
+    );
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
