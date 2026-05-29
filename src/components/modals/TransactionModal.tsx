@@ -221,7 +221,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       if (tx.id === editingTransaction?.id) return;
       const d = new Date(tx.date);
       if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return;
-      const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+      const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
+                  categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
       if (cat) existingSpend[cat.id] = (existingSpend[cat.id] || 0) + tx.amount;
     });
 
@@ -241,7 +242,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
 
     // Category budget check
-    const selCat = categories.find(c => c.name === category && c.type === 'pengeluaran');
+    const selCat = categories.find(c => c.name === category && c.type === 'pengeluaran' && !c.isDeleted) ||
+                   categories.find(c => c.name === category && c.type === 'pengeluaran');
     if (selCat) {
       const catBudget = monthBudgets.find(b => b.categoryId === selCat.id);
       if (catBudget) {

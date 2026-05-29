@@ -185,7 +185,8 @@ export async function parseExcelFile(
       if (!toAsset)   { errors.push(`Baris ${rowNum}: Aset "${toName}" tidak ditemukan.`); skipped++; continue; }
       rows.push({ type: 'transfer', amount, category: 'Transfer', date: dateStr, note, fromAssetId: fromAsset.id, toAssetId: toAsset.id });
     } else {
-      const cat = categories.find(c => c.type === type && c.name.toLowerCase() === catName.toLowerCase());
+      const cat = categories.find(c => c.type === type && c.name.toLowerCase() === catName.toLowerCase() && !c.isDeleted) ||
+                  categories.find(c => c.type === type && c.name.toLowerCase() === catName.toLowerCase());
       if (!cat) { errors.push(`Baris ${rowNum}: Kategori "${catName}" untuk ${type} tidak ditemukan.`); skipped++; continue; }
       const asset = assets.find(a => !a.isDeleted && a.name.toLowerCase() === assetName.toLowerCase());
       if (!asset) { errors.push(`Baris ${rowNum}: Aset "${assetName}" tidak ditemukan.`); skipped++; continue; }

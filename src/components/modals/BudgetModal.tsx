@@ -202,7 +202,8 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
         type="pengeluaran"
         initialCategory={selectedCategory?.name}
         onSelect={(catName) => {
-          const cat = categories.find(c => c.name === catName);
+          const cat = categories.find(c => c.name === catName && c.type === 'pengeluaran' && !c.isDeleted) ||
+                      categories.find(c => c.name === catName && c.type === 'pengeluaran');
           if (cat) setCategoryId(cat.id);
         }}
       />

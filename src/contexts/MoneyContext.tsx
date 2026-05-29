@@ -1885,7 +1885,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (budgetMode !== 'zero-based' || zbbMode !== 'strict') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
     if (tx.type !== 'pengeluaran') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
     
-    const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+    const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
+                categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
     if (!cat) return { isValid: true, deficitCategory: null, deficitAmount: 0 };
 
     const txDate = tx.date ? new Date(tx.date) : new Date();

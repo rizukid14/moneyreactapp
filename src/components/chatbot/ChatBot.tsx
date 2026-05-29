@@ -1488,7 +1488,8 @@ const ChatBot: React.FC = () => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
                                 setCategorySelectCallback(() => (categoryName: string, _subCategoryName: string) => {
-                                  const cat = categories.find(c => c.name === categoryName);
+                                  const cat = categories.find(c => c.name === categoryName && c.type === 'pengeluaran' && !c.isDeleted) ||
+                                              categories.find(c => c.name === categoryName && c.type === 'pengeluaran');
                                   if (cat) {
                                     handleAddDraftBudgetCategory(idx, cat.id);
                                   }

@@ -1945,7 +1945,8 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         map.total += tx.amount;
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
         if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
       }
     });
