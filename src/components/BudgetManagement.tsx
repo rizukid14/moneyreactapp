@@ -20,7 +20,7 @@ const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   const offset = circ - (clamped / 100) * circ;
   const color = percent >= 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
   return (
-    <svg width="108" height="108" viewBox="0 0 108 108">
+    <svg data-testid="budget-progress" width="108" height="108" viewBox="0 0 108 108">
       <circle cx="54" cy="54" r={r} fill="none" stroke="var(--border-color)" strokeWidth="10" />
       <circle
         cx="54" cy="54" r={r} fill="none"
@@ -51,12 +51,13 @@ const EnvelopeCard: React.FC<{
   isMenuOpen: boolean;
   onMenuToggle: () => void;
   currencySymbol: string;
-}> = ({ label, spent, limit, onTopUp, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol }) => {
+  id: string;
+}> = ({ label, spent, limit, onTopUp, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
   const available = limit - spent;
   const isOver = available < 0;
   
   return (
-    <div className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative', padding: '16px 20px', borderLeft: isOver ? '4px solid var(--danger)' : available === 0 ? '4px solid var(--border-color)' : '4px solid var(--primary)' }}>
+    <div data-testid={`budget-card-${id}`} className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative', padding: '16px 20px', borderLeft: isOver ? '4px solid var(--danger)' : available === 0 ? '4px solid var(--border-color)' : '4px solid var(--primary)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
         <div>
           <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)', marginBottom: 2 }}>{label}</div>
@@ -126,13 +127,14 @@ const BudgetCard: React.FC<{
   isMenuOpen: boolean;
   onMenuToggle: () => void;
   currencySymbol: string;
-}> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol }) => {
+  id: string;
+}> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
   const percent = limit > 0 ? (spent / limit) * 100 : 0;
   const remaining = limit - spent;
   const barColor = percent >= 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
 
   return (
-    <div className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative' }}>
+    <div data-testid={`budget-card-${id}`} className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {icon && (
@@ -303,11 +305,11 @@ export const BudgetManagement: React.FC = () => {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: 'var(--bg-main)', borderRadius: 14, padding: '4px 6px', marginBottom: 16,
       }}>
-        <button onClick={() => changeMonth(-1)} className="btn-icon"><ChevronLeft size={18} /></button>
+        <button data-testid="budget-month-prev" onClick={() => changeMonth(-1)} className="btn-icon"><ChevronLeft size={18} /></button>
         <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>
           {MONTH_NAMES[selectedMonth]} {selectedYear}
         </span>
-        <button onClick={() => changeMonth(1)} className="btn-icon"><ChevronRight size={18} /></button>
+        <button data-testid="budget-month-next" onClick={() => changeMonth(1)} className="btn-icon"><ChevronRight size={18} /></button>
       </div>
 
       {/* Hero Card */}
@@ -393,7 +395,7 @@ export const BudgetManagement: React.FC = () => {
           )}
         </div>
       ) : globalBudget ? (
-        <div className={`budget-hero-card ${globalPercent >= 100 ? 'danger' : globalPercent >= 75 ? 'warning' : ''}`} style={{ marginBottom: 16, position: 'relative', padding: 16 }}>
+        <div data-testid="budget-global" className={`budget-hero-card ${globalPercent >= 100 ? 'danger' : globalPercent >= 75 ? 'warning' : ''}`} style={{ marginBottom: 16, position: 'relative', padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>
@@ -461,7 +463,7 @@ export const BudgetManagement: React.FC = () => {
               Salin Bulan Lalu
             </button>
           )}
-          <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button data-testid="add-budget-btn" onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
             <PlusCircle size={14} /> Tambah
           </button>
         </div>
@@ -487,6 +489,7 @@ export const BudgetManagement: React.FC = () => {
                   isMenuOpen={activeMenu === b.id}
                   onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
                   currencySymbol={currencySymbol}
+                  id={b.id}
                 />
               ) : (
                 <BudgetCard
@@ -500,6 +503,7 @@ export const BudgetManagement: React.FC = () => {
                   isMenuOpen={activeMenu === b.id}
                   onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
                   currencySymbol={currencySymbol}
+                  id={b.id}
                 />
               )}
             </div>

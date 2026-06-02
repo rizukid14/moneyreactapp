@@ -1,5 +1,9 @@
 import React from 'react';
-import { X, ArrowRightLeft, TrendingDown, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { ArrowRightLeft, TrendingDown, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 
 interface DebtOffsetModalProps {
   isOpen: boolean;
@@ -24,14 +28,12 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
   const remainingPiutang = totalPiutang - offsetAmount;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-        <div className="modal-header">
-          <h2 className="modal-title">Potong Silang Utang</h2>
-          <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-        </div>
-
-        <div style={{ padding: '20px' }}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Potong Silang Utang"
+    >
+        <div>
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
             <div style={{ 
               width: '60px', height: '60px', borderRadius: '30px', 
@@ -47,7 +49,7 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
             </p>
           </div>
 
-          <div style={{ background: 'var(--bg-neutral)', borderRadius: '16px', padding: '16px', marginBottom: '24px' }}>
+          <Card variant="default" style={{ padding: '16px', marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <TrendingDown size={14} color="var(--danger)" />
@@ -72,7 +74,7 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
                 *Saldo rekening asli Anda tidak akan berubah.
               </p>
             </div>
-          </div>
+          </Card>
 
           <div style={{ marginBottom: '24px' }}>
             <p style={{ fontSize: '13px', fontWeight: 700, marginBottom: '12px', color: 'var(--text-muted)' }}>SETELAH POTONG SILANG:</p>
@@ -96,29 +98,27 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
             <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
               Tanggal Transaksi:
             </label>
-            <input 
+            <Input 
               type="date" 
               value={date} 
               onChange={e => setDate(e.target.value)} 
-              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-main)' }} 
+              style={{ marginBottom: 0 }} 
             />
           </div>
 
-          <button
+          <Button
+            variant="primary"
             onClick={() => onConfirm(date)}
+            fullWidth
             style={{
-              width: '100%', padding: '14px', borderRadius: '14px',
-              background: 'var(--primary-gradient)', color: 'white',
-              border: 'none', fontWeight: 800, fontSize: '15px', cursor: 'pointer',
-              boxShadow: '0 4px 15px var(--primary-glow)',
+              padding: '14px', fontWeight: 800, fontSize: '15px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
             }}
           >
             <CheckCircle2 size={18} /> Konfirmasi Potong Silang
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { X, Check, ArrowRightLeft, Wallet } from 'lucide-react';
+import { Check, ArrowRightLeft, Wallet } from 'lucide-react';
 import AssetSelectModal from './AssetSelectModal';
-import { motion, AnimatePresence } from 'framer-motion';
 import { getLocalDate, getLocalTime, formatCurrency } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
 import CurrencyInput from '../common/CurrencyInput';
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 
 interface DebtPaymentModalProps {
   isOpen: boolean;
@@ -72,31 +75,11 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   const fmt = (n: number) => formatCurrency(n, currencySymbol);
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="modal-overlay"
-          onClick={onClose}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.1 }}
-        >
-          <motion.div
-            className="modal-content"
-            onClick={e => e.stopPropagation()}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
-          >
-            <div className="modal-header">
-              <h2 className="subtitle" style={{ margin: 0 }}>
-                Bayar {isHutang ? 'Hutang' : 'Piutang'}
-              </h2>
-              <button className="close-btn" onClick={onClose}><X size={20} /></button>
-            </div>
-
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Bayar ${isHutang ? 'Hutang' : 'Piutang'}`}
+    >
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
                 Sisa Tagihan:
@@ -109,7 +92,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               </div>
             </div>
 
-            <div className="card shadow-soft" style={{ padding: 16, marginBottom: 20, border: 'none', background: 'var(--bg-main)' }}>
+            <Card variant="glass" style={{ padding: 16, marginBottom: 20 }}>
               <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                   Jumlah Pembayaran:
@@ -124,48 +107,36 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                  <button
+                  <Button
+                    variant={isFullSettle ? 'primary' : 'outline'}
                     onClick={() => { setAmount(remaining.toString()); setIsFullSettle(true); }}
-                    style={{
-                      flex: 1, padding: '8px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none',
-                      background: isFullSettle ? 'var(--primary-glow)' : 'var(--bg-neutral)',
-                      color: isFullSettle ? 'var(--primary)' : 'var(--text-muted)',
-                      cursor: 'pointer'
-                    }}
+                    style={{ flex: 1, padding: '8px', fontSize: 11, fontWeight: 700, borderRadius: 8, height: 'auto' }}
                   >
                     Pelunasan Penuh
-                  </button>
+                  </Button>
                   {debt.isInstallment && debt.installmentAmount ? (
-                    <button
+                    <Button
+                      variant={(!isFullSettle && Number(amount) === debt.installmentAmount) ? 'primary' : 'outline'}
                       onClick={() => {
                         setAmount(debt.installmentAmount!.toString());
                         setIsFullSettle(debt.installmentAmount! >= remaining);
                       }}
-                      style={{
-                        flex: 1, padding: '8px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none',
-                        background: (!isFullSettle && Number(amount) === debt.installmentAmount) ? 'var(--primary-glow)' : 'var(--bg-neutral)',
-                        color: (!isFullSettle && Number(amount) === debt.installmentAmount) ? 'var(--primary)' : 'var(--text-muted)',
-                        cursor: 'pointer'
-                      }}
+                      style={{ flex: 1, padding: '8px', fontSize: 11, fontWeight: 700, borderRadius: 8, height: 'auto' }}
                     >
                       Bayar 1 Cicilan
-                    </button>
+                    </Button>
                   ) : (
-                    <button
+                    <Button
+                      variant={(!isFullSettle && Number(amount) === Math.floor(remaining / 2)) ? 'primary' : 'outline'}
                       onClick={() => {
                         const half = Math.floor(remaining / 2);
                         setAmount(half.toString());
                         setIsFullSettle(false);
                       }}
-                      style={{
-                        flex: 1, padding: '8px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none',
-                        background: (!isFullSettle && Number(amount) === Math.floor(remaining / 2)) ? 'var(--primary-glow)' : 'var(--bg-neutral)',
-                        color: (!isFullSettle && Number(amount) === Math.floor(remaining / 2)) ? 'var(--primary)' : 'var(--text-muted)',
-                        cursor: 'pointer'
-                      }}
+                      style={{ flex: 1, padding: '8px', fontSize: 11, fontWeight: 700, borderRadius: 8, height: 'auto' }}
                     >
                       Bayar Setengah
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -210,22 +181,22 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                     Tanggal:
                   </label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                  <Input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0 }} />
                 </div>
                 <div>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                     Jam:
                   </label>
-                  <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                  <Input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
                 </div>
               </div>
               <div style={{ marginTop: 16 }}>
                 <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                   Catatan:
                 </label>
-                <input type="text" placeholder="Catatan bayar" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                <Input type="text" placeholder="Catatan bayar" value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: 0 }} />
               </div>
-            </div>
+            </Card>
 
               <AssetSelectModal
                 isOpen={isAssetSelectOpen}
@@ -235,33 +206,18 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 onSelect={(id) => { setSelectedAssetId(id); setIsAssetSelectOpen(false); }}
               />
 
-              <button
-              onClick={handleConfirm}
-              className="btn"
-              style={{
-                width: '100%',
-                fontWeight: 700,
-                background: isHutang ? 'var(--danger)' : 'var(--primary)',
-                color: 'white',
-                border: 'none',
-                borderRadius: 12,
-                padding: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                boxShadow: `0 4px 15px ${isHutang ? 'var(--secondary-glow)' : 'var(--primary-glow)'}`
-              }}
-            >
-              {isFullSettle ? <Check size={18} /> : <ArrowRightLeft size={18} />}
-              {isFullSettle ? 'Konfirmasi Pelunasan' : 'Konfirmasi Pembayaran Cicilan'}
-            </button>
-
-
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+              <Button
+                variant={isHutang ? 'danger' : 'primary'}
+                onClick={handleConfirm}
+                fullWidth
+                style={{
+                  fontWeight: 700, padding: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}
+              >
+                {isFullSettle ? <Check size={18} /> : <ArrowRightLeft size={18} />}
+                {isFullSettle ? 'Konfirmasi Pelunasan' : 'Konfirmasi Pembayaran Cicilan'}
+              </Button>
+    </Modal>
   );
 };
 

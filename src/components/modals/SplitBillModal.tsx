@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Plus, Trash2, Wallet, ArrowUpRight, ArrowDownLeft, Share2, Link2Off, Copy, ExternalLink, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Users, Plus, Trash2, Wallet, ArrowUpRight, ArrowDownLeft, Share2, Link2Off, Copy, ExternalLink, Check } from 'lucide-react';
 import { useMoney, type Asset, type Category } from '../../contexts/MoneyContext';
 import { dbSaveSharedSplit, dbDeleteSharedSplit } from '../../lib/db';
 import ContactSelectModal from './ContactSelectModal';
@@ -10,6 +9,9 @@ import CategorySelectModal from './CategorySelectModal';
 import CurrencyInput from '../common/CurrencyInput';
 import { useToast } from '../common/Toast';
 import ConfirmDialog from '../common/ConfirmDialog';
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 
 interface SplitPerson {
   id: string;
@@ -351,84 +353,63 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
-          >
-            <motion.div
-              className="modal-content"
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 600, mass: 0.5 }}
-            >
-              <div className="modal-header">
-                <h2 className="subtitle" style={{ margin: 0 }}>
-                  Split Bill
-                </h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {activeSharedId ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <button
-                        className="close-btn"
-                        onClick={() => {
-                          const url = `${window.location.origin}/shared-split/${activeSharedId}`;
-                          navigator.clipboard.writeText(url);
-                          setShowCopySuccess(true);
-                          setTimeout(() => setShowCopySuccess(false), 2000);
-                        }}
-                        title="Salin Link"
-                        style={{ color: showCopySuccess ? 'var(--success)' : 'var(--primary)' }}
-                      >
-                        {showCopySuccess ? <Check size={18} /> : <Copy size={18} />}
-                      </button>
-                      <button
-                        className="close-btn"
-                        onClick={() => window.open(`/shared-split/${activeSharedId}`, '_blank')}
-                        title="Buka Link"
-                      >
-                        <ExternalLink size={18} />
-                      </button>
-                      <button
-                        className="close-btn"
-                        onClick={handleRevoke}
-                        title="Hapus Link Sharing"
-                        style={{ color: 'var(--danger)' }}
-                      >
-                        <Link2Off size={18} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="close-btn"
-                      onClick={handleShare}
-                      disabled={isSharing || splits.length === 0}
-                      title="Bagikan Split Bill"
-                      style={{ color: 'var(--primary)', opacity: isSharing ? 0.5 : 1 }}
-                    >
-                      <Share2 size={18} className={isSharing ? 'animate-pulse' : ''} />
-                    </button>
-                  )}
-                  <button className="close-btn" onClick={onClose}>
-                    <X size={20} />
-                  </button>
-                </div>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Split Bill"
+        headerActions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {activeSharedId ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  className="close-btn"
+                  onClick={() => {
+                    const url = `${window.location.origin}/shared-split/${activeSharedId}`;
+                    navigator.clipboard.writeText(url);
+                    setShowCopySuccess(true);
+                    setTimeout(() => setShowCopySuccess(false), 2000);
+                  }}
+                  title="Salin Link"
+                  style={{ color: showCopySuccess ? 'var(--success)' : 'var(--primary)' }}
+                >
+                  {showCopySuccess ? <Check size={18} /> : <Copy size={18} />}
+                </button>
+                <button
+                  className="close-btn"
+                  onClick={() => window.open(`/shared-split/${activeSharedId}`, '_blank')}
+                  title="Buka Link"
+                >
+                  <ExternalLink size={18} />
+                </button>
+                <button
+                  className="close-btn"
+                  onClick={handleRevoke}
+                  title="Hapus Link Sharing"
+                  style={{ color: 'var(--danger)' }}
+                >
+                  <Link2Off size={18} />
+                </button>
               </div>
-
-              <div
+            ) : (
+              <button
+                className="close-btn"
+                onClick={handleShare}
+                disabled={isSharing || splits.length === 0}
+                title="Bagikan Split Bill"
+                style={{ color: 'var(--primary)', opacity: isSharing ? 0.5 : 1 }}
+              >
+                <Share2 size={18} className={isSharing ? 'animate-pulse' : ''} />
+              </button>
+            )}
+          </div>
+        }
+      >
+              <Card
+                variant="glass"
                 style={{
-                  background: 'var(--bg-income)',
-                  border: '1.5px solid var(--primary)',
-                  borderRadius: 12,
                   padding: '12px 14px',
                   marginBottom: 16,
+                  border: '1.5px solid var(--primary)'
                 }}
               >
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
@@ -440,7 +421,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                     {currencySymbol}{totalAmount.toLocaleString('id-ID')}
                   </span>
                 </div>
-              </div>
+              </Card>
 
               {/* Asset & Category Pickers */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
@@ -474,14 +455,12 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                 </div>
               </div>
 
-              <div
+              <Card
+                variant="default"
                 style={{
                   display: 'flex',
-                  background: 'var(--bg-main)',
-                  borderRadius: 12,
                   padding: 4,
                   marginBottom: 16,
-                  border: '1px solid var(--border-color)',
                 }}
               >
                 <button
@@ -501,8 +480,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   }}
                 >
                   {splitMethod === 'equal' && (
-                    <motion.div
-                      layoutId="activeSplitMethod"
+                    <div
                       style={{
                         position: 'absolute',
                         inset: 0,
@@ -510,7 +488,6 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                         borderRadius: 8,
                         zIndex: 1,
                       }}
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     />
                   )}
                   <span style={{ position: 'relative', zIndex: 2 }}>Bagi Rata</span>
@@ -532,8 +509,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   }}
                 >
                   {splitMethod === 'items' && (
-                    <motion.div
-                      layoutId="activeSplitMethod"
+                    <div
                       style={{
                         position: 'absolute',
                         inset: 0,
@@ -541,7 +517,6 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                         borderRadius: 8,
                         zIndex: 1,
                       }}
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     />
                   )}
                   <span style={{ position: 'relative', zIndex: 2 }}>Per Item</span>
@@ -563,8 +538,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   }}
                 >
                   {splitMethod === 'custom' && (
-                    <motion.div
-                      layoutId="activeSplitMethod"
+                    <div
                       style={{
                         position: 'absolute',
                         inset: 0,
@@ -572,12 +546,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                         borderRadius: 8,
                         zIndex: 1,
                       }}
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     />
                   )}
                   <span style={{ position: 'relative', zIndex: 2 }}>Custom</span>
                 </button>
-              </div>
+              </Card>
 
               <div
                 style={{
@@ -826,10 +799,9 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
               )}
 
               {splits.length > 0 && (
-                <div
+                <Card
+                  variant="default"
                   style={{
-                    background: 'var(--bg-main)',
-                    borderRadius: 12,
                     padding: '10px 12px',
                     marginBottom: 16,
                     border: `1.5px solid ${Math.abs(difference) === 0 ? 'var(--success)' : 'var(--danger)'}`,
@@ -880,72 +852,52 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                       {difference === 0 ? '✓ Pas' : `${currencySymbol}${Math.abs(difference).toLocaleString('id-ID')}`}
                     </span>
                   </div>
-                </div>
+                </Card>
               )}
 
-              <button
+              <Button
+                variant="outline"
+                fullWidth
                 onClick={() => setContactModalOpen(true)}
                 style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: 'none',
-                  border: '1.5px dashed var(--border-color)',
-                  borderRadius: 12,
-                  cursor: 'pointer',
-                  color: 'var(--primary)',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
+                  borderStyle: 'dashed',
                   marginBottom: 16,
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)';
-                  (e.currentTarget as HTMLElement).style.background = 'var(--bg-income)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-color)';
-                  (e.currentTarget as HTMLElement).style.background = 'none';
+                  height: 'auto',
+                  padding: '12px'
                 }}
               >
                 <Plus size={16} />
                 Tambah Orang
-              </button>
+              </Button>
 
               <div style={{ display: 'flex', gap: 10 }}>
                 {activeSharedId ? (
-                  <button
-                    className="btn btn-secondary"
+                  <Button
+                    variant="outline"
                     onClick={() => window.open(`${window.location.origin}/shared-split/${activeSharedId}`, '_blank')}
                     style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   >
                     <ExternalLink size={16} /> Buka Link
-                  </button>
+                  </Button>
                 ) : (
-                  <button
-                    className="btn"
+                  <Button
+                    variant="outline"
                     onClick={onClose}
                     style={{ flex: 1 }}
                   >
                     Batal
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className="btn btn-primary"
+                <Button
+                  variant="primary"
                   onClick={handleSave}
                   style={{ flex: 2 }}
                   disabled={splits.length === 0 || Math.abs(difference) !== 0}
                 >
                   Simpan Split Bill
-                </button>
+                </Button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </Modal>
 
       <ContactSelectModal 
         isOpen={contactModalOpen}

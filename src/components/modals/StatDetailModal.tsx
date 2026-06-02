@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Info, Calculator } from 'lucide-react';
+import { Info, Calculator } from 'lucide-react';
+import { Modal } from '../ui/Modal';
 
 export interface StatDetailItem {
   label: string;
@@ -21,38 +21,22 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
   isOpen, onClose, title, explanation, formula, details
 }) => {
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="modal-overlay"
-          onClick={onClose}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.1 }}
-          style={{ zIndex: 1000 }} // Ensure it is above everything
-        >
-          <motion.div
-            className="modal-content"
-            onClick={e => e.stopPropagation()}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
-          >
-            <div className="modal-header">
-              <h2 className="subtitle" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ 
-                  width: '32px', height: '32px', borderRadius: '10px', 
-                  background: 'var(--bg-income)', color: 'var(--primary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  <Calculator size={18} />
-                </div>
-                {title}
-              </h2>
-              <button className="close-btn" onClick={onClose}><X size={24} /></button>
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ 
+            width: '32px', height: '32px', borderRadius: '10px', 
+            background: 'var(--bg-income)', color: 'var(--primary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <Calculator size={18} />
+          </div>
+          {title}
+        </div>
+      }
+    >
 
             <div style={{ paddingBottom: '24px' }}>
               {explanation && (
@@ -156,10 +140,7 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
                 </div>
               </div>
             </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </Modal>
   );
 };
 

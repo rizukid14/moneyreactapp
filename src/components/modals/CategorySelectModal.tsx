@@ -3,6 +3,8 @@ import { X, ChevronRight, Folder, FolderOpen, Check, Plus, Search } from 'lucide
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Category, useMoney } from '../../contexts/MoneyContext';
 import CategoryModal from './CategoryModal';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 
 interface CategorySelectModalProps {
   isOpen: boolean;
@@ -139,33 +141,22 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
               {/* Search Bar */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
-                <div style={{ position: 'relative' }}>
-                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    placeholder="Cari kategori atau sub-kategori..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 36px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--bg-main)',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      marginBottom: 0,
-                    }}
-                  />
-                  {searchQuery && (
+                <Input
+                  type="text"
+                  placeholder="Cari kategori atau sub-kategori..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  icon={<Search size={16} />}
+                  rightElement={searchQuery ? (
                     <button 
                       onClick={() => setSearchQuery('')}
-                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
                     >
                       <X size={14} />
                     </button>
-                  )}
-                </div>
+                  ) : undefined}
+                  style={{ marginBottom: 0 }}
+                />
               </div>
 
               {/* Split View Content */}
@@ -185,13 +176,13 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                         Belum ada kategori.
                       </div>
-                      <button 
+                      <Button 
+                        variant="primary"
                         onClick={() => setIsAddModalOpen(true)}
-                        className="btn btn-primary"
                         style={{ fontSize: '12px', padding: '8px 16px', height: 'auto', margin: '0 auto' }}
                       >
                         Tambah Kategori
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     sortedCategories.map(cat => {
@@ -245,13 +236,13 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                       </div>
                       <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: 4 }}>"{activeCategoryObj.name}"</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 20 }}>Kategori ini tidak memiliki sub-kategori.</div>
-                      <button
+                      <Button
+                        variant="primary"
                         onClick={handleConfirmMainCategoryOnly}
-                        className="btn btn-primary"
-                        style={{ width: '100%' }}
+                        fullWidth
                       >
                         Pilih Kategori Ini
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <>

@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowRight, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { ArrowRight, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { type Trip, type TripExpense } from '../../contexts/MoneyContext';
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
 
 interface SettlementExplanationModalProps {
   isOpen: boolean;
@@ -108,27 +109,14 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
   if (!isOpen || !settlement || !explanation) return null;
 
   return (
-    <AnimatePresence>
-      <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1400 }}>
-        <motion.div
-          initial={{ opacity: 0, y: 100 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 100 }}
-          className="modal-content"
-          onClick={e => e.stopPropagation()}
-          style={{ maxHeight: '90vh', overflowY: 'auto', paddingBottom: '32px' }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 800 }}>Rincian Transfer</h2>
-            <button onClick={onClose} className="btn-icon">
-              <X size={20} />
-            </button>
-          </div>
-
-          <div style={{
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Rincian Transfer"
+    >
+          <Card variant="glass" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
-            background: 'var(--bg-card)', padding: '16px', borderRadius: '20px',
-            border: '1px solid var(--border-color)', marginBottom: '24px'
+            padding: '16px', marginBottom: '24px'
           }}>
             <span style={{ fontWeight: 800, fontSize: '16px' }}>{explanation.from?.name || (explanation as any).from}</span>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -136,7 +124,7 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
               <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--primary)' }}>{currencySymbol}{settlement.amount.toLocaleString('id-ID')}</span>
             </div>
             <span style={{ fontWeight: 800, fontSize: '16px' }}>{explanation.to?.name || (explanation as any).to}</span>
-          </div>
+          </Card>
 
           {mode === 'detailed' ? (
             <div style={{ display: 'grid', gap: '20px' }}>
@@ -151,13 +139,13 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
                   </h4>
                   <div style={{ display: 'grid', gap: '8px' }}>
                     {(explanation as any).fromOwesTo.map((item: any, i: number) => (
-                      <div key={i} style={{ padding: '12px', background: 'var(--bg-neutral)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                      <Card key={i} variant="default" style={{ padding: '12px', display: 'flex', justifyContent: 'space-between' }}>
                         <div>
                           <div style={{ fontSize: '13px', fontWeight: 700 }}>{item.description}</div>
                           <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{item.date}</div>
                         </div>
                         <div style={{ fontWeight: 800, color: 'var(--danger)' }}>{currencySymbol}{item.amount.toLocaleString('id-ID')}</div>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 </div>
@@ -170,13 +158,13 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
                   </h4>
                   <div style={{ display: 'grid', gap: '8px' }}>
                     {(explanation as any).toOwesFrom.map((item: any, i: number) => (
-                      <div key={i} style={{ padding: '12px', background: 'var(--bg-neutral)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                      <Card key={i} variant="default" style={{ padding: '12px', display: 'flex', justifyContent: 'space-between' }}>
                         <div>
                           <div style={{ fontSize: '13px', fontWeight: 700 }}>{item.description}</div>
                           <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{item.date}</div>
                         </div>
                         <div style={{ fontWeight: 800, color: 'var(--success)' }}>{currencySymbol}{item.amount.toLocaleString('id-ID')}</div>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 </div>
@@ -190,7 +178,7 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
 
               <div style={{ display: 'grid', gap: '12px' }}>
                 {[(explanation as any).from, (explanation as any).to].map((user, i) => (
-                  <div key={i} style={{ padding: '16px', background: 'var(--bg-neutral)', borderRadius: '16px' }}>
+                  <Card key={i} variant="default" style={{ padding: '16px' }}>
                     <h4 style={{ fontSize: '14px', fontWeight: 800, margin: '0 0 12px 0' }}>Status Saldo {user.name}</h4>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Total Pengeluaran Pribadi (Pakai)</span>
@@ -209,15 +197,13 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
                         {user.net > 0 ? '+' : ''}{currencySymbol}{Math.abs(user.net).toLocaleString('id-ID')}
                       </span>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
             </div>
           )}
 
-        </motion.div>
-      </div>
-    </AnimatePresence>
+    </Modal>
   );
 };
 

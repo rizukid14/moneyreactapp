@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
-
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 :root {
   /* Premium HSL Color Palette - Indigo-Blue, Warm Amber, Harmonious Slate */
   --p-h: 215;
@@ -21,6 +23,80 @@
   --success-glow: hsla(145, 65%, 43%, 0.15);
   --success-gradient: linear-gradient(135deg, hsl(145, 65%, 43%), hsl(145, 65%, 33%));
 
+  --danger: hsl(350, 80%, 55%);
+  --danger-glow: hsla(350, 80%, 55%, 0.15);
+  --danger-gradient: linear-gradient(135deg, hsl(350, 80%, 55%), hsl(350, 80%, 45%));
+
+  --warning: hsl(35, 90%, 55%);
+  --warning-glow: hsla(35, 90%, 55%, 0.15);
+  --warning-gradient: linear-gradient(135deg, hsl(35, 90%, 55%), hsl(35, 90%, 45%));
+
+  /* Light Theme Specific Base Values */
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-solid: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.5);
+
+  --bg-expense: rgba(239, 68, 68, 0.08);
+  --bg-income: rgba(59, 130, 246, 0.08);
+  --bg-neutral: rgba(100, 116, 139, 0.08);
+
+  /* MD3 Tailwind Mappings (Light Mode) */
+  --tertiary: #924700;
+  --tertiary-fixed-dim: #ffb786;
+  --surface-container-high: #e1e8fd;
+  --on-secondary: #ffffff;
+  --surface-container: #e9edff;
+  --surface-variant: #dce2f7;
+  --secondary-fixed: #dce2f3;
+  --on-secondary-fixed: #151c27;
+  --surface-tint: #005ac2;
+  --secondary-fixed-dim: #c0c7d6;
+  --secondary: #585f6c;
+  --on-tertiary: #ffffff;
+  --outline-variant: #c2c6d6;
+  --tertiary-fixed: #ffdcc6;
+  --on-tertiary-container: #fffbff;
+  --on-surface-variant: #424754;
+  --surface-container-highest: #dce2f7;
+  --background: #f9f9ff;
+  --inverse-on-surface: #edf0ff;
+  --on-tertiary-fixed-variant: #723600;
+  --secondary-container: #dce2f3;
+  --error: #ba1a1a;
+  --inverse-primary: #adc6ff;
+  --on-primary-container: #fefcff;
+  --on-error: #ffffff;
+  --on-background: #141b2b;
+  --on-error-container: #93000a;
+  --primary-fixed-dim: #adc6ff;
+  --on-secondary-fixed-variant: #404754;
+  --surface-bright: #f9f9ff;
+  --outline: #727785;
+  --inverse-surface: #293040;
+  --surface-container-low: #f1f3ff;
+  --surface-container-lowest: #ffffff;
+  --on-surface: #141b2b;
+  --on-primary: #ffffff;
+  --primary-fixed: #d8e2ff;
+  --primary-container: #2170e4;
+  --surface: #f9f9ff;
+  --on-primary-fixed: #001a42;
+  --tertiary-container: #b75b00;
+  --border-light: #e5e7eb;
+  --primary-color: #0058be;
+  --on-primary-fixed-variant: #004395;
+  --error-container: #ffdad6;
+  --on-tertiary-fixed: #311400;
+  --surface-dim: #d3daef;
+  --on-secondary-container: #5e6572;
+  --surface-subtle: #f8f9fa;
+  --success-gradient: linear-gradient(135deg, hsl(145, 65%, 43%), hsl(145, 65%, 33%));
+
   --warning: hsl(38, 85%, 50%);
   --warning-glow: hsla(38, 85%, 50%, 0.15);
   --warning-gradient: linear-gradient(135deg, hsl(38, 85%, 50%), hsl(38, 85%, 40%));
@@ -29,21 +105,21 @@
   --danger-glow: hsla(355, 75%, 54%, 0.15);
   --danger-gradient: linear-gradient(135deg, hsl(355, 75%, 54%), hsl(355, 75%, 44%));
 
-  /* Light Theme - Harmonized slate background and tinted cards */
-  --bg-main: hsl(var(--n-h), 22%, 96.5%);
-  --bg-card: hsl(var(--n-h), 20%, 99.2%);
-  --bg-card-solid: hsl(var(--n-h), 20%, 99.2%);
+  /* White Mode (Light Theme) - Clean, bright, and crisp */
+  --bg-main: #f8fafc; /* Very light slate */
+  --bg-card: #ffffff; /* Pure white surface */
+  --bg-card-solid: #ffffff;
 
-  --text-main: hsl(var(--n-h), 35%, 15%);
-  --text-muted: hsl(var(--n-h), 15%, 42%); /* Darkened from 52% → 42% for 4.5:1 WCAG contrast */
+  --text-main: #0f172a; /* Slate 900 for high contrast */
+  --text-muted: #64748b; /* Slate 500 */
 
-  --border-color: hsl(var(--n-h), 18%, 91%);
-  --glass-bg: hsla(var(--n-h), 20%, 99.2%, 0.85);
-  --glass-border: hsl(var(--n-h), 18%, 91%);
+  --border-color: #e2e8f0; /* Slate 200 */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(226, 232, 240, 0.5);
 
-  --bg-expense: hsla(355, 75%, 54%, 0.06);
-  --bg-income: hsla(var(--p-h), 80%, 54%, 0.06);
-  --bg-neutral: hsla(var(--n-h), 15%, 50%, 0.05);
+  --bg-expense: rgba(239, 68, 68, 0.08); /* Red tint */
+  --bg-income: rgba(59, 130, 246, 0.08); /* Blue tint */
+  --bg-neutral: rgba(100, 116, 139, 0.08); /* Slate tint */
 
   --radius-sm: 14px;
   --radius-md: 18px;
@@ -92,19 +168,70 @@
 }
 
 .dark {
-  /* Dark Theme - Highly immersive oceanic obsidian */
-  --bg-main: hsl(var(--n-h), 30%, 5%);
-  --bg-card: hsl(var(--n-h), 22%, 10%);
-  --bg-card-solid: hsl(var(--n-h), 22%, 10%);
-  --text-main: hsl(var(--n-h), 15%, 95%);
-  --text-muted: hsl(var(--n-h), 10%, 58%);
-  --border-color: hsl(var(--n-h), 18%, 17%);
-  --glass-bg: hsla(var(--n-h), 22%, 10%, 0.85);
-  --glass-border: hsl(var(--n-h), 18%, 17%);
+  /* Obsidian Dark Mode - Highly immersive oceanic obsidian */
+  --bg-main: #0f1115; /* Obsidian black background */
+  --bg-card: #1a1d24; /* Elevated dark surface */
+  --bg-card-solid: #1a1d24;
+  --text-main: #f8fafc; /* Pure white text */
+  --text-muted: #94a3b8; /* Slate 400 for secondary text */
+  --border-color: #2a2d35; /* Subtle dark border */
+  --glass-bg: rgba(26, 29, 36, 0.85); /* Glass variant of card bg */
+  --glass-border: rgba(42, 45, 53, 0.5);
 
-  --bg-expense: hsla(355, 75%, 54%, 0.12);
-  --bg-income: hsla(var(--p-h), 80%, 54%, 0.12);
-  --bg-neutral: hsla(var(--n-h), 15%, 90%, 0.05);
+  --bg-expense: rgba(239, 68, 68, 0.12);
+  --bg-income: rgba(59, 130, 246, 0.12);
+  --bg-neutral: rgba(148, 163, 184, 0.12);
+
+  /* MD3 Tailwind Mappings (Obsidian Dark Mode) */
+  --tertiary: #ffb786;
+  --tertiary-fixed-dim: #924700;
+  --surface-container-high: #1a1d24;
+  --on-secondary: #0f1115;
+  --surface-container: #14171c;
+  --surface-variant: #2a2d35;
+  --secondary-fixed: #c0c7d6;
+  --on-secondary-fixed: #dce2f3;
+  --surface-tint: #adc6ff;
+  --secondary-fixed-dim: #585f6c;
+  --secondary: #c0c7d6;
+  --on-tertiary: #0f1115;
+  --outline-variant: #2a2d35;
+  --tertiary-fixed: #ffdcc6;
+  --on-tertiary-container: #311400;
+  --on-surface-variant: #94a3b8;
+  --surface-container-highest: #2a2d35;
+  --background: #0f1115;
+  --inverse-on-surface: #141b2b;
+  --on-tertiary-fixed-variant: #ffdcc6;
+  --secondary-container: #2a2d35;
+  --error: #ffdad6;
+  --inverse-primary: #0058be;
+  --on-primary-container: #001a42;
+  --on-error: #93000a;
+  --on-background: #f8fafc;
+  --on-error-container: #ffdad6;
+  --primary-fixed-dim: #0058be;
+  --on-secondary-fixed-variant: #c0c7d6;
+  --surface-bright: #1a1d24;
+  --outline: #94a3b8;
+  --inverse-surface: #f8fafc;
+  --surface-container-low: #0f1115;
+  --surface-container-lowest: #000000;
+  --on-surface: #f8fafc;
+  --on-primary: #001a42;
+  --primary-fixed: #0058be;
+  --primary-container: #2170e4;
+  --surface: #0f1115;
+  --on-primary-fixed: #d8e2ff;
+  --tertiary-container: #924700;
+  --border-light: #2a2d35;
+  --primary-color: #adc6ff;
+  --on-primary-fixed-variant: #d8e2ff;
+  --error-container: #93000a;
+  --on-tertiary-fixed: #ffdcc6;
+  --surface-dim: #000000;
+  --on-secondary-container: #c0c7d6;
+  --surface-subtle: #14171c;
 }
 
 * {
@@ -343,6 +470,19 @@ body {
 
 .shadow-soft {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+}
+
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.hover-lift:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .transaction-card {
@@ -1002,5 +1142,22 @@ textarea:focus {
   .sidebar-nav.collapsed ~ .main-content .crop-actions-container {
     bottom: 20px !important;
     left: calc(50% + var(--sidebar-collapsed-width) / 2) !important;
+  }
+}
+
+/* 60/40 Split Layout for Desktop Transactions */
+@media (min-width: 1024px) {
+  .transactions-split {
+    display: grid;
+    grid-template-columns: 4fr 6fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .transactions-split-left {
+    position: sticky;
+    top: 24px;
+  }
+  .transactions-split-right {
+    min-width: 0;
   }
 }

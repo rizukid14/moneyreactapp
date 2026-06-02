@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
 import './OnboardingTutorial.css';
 
 export interface TutorialStep {
@@ -327,10 +329,13 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ pageKey, steps 
         style={tooltipStyle}
       >
         {/* Tooltip Card */}
-        <div 
-          ref={tooltipRef}
+        <Card 
+          ref={tooltipRef as any}
+          variant="glass"
+          padding="lg"
           key={currentStepIndex} // Force re-render for animation on step change
-          className="onboarding-tooltip onboarding-tooltip-animate-in"
+          className="onboarding-tooltip-animate-in"
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
         >
           <div className="onboarding-step-indicator">
             Step {currentStepIndex + 1} / {steps.length}
@@ -339,15 +344,15 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ pageKey, steps 
           <h3 className="onboarding-title">{currentStep.title}</h3>
           <p className="onboarding-desc">{currentStep.description}</p>
           
-          <div className="onboarding-actions">
-            <button onClick={handleSkip} className="onboarding-btn-skip">
+          <div className="onboarding-actions" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+            <Button variant="ghost" onClick={handleSkip}>
               Lewati
-            </button>
-            <button onClick={handleNext} className="onboarding-btn-next">
+            </Button>
+            <Button variant="primary" onClick={handleNext}>
               {currentStepIndex === steps.length - 1 ? 'Mengerti!' : 'Lanjut'}
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       </div>
     </div>,
     document.body

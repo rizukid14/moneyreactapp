@@ -11,6 +11,8 @@ import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import OnboardingTutorial from '../components/OnboardingTutorial';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -61,15 +63,20 @@ const DebtCard: React.FC<{
     const borderColor = debt.isPaid ? 'var(--success)' : isOverdue ? 'var(--danger)' : isDueSoon ? 'var(--secondary)' : 'var(--border-color)';
 
     return (
-      <div style={{
-        background: 'var(--bg-card)', borderRadius: 18, padding: '16px 20px',
-        border: `1.5px solid ${borderColor}`,
-        boxShadow: debt.isPaid ? 'none' : isOverdue ? '0 4px 16px var(--danger-glow)' : '0 4px 20px rgba(0,0,0,0.02)',
-        opacity: debt.isPaid ? 0.65 : 1,
-        position: 'relative',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease'
-      }} onClick={onToggleExpand}>
+      <Card
+        variant="default"
+        data-testid={`debt-card-${debt.id}`} 
+        onClick={onToggleExpand}
+        style={{
+          border: `1.5px solid ${borderColor}`,
+          boxShadow: debt.isPaid ? 'none' : isOverdue ? '0 4px 16px var(--danger-glow)' : '0 4px 20px rgba(0,0,0,0.02)',
+          opacity: debt.isPaid ? 0.65 : 1,
+          position: 'relative',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          marginBottom: 16
+        }}
+      >
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
           {/* Icon */}
@@ -209,16 +216,17 @@ const DebtCard: React.FC<{
           {/* Action buttons row */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             {!debt.isPaid && (
-              <button
+              <Button
+                variant={isHutang ? 'danger' : 'primary'}
+                data-testid={`debt-pay-${debt.id}`}
                 onClick={(e) => { e.stopPropagation(); onPay(); }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 10,
-                  background: isHutang ? 'var(--danger)' : 'var(--success)', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                  boxShadow: isHutang ? '0 3px 10px var(--danger-glow)' : '0 3px 10px var(--success-glow)', whiteSpace: 'nowrap',
+                  padding: '6px 12px', fontSize: 12, height: 'auto', borderRadius: 10,
+                  boxShadow: isHutang ? '0 3px 10px var(--danger-glow)' : '0 3px 10px var(--success-glow)'
                 }}
               >
                 <PlayCircle size={14} /> Cicil / Lunas
-              </button>
+              </Button>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
@@ -267,7 +275,7 @@ const DebtCard: React.FC<{
             )}
           </div>
         )}
-      </div>
+      </Card>
     );
   };
 
@@ -379,15 +387,7 @@ const Debts: React.FC = () => {
 
       {/* Summary cards */}
       <div data-tour="debt-summary" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-        <div style={{
-          background: 'var(--bg-card)',
-          borderRadius: 16,
-          padding: '16px',
-          border: '1.5px solid var(--border-color)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
+        <Card variant="default" data-testid="debt-summary-hutang" style={{ position: 'relative', overflow: 'hidden', padding: '16px' }}>
           <div style={{
             position: 'absolute',
             left: 0, top: 0, bottom: 0,
@@ -396,16 +396,8 @@ const Debts: React.FC = () => {
           }} />
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Hutang</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(summary.totalHutang, currencySymbol)}</div>
-        </div>
-        <div style={{
-          background: 'var(--bg-card)',
-          borderRadius: 16,
-          padding: '16px',
-          border: '1.5px solid var(--border-color)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
+        </Card>
+        <Card variant="default" data-testid="debt-summary-piutang" style={{ position: 'relative', overflow: 'hidden', padding: '16px' }}>
           <div style={{
             position: 'absolute',
             left: 0, top: 0, bottom: 0,
@@ -414,12 +406,12 @@ const Debts: React.FC = () => {
           }} />
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Piutang</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(summary.totalPiutang, currencySymbol)}</div>
-        </div>
+        </Card>
       </div>
 
       {/* Net position */}
       {(summary.totalHutang > 0 || summary.totalPiutang > 0) && (
-        <div style={{
+        <div data-testid="debt-net-position" style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
           borderRadius: 12, marginBottom: 12,
           background: summary.net >= 0 ? 'var(--success-glow)' : 'var(--danger)',
@@ -437,7 +429,7 @@ const Debts: React.FC = () => {
 
       {/* Offset Banner */}
       {offsetPotentials.length > 0 && (
-        <div style={{
+        <div data-testid="debt-offset-banner" style={{
           marginBottom: 20, padding: '14px', borderRadius: '16px',
           background: 'linear-gradient(135deg, hsl(145, 65%, 43%), hsl(145, 65%, 33%))', color: 'white',
           boxShadow: '0 8px 20px var(--success-glow)',
@@ -456,19 +448,18 @@ const Debts: React.FC = () => {
               Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif.
             </div>
           </div>
-          <button
+          <Button
+            variant="outline"
             onClick={() => {
               setOffsetTarget(offsetPotentials[0]);
               setIsOffsetModalOpen(true);
             }}
             style={{
-              padding: '8px 16px', borderRadius: '10px', background: 'white',
-              color: 'var(--success)', border: 'none', fontWeight: 800,
-              fontSize: '12px', cursor: 'pointer'
+              background: 'white', color: 'var(--success)', borderColor: 'white', padding: '8px 16px', height: 'auto', fontSize: '12px'
             }}
           >
             Selesaikan
-          </button>
+          </Button>
         </div>
       )}
 
@@ -477,6 +468,7 @@ const Debts: React.FC = () => {
         {([['all', 'Aktif'], ['hutang', 'Hutang'], ['piutang', 'Piutang'], ['lunas', 'Lunas']] as const).map(([key, label]) => (
           <button
             key={key}
+            data-testid={`debt-filter-${key}`}
             onClick={() => setFilter(key)}
             style={{
               flex: 1,
@@ -528,11 +520,16 @@ const Debts: React.FC = () => {
               Tambah catatan hutang atau piutang kamu.
             </div>
             {filter !== 'lunas' && (
-              <button onClick={openAdd} style={{
-                background: filter === 'piutang' ? 'var(--success)' : 'var(--danger)', color: '#fff', border: 'none',
-                borderRadius: 12, padding: '12px 24px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                boxShadow: filter === 'piutang' ? '0 4px 12px var(--success-glow)' : '0 4px 12px var(--danger-glow)',
-              }}>+ Tambah Sekarang</button>
+              <Button 
+                variant={filter === 'piutang' ? 'primary' : 'danger'}
+                onClick={openAdd}
+                style={{
+                  boxShadow: filter === 'piutang' ? '0 4px 12px var(--success-glow)' : '0 4px 12px var(--danger-glow)',
+                  background: filter === 'piutang' ? 'var(--success)' : 'var(--danger)'
+                }}
+              >
+                + Tambah Sekarang
+              </Button>
             )}
           </div>
         ) : (
@@ -660,6 +657,7 @@ const Debts: React.FC = () => {
       {filter !== 'lunas' && (
         <button
           data-tour="add-debt"
+          data-testid="add-debt-fab"
           className="fab"
           onClick={openAdd}
           style={{

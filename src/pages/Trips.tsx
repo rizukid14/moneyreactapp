@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import CreateTripModal from '../components/modals/CreateTripModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import OnboardingTutorial from '../components/OnboardingTutorial';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 const Trips: React.FC = () => {
   const { trips, tripExpenses, currencySymbol, deleteTrip } = useMoney();
@@ -36,11 +38,10 @@ const Trips: React.FC = () => {
 
       <div data-tour="trip-list" style={{ display: 'grid', gap: '16px' }}>
         {trips.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+          <Card 
+            variant="default"
             style={{ 
-              background: 'var(--bg-card)', padding: '48px 24px', borderRadius: '24px', textAlign: 'center',
+              padding: '48px 24px', textAlign: 'center',
               border: '2px dashed var(--border-color)', marginTop: '20px'
             }}
           >
@@ -52,20 +53,20 @@ const Trips: React.FC = () => {
             </div>
             <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '8px' }}>Belum ada rencana trip</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '32px' }}>Mulai buat grup liburanmu dan catat pengeluarannya di sini.</p>
-            <button 
+            <Button 
               onClick={() => setIsModalOpen(true)}
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', borderRadius: '16px', fontWeight: 800 }}
+              variant="primary"
             >
               Buat Trip Pertama
-            </button>
-          </motion.div>
+            </Button>
+          </Card>
         ) : (
           trips.map((trip, idx) => {
             const total = getTripTotal(trip.id);
             return (
               <motion.div
                 key={trip.id}
+                data-testid={`trip-card-${trip.id}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.1 }}
@@ -85,7 +86,7 @@ const Trips: React.FC = () => {
                     Settled
                   </div>
                 )}
-
+ 
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '20px' }}>
                   <div style={{ 
                     width: '52px', height: '52px', background: 'var(--primary-gradient)', borderRadius: '16px',
@@ -122,7 +123,7 @@ const Trips: React.FC = () => {
                     <ChevronRight size={20} color="var(--text-muted)" />
                   </div>
                 </div>
-
+ 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: '16px', borderTop: '1px solid var(--border-color)', borderTopStyle: 'dashed' }}>
                   <div>
                     <p style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Total Terpakai</p>
@@ -165,9 +166,10 @@ const Trips: React.FC = () => {
           })
         )}
       </div>
-
+ 
       <button
         data-tour="add-trip"
+        data-testid="add-trip-btn"
         className="fab"
         onClick={() => setIsModalOpen(true)}
         aria-label="Tambah Trip"

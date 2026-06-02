@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { X, Wallet, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Wallet, ChevronRight } from 'lucide-react';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
 import AssetSelectModal from './AssetSelectModal';
 import CurrencyInput from '../common/CurrencyInput';
+import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 
 interface DebtAddPrincipalModalProps {
   isOpen: boolean;
@@ -58,29 +60,11 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{ zIndex: 1100 }}
-          >
-            <motion.div
-              className="modal-content"
-              onClick={e => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 600, mass: 0.5 }}
-            >
-              <div className="modal-header">
-                <h2 className="subtitle" style={{ margin: 0 }}>Tambah Pokok {isHutang ? 'Hutang' : 'Piutang'}</h2>
-                <button className="close-btn" onClick={onClose}><X size={24} /></button>
-              </div>
-
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={`Tambah Pokok ${isHutang ? 'Hutang' : 'Piutang'}`}
+      >
               <div style={{ padding: '0 4px' }}>
                 <div style={{ background: 'var(--bg-main)', padding: 16, borderRadius: 16, marginBottom: 20, border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Nominal Tambahan:</div>
@@ -124,36 +108,32 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
                     <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                       Tanggal:
                     </label>
-                    <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                    <Input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0 }} />
                   </div>
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                       Jam:
                     </label>
-                    <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                    <Input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
                   </div>
                 </div>
                 <div style={{ marginTop: 16 }}>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                     Catatan Tambahan:
                   </label>
-                  <input type="text" placeholder="Catatan tambahan hutang" value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', marginBottom: 0 }} />
+                  <Input type="text" placeholder="Catatan tambahan hutang" value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: 0 }} />
                 </div>
               </div>
 
-              <button
+              <Button
+                variant="primary"
                 onClick={handleConfirm}
-                className="btn btn-primary"
-                style={{
-                  width: '100%', marginTop: 24, height: 56, borderRadius: 16, fontWeight: 800
-                }}
+                fullWidth
+                style={{ marginTop: 24, height: 56, borderRadius: 16, fontWeight: 800 }}
               >
                 Tambah Pokok
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </Button>
+      </Modal>
 
       <AssetSelectModal
         isOpen={isAssetModalOpen}

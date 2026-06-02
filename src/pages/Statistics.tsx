@@ -454,6 +454,7 @@ const Statistics: React.FC = () => {
             return (
               <motion.button
                 key={viewId}
+                data-testid={`stats-view-${viewId}`}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   setActiveViewId(viewId);
@@ -552,12 +553,13 @@ const Statistics: React.FC = () => {
             {/* Month Switcher Header */}
             <div data-tour="month-nav" className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button onClick={() => changeMonth(-1)} className="btn-icon">
+                <button onClick={() => changeMonth(-1)} className="btn-icon" data-testid="prev-month-btn">
                   <ChevronLeft size={24} />
                 </button>
 
                 <div
                   onClick={() => setIsDatePickerOpen(true)}
+                  data-testid="month-picker-toggle"
                   style={{
                     textAlign: 'center', cursor: 'pointer', padding: '10px 20px', borderRadius: '14px',
                     background: 'var(--bg-main)', flex: 1, margin: '0 8px'
@@ -568,7 +570,7 @@ const Statistics: React.FC = () => {
                   </div>
                 </div>
 
-                <button onClick={() => changeMonth(1)} className="btn-icon">
+                <button onClick={() => changeMonth(1)} className="btn-icon" data-testid="next-month-btn">
                   <ChevronRight size={24} />
                 </button>
               </div>
@@ -1177,6 +1179,7 @@ const Statistics: React.FC = () => {
                     {(['linear', 'dual', 'log'] as const).map(scale => (
                       <button
                         key={scale}
+                        data-testid={`chart-scale-${scale}`}
                         onClick={() => changeChartScale(scale)}
                         style={{
                           padding: '4px 10px',

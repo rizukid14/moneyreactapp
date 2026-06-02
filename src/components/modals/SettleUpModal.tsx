@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { X, Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, ExternalLink, Info, History as HistoryIcon } from 'lucide-react';
+import { Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, ExternalLink, Info, History as HistoryIcon } from 'lucide-react';
 import AssetSelectModal from './AssetSelectModal';
 import CurrencyInput from '../common/CurrencyInput';
-import { motion, AnimatePresence } from 'framer-motion';
 import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
 import { getLocalDate, getLocalTime, isPrincipalTx } from '../../lib/utils';
 import SettlementExplanationModal from './SettlementExplanationModal';
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 
 interface SettleUpModalProps {
   isOpen: boolean;
@@ -399,32 +401,17 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
   return (
     <>
 
-    <AnimatePresence>
-      <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1200 }}>
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="modal-content"
-          onClick={e => e.stopPropagation()}
-          style={{ maxWidth: '500px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 800 }}>Settle Up</h2>
-            <button onClick={onClose} className="btn-icon">
-              <X size={20} />
-            </button>
-          </div>
-
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Settle Up"
+      >
           {settlingTx ? (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                <button onClick={() => setSettlingTx(null)} className="btn-icon">
-                  <X size={18} />
-                </button>
+                <Button variant="outline" onClick={() => setSettlingTx(null)} style={{ padding: '8px' }}>
+                  Kembali
+                </Button>
                 <div>
                   <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Pilih Aset & Jumlah Bayar</h3>
                   <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -498,20 +485,19 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 />
 
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '12px' }}>
-                <button onClick={() => setSettlingTx(null)} className="btn btn-secondary">Batal</button>
-                <button 
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <Button variant="outline" onClick={() => setSettlingTx(null)}>Batal</Button>
+                <Button 
+                  variant="primary"
                   onClick={() => handleMarkAsPaid(settlingTx, settlingTx.idx, selectedAssetId, parseInt(settleAmount) || 0)} 
                   disabled={isProcessing || !selectedAssetId || (parseInt(settleAmount) || 0) <= 0}
-                  className="btn btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: (!selectedAssetId || (parseInt(settleAmount) || 0) <= 0) ? 0.5 : 1 }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
                   {isProcessing ? 'Memproses...' : !selectedAssetId ? 'Pilih Aset Dulu' : (parseInt(settleAmount) || 0) <= 0 ? 'Nominal tidak valid' : 'Konfirmasi Pelunasan'}
                   {!isProcessing && selectedAssetId && (parseInt(settleAmount) || 0) > 0 && <ChevronRight size={18} />}
-                </button>
+                </Button>
               </div>
-            </motion.div>
+            </div>
           ) : (
             <>
               {/* Mode Toggle */}
@@ -563,27 +549,27 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                     const pd = settlement.paid[m.id] || 0;
                     const roundedBal = Math.round(bal);
                     return (
-                      <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                        <div>
-                          <div style={{ fontWeight: 800, marginBottom: '4px' }}>{m.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            <span style={{ color: 'var(--danger)' }}>Pakai: {currencySymbol}{Math.round(cons).toLocaleString('id-ID')}</span>
-                            <span style={{ margin: '0 6px' }}>|</span>
-                            <span style={{ color: 'var(--success)' }}>Nalangin: {currencySymbol}{Math.round(pd).toLocaleString('id-ID')}</span>
+                        <Card key={m.id} variant="default" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
+                          <div>
+                            <div style={{ fontWeight: 800, marginBottom: '4px' }}>{m.name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              <span style={{ color: 'var(--danger)' }}>Pakai: {currencySymbol}{Math.round(cons).toLocaleString('id-ID')}</span>
+                              <span style={{ margin: '0 6px' }}>|</span>
+                              <span style={{ color: 'var(--success)' }}>Nalangin: {currencySymbol}{Math.round(pd).toLocaleString('id-ID')}</span>
+                            </div>
                           </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                            {roundedBal > 0 ? 'Menerima' : roundedBal < 0 ? 'Membayar' : 'Lunas'}
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                              {roundedBal > 0 ? 'Menerima' : roundedBal < 0 ? 'Membayar' : 'Lunas'}
+                            </div>
+                            <span style={{ 
+                              fontWeight: 900, fontSize: '16px',
+                              color: roundedBal > 0 ? 'var(--success)' : roundedBal < 0 ? 'var(--danger)' : 'var(--text-muted)'
+                            }}>
+                              {roundedBal > 0 ? '+' : ''}{currencySymbol}{Math.abs(roundedBal).toLocaleString('id-ID')}
+                            </span>
                           </div>
-                          <span style={{ 
-                            fontWeight: 900, fontSize: '16px',
-                            color: roundedBal > 0 ? 'var(--success)' : roundedBal < 0 ? 'var(--danger)' : 'var(--text-muted)'
-                          }}>
-                            {roundedBal > 0 ? '+' : ''}{currencySymbol}{Math.abs(roundedBal).toLocaleString('id-ID')}
-                          </span>
-                        </div>
-                      </div>
+                        </Card>
                     );
                   })}
                 </div>
@@ -614,14 +600,11 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                        const isPartiallyPaid = paidSoFar > 0 && remainingAmt > 0.5;
  
                        return (
-                         <motion.div 
+                         <Card 
                            key={idx}
-                           initial={{ opacity: 0, x: -10 }}
-                           animate={{ opacity: 1, x: 0 }}
-                           transition={{ delay: idx * 0.05 }}
+                           variant="default"
                            style={{ 
-                             padding: '16px', background: 'var(--bg-card)', borderRadius: '16px',
-                             border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '12px',
+                             padding: '16px', display: 'flex', alignItems: 'center', gap: '12px',
                              opacity: isPaid ? 0.6 : 1
                            }}
                          >
@@ -668,7 +651,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                                <CheckCircle2 size={16} /> LUNAS
                              </div>
                            )}
-                         </motion.div>
+                         </Card>
                        );
                      })}
                   </div>
@@ -676,36 +659,34 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: shareId ? '1fr 1fr 1fr' : '1fr 1fr', gap: '12px' }}>
-                <button 
+                <Button 
+                  variant="outline"
                   onClick={shareId ? handleCopyLink : handleShareLink}
                   disabled={isSharing}
-                  className="btn btn-secondary"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 8px', fontSize: '12px' }}
                 >
                   {isSharing ? '...' : shareId ? <><CheckCircle2 size={16} /> Copy</> : <><Share2 size={16} /> Share Link</>}
-                </button>
+                </Button>
                 {shareId && (
-                  <button 
+                  <Button 
+                    variant="outline"
                     onClick={() => window.open(`${window.location.origin}/shared-split/${shareId}`, '_blank')}
-                    className="btn btn-secondary"
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 8px', fontSize: '12px', background: 'var(--primary-glow)', color: 'var(--primary)', borderColor: 'var(--primary)' }}
                   >
                     <ExternalLink size={16} /> Buka
-                  </button>
+                  </Button>
                 )}
-                <button 
+                <Button 
+                  variant="primary"
                   onClick={onClose}
-                  className="btn btn-primary"
                   style={{ padding: '12px 8px', fontSize: '12px' }}
                 >
                   Selesai
-                </button>
+                </Button>
               </div>
             </>
           )}
-        </motion.div>
-      </div>
-    </AnimatePresence>
+      </Modal>
     
     <SettlementExplanationModal
       isOpen={!!selectedSettlement}

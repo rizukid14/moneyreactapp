@@ -11,6 +11,10 @@ import CategorySelectModal from '../components/modals/CategorySelectModal';
 import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 import { useNavigate } from 'react-router-dom';
 import CurrencyInput from '../components/common/CurrencyInput';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { TabBar } from '../components/ui/TabBar';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -711,23 +715,35 @@ const ReceiptScanner: React.FC = () => {
         </button>
         <h1 className="title" style={{ margin: 0 }}>{scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'}</h1>
       </div>
-      <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />
+      <input type="file" accept="image/*" ref={fileInputRef} data-testid="ocr-file-input" style={{ display: 'none' }} onChange={handleFileSelect} />
 
       {stage === 'upload' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '10px' }}>
 
-          <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)', marginBottom: '16px', width: '100%', maxWidth: '300px' }}>
-            <button onClick={() => setScanMode('struk')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'struk' ? 'var(--primary)' : 'transparent', color: scanMode === 'struk' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Pindai Struk</button>
-            <button onClick={() => setScanMode('mutasi')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'mutasi' ? 'var(--primary)' : 'transparent', color: scanMode === 'mutasi' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Pindai Mutasi</button>
+          <div style={{ width: '100%', maxWidth: '300px', marginBottom: '16px' }}>
+            <TabBar
+              activeTabId={scanMode}
+              onChange={(id) => setScanMode(id as 'struk' | 'mutasi')}
+              tabs={[
+                { id: 'struk', label: 'Pindai Struk', 'data-testid': 'scan-mode-struk' },
+                { id: 'mutasi', label: 'Pindai Mutasi', 'data-testid': 'scan-mode-mutasi' }
+              ]}
+            />
           </div>
 
-          <button onClick={() => fileInputRef.current?.click()} className="glass" style={{
-            width: '100%', padding: '60px 24px', borderRadius: '28px',
-            border: '3px dashed var(--primary)', cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            color: 'var(--primary)', background: 'var(--bg-income)',
-            transition: 'all 0.3s'
-          }}>
+          <Card
+            variant="glass"
+            padding="lg"
+            onClick={() => fileInputRef.current?.click()}
+            data-testid="camera-button"
+            style={{
+              width: '100%', borderRadius: '28px',
+              border: '3px dashed var(--primary)', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              color: 'var(--primary)', background: 'var(--bg-income)',
+              transition: 'all 0.3s'
+            }}
+          >
             <div style={{
               width: 80, height: 80, borderRadius: '50%', background: 'var(--primary-gradient)',
               display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white',
@@ -740,7 +756,7 @@ const ReceiptScanner: React.FC = () => {
               <Lightbulb size={16} style={{ color: 'var(--secondary)' }} />
               <span>Tips: Pastikan foto {scanMode === 'struk' ? 'struk' : 'mutasi'} terlihat jelas dan terang</span>
             </div>
-          </button>
+          </Card>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', maxWidth: '300px', lineHeight: 1.5 }}>
             {scanMode === 'struk' ? 'AI akan membaca total belanja & mendeteksi kategori.' : 'AI akan memecah mutasi bank menjadi banyak transaksi secara otomatis.'}
           </p>
@@ -756,7 +772,7 @@ const ReceiptScanner: React.FC = () => {
 
       {stage === 'crop' && (
         <div style={{ width: '100%' }}>
-          <div className="card glass crop-actions-container" style={{ 
+          <Card variant="glass" className="crop-actions-container" style={{ 
             position: 'fixed',
             bottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
             left: '50%',
@@ -769,12 +785,12 @@ const ReceiptScanner: React.FC = () => {
             padding: '12px'
           }}>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={runScan}>
+              <Button variant="primary" data-testid="run-scan-btn" style={{ flex: 2 }} onClick={runScan}>
                 <Scissors size={16} /> {cropRect && cropRect.w > 50 ? 'Crop & Scan' : 'Scan Gambar Penuh'}
-              </button>
-              <button className="btn" style={{ flex: 1 }} onClick={reset}>Batal</button>
+              </Button>
+              <Button variant="outline" data-testid="cancel-scan-btn" style={{ flex: 1 }} onClick={reset}>Batal</Button>
             </div>
-          </div>
+          </Card>
           <div style={{ borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border-color)', touchAction: 'none', marginBottom: '100px' }}>
             <canvas ref={canvasRef} style={{ width: '100%', display: 'block' }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
           </div>
@@ -804,7 +820,7 @@ const ReceiptScanner: React.FC = () => {
             <div style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
                 <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{currencySymbol}</span>
-                <CurrencyInput value={editableAmount} onChange={val => setEditableAmount(val)} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
+                <CurrencyInput value={editableAmount} onChange={val => setEditableAmount(val)} data-testid="ocr-total-amount" style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
@@ -812,6 +828,7 @@ const ReceiptScanner: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsCatModalOpen(true)}
+                  data-testid="ocr-category-btn"
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
@@ -835,6 +852,7 @@ const ReceiptScanner: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAssetModalOpen(true)}
+                  data-testid="ocr-asset-btn"
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
@@ -855,16 +873,17 @@ const ReceiptScanner: React.FC = () => {
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <input
+                <Input
                   type="text"
                   placeholder="Catatan / Nama Merchant"
                   value={merchantName}
                   onChange={e => setMerchantName(e.target.value)}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
+                  data-testid="ocr-merchant-input"
+                  style={{ marginBottom: 0 }}
                 />
               </div>
 
-              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+              <Input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} data-testid="ocr-date-input" />
 
               <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
@@ -896,22 +915,23 @@ const ReceiptScanner: React.FC = () => {
                     />
                   </div>
                 </div>
-                <button 
-                  className="btn" 
+                <Button 
+                  variant="outline"
                   onClick={handleDistributeCharges}
-                  style={{ width: '100%', fontSize: '12px', padding: '8px', background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)' }}
+                  fullWidth
+                  style={{ fontSize: '12px', padding: '8px', background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)' }}
                 >
                   Hitung Ulang & Distribusi ke Item
-                </button>
+                </Button>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button className="btn" style={{ flex: 1 }} onClick={reset}>Batal</button>
-              <button className="btn" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => setIsSplitModalOpen(true)}>
+              <Button variant="outline" style={{ flex: 1 }} onClick={reset}>Batal</Button>
+              <Button variant="outline" data-testid="ocr-split-bill-btn" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => setIsSplitModalOpen(true)}>
                 <Users size={16} /> Split Bill
-              </button>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSaveMain}>Simpan Total</button>
+              </Button>
+              <Button variant="primary" data-testid="ocr-save-total-btn" style={{ flex: 2 }} onClick={handleSaveMain}>Simpan Total</Button>
             </div>
           </div>
 
@@ -1080,7 +1100,7 @@ const ReceiptScanner: React.FC = () => {
               >
                 <Plus size={14} /> Tambah
               </button>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSaveLineItems}>
+              <button className="btn btn-primary" data-testid="ocr-save-items-btn" style={{ flex: 2 }} onClick={handleSaveLineItems}>
                 Simpan Item Terpilih
               </button>
             </div>

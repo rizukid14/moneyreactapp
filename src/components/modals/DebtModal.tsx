@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calculator, Folder, Wallet, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Calculator, Folder, Wallet, ChevronRight } from 'lucide-react';
 import { useMoney, type Debt, type Asset, type Category } from '../../contexts/MoneyContext';
 import CalculatorModal from './CalculatorModal';
 import CurrencyInput from '../common/CurrencyInput';
@@ -8,6 +7,9 @@ import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
 import ContactSelectModal from './ContactSelectModal';
 import { User } from 'lucide-react';
+import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 
 interface DebtModalProps {
   isOpen: boolean;
@@ -179,32 +181,13 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
   return (
     <>
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div 
-          className="modal-overlay" 
-          onClick={onClose}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.1 }}
-        >
-          <motion.div 
-            className="modal-content" 
-            onClick={e => e.stopPropagation()}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
-          >
-            <div className="modal-header">
-              <h2 className="subtitle" style={{ margin: 0 }}>
-                {editingDebt ? 'Edit Catatan' : 'Tambah Hutang / Piutang'}
-              </h2>
-              <button className="close-btn" onClick={onClose}><X size={20} /></button>
-            </div>
-
-            <form onSubmit={handleSave}>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={editingDebt ? 'Edit Catatan' : 'Tambah Hutang / Piutang'}
+        testId="debt-modal"
+      >
+        <form onSubmit={handleSave}>
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {(['hutang', 'piutang'] as const).map(t => (
                   <button
@@ -226,6 +209,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                 {type === 'hutang' ? 'Hutang ke siapa / institusi' : 'Siapa yang berhutang ke kamu'}
               </label>
               <button
+                data-testid="debt-contact-select"
                 type="button"
                 onClick={() => setContactModalOpen(true)}
                 style={{
@@ -252,11 +236,12 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               </button>
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Keterangan</label>
-              <input type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} data-tour="debt-modal-description" />
+              <Input data-testid="debt-desc-input" type="text" placeholder="Untuk apa / keterangan" value={description} onChange={e => setDescription(e.target.value)} data-tour="debt-modal-description" />
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Pokok Pinjaman ({currencySymbol})</label>
               <div style={{ display: 'flex', gap: '8px', marginBottom: 16 }}>
                 <CurrencyInput
+                  data-testid="debt-amount-input"
                   required
                   placeholder="0"
                   value={principalAmount}
@@ -313,7 +298,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                   ) : (
                     <div>
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Persentase Bunga (%)</label>
-                      <input type="number" step="0.1" required={hasInterest} placeholder="misal: 5" value={interestRate} onChange={e => setInterestRate(e.target.value)} style={{ marginBottom: 0, width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '16px' }} />
+                      <Input type="number" step="0.1" required={hasInterest} placeholder="misal: 5" value={interestRate} onChange={e => setInterestRate(e.target.value)} style={{ marginBottom: 0 }} />
                     </div>
                   )}
                   
@@ -329,11 +314,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
               <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Tanggal Pinjam</label>
-                  <input type="date" required value={createdAt} onChange={e => setCreatedAt(e.target.value)} />
+                  <Input data-testid="debt-date-input" type="date" required value={createdAt} onChange={e => setCreatedAt(e.target.value)} style={{ marginBottom: 0 }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Jatuh Tempo (opsional)</label>
-                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                  <Input data-testid="debt-duedate-input" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={{ marginBottom: 0 }} />
                 </div>
               </div>
 
@@ -487,32 +472,28 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                   <div style={{ display: 'flex', gap: 10 }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Total Cicilan (bulan)</label>
-                      <input type="number" min="1" max="360" placeholder="Misal: 36" value={totalInstallments} onChange={e => setTotalInstallments(e.target.value)} style={{ marginBottom: 0 }} />
+                      <Input type="number" min="1" max="360" placeholder="Misal: 36" value={totalInstallments} onChange={e => setTotalInstallments(e.target.value)} style={{ marginBottom: 0 }} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Tgl Jatuh Tempo</label>
-                      <input type="number" min="1" max="31" placeholder="25" value={installmentDay} onChange={e => setInstallmentDay(e.target.value)} style={{ marginBottom: 0 }} />
+                      <Input type="number" min="1" max="31" placeholder="25" value={installmentDay} onChange={e => setInstallmentDay(e.target.value)} style={{ marginBottom: 0 }} />
                     </div>
                   </div>
                 </div>
               )}
 
-              <button
+              <Button
+                data-testid="debt-submit-btn"
                 type="submit"
-                className="btn"
-                style={{
-                  width: '100%', marginTop: 14, fontWeight: 700,
-                  background: typeColor, color: 'white', border: 'none', borderRadius: 12, padding: '13px',
-                }}
+                variant={type === 'hutang' ? 'danger' : 'success'}
+                fullWidth
+                style={{ marginTop: 14, fontWeight: 700, padding: '13px' }}
                 data-tour="debt-modal-submit"
               >
                 {editingDebt ? 'Simpan Perubahan' : 'Simpan'}
-              </button>
+              </Button>
             </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      </Modal>
 
     <CalculatorModal
       isOpen={calcOpen !== null}

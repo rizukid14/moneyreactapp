@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Target, Calculator, Folder, ChevronRight } from 'lucide-react';
+import { Target, Calculator, Folder, ChevronRight } from 'lucide-react';
 import { type Category, type Budget } from '../../contexts/MoneyContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
 import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
 import CurrencyInput from '../common/CurrencyInput';
@@ -82,32 +83,16 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div 
-            className="modal-overlay" 
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
-          >
-            <motion.div 
-              className="modal-content" 
-              onClick={e => e.stopPropagation()}
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
-            >
-              <div className="modal-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                   <Target size={24} color="var(--primary)" />
-                   <h2 className="subtitle" style={{ margin: 0 }}>{editingBudget ? 'Edit Anggaran' : 'Set Anggaran'}</h2>
-                </div>
-                <button className="close-btn" onClick={onClose}><X size={24} /></button>
-              </div>
-
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={
+           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+             <Target size={24} color="var(--primary)" />
+             <span>{editingBudget ? 'Edit Anggaran' : 'Set Anggaran'}</span>
+           </div>
+        }
+      >
               <form onSubmit={handleSave}>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-muted)' }}>
                   Pilih Target Anggaran
@@ -179,14 +164,11 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                   Anda akan diperingatkan jika pengeluaran mendekati atau melebihi batas ini.
                 </p>
 
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '56px', borderRadius: '16px', fontWeight: 800 }}>
+                <Button type="submit" variant="primary" style={{ width: '100%', height: '56px', borderRadius: '16px', fontWeight: 800 }}>
                   {editingBudget ? 'Simpan Perubahan' : 'Mulai Anggaran'}
-                </button>
+                </Button>
               </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </Modal>
 
       <CalculatorModal
         isOpen={isCalcOpen}

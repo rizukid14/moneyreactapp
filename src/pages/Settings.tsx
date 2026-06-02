@@ -1178,6 +1178,7 @@ const Settings: React.FC = () => {
               </p>
               <div style={{ position: 'relative', marginTop: '12px' }}>
                 <select
+                  data-testid="start-of-month"
                   value={startOfMonthDay}
                   onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
                   data-tour="pref-financial-cycle"
@@ -1243,6 +1244,7 @@ const Settings: React.FC = () => {
                 Ubah simbol mata uang yang ditampilkan (Contoh: Rp, $, RM).
               </p>
               <input
+                data-testid="currency-input"
                 type="text"
                 value={currencySymbol}
                 onChange={(e) => setCurrencySymbol(e.target.value)}
@@ -1313,6 +1315,7 @@ const Settings: React.FC = () => {
               </p>
               <div 
                 data-tour="pref-budget-mode"
+                data-testid="budget-mode-toggle"
                 style={{
                   display: 'flex', background: 'var(--bg-main)', padding: '4px',
                   borderRadius: '12px', border: '1px solid var(--border-color)'
@@ -1650,6 +1653,7 @@ const Settings: React.FC = () => {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button
+                  data-testid="export-data-btn"
                   className="btn btn-primary"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   onClick={exportData}
@@ -1657,6 +1661,7 @@ const Settings: React.FC = () => {
                   <Download size={15} /> Ekspor Backup (.json)
                 </button>
                 <button
+                  data-testid="import-data-btn"
                   className="btn"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--border-color)', color: 'var(--text-main)' }}
                   onClick={() => importInputRef.current?.click()}
@@ -2170,7 +2175,7 @@ const Settings: React.FC = () => {
 
                 if ((item as any).isToggle) {
                   return (
-                    <div key={item.id} style={{
+                    <div key={item.id} data-testid={`settings-${item.id}`} style={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
@@ -2183,6 +2188,7 @@ const Settings: React.FC = () => {
                       </div>
                       <div
                         onClick={toggleTheme}
+                        data-testid="theme-toggle"
                         style={{
                           width: '44px', height: '24px', borderRadius: '12px',
                           backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
@@ -2205,6 +2211,7 @@ const Settings: React.FC = () => {
                   <div
                     key={item.id}
                     onClick={() => handleMenuClick(item.id)}
+                    data-testid={`settings-${item.id}`}
                     data-tour={item.id === 'preferences' ? 'settings-preferences' : undefined}
                     style={{
                       display: 'flex',

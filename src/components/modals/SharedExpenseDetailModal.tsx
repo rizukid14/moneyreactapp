@@ -1,6 +1,7 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Receipt } from 'lucide-react';
+import { Receipt } from 'lucide-react';
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
 
 interface SharedExpenseDetailModalProps {
   isOpen: boolean;
@@ -20,24 +21,12 @@ const SharedExpenseDetailModal: React.FC<SharedExpenseDetailModalProps> = ({
   if (!isOpen || !expense) return null;
 
   return (
-    <AnimatePresence>
-      <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1400 }}>
-        <motion.div
-          initial={{ opacity: 0, y: 100 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 100 }}
-          className="modal-content"
-          onClick={e => e.stopPropagation()}
-          style={{ maxHeight: '90vh', overflowY: 'auto', paddingBottom: '32px' }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 800 }}>Rincian Pengeluaran</h2>
-            <button onClick={onClose} className="btn-icon">
-              <X size={20} />
-            </button>
-          </div>
-
-          <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '24px', border: '1px solid var(--border-color)', marginBottom: '24px', textAlign: 'center' }}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Rincian Pengeluaran"
+    >
+          <Card variant="glass" style={{ padding: '20px', marginBottom: '24px', textAlign: 'center' }}>
             <div style={{ width: '48px', height: '48px', background: 'var(--primary-glow)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
               <Receipt size={24} color="var(--primary)" />
             </div>
@@ -48,7 +37,7 @@ const SharedExpenseDetailModal: React.FC<SharedExpenseDetailModalProps> = ({
             <div style={{ fontSize: '28px', fontWeight: 900, color: 'var(--primary)' }}>
               {currencySymbol}{expense.amount.toLocaleString('id-ID')}
             </div>
-          </div>
+          </Card>
 
           {/* Items if available */}
           {expense.items && expense.items.length > 0 && (
@@ -92,9 +81,7 @@ const SharedExpenseDetailModal: React.FC<SharedExpenseDetailModalProps> = ({
               </div>
             </div>
           )}
-        </motion.div>
-      </div>
-    </AnimatePresence>
+    </Modal>
   );
 };
 

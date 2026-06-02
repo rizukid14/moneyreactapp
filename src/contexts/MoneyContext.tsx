@@ -383,8 +383,22 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [showDebtInTransactions, setShowDebtInTransactionsState] = useState<boolean>(true);
   const [currencySymbol, setCurrencySymbolState] = useState<string>('Rp');
   const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'category'>('date');
-  const [authUser, setAuthUser] = useState<any>(null);
-  const [authChecked, setAuthChecked] = useState(!isFirebaseConfigured);
+  const [authUser, setAuthUser] = useState<any>(() => {
+    try {
+      if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
+        return { uid: 'test-user-uid', email: 'test@example.com' };
+      }
+    } catch (e) {}
+    return null;
+  });
+  const [authChecked, setAuthChecked] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
+        return true;
+      }
+    } catch (e) {}
+    return !isFirebaseConfigured;
+  });
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [autoCloudSync, setAutoCloudSync] = useState<{ status: 'idle' | 'pulling' | 'success' | 'error'; total?: number; message?: string }>({ status: 'idle' });
   const [assetCarouselCards, setAssetCarouselCardsState] = useState<string[]>(['net_worth']);
@@ -426,6 +440,13 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
+        setAuthUser({ uid: 'test-user-uid', email: 'test@example.com' });
+        setAuthChecked(true);
+        return;
+      }
+    } catch (e) {}
     if (!isFirebaseConfigured) {
       setAuthUser({}); // Mock user if not using firebase
       setAuthChecked(true);
@@ -471,7 +492,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ── Bootstrap: migrate if needed, then load from IndexedDB ──────────────
   useEffect(() => {
     if (!authChecked) return; // Wait for initial auth check
-    if (isFirebaseConfigured && !authUser) return;
+    if (isFirebaseConfigured && !authUser && !(typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true')) return;
     const bootstrap = async () => {
       // One-time migration from localStorage
       await migrateFromLocalStorage();

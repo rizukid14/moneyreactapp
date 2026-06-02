@@ -6,6 +6,8 @@ import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/common/Toast';
 import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
@@ -255,7 +257,7 @@ const BulkInput: React.FC = () => {
 
       {stage === 'input' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-          <div className="card glass">
+          <Card variant="glass">
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)' }}>
               Tempel Log Transaksi
             </label>
@@ -266,16 +268,19 @@ const BulkInput: React.FC = () => {
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               placeholder={"Contoh:\n- Makan malam 50rb tadi pake gopay\n- 2 Okt beli bensin 30000 cash\n- Gaji 5jt BCA"}
+              data-testid="bulk-input-textarea"
               style={{
                 width: '100%', minHeight: '200px', padding: '12px', borderRadius: '12px',
                 border: '1px solid var(--border-color)', background: 'var(--bg-main)',
-                color: 'var(--text-main)', fontSize: '14px', resize: 'vertical'
+                color: 'var(--text-main)', fontSize: '14px', resize: 'vertical',
+                boxSizing: 'border-box'
               }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
                 type="button"
                 onClick={handleSpeechToText}
+                data-testid="bulk-voice-btn"
                 style={{
                   display: 'flex', alignItems: 'center', gap: '6px',
                   background: isListening ? 'var(--bg-neutral)' : 'var(--bg-income)',
@@ -288,13 +293,15 @@ const BulkInput: React.FC = () => {
                 {isListening ? 'Mendengar...' : 'Voice Input'}
               </button>
             </div>
-          </div>
+          </Card>
 
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={() => handleParse()}
             disabled={isParsing || !inputText.trim()}
-            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+            data-testid="bulk-parse-btn"
+            fullWidth
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
           >
             {isParsing ? (
               <>
@@ -305,7 +312,7 @@ const BulkInput: React.FC = () => {
                 <Sparkles size={18} /> Mulai Analisa
               </>
             )}
-          </button>
+          </Button>
         </div>
       )}
 

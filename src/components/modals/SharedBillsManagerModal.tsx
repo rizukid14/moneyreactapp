@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { X, Share2, Trash2, Copy, ExternalLink, Calendar, ShoppingBag, Plane, Loader2, Link2Off, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Trash2, Copy, ExternalLink, Calendar, ShoppingBag, Plane, Loader2, Link2Off, Check } from 'lucide-react';
 import { dbGetMySharedSplits, dbDeleteSharedSplit, type SharedSplit } from '../../lib/db';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { useToast } from '../common/Toast';
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 
 interface SharedBillsManagerModalProps {
   isOpen: boolean;
@@ -80,52 +82,13 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{ zIndex: 1000, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' }}
-          >
-            <motion.div
-              className="modal-content"
-              onClick={(e) => e.stopPropagation()}
-              initial={{ y: '100%', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0 }}
-              style={{ 
-                maxWidth: 500, 
-                background: 'var(--bg-card)', 
-                borderRadius: '32px 32px 0 0',
-                border: '1px solid var(--border-color)',
-                padding: '24px',
-                boxShadow: '0 -20px 40px rgba(0,0,0,0.2)'
-              }}
-            >
-              {/* Handle bar for mobile feel */}
-              <div style={{ width: '40px', height: '4px', background: 'var(--border-color)', borderRadius: '10px', margin: '0 auto 20px auto' }} />
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '44px', height: '44px', background: 'var(--primary-glow)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Share2 size={22} color="var(--primary)" />
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: '18px', fontWeight: 900, margin: 0, letterSpacing: '-0.5px' }}>Shared Links</h2>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Manage your active shares</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={onClose}
-                  style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--bg-neutral)', border: 'none', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                >
-                  <X size={20} />
-                </button>
-              </div>
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Shared Links"
+      >
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, margin: '0 0 24px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Manage your active shares</p>
 
               <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
                 {loading ? (
@@ -146,16 +109,11 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                 ) : (
                   <div style={{ display: 'grid', gap: '12px', paddingBottom: '20px' }}>
                     {sharedSplits.map((split) => (
-                      <motion.div
+                      <Card
                         key={split.id}
-                        layout
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
+                        variant="default"
                         style={{ 
-                          background: 'var(--bg-neutral)', 
-                          borderRadius: '24px', 
                           padding: '16px', 
-                          border: '1px solid var(--border-color)',
                           position: 'relative',
                           overflow: 'hidden'
                         }}
@@ -188,56 +146,49 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                         </div>
 
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
+                          <Button
+                            variant={copySuccessId === split.id ? 'primary' : 'outline'}
                             onClick={() => handleCopy(split.id)}
-                            style={{ 
-                              flex: 1, height: '40px', borderRadius: '12px', 
-                              background: copySuccessId === split.id ? 'var(--success)' : 'var(--bg-card)',
-                              color: copySuccessId === split.id ? 'white' : 'var(--text-main)',
-                              fontSize: '11px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                              border: '1px solid var(--border-color)'
-                            }}
+                            style={{ flex: 1, height: '40px', borderRadius: '12px', fontSize: '11px', fontWeight: 800 }}
                           >
                             {copySuccessId === split.id ? <><Check size={14} /> Link Copied</> : <><Copy size={14} /> Copy Link</>}
-                          </button>
+                          </Button>
                           
-                          <button
+                          <Button
+                            variant="outline"
                             onClick={() => window.open(`/shared-split/${split.id}`, '_blank')}
-                            style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             title="Preview"
                           >
                             <ExternalLink size={16} />
-                          </button>
+                          </Button>
 
-                          <button
+                          <Button
+                            variant="danger"
                             onClick={() => handleRevoke(split.id)}
-                            style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--danger-glow)', border: '1px solid var(--danger-glow)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             title="Delete Link"
                           >
                             <Trash2 size={16} />
-                          </button>
+                          </Button>
                         </div>
-                      </motion.div>
+                      </Card>
                     ))}
                   </div>
                 )}
               </div>
-            </motion.div>
-          </motion.div>
+      </Modal>
 
-          <ConfirmDialog
-            isOpen={confirmDialog.isOpen}
-            onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
-            onConfirm={confirmDialog.onConfirm}
-            title={confirmDialog.title}
-            message={confirmDialog.message}
-            type={confirmDialog.type}
-            confirmText={confirmDialog.confirmText}
-          />
-        </>
-      )}
-    </AnimatePresence>
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        confirmText={confirmDialog.confirmText}
+      />
+    </>
   );
 };
 

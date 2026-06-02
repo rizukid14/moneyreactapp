@@ -108,6 +108,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
           <button 
             style={{ ...btnStyle, padding: '12px' }} 
             onClick={() => setIsGlobalAssetModalOpen(true)}
+            data-testid="bulk-global-asset-btn"
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Wallet size={20} color="var(--primary)" />
@@ -143,6 +144,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                   type="checkbox"
                   checked={item.selected}
                   onChange={(e) => updateResult(item.id, 'selected', e.target.checked)}
+                  data-testid={`bulk-row-check-${item.id}`}
                   style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
                 />
                 <input
@@ -150,6 +152,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                   value={item.note}
                   onChange={(e) => updateResult(item.id, 'note', e.target.value)}
                   placeholder="Catatan"
+                  data-testid={`bulk-row-note-${item.id}`}
                   style={{ flex: 1, fontSize: '14px', fontWeight: 600, padding: '4px 8px', border: '1px solid transparent', borderBottom: '1px solid var(--border-color)', background: 'transparent' }}
                 />
               </div>
@@ -351,6 +354,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
           className="btn btn-primary"
           onClick={() => onSave(batchAssetId)}
           disabled={!results.some(r => r.selected) || (isMutation && !batchAssetId) || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.category))}
+          data-testid="bulk-save-btn"
           style={{ width: '100%', marginTop: '16px', boxShadow: '0 4px 15px var(--primary-glow)' }}
         >
           Simpan Transaksi Terpilih

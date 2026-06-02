@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ArrowRightLeft, AlertTriangle, Calculator, Folder, ChevronRight, Wallet, Target } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRightLeft, AlertTriangle, Calculator, Folder, ChevronRight, Wallet, Target } from 'lucide-react';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Asset, RecurringTransaction, Transaction } from '../../contexts/MoneyContext';
 import CalculatorModal from './CalculatorModal';
@@ -12,6 +11,10 @@ import { useToast } from '../common/Toast';
 import OverspendReallocationModal from './OverspendReallocationModal';
 import CurrencyInput from '../common/CurrencyInput';
 import ConfirmDialog from '../common/ConfirmDialog';
+import { Modal } from '../ui/Modal';
+import { TabBar } from '../ui/TabBar';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -561,30 +564,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
-          >
-            <motion.div
-              className="modal-content"
-              onClick={e => e.stopPropagation()}
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
-            >
-              <div className="modal-header">
-                <h2 className="subtitle" style={{ margin: 0 }}>
-                  {editingTransaction && !isCopyMode ? 'Edit Transaksi' : isCopyMode ? 'Salin Transaksi' : 'Tambah Transaksi'}
-                </h2>
-                <button className="close-btn" onClick={onClose}><X size={24} /></button>
-              </div>
+      <Modal 
+        isOpen={isOpen} 
+        onClose={onClose} 
+        title={editingTransaction && !isCopyMode ? 'Edit Transaksi' : isCopyMode ? 'Salin Transaksi' : 'Tambah Transaksi'}
+        data-testid="transaction-modal"
+      >
 
               {assets.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: 'var(--danger)' }}>
@@ -597,37 +582,16 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       Tipe: {type === 'piutang_keluar' ? 'Memberi Pinjaman' : type === 'piutang_masuk' ? 'Pelunasan Piutang' : type === 'hutang_masuk' ? 'Terima Pinjaman' : 'Bayar Hutang'}
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setType('pengeluaran')}
-                        style={{
-                          flex: 1, padding: '10px', borderRadius: '8px',
-                          border: type === 'pengeluaran' ? '2px solid var(--secondary)' : '1px solid var(--border-color)',
-                          background: type === 'pengeluaran' ? 'var(--bg-expense)' : 'var(--bg-card)',
-                          fontWeight: 700, color: type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'
-                        }}
-                      >Pengeluaran</button>
-                      <button
-                        type="button"
-                        onClick={() => setType('pendapatan')}
-                        style={{
-                          flex: 1, padding: '10px', borderRadius: '8px',
-                          border: type === 'pendapatan' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                          background: type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-card)',
-                          fontWeight: 700, color: type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)'
-                        }}
-                      >Pendapatan</button>
-                      <button
-                        type="button"
-                        onClick={() => setType('transfer')}
-                        style={{
-                          flex: 1, padding: '10px', borderRadius: '8px',
-                          border: type === 'transfer' ? '2px solid var(--text-muted)' : '1px solid var(--border-color)',
-                          background: type === 'transfer' ? 'var(--bg-neutral)' : 'var(--bg-card)',
-                          fontWeight: 700, color: type === 'transfer' ? 'var(--text-main)' : 'var(--text-muted)'
-                        }}
-                      >Transfer</button>
+                    <div style={{ marginBottom: '16px' }}>
+                      <TabBar
+                        activeTabId={type}
+                        onChange={(id) => setType(id as any)}
+                        tabs={[
+                          { id: 'pengeluaran', label: 'Pengeluaran', 'data-testid': 'tx-type-pengeluaran' },
+                          { id: 'pendapatan', label: 'Pendapatan', 'data-testid': 'tx-type-pendapatan' },
+                          { id: 'transfer', label: 'Transfer', 'data-testid': 'tx-type-transfer' }
+                        ]}
+                      />
                     </div>
                   )}
 
@@ -686,14 +650,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     </div>
                   )}
 
-                  <motion.div
-                    key={type}
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                  >
+                  <div key={type} style={{ animation: 'fadeIn 0.15s ease-out' }}>
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                       <CurrencyInput
+                        data-testid="tx-amount-input"
                         ref={amountRef}
                         required
                         placeholder={`Nominal (${currencySymbol})`}
@@ -720,6 +680,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       <>
                         <button
                           type="button"
+                          data-testid="tx-category-select"
                           onClick={() => setIsCategoryModalOpen(true)}
                           style={{
                             width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
@@ -744,6 +705,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           return (
                             <button
                               type="button"
+                              data-testid="tx-asset-select"
                               onClick={() => {
                             setAssetSelectingField('assetId');
                             setIsAssetModalOpen(true);
@@ -803,6 +765,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           return (
                             <button
                               type="button"
+                              data-testid="tx-from-asset-select"
                               onClick={() => {
                                 setAssetSelectingField('fromAssetId');
                                 setIsAssetModalOpen(true);
@@ -831,6 +794,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           return (
                             <button
                               type="button"
+                              data-testid="tx-to-asset-select"
                               onClick={() => {
                                 setAssetSelectingField('toAssetId');
                                 setIsAssetModalOpen(true);
@@ -931,10 +895,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', marginBottom: '16px' }}>
-                      <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0 }} />
-                      <input type="time" required value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
+                      <Input data-testid="tx-date-input" type="date" required value={date} onChange={e => setDate(e.target.value)} />
+                      <Input type="time" required value={time} onChange={e => setTime(e.target.value)} />
                     </div>
-                    <input type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} data-tour="modal-note" />
+                    <Input data-testid="tx-note-input" type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} data-tour="modal-note" />
                     
                     <div style={{ marginBottom: '16px' }}>
                       <textarea
@@ -1044,73 +1008,57 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         </div>
                       </div>
                     )}
-                  </motion.div>
-
                   <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-card-solid)', paddingTop: 12, paddingBottom: 4, zIndex: 1 }}>
                   {!editingTransaction || isCopyMode ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
+                      <Button
                         type="submit"
+                        variant="outline"
+                        data-testid="tx-submit-continue-btn"
                         onClick={() => { submitActionRef.current = 'continue'; }}
-                        className="btn"
-                        style={{ flex: 1, border: `2px solid ${type === 'pendapatan' ? 'var(--primary)' : type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-muted)'}`, color: type === 'pendapatan' ? 'var(--primary)' : type === 'pengeluaran' ? 'var(--secondary)' : 'var(--text-main)' }}
-                        data-tour="modal-submit"
+                        fullWidth
                       >
                         Simpan & Lanjut
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="submit"
+                        variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
+                        data-testid="tx-submit-btn"
                         onClick={() => { submitActionRef.current = 'close'; }}
-                        className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
-                        style={{
-                          flex: 1,
-                          backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
-                          color: type === 'transfer' ? 'white' : undefined
-                        }}
-                        data-tour="modal-submit"
+                        fullWidth
                       >
                         {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', gap: '8px' }}>
                       {deleteTransaction && (
-                        <button
+                        <Button
                           type="button"
+                          variant="danger"
+                          data-testid="tx-delete-btn"
                           onClick={() => setIsDeleteConfirmOpen(true)}
-                          className="btn"
-                          style={{
-                            flex: 1,
-                            background: 'var(--bg-expense)',
-                            color: 'var(--danger)',
-                            border: '1px solid var(--danger-glow)'
-                          }}
+                          fullWidth
                         >
                           Hapus Transaksi
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
                         type="submit"
+                        variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
+                        data-testid="tx-submit-btn"
                         onClick={() => { submitActionRef.current = 'close'; }}
-                        className={type === 'pendapatan' ? 'btn btn-primary' : type === 'pengeluaran' ? 'btn btn-secondary' : 'btn'}
-                        style={{
-                          flex: 1,
-                          backgroundColor: type === 'transfer' ? 'var(--text-muted)' : undefined,
-                          color: type === 'transfer' ? 'white' : undefined
-                        }}
-                        data-tour="modal-submit"
+                        fullWidth
                       >
                         Simpan Perubahan
-                      </button>
+                      </Button>
                     </div>
                   )}
                   </div>
+                  </div>
                 </form>
               )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </Modal>
 
       <CalculatorModal
         isOpen={isCalculatorOpen}

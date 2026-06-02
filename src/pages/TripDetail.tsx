@@ -102,6 +102,7 @@ const TripDetail: React.FC = () => {
             )}
           </div>
           <button 
+            data-testid="settle-up-btn"
             onClick={() => setIsSettleModalOpen(true)}
             style={{ 
               background: 'white', color: 'var(--primary)', border: 'none', padding: '10px 20px', 
@@ -112,7 +113,7 @@ const TripDetail: React.FC = () => {
           </button>
         </div>
       </motion.div>
-
+ 
       {/* Expenses List */}
       <div style={{ display: 'grid', gap: '24px' }}>
         {expenses.length === 0 ? (
@@ -138,6 +139,7 @@ const TripDetail: React.FC = () => {
                   return (
                     <motion.div
                       key={expense.id}
+                      data-testid={`trip-expense-card-${expense.id}`}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.05 }}
@@ -189,7 +191,7 @@ const TripDetail: React.FC = () => {
                           </div>
                         </div>
                       </div>
-
+ 
                       {expandedExpenseId === expense.id && (
                         <div style={{ width: '100%', borderTop: '1px dashed var(--border-color)', paddingTop: '12px', overflow: 'hidden', minWidth: 0 }}>
                           {expense.items && expense.items.length > 0 && (
@@ -209,7 +211,7 @@ const TripDetail: React.FC = () => {
                               })}
                             </div>
                           )}
-
+ 
                           <p style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Ditanggung Oleh:</p>
                           {expense.splits.map(s => {
                             const m = trip.members.find(m => m.id === s.memberId);
@@ -230,8 +232,9 @@ const TripDetail: React.FC = () => {
           ))
         )}
       </div>
-
+ 
       <button
+        data-testid="add-trip-expense-fab"
         className="fab"
         onClick={() => setIsAddModalOpen(true)}
         aria-label="Tambah Pengeluaran"

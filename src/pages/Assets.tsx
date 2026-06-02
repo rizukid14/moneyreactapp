@@ -8,6 +8,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
 import type { CardId } from '../components/AssetSummaryCarousel';
 import OnboardingTutorial from '../components/OnboardingTutorial';
+import { Card } from '../components/ui/Card';
 
 const getIconForType = (type: AssetType) => {
 // ... existing code ...
@@ -119,10 +120,12 @@ const AssetDetailDrawer: React.FC<{
   return (
     <>
       <div className="modal-overlay" onClick={onClose} style={{ alignItems: 'flex-end' }}>
-        <div
+        <Card
+          variant="glass"
+          data-testid="asset-drawer"
           className="modal-content"
           onClick={e => e.stopPropagation()}
-          style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 0, borderRadius: '28px 28px 0 0' }}
+          style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 0, borderRadius: '28px 28px 0 0', margin: 0, width: '100%', maxWidth: '600px' }}
         >
           {/* Header */}
           <div style={{
@@ -318,7 +321,7 @@ const AssetDetailDrawer: React.FC<{
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </>
   );
@@ -374,7 +377,7 @@ const Assets: React.FC = () => {
       </div>
 
       {/* Asset Summary Carousel */}
-      <div data-tour="net-worth">
+      <div data-tour="net-worth" data-testid="net-worth-carousel">
         <AssetSummaryCarousel
           cardIds={assetCarouselCards as CardId[]}
           assets={assets}
@@ -388,7 +391,7 @@ const Assets: React.FC = () => {
       {/* Asset list */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 className="subtitle" style={{ margin: 0 }}>Daftar Rekening</h2>
-        <button data-tour="add-asset" onClick={handleAdd} style={{
+        <button data-tour="add-asset" data-testid="add-asset-btn" onClick={handleAdd} style={{
           background: 'none', border: 'none', color: 'var(--primary)',
           display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '14px'
         }}>
@@ -425,13 +428,14 @@ const Assets: React.FC = () => {
                         tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
                       ).length;
                       return (
-                        <div
-                          className="card"
+                        <Card
+                          variant="default"
                           key={asset.id}
+                          data-testid={`asset-card-${asset.id}`}
                           onClick={() => setSelectedAsset(asset)}
                           style={{
                             display: 'flex', alignItems: 'center', marginBottom: 0,
-                            border: 'none', background: 'var(--bg-card)', cursor: 'pointer',
+                            cursor: 'pointer',
                             transition: 'transform 0.15s, box-shadow 0.15s',
                           }}
                           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.08)'; }}
@@ -442,7 +446,7 @@ const Assets: React.FC = () => {
                           </div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{asset.name}</div>
-                            <div style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                            <div data-testid={`asset-balance-${asset.id}`} style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
                               {isLiability && <span style={{ fontSize: '13px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
                               {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
                             </div>
@@ -454,7 +458,7 @@ const Assets: React.FC = () => {
                             </button>
                             <ChevronRight size={16} color="var(--border-color)" />
                           </div>
-                        </div>
+                        </Card>
                       );
                     })}
                   </div>
@@ -469,6 +473,7 @@ const Assets: React.FC = () => {
               return (
                 <div>
                   <button
+                    data-testid="hidden-assets-toggle"
                     onClick={() => setHiddenOpen(o => !o)}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -504,13 +509,14 @@ const Assets: React.FC = () => {
                           tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
                         ).length;
                         return (
-                          <div
-                            className="card"
+                          <Card
+                            variant="default"
                             key={asset.id}
+                            data-testid={`asset-card-${asset.id}`}
                             onClick={() => setSelectedAsset(asset)}
                             style={{
                               display: 'flex', alignItems: 'center', marginBottom: 0,
-                              border: 'none', background: 'var(--bg-card)', cursor: 'pointer',
+                              cursor: 'pointer',
                               opacity: 0.65,
                               transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.15s',
                             }}
@@ -526,7 +532,7 @@ const Assets: React.FC = () => {
                                 <EyeOff size={12} color="var(--text-muted)" />
                               </div>
                               <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>{TYPE_LABELS[asset.type as AssetType]}</div>
-                              <div style={{ fontSize: '16px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                              <div data-testid={`asset-balance-${asset.id}`} style={{ fontSize: '16px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
                                 {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
                               </div>
                               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{txCount} transaksi</div>
@@ -537,7 +543,7 @@ const Assets: React.FC = () => {
                               </button>
                               <ChevronRight size={16} color="var(--border-color)" />
                             </div>
-                          </div>
+                          </Card>
                         );
                       })}
                     </div>
