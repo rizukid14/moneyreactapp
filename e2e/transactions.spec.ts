@@ -16,7 +16,7 @@ test.describe('Transactions CRUD Operations', () => {
 
     // Fill Modal
     await page.fill(SELECTORS.txModalAmount, '50000');
-    
+
     // Choose Category Makan
     await page.click(SELECTORS.txModalCategory);
     await page.click('[data-testid="category-select-item-cat-makan"]');

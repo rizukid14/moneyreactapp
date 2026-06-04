@@ -30,19 +30,19 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
       categories.filter(c => c.type === type && !c.isDeleted).map(c => c.name.toLowerCase())
     );
 
-    let result = [...categories].filter(c => 
-      c.type === type && 
+    let result = [...categories].filter(c =>
+      c.type === type &&
       (!c.isDeleted || (c.name === initialCategory && !activeNames.has(c.name.toLowerCase())))
     );
-    
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(c => 
-        c.name.toLowerCase().includes(query) || 
+      result = result.filter(c =>
+        c.name.toLowerCase().includes(query) ||
         c.subcategories?.some(s => !s.isDeleted && s.name.toLowerCase().includes(query))
       );
     }
-    
+
     return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [categories, type, searchQuery, initialCategory]);
 
@@ -63,20 +63,20 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   // Sort subcategories alphabetically
   const sortedSubcategories = useMemo(() => {
     if (!activeCategoryObj || !activeCategoryObj.subcategories) return [];
-    
+
     const activeSubNames = new Set(
       activeCategoryObj.subcategories.filter(s => !s.isDeleted).map(s => s.name.toLowerCase())
     );
 
-    let result = [...activeCategoryObj.subcategories].filter(s => 
+    let result = [...activeCategoryObj.subcategories].filter(s =>
       !s.isDeleted || (s.name === initialSubCategory && !activeSubNames.has(s.name.toLowerCase()))
     );
-    
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(s => s.name.toLowerCase().includes(query));
     }
-    
+
     return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [activeCategoryObj, searchQuery, initialSubCategory]);
 
@@ -123,12 +123,12 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
               }}>
                 <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Kategori</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button 
+                  <button
                     onClick={() => setIsAddModalOpen(true)}
-                    style={{ 
-                      background: 'var(--primary-gradient)', color: 'white', border: 'none', 
+                    style={{
+                      background: 'var(--primary-gradient)', color: 'white', border: 'none',
                       borderRadius: '10px', width: '32px', height: '32px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                       cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
                     }}
                     title="Tambah Kategori Baru"
@@ -148,7 +148,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   icon={<Search size={16} />}
                   rightElement={searchQuery ? (
-                    <button 
+                    <button
                       onClick={() => setSearchQuery('')}
                       style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
                     >
@@ -176,7 +176,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                         Belum ada kategori.
                       </div>
-                      <Button 
+                      <Button
                         variant="primary"
                         onClick={() => setIsAddModalOpen(true)}
                         style={{ fontSize: '12px', padding: '8px 16px', height: 'auto', margin: '0 auto' }}

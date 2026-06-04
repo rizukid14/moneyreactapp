@@ -57,6 +57,15 @@ export default {
         "surface-dim": "var(--surface-dim, #d3daef)",
         "on-secondary-container": "var(--on-secondary-container, #5e6572)",
         "surface-subtle": "var(--surface-subtle, #F8F9FA)",
+        "bg-main": "var(--bg-main)",
+        "bg-card": "var(--bg-card)",
+        "bg-card-solid": "var(--bg-card-solid)",
+        "text-main": "var(--text-main)",
+        "text-muted": "var(--text-muted)",
+        "glass-border": "var(--glass-border)",
+        "bg-expense": "var(--bg-expense)",
+        "bg-income": "var(--bg-income)",
+        "bg-neutral": "var(--bg-neutral)",
         "obsidian": {
           900: '#0F1115',
           800: '#14171C',
@@ -66,8 +75,14 @@ export default {
       borderRadius: {
         "DEFAULT": "0.25rem",
         "lg": "0.5rem",
-        "xl": "0.75rem",
+        "xl": "1.25rem",
+        "2xl": "1.75rem",
+        "3xl": "2rem",
         "full": "9999px"
+      },
+      boxShadow: {
+        "bento": "0 8px 30px rgba(0,0,0,0.04), 0 4px 10px rgba(0,0,0,0.02)",
+        "bento-lg": "0 12px 40px rgba(0,0,0,0.06), 0 6px 15px rgba(0,0,0,0.03)",
       },
       spacing: {
         "stack-lg": "32px",

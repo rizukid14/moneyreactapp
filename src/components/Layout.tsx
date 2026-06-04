@@ -1,16 +1,19 @@
-import React from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import ChatBot from './chatbot/ChatBot';
+import MaterialIcon from './common/MaterialIcon';
+import AddActionMenu from './modals/AddActionMenu';
 
 const Layout: React.FC = () => {
-  const { theme, toggleTheme } = useMoney();
+  const { theme, toggleTheme, setIsChatOpen } = useMoney();
   const isDark = theme === 'dark';
+  const navigate = useNavigate();
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
   const desktopNavItems = [
     { path: '/', icon: 'dashboard', label: 'Dashboard', end: true, testId: 'nav-transactions' },
     { path: '/assets', icon: 'account_balance_wallet', label: 'Aset & Rekening', testId: 'nav-assets' },
-    { path: '/debts', icon: 'credit_card', label: 'Hutang & Piutang', testId: 'nav-debts' },
     { path: '/stats', icon: 'analytics', label: 'Laporan & Analitik', testId: 'nav-statistics' },
     { path: '/settings', icon: 'settings', label: 'Pengaturan', testId: 'nav-settings' },
   ];
@@ -18,38 +21,51 @@ const Layout: React.FC = () => {
   const mobileNavItems = [
     { path: '/', icon: 'dashboard', label: 'Home', end: true, testId: 'nav-transactions' },
     { path: '/assets', icon: 'account_balance_wallet', label: 'Aset', testId: 'nav-assets' },
-    { path: '/scan', icon: 'document_scanner', label: 'Scan', center: true, testId: 'nav-scan' }, // Assuming scan page exists, adding center logic later if needed
-    { path: '/debts', icon: 'credit_card', label: 'Hutang', testId: 'nav-debts' },
+    { path: '#add', icon: 'add', label: 'Tambah', isAddButton: true, testId: 'nav-add' },
+    { path: '#chatbot', icon: 'smart_toy', label: 'MoneyBot', isChatbotButton: true, testId: 'nav-chatbot' },
     { path: '/stats', icon: 'analytics', label: 'Laporan', testId: 'nav-statistics' },
   ];
 
   return (
     <div className="min-h-screen bg-background font-body-md text-on-surface">
       {/* Top App Bar (Mobile & Desktop) */}
-      <header className="fixed top-0 inset-x-0 lg:left-64 h-16 bg-surface-container-lowest/80 backdrop-blur-md border-b border-border-light flex items-center justify-between px-4 lg:px-8 z-40">
-        <div className="flex items-center gap-3">
-          <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="Profile" className="w-8 h-8 rounded-full border border-border-light lg:hidden" />
-          <div className="lg:hidden">
-            <p className="text-[10px] text-on-surface-variant">Selamat datang,</p>
-            <h1 className="font-label-md text-label-md text-on-surface">Alex Nova</h1>
+      <header className="fixed top-0 inset-x-0 lg:left-64 h-16 bg-surface-container-lowest/80 backdrop-blur-md border-b border-border-light flex items-center justify-between px-4 lg:px-8 z-40 gap-2">
+        {/* Left Side */}
+        <div className="flex items-center gap-2 lg:cursor-default flex-1 min-w-0">
+          <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="Profile" className="w-8 h-8 rounded-full border border-border-light lg:hidden shrink-0" />
+          <div className="lg:hidden min-w-0">
+            <p className="text-[10px] text-on-surface-variant truncate">Selamat datang,</p>
+            <h1 className="font-label-md text-label-md text-on-surface truncate">Alex Nova</h1>
           </div>
         </div>
 
         {/* Portal Target for Page-Specific Center Content (Like Date Selector) */}
-        <div id="top-bar-center" className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center"></div>
+        <div id="top-bar-center" className="flex items-center justify-center shrink-0"></div>
 
-        <div className="flex items-center gap-4 ml-auto">
-          <button className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors relative">
+        {/* Right Side */}
+        <div className="flex items-center gap-2 sm:gap-4 justify-end flex-1 min-w-0">
+          {/* Settings Icon for Mobile */}
+          <button 
+            className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors border-none bg-transparent cursor-pointer shrink-0 lg:hidden"
+            onClick={() => navigate('/settings')}
+          >
+            <span className="material-symbols-outlined">settings</span>
+          </button>
+          
+          <button className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors relative border-none bg-transparent cursor-pointer shrink-0">
             <span className="material-symbols-outlined">notifications</span>
             <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
           </button>
           
-          <div className="hidden lg:flex items-center gap-3 pl-4 border-l border-border-light cursor-pointer hover:bg-surface-container p-2 rounded-xl transition-colors">
-            <div className="flex flex-col items-end">
-              <span className="font-label-md text-label-sm text-on-surface">Alex Nova</span>
-              <span className="text-[10px] text-on-surface-variant">Pro Plan</span>
+          <div 
+            className="hidden lg:flex items-center gap-3 pl-4 border-l border-border-light cursor-pointer hover:bg-surface-container p-2 rounded-xl transition-colors shrink-0"
+            onClick={() => navigate('/settings')}
+          >
+            <div className="flex flex-col items-end min-w-0">
+              <span className="font-label-md text-label-sm text-on-surface truncate">Alex Nova</span>
+              <span className="text-[10px] text-on-surface-variant truncate">Pro Plan</span>
             </div>
-            <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="Profile" className="w-8 h-8 rounded-full border border-border-light" />
+            <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="Profile" className="w-8 h-8 rounded-full border border-border-light shrink-0" />
           </div>
         </div>
       </header>
@@ -66,7 +82,17 @@ const Layout: React.FC = () => {
           <span className="font-headline-lg-mobile text-lg text-on-surface">MoneyApp</span>
         </div>
         
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 hide-scrollbar">
+        <div className="px-4 py-4 border-b border-border-light">
+          <button 
+            onClick={() => setIsAddMenuOpen(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-white rounded-xl font-bold hover:opacity-90 transition-opacity border-none cursor-pointer shadow-sm"
+          >
+            <MaterialIcon name="add" className="text-xl" />
+            Tambah Transaksi
+          </button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-4 px-4 space-y-2 hide-scrollbar">
           {desktopNavItems.map((item) => (
             <NavLink
               key={item.path}
@@ -94,13 +120,23 @@ const Layout: React.FC = () => {
               )}
             </NavLink>
           ))}
+
+          <div className="h-px bg-border-light my-2"></div>
+
+          <button 
+            onClick={() => setIsChatOpen(true)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-label-md text-label-md transition-colors text-on-surface-variant hover:bg-surface-container hover:text-on-surface border-none cursor-pointer bg-transparent"
+          >
+            <span className="material-symbols-outlined text-xl text-primary">smart_toy</span>
+            MoneyBot AI
+          </button>
         </nav>
 
         {/* Mode Toggle */}
         <div className="p-4 border-t border-border-light space-y-2">
           <button 
             onClick={toggleTheme}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors border-none bg-transparent cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-xl">dark_mode</span>
@@ -124,38 +160,81 @@ const Layout: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       <nav data-testid="bottom-nav" className="fixed bottom-0 inset-x-0 bg-surface-container-lowest border-t border-border-light flex lg:hidden z-50 px-2 py-2 items-center justify-between pb-safe">
-        {mobileNavItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.end}
-            data-testid={item.testId}
-            className={({ isActive }) => 
-              `flex flex-col items-center justify-center w-16 h-12 rounded-xl transition-colors ${
-                isActive ? 'text-primary font-medium' : 'text-on-surface-variant hover:text-on-surface'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <div className={`w-12 h-8 rounded-full flex items-center justify-center mb-1 ${isActive ? 'bg-primary-container' : ''}`}>
-                  <span 
-                    className={`material-symbols-outlined text-xl ${isActive ? 'text-on-primary-container' : ''}`}
-                    style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
-                  >
+        {mobileNavItems.map((item) => {
+          if (item.isAddButton) {
+            return (
+              <button
+                key={item.path}
+                onClick={() => setIsAddMenuOpen(true)}
+                data-testid={item.testId}
+                className="flex flex-col items-center justify-center w-16 h-12 rounded-xl transition-colors text-on-surface-variant hover:text-on-surface border-none bg-transparent cursor-pointer"
+              >
+                <div className="w-12 h-10 rounded-full flex items-center justify-center bg-primary text-white shadow-md transform hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-2xl">
+                    {item.icon}
+                  </span>
+                </div>
+              </button>
+            );
+          }
+
+          if (item.isChatbotButton) {
+            return (
+              <button
+                key={item.path}
+                onClick={() => setIsChatOpen(true)}
+                data-testid={item.testId}
+                className="flex flex-col items-center justify-center w-16 h-12 rounded-xl transition-colors text-on-surface-variant hover:text-on-surface border-none bg-transparent cursor-pointer group"
+              >
+                <div className="w-12 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-surface-container transition-colors">
+                  <span className="material-symbols-outlined text-xl text-primary">
                     {item.icon}
                   </span>
                 </div>
                 <span className="text-[10px] text-on-surface">{item.label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
+              </button>
+            );
+          }
+
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.end}
+              data-testid={item.testId}
+              className={({ isActive }) => 
+                `flex flex-col items-center justify-center w-16 h-12 rounded-xl transition-colors ${
+                  isActive ? 'text-primary font-medium' : 'text-on-surface-variant hover:text-on-surface'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className={`w-12 h-8 rounded-full flex items-center justify-center mb-1 ${isActive ? 'bg-primary-container' : ''}`}>
+                    <span 
+                      className={`material-symbols-outlined text-xl ${isActive ? 'text-on-primary-container' : ''}`}
+                      style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
+                    >
+                      {item.icon}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-on-surface">{item.label}</span>
+                </>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <ChatBot />
+      
+      <AddActionMenu 
+        isOpen={isAddMenuOpen} 
+        onClose={() => setIsAddMenuOpen(false)} 
+      />
     </div>
   );
 };
 
 export default Layout;
+

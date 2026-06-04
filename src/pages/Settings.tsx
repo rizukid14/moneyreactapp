@@ -475,6 +475,7 @@ const Settings: React.FC = () => {
         { id: 'budgets', icon: Target, label: 'Budgeting & Goals' },
         { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
         { id: 'subscriptions', icon: CreditCard, label: 'Langganan (Subs)' },
+        { id: 'debts', icon: HandCoins, label: 'Hutang & Piutang' },
       ]
     },
     {
@@ -507,6 +508,10 @@ const Settings: React.FC = () => {
     }
     if (id === 'trips') {
       navigate('/trips');
+      return;
+    }
+    if (id === 'debts') {
+      navigate('/debts');
       return;
     }
     if (id === 'reset_tutorial') {
