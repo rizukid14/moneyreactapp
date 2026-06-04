@@ -28,7 +28,7 @@ interface TransactionGroup {
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { transactions, assets, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, getAssetBalance } = useMoney();
+  const { transactions, assets, categories, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, getAssetBalance } = useMoney();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -273,7 +273,317 @@ const Transactions: React.FC = () => {
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [transactions]);
 
-  const aiInsight = useMemo(() => {
+  // Dynamic breakdown for Liquid Balance
+  const liquidBreakdown = useMemo(() => {
+    let cash = 0;
+    let bank = 0;
+    let wallet = 0;
+    
+    assets.forEach(asset => {
+      if (!asset.isDeleted && !asset.isHidden) {
+        const balance = getAssetBalance(asset.id);
+        if (asset.type === 'Cash') {
+          cash += balance;
+        } else if (asset.type === 'Bank Account') {
+          bank += balance;
+        } else if (asset.type === 'eWallet') {
+          wallet += balance;
+        }
+      }
+    });
+
+    const total = cash + bank + wallet;
+    return {
+      cash,
+      bank,
+      wallet,
+      cashPct: total > 0 ? Math.round((cash / total) * 100) : 0,
+      bankPct: total > 0 ? Math.round((bank / total) * 100) : 0,
+      walletPct: total > 0 ? Math.round((wallet / total) * 100) : 0,
+      total
+    };
+  }, [assets, getAssetBalance]);
+
+  // Dynamic breakdown for Savings & Investments
+  const savingsBreakdown = useMemo(() => {
+    let savings = 0;
+    let investment = 0;
+    
+    assets.forEach(asset => {
+      if (!asset.isDeleted && !asset.isHidden) {
+        const balance = getAssetBalance(asset.id);
+        if (asset.type === 'Savings') {
+          savings += balance;
+        } else if (asset.type === 'Investment') {
+          investment += balance;
+        }
+      }
+    });
+
+    const total = savings + investment;
+    return {
+      savings,
+      investment,
+      savingsPct: total > 0 ? Math.round((savings / total) * 100) : 0,
+      investmentPct: total > 0 ? Math.round((investment / total) * 100) : 0,
+      total
+    };
+  }, [assets, getAssetBalance]);
+
+  // Dynamic details for Income Card
+  const incomeDetails = useMemo(() => {
+    const vM = viewDate.getMonth();
+    const vY = viewDate.getFullYear();
+    
+    const incomeTxs = transactions.filter(tx => {
+      if (tx.type !== 'pendapatan') return false;
+      const txD = new Date(tx.date);
+      if (startOfMonthDay > 1) {
+        const start = new Date(vY, vM - 1, startOfMonthDay);
+        const end = new Date(vY, vM, startOfMonthDay - 1);
+        return txD >= start && txD <= end;
+      }
+      return txD.getMonth() === vM && txD.getFullYear() === vY;
+    });
+
+    const count = incomeTxs.length;
+
+    const catSums: Record<string, number> = {};
+    incomeTxs.forEach(tx => {
+      catSums[tx.category] = (catSums[tx.category] || 0) + tx.amount;
+    });
+
+    let topCategory = '';
+    let topAmount = 0;
+    Object.entries(catSums).forEach(([cat, amt]) => {
+      if (amt > topAmount) {
+        topAmount = amt;
+        topCategory = cat;
+      }
+    });
+
+    return {
+      count,
+      topCategory,
+      topAmount
+    };
+  }, [transactions, viewDate, startOfMonthDay]);
+
+  // Dynamic details for Weekly Expense Card
+  const weeklyExpenseDetails = useMemo(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(new Date().setDate(diff));
+    startOfWeek.setHours(0,0,0,0);
+
+    const weeklyTxs = transactions
+      .filter(tx => tx.type === 'pengeluaran')
+      .filter(tx => new Date(tx.date) >= startOfWeek);
+
+    const count = weeklyTxs.length;
+    const currentDayOfWeek = day === 0 ? 7 : day;
+    const dailyAverage = weeklyExpense / currentDayOfWeek;
+
+    const catSums: Record<string, number> = {};
+    weeklyTxs.forEach(tx => {
+      catSums[tx.category] = (catSums[tx.category] || 0) + tx.amount;
+    });
+
+    let topCategory = '';
+    let topAmount = 0;
+    Object.entries(catSums).forEach(([cat, amt]) => {
+      if (amt > topAmount) {
+        topAmount = amt;
+        topCategory = cat;
+      }
+    });
+
+    return {
+      count,
+      dailyAverage,
+      topCategory
+    };
+  }, [transactions, weeklyExpense]);
+
+  // Previous Period Calculations for Percentage Comparisons (using startOfMonthDay preference)
+  const prevPeriodRange = useMemo(() => {
+    const vM = viewDate.getMonth();
+    const vY = viewDate.getFullYear();
+    let start: Date;
+    let end: Date;
+    if (startOfMonthDay > 1) {
+      start = new Date(vY, vM - 2, startOfMonthDay);
+      end = new Date(vY, vM - 1, startOfMonthDay - 1);
+    } else {
+      start = new Date(vY, vM - 1, 1);
+      end = new Date(vY, vM, 0);
+    }
+    const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+    const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+    return { startStr, endStr };
+  }, [viewDate, startOfMonthDay]);
+
+  const prevPeriodEndStr = useMemo(() => {
+    const vM = viewDate.getMonth();
+    const vY = viewDate.getFullYear();
+    let d: Date;
+    if (startOfMonthDay > 1) {
+      d = new Date(vY, vM - 1, startOfMonthDay - 1);
+    } else {
+      d = new Date(vY, vM, 0);
+    }
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, [viewDate, startOfMonthDay]);
+
+  const lastMonthTotalLiquidBalance = useMemo(() => {
+    return assets.reduce((sum, asset) => {
+      let balance = asset.initialBalance;
+      transactions.forEach(tx => {
+        if (tx.date <= prevPeriodEndStr) {
+          if ((tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk') && tx.assetId === asset.id) balance += tx.amount;
+          else if ((tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar') && tx.assetId === asset.id) balance -= tx.amount;
+          else if (tx.type === 'transfer' && tx.fromAssetId === asset.id) balance -= tx.amount;
+          else if (tx.type === 'transfer' && tx.toAssetId === asset.id) balance += tx.amount;
+        }
+      });
+      return sum + balance;
+    }, 0);
+  }, [assets, transactions, prevPeriodEndStr]);
+
+  const lastMonthSavingsAndInvestments = useMemo(() => {
+    return assets
+      .filter(a => !a.isDeleted && !a.isHidden && (a.type === 'Savings' || a.type === 'Investment'))
+      .reduce((sum, asset) => {
+        let balance = asset.initialBalance;
+        transactions.forEach(tx => {
+          if (tx.date <= prevPeriodEndStr) {
+            if ((tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk') && tx.assetId === asset.id) balance += tx.amount;
+            else if ((tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar') && tx.assetId === asset.id) balance -= tx.amount;
+            else if (tx.type === 'transfer' && tx.fromAssetId === asset.id) balance -= tx.amount;
+            else if (tx.type === 'transfer' && tx.toAssetId === asset.id) balance += tx.amount;
+          }
+        });
+        return sum + balance;
+      }, 0);
+  }, [assets, transactions, prevPeriodEndStr]);
+
+  const lastMonthMonthlyIncome = useMemo(() => {
+    return transactions.filter(tx => {
+      if (tx.type !== 'pendapatan') return false;
+      return tx.date >= prevPeriodRange.startStr && tx.date <= prevPeriodRange.endStr;
+    }).reduce((sum, tx) => sum + tx.amount, 0);
+  }, [transactions, prevPeriodRange]);
+
+  const lastMonthMonthlyExpense = useMemo(() => {
+    return transactions.filter(tx => {
+      if (tx.type !== 'pengeluaran') return false;
+      return tx.date >= prevPeriodRange.startStr && tx.date <= prevPeriodRange.endStr;
+    }).reduce((sum, tx) => sum + tx.amount, 0);
+  }, [transactions, prevPeriodRange]);
+
+  const liquidChangePct = useMemo(() => {
+    if (lastMonthTotalLiquidBalance === 0) return 0;
+    return ((totalLiquidBalance - lastMonthTotalLiquidBalance) / lastMonthTotalLiquidBalance) * 100;
+  }, [totalLiquidBalance, lastMonthTotalLiquidBalance]);
+
+  const savingsChangePct = useMemo(() => {
+    if (lastMonthSavingsAndInvestments === 0) return 0;
+    return ((savingsAndInvestments - lastMonthSavingsAndInvestments) / lastMonthSavingsAndInvestments) * 100;
+  }, [savingsAndInvestments, lastMonthSavingsAndInvestments]);
+
+  const incomeChangePct = useMemo(() => {
+    if (lastMonthMonthlyIncome === 0) return 0;
+    return ((monthlyIncome - lastMonthMonthlyIncome) / lastMonthMonthlyIncome) * 100;
+  }, [monthlyIncome, lastMonthMonthlyIncome]);
+
+  const expenseChangePct = useMemo(() => {
+    if (lastMonthMonthlyExpense === 0) return 0;
+    return ((monthlyExpense - lastMonthMonthlyExpense) / lastMonthMonthlyExpense) * 100;
+  }, [monthlyExpense, lastMonthMonthlyExpense]);
+
+  const aiInsightData = useMemo(() => {
+    const vM = viewDate.getMonth();
+    const vY = viewDate.getFullYear();
+    
+    // Calculate Monthly Income & Expense
+    const mIncome = transactions.filter(tx => {
+      if (tx.type !== 'pendapatan') return false;
+      const txD = new Date(tx.date);
+      if (startOfMonthDay > 1) {
+        const start = new Date(vY, vM - 1, startOfMonthDay);
+        const end = new Date(vY, vM, startOfMonthDay - 1);
+        return txD >= start && txD <= end;
+      }
+      return txD.getMonth() === vM && txD.getFullYear() === vY;
+    }).reduce((sum, tx) => sum + tx.amount, 0);
+
+    const mExpense = transactions.filter(tx => {
+      if (tx.type !== 'pengeluaran') return false;
+      const txD = new Date(tx.date);
+      if (startOfMonthDay > 1) {
+        const start = new Date(vY, vM - 1, startOfMonthDay);
+        const end = new Date(vY, vM, startOfMonthDay - 1);
+        return txD >= start && txD <= end;
+      }
+      return txD.getMonth() === vM && txD.getFullYear() === vY;
+    }).reduce((sum, tx) => sum + tx.amount, 0);
+
+    const findings: string[] = [];
+    let score = 100;
+
+    // 1. Budget Checks
+    const activeBudgets = budgets.filter(b => b.month === vM && b.year === vY && b.categoryId !== null);
+    let overBudgetCount = 0;
+    let warningBudgetCount = 0;
+    
+    activeBudgets.forEach(b => {
+      const categoryObj = categories.find(c => c.id === b.categoryId);
+      if (categoryObj) {
+        const categoryName = categoryObj.name;
+        const catSpent = transactions
+          .filter(tx => {
+            if (tx.type !== 'pengeluaran' || tx.category !== categoryName) return false;
+            const txD = new Date(tx.date);
+            if (startOfMonthDay > 1) {
+              const start = new Date(vY, vM - 1, startOfMonthDay);
+              const end = new Date(vY, vM, startOfMonthDay - 1);
+              return txD >= start && txD <= end;
+            }
+            return txD.getMonth() === vM && txD.getFullYear() === vY;
+          })
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        
+        if (b.limit > 0) {
+          const ratio = catSpent / b.limit;
+          if (ratio >= 1.0) {
+            findings.push(`Budget ${categoryName} over ${Math.round((ratio - 1) * 100)}%.`);
+            overBudgetCount++;
+          } else if (ratio >= 0.8) {
+            findings.push(`Budget ${categoryName} terpakai ${Math.round(ratio * 100)}%.`);
+            warningBudgetCount++;
+          }
+        }
+      }
+    });
+
+    score -= (overBudgetCount * 15) + (warningBudgetCount * 5);
+
+    // 2. Cash Flow Checks
+    if (mIncome > 0 && mExpense > mIncome) {
+      const deficit = mExpense - mIncome;
+      findings.push(`Defisit arus kas ${formatCurrency(deficit, currencySymbol)}.`);
+      score -= 20;
+    } else if (mIncome > 0 && mIncome > mExpense) {
+      const savings = mIncome - mExpense;
+      const savingsRate = Math.round((savings / mIncome) * 100);
+      if (savingsRate >= 20) {
+        findings.push(`Menabung ${savingsRate}% dari pemasukan.`);
+        score += 10;
+      }
+    }
+
+    // 3. Weekly Expense Check
     if (weeklyExpense > 0) {
       const today = new Date();
       const day = today.getDay();
@@ -292,12 +602,84 @@ const Transactions: React.FC = () => {
         if (amt > topAmt) { topAmt = amt; topCat = cat; }
       });
       
-      if (topCat) {
-        return `Pengeluaran terbesar Anda minggu ini adalah di kategori ${topCat} sebesar ${formatCurrency(topAmt, currencySymbol)}. Tetap kontrol budget Anda!`;
+      if (topCat && topAmt > 0) {
+        const pct = Math.round((topAmt / weeklyExpense) * 100);
+        findings.push(`Fokus minggu ini: ${topCat} (${pct}%).`);
       }
     }
-    return "AI sedang menganalisis pola keuangan Anda. Terus catat transaksi untuk mendapatkan insight yang akurat.";
-  }, [transactions, weeklyExpense, currencySymbol]);
+
+    // 4. Runway Check
+    if (mExpense > 0 && totalLiquidBalance > 0) {
+      const runway = totalLiquidBalance / mExpense;
+      if (runway >= 3) {
+        findings.push(`Dana darurat aman (${runway.toFixed(1)} bln).`);
+      } else {
+        findings.push(`Dana darurat tipis (${runway.toFixed(1)} bln).`);
+        score -= 15;
+      }
+    }
+
+    // Fallbacks if findings list is empty
+    if (findings.length === 0) {
+      if (transactions.length === 0) {
+        findings.push("Catat transaksi pertama Anda.");
+        score = 100;
+      } else {
+        findings.push("Pola arus kas stabil.");
+        if (activeBudgets.length === 0) {
+          findings.push("Buat budget untuk audit otomatis.");
+        }
+      }
+    }
+
+    // Clamp score
+    score = Math.max(0, Math.min(100, score));
+    let statusText = "Sehat";
+    let statusColor = "text-primary-color";
+    let statusBg = "bg-primary-container/20";
+    if (score < 50) {
+      statusText = "Kritis";
+      statusColor = "text-error";
+      statusBg = "bg-error-container/20";
+    } else if (score < 80) {
+      statusText = "Waspada";
+      statusColor = "text-warning";
+      statusBg = "bg-warning/20";
+    }
+
+    // Generate sentence
+    let sentence = '';
+    const savings = mIncome - mExpense;
+    const savingsRate = mIncome > 0 ? (savings / mIncome) * 100 : 0;
+    const runway = mExpense > 0 ? totalLiquidBalance / mExpense : 0;
+
+    if (transactions.length === 0) {
+      sentence = "Selamat datang! Silakan catat transaksi pertama Anda untuk mengaktifkan analisis keuangan berbasis AI yang mendalam.";
+    } else if (mIncome > 0 && mExpense > mIncome) {
+      sentence = `Pengeluaran Anda bulan ini melebihi pemasukan. Kurangi pos non-essential untuk menghindari defisit yang lebih besar (${formatCurrency(mExpense - mIncome, currencySymbol)}).`;
+    } else if (overBudgetCount > 0) {
+      sentence = `Anda telah melebihi batas anggaran di ${overBudgetCount} kategori. Segera batasi pengeluaran di pos tersebut untuk menjaga kestabilan finansial.`;
+    } else if (warningBudgetCount > 0) {
+      sentence = `Anggaran untuk ${warningBudgetCount} kategori sudah mendekati batas limit. Mulai kendalikan konsumsi Anda di sisa bulan ini.`;
+    } else if (savingsRate >= 20) {
+      sentence = `Luar biasa! Anda berhasil menghemat ${Math.round(savingsRate)}% dari pemasukan. Pertahankan tren positif ini untuk mempercepat tujuan keuangan Anda.`;
+    } else if (runway >= 3) {
+      sentence = `Kondisi dana darurat Anda sangat sehat, mampu menutupi kebutuhan hingga ${runway.toFixed(1)} bulan. Fokuslah mengalokasikan sisa dana ke investasi.`;
+    } else if (runway > 0 && runway < 3) {
+      sentence = `Dana darurat Anda hanya cukup untuk ${runway.toFixed(1)} bulan. Prioritaskan menabung untuk memperkuat bantalan keuangan Anda.`;
+    } else {
+      sentence = "Keuangan Anda dalam kondisi stabil bulan ini. Terus pantau pengeluaran harian dan pertahankan kebiasaan mencatat transaksi Anda.";
+    }
+
+    return {
+      score,
+      statusText,
+      statusColor,
+      statusBg,
+      findings: findings.slice(0, 3), // Show top 3 findings
+      sentence
+    };
+  }, [transactions, weeklyExpense, totalLiquidBalance, budgets, categories, viewDate, startOfMonthDay, currencySymbol]);
 
   const handleEdit = useCallback((tx: Transaction) => {
     setEditingTransaction(tx);
@@ -346,105 +728,259 @@ const Transactions: React.FC = () => {
         {/* Hero Summary Section - Bento Grid */}
         <section className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
           
-          {/* Main Balance Card (Spans 8 cols on desktop) */}
-          <div className="col-span-1 md:col-span-8 bg-bg-card p-6 md:p-8 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+          {/* Main Balance Card (Spans 6 cols on desktop, vertical compact stack) */}
+          <div className="col-span-1 md:col-span-6 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-primary opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
             
-            <div className="flex justify-between items-start relative z-10">
+            <div className="flex justify-between items-center relative z-10">
               <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Total Saldo Likuid</span>
-              <div className="w-14 h-14 rounded-2xl bg-primary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                <MaterialIcon name="account_balance_wallet" className="text-primary text-3xl" />
+              <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                <MaterialIcon name="account_balance_wallet" className="text-primary text-base" />
               </div>
             </div>
-            <div className="mt-8 relative z-10">
-              <h2 className="text-4xl md:text-5xl font-bold text-on-surface tracking-tight truncate">{formatCurrency(totalLiquidBalance, currencySymbol)}</h2>
-              <div className="flex flex-wrap gap-2 mt-4">
-                <span className="px-3 py-1 bg-surface-container text-xs font-bold rounded-full text-on-surface-variant">Cash</span>
-                <span className="px-3 py-1 bg-surface-container text-xs font-bold rounded-full text-on-surface-variant">Bank</span>
-                <span className="px-3 py-1 bg-surface-container text-xs font-bold rounded-full text-on-surface-variant">eWallet</span>
+            
+            <div className="mt-2.5 relative z-10 space-y-3">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold text-on-surface tracking-tight truncate">{formatCurrency(totalLiquidBalance, currencySymbol)}</h2>
+                <div className="mt-0.5">
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${liquidChangePct >= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
+                    <MaterialIcon name={liquidChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
+                    {Math.abs(liquidChangePct).toFixed(1)}% vs bulan lalu
+                  </span>
+                </div>
+              </div>
+              
+              {/* Visual breakdown progress bar */}
+              <div className="w-full">
+                <div className="flex justify-between text-xs text-on-surface-variant mb-1 font-semibold">
+                  <span>Distribusi Saldo</span>
+                  <span>{liquidBreakdown.cashPct}% / {liquidBreakdown.bankPct}% / {liquidBreakdown.walletPct}%</span>
+                </div>
+                <div className="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden flex gap-0.5 shadow-inner">
+                  {liquidBreakdown.cash > 0 && (
+                    <div style={{ width: `${liquidBreakdown.cashPct}%` }} className="bg-primary h-full transition-all duration-500 rounded-l" title={`Tunai: ${liquidBreakdown.cashPct}%`}></div>
+                  )}
+                  {liquidBreakdown.bank > 0 && (
+                    <div style={{ width: `${liquidBreakdown.bankPct}%` }} className="bg-secondary h-full transition-all duration-500" title={`Rekening: ${liquidBreakdown.bankPct}%`}></div>
+                  )}
+                  {liquidBreakdown.wallet > 0 && (
+                    <div style={{ width: `${liquidBreakdown.walletPct}%` }} className="bg-outline h-full transition-all duration-500 rounded-r" title={`eWallet: ${liquidBreakdown.walletPct}%`}></div>
+                  )}
+                  {liquidBreakdown.total === 0 && (
+                    <div className="w-full bg-surface-container h-full"></div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Tight details below */}
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+                  <span className="text-on-surface-variant">Tunai: <strong className="text-on-surface font-semibold">{formatCurrency(liquidBreakdown.cash, currencySymbol)}</strong></span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-secondary shrink-0"></span>
+                  <span className="text-on-surface-variant">Rekening: <strong className="text-on-surface font-semibold">{formatCurrency(liquidBreakdown.bank, currencySymbol)}</strong></span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-outline shrink-0"></span>
+                  <span className="text-on-surface-variant">eWallet: <strong className="text-on-surface font-semibold">{formatCurrency(liquidBreakdown.wallet, currencySymbol)}</strong></span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Savings & Investments (Spans 4 cols on desktop) */}
-          <div className="col-span-1 md:col-span-4 bg-bg-card p-6 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
-             <div className="absolute bottom-0 right-0 w-32 h-32 bg-secondary opacity-10 rounded-full blur-2xl translate-y-1/4 translate-x-1/4"></div>
-             <div className="flex justify-between items-start relative z-10">
+          {/* Savings & Investments (Spans 3 cols on desktop) */}
+          <div className="col-span-1 md:col-span-3 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
+             <div className="absolute bottom-0 right-0 w-24 h-24 bg-secondary opacity-10 rounded-full blur-2xl translate-y-1/4 translate-x-1/4"></div>
+             <div className="flex justify-between items-center relative z-10">
               <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Tabungan & Invest</span>
-              <div className="w-12 h-12 rounded-2xl bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                <MaterialIcon name="savings" className="text-secondary text-2xl" />
+              <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                <MaterialIcon name="savings" className="text-secondary text-base" />
               </div>
             </div>
-            <div className="mt-6 relative z-10">
-              <h2 className="text-2xl font-bold text-on-surface truncate">{formatCurrency(savingsAndInvestments, currencySymbol)}</h2>
-              <p className="text-xs text-secondary font-bold mt-1">Aset Masa Depan</p>
+            <div className="mt-2.5 relative z-10">
+              <div>
+                <h2 className="text-2xl font-bold text-on-surface truncate">{formatCurrency(savingsAndInvestments, currencySymbol)}</h2>
+                <div className="mt-0.5">
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${savingsChangePct >= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
+                    <MaterialIcon name={savingsChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
+                    {Math.abs(savingsChangePct).toFixed(1)}% vs bulan lalu
+                  </span>
+                </div>
+              </div>
+              
+              {/* Savings vs Investment ratio */}
+              <div className="mt-3">
+                <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden flex shadow-inner">
+                  {savingsBreakdown.savings > 0 && (
+                    <div style={{ width: `${savingsBreakdown.savingsPct}%` }} className="bg-secondary h-full" title={`Tabungan: ${savingsBreakdown.savingsPct}%`}></div>
+                  )}
+                  {savingsBreakdown.investment > 0 && (
+                    <div style={{ width: `${savingsBreakdown.investmentPct}%` }} className="bg-primary h-full" title={`Investasi: ${savingsBreakdown.investmentPct}%`}></div>
+                  )}
+                  {savingsBreakdown.total === 0 && (
+                    <div className="w-full bg-surface-container h-full"></div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Detailed Breakdown Items */}
+              <div className="mt-3 pt-2.5 border-t border-border-light flex flex-col gap-1 text-[11px] text-on-surface-variant">
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0"></span>
+                    <span>Tabungan ({savingsBreakdown.savingsPct}%)</span>
+                  </span>
+                  <span className="font-semibold text-on-surface">{formatCurrency(savingsBreakdown.savings, currencySymbol)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
+                    <span>Investasi ({savingsBreakdown.investmentPct}%)</span>
+                  </span>
+                  <span className="font-semibold text-on-surface">{formatCurrency(savingsBreakdown.investment, currencySymbol)}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Income Card (4 cols) */}
-          <div 
-            className="col-span-1 md:col-span-4 bg-bg-card p-6 rounded-3xl shadow-bento flex flex-col justify-between cursor-pointer group hover:-translate-y-1 transition-all"
-            onClick={() => handleAdd('pendapatan')}
-          >
-            <div className="flex justify-between items-start">
-              <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pemasukan Bulan Ini</span>
-              <div className="w-12 h-12 rounded-2xl bg-income flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                <MaterialIcon name="trending_up" className="text-primary-color text-2xl" />
-              </div>
-            </div>
-            <div className="mt-6">
-              <h2 className="text-2xl font-bold text-primary-color truncate">{formatCurrency(monthlyIncome, currencySymbol)}</h2>
-            </div>
-          </div>
-
-          {/* Expense Card (4 cols) */}
-          <div 
-            className="col-span-1 md:col-span-4 bg-bg-card p-6 rounded-3xl shadow-bento flex flex-col justify-between cursor-pointer group hover:-translate-y-1 transition-all"
-            onClick={() => handleAdd('pengeluaran')}
-          >
-            <div className="flex justify-between items-start">
-              <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran Mingguan</span>
-              <div className="w-12 h-12 rounded-2xl bg-expense flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                <MaterialIcon name="trending_down" className="text-error text-2xl" />
-              </div>
-            </div>
-            <div className="mt-6">
-              <h2 className="text-2xl font-bold text-error truncate">{formatCurrency(weeklyExpense, currencySymbol)}</h2>
-            </div>
-          </div>
-
-          {/* Top 3 Assets List (4 cols) */}
-          <div className="col-span-1 md:col-span-4 bg-bg-card p-6 rounded-3xl shadow-bento flex flex-col space-y-4">
+          {/* Top 3 Assets List (Spans 3 cols on desktop) */}
+          <div className="col-span-1 md:col-span-3 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between group">
              <div className="flex items-center justify-between">
                 <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Top 3 Aset</span>
                 <MaterialIcon name="star" className="text-primary text-sm" />
              </div>
-             <div className="flex-1 flex flex-col gap-2 justify-center">
+             <div className="mt-3 flex-1 flex flex-col gap-1.5 justify-center">
                 {topAssets.length === 0 ? (
-                  <div className="text-xs text-on-surface-variant text-center">Belum ada aset</div>
+                  <div className="text-[11px] text-on-surface-variant text-center py-2">Belum ada aset</div>
                 ) : (
                   topAssets.map((asset, i) => (
-                    <div key={asset.id} className="flex justify-between items-center bg-surface-container-lowest p-2 rounded-xl border border-outline-variant hover:bg-surface-container transition-colors">
-                       <div className="flex items-center gap-2 overflow-hidden">
-                         <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-xs font-bold text-on-surface-variant shrink-0">{i+1}</div>
-                         <span className="text-sm font-bold text-on-surface truncate">{asset.name}</span>
+                    <div key={asset.id} className="flex justify-between items-center bg-surface-container-lowest p-1.5 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors">
+                       <div className="flex items-center gap-1.5 overflow-hidden">
+                         <div className="w-5 h-5 rounded bg-surface-container flex items-center justify-center text-[9px] font-bold text-on-surface-variant shrink-0">{i+1}</div>
+                         <span className="text-xs font-bold text-on-surface truncate">{asset.name}</span>
                        </div>
-                       <span className="text-sm font-bold text-on-surface ml-2 shrink-0">{formatCurrency(asset.balance, currencySymbol)}</span>
+                       <span className="text-xs font-bold text-on-surface ml-1.5 shrink-0">{formatCurrency(asset.balance, currencySymbol)}</span>
                     </div>
                   ))
                 )}
              </div>
           </div>
 
-          {/* AI Insight Card (Spans 12 cols, distinct styling) */}
-          <div className="col-span-1 md:col-span-12 bg-surface-container p-6 rounded-3xl border border-outline-variant flex flex-col md:flex-row items-start md:items-center gap-4 relative overflow-hidden group">
-             <div className="absolute top-0 left-0 w-32 h-32 bg-primary opacity-10 rounded-full blur-2xl -translate-y-1/2 -translate-x-1/2 group-hover:opacity-20 transition-opacity"></div>
-             <div className="w-12 h-12 rounded-full bg-bg-card shadow-sm flex items-center justify-center shrink-0 relative z-10 group-hover:rotate-12 transition-transform">
-               <MaterialIcon name="auto_awesome" filled className="text-primary text-xl" />
+          {/* Income Card (4 cols) */}
+          <div 
+            className="col-span-1 md:col-span-4 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between cursor-pointer group hover:-translate-y-1 transition-all"
+            onClick={() => handleAdd('pendapatan')}
+          >
+            <div className="flex justify-between items-center">
+              <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pemasukan Bulan Ini</span>
+              <div className="w-8 h-8 rounded-lg bg-income flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                <MaterialIcon name="trending_up" className="text-primary-color text-base" />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <div>
+                <h2 className="text-2xl font-bold text-primary-color truncate">{formatCurrency(monthlyIncome, currencySymbol)}</h2>
+                <div className="mt-0.5">
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${incomeChangePct >= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
+                    <MaterialIcon name={incomeChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
+                    {Math.abs(incomeChangePct).toFixed(1)}% vs bulan lalu
+                  </span>
+                </div>
+              </div>
+              
+              <div className="mt-3 pt-2.5 border-t border-border-light flex flex-col gap-1 text-[11px] text-on-surface-variant">
+                <div className="flex justify-between">
+                  <span>Frekuensi:</span>
+                  <span className="font-semibold text-on-surface">{incomeDetails.count} Kali</span>
+                </div>
+                <div className="flex justify-between truncate">
+                  <span>Sumber Utama:</span>
+                  <span className="font-semibold text-on-surface truncate" title={incomeDetails.topCategory || 'N/A'}>
+                    {incomeDetails.topCategory ? `${incomeDetails.topCategory}` : 'Belum ada'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Expense Card (4 cols) */}
+          <div 
+            className="col-span-1 md:col-span-4 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between cursor-pointer group hover:-translate-y-1 transition-all"
+            onClick={() => handleAdd('pengeluaran')}
+          >
+            <div className="flex justify-between items-center">
+              <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran Mingguan</span>
+              <div className="w-8 h-8 rounded-lg bg-expense flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                <MaterialIcon name="trending_down" className="text-error text-base" />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <div>
+                <h2 className="text-2xl font-bold text-error truncate">{formatCurrency(weeklyExpense, currencySymbol)}</h2>
+                <div className="mt-0.5">
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${expenseChangePct <= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Total bulanan vs bulan lalu">
+                    <MaterialIcon name={expenseChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
+                    {Math.abs(expenseChangePct).toFixed(1)}% vs bulan lalu
+                  </span>
+                </div>
+              </div>
+              
+              <div className="mt-3 pt-2.5 border-t border-border-light flex flex-col gap-1 text-[11px] text-on-surface-variant">
+                <div className="flex justify-between">
+                  <span>Rerata Harian:</span>
+                  <span className="font-semibold text-on-surface">{formatCurrency(weeklyExpenseDetails.dailyAverage, currencySymbol)}</span>
+                </div>
+                <div className="flex justify-between truncate">
+                  <span>Pos Terbesar:</span>
+                  <span className="font-semibold text-on-surface truncate" title={weeklyExpenseDetails.topCategory || 'N/A'}>
+                    {weeklyExpenseDetails.topCategory ? `${weeklyExpenseDetails.topCategory}` : 'Belum ada'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Insight Card (Spans 4 cols, compact design matching the row) */}
+          <div className="col-span-1 md:col-span-4 bg-surface-container p-5 rounded-3xl border border-outline-variant flex flex-col justify-between relative overflow-hidden group">
+             <div className="absolute top-0 left-0 w-24 h-24 bg-primary opacity-10 rounded-full blur-xl -translate-y-1/2 -translate-x-1/2 group-hover:opacity-20 transition-opacity"></div>
+             
+             <div className="flex justify-between items-start relative z-10">
+               <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider flex items-center gap-1.5">
+                 <MaterialIcon name="auto_awesome" filled className="text-primary text-sm" />
+                 Insight AI
+               </span>
+               <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${aiInsightData.statusBg} ${aiInsightData.statusColor}`}>
+                 {aiInsightData.statusText}
+               </span>
              </div>
-             <div className="relative z-10 flex-1">
-               <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">Insight AI <span className="px-2 py-0.5 bg-primary-container text-on-primary-container text-[10px] rounded-full uppercase tracking-wider">Beta</span></h3>
-               <p className="text-sm text-on-surface-variant mt-1 leading-relaxed">{aiInsight}</p>
+             
+             <div className="mt-3 relative z-10 space-y-3 flex-1 flex flex-col justify-between">
+                {/* Score bar */}
+                <div>
+                  <div className="flex justify-between items-center text-[10px] text-on-surface-variant mb-1 font-semibold">
+                    <span>Skor Kesehatan</span>
+                    <span className="font-bold text-on-surface">{aiInsightData.score}/100</span>
+                  </div>
+                  <div className="w-full h-1 bg-surface-container-highest rounded-full overflow-hidden flex shadow-inner">
+                    <div style={{ width: `${aiInsightData.score}%` }} className="bg-primary h-full transition-all duration-500"></div>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-on-surface leading-relaxed font-semibold">
+                  {aiInsightData.sentence}
+                </p>
+
+                {/* Findings List */}
+                <div className="pt-2 border-t border-border-light flex flex-col gap-1.5">
+                  {aiInsightData.findings.map((finding, idx) => (
+                    <div key={idx} className="flex items-start gap-1.5 text-[11px] leading-tight text-on-surface-variant font-medium">
+                      <MaterialIcon name="chevron_right" className="text-[10px] text-primary mt-0.5 shrink-0" />
+                      <span className="truncate">{finding}</span>
+                    </div>
+                  ))}
+                </div>
              </div>
           </div>
         </section>
@@ -489,13 +1025,13 @@ const Transactions: React.FC = () => {
           {/* Left: Transaction List (60%) */}
           <div className="lg:w-[60%] space-y-6">
             <div className="bg-bg-card rounded-3xl shadow-bento overflow-hidden">
-              <div className="p-4 border-b border-border-light flex flex-col gap-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="px-4 pt-4 pb-3 border-b border-border-light flex flex-col gap-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                   {/* Search box */}
-                  <div className="flex items-center gap-2 bg-surface-container-low rounded-lg px-3 py-2 border border-outline-variant flex-grow max-w-xs">
+                  <div className="flex items-center gap-2 bg-surface-container-low rounded-lg px-3 py-1.5 border border-outline-variant max-w-[220px] w-full">
                     <MaterialIcon name="search" className="text-on-surface-variant text-sm" />
                     <input 
-                      className="bg-transparent border-none focus:ring-0 text-sm w-full font-body-md outline-none text-on-surface" 
+                      className="bg-transparent border-none focus:ring-0 text-sm w-full font-body-md outline-none text-on-surface !p-0 !mb-0" 
                       placeholder="Cari transaksi..." 
                       type="text"
                       value={searchQuery}

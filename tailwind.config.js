@@ -70,7 +70,10 @@ export default {
           900: '#0F1115',
           800: '#14171C',
           700: '#1A1D24',
-        }
+        },
+        "primary-color": "var(--primary-color, #8ba888)",
+        "income": "var(--bg-income)",
+        "expense": "var(--bg-expense)",
       },
       borderRadius: {
         "DEFAULT": "0.25rem",
