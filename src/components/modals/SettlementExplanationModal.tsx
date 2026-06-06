@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { ArrowRight, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+
 import { type Trip, type TripExpense } from '../../contexts/MoneyContext';
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface SettlementExplanationModalProps {
   isOpen: boolean;
@@ -120,7 +121,7 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
           }}>
             <span style={{ fontWeight: 800, fontSize: '16px' }}>{explanation.from?.name || (explanation as any).from}</span>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <ArrowRight size={20} color="var(--primary)" />
+              <MaterialIcon name="arrow_forward" className="text-[20px]" />
               <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--primary)' }}>{currencySymbol}{settlement.amount.toLocaleString('id-ID')}</span>
             </div>
             <span style={{ fontWeight: 800, fontSize: '16px' }}>{explanation.to?.name || (explanation as any).to}</span>
@@ -135,7 +136,7 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
               {(explanation as any).fromOwesTo.length > 0 && (
                 <div>
                   <h4 style={{ fontSize: '12px', fontWeight: 800, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <ArrowDownRight size={14} /> Hutang {(explanation as any).from} ke {(explanation as any).to}
+                    <MaterialIcon name="call_received" className="text-[14px]" /> Hutang {(explanation as any).from} ke {(explanation as any).to}
                   </h4>
                   <div style={{ display: 'grid', gap: '8px' }}>
                     {(explanation as any).fromOwesTo.map((item: any, i: number) => (
@@ -154,7 +155,7 @@ const SettlementExplanationModal: React.FC<SettlementExplanationModalProps> = ({
               {(explanation as any).toOwesFrom.length > 0 && (
                 <div>
                   <h4 style={{ fontSize: '12px', fontWeight: 800, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <ArrowUpRight size={14} /> Piutang {(explanation as any).from} dari {(explanation as any).to}
+                    <MaterialIcon name="call_made" className="text-[14px]" /> Piutang {(explanation as any).from} dari {(explanation as any).to}
                   </h4>
                   <div style={{ display: 'grid', gap: '8px' }}>
                     {(explanation as any).toOwesFrom.map((item: any, i: number) => (

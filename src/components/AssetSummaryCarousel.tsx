@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import MaterialIcon from './common/MaterialIcon';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type CardId =
@@ -368,83 +368,59 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
         {/* Top row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 700, opacity: 0.9, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <div className="text-xs font-bold opacity-90 mb-0.5 uppercase tracking-wider">
               {def.label}
             </div>
-            <div style={{ fontSize: '11px', opacity: 0.7 }}>{def.description}</div>
+            <div className="text-[11px] opacity-70">{def.description}</div>
           </div>
           <button
             onClick={e => { e.stopPropagation(); onTogglePrivate(); }}
-            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.8, padding: '4px', flexShrink: 0 }}
+            className="bg-transparent border-none text-white cursor-pointer opacity-80 p-1 shrink-0"
           >
-            {isPrivateMode ? <EyeOff size={16} /> : <Eye size={16} />}
+            <MaterialIcon name={isPrivateMode ? "visibility_off" : "visibility"} className="text-base" />
           </button>
         </div>
 
         {/* Amount */}
         <div>
-          <div style={{
-            fontSize: value > 999_999_999 ? '22px' : value > 99_999_999 ? '26px' : '30px',
-            fontWeight: 800,
-            letterSpacing: '-1px',
-            lineHeight: 1.1,
-            marginBottom: '8px',
-            transition: 'font-size 0.2s',
-            textShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          }}>
+          <div 
+            className="font-extrabold tracking-tight mb-2 transition-all duration-200"
+            style={{
+              fontSize: value > 999_999_999 ? '22px' : value > 99_999_999 ? '26px' : '30px',
+              lineHeight: 1.1,
+              textShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            }}
+          >
             {formatted}
           </div>
 
           {/* Tier badge */}
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '5px',
-            background: 'rgba(0,0,0,0.22)',
-            borderRadius: '20px',
-            padding: '3px 10px',
-            fontSize: '11px',
-            fontWeight: 700,
-            backdropFilter: 'blur(4px)',
-            marginBottom: '6px',
-          }}>
+          <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur-sm mb-1.5">
             <span>{tier.emoji}</span>
             <span>{tier.rank}</span>
           </div>
 
           {/* Rotating motivational message */}
-          <div key={message} style={{
-            fontSize: '11px',
-            opacity: 0.88,
-            lineHeight: 1.45,
-            fontStyle: 'italic',
-            fontWeight: 500,
-            animation: 'fadeIn 0.5s ease',
-            marginBottom: '8px',
-          }}>
+          <div key={message} className="text-[11px] opacity-90 leading-snug italic font-medium animate-fadeIn mb-2">
             {message}
           </div>
 
           {/* Next tier hint */}
           {!isPrivateMode && (
             nextTier ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{
-                  height: '3px', borderRadius: '2px',
-                  background: 'rgba(255,255,255,0.2)',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    height: '100%', borderRadius: '2px',
-                    width: `${Math.round(fillPercent * 100)}%`,
-                    background: 'rgba(255,255,255,0.75)',
-                    transition: 'width 1s ease',
-                  }} />
+              <div className="flex flex-col gap-1">
+                <div className="h-1 rounded-sm bg-white/20 overflow-hidden">
+                  <div 
+                    className="h-full rounded-sm bg-white/75 transition-all duration-1000 ease-out"
+                    style={{ width: `${Math.round(fillPercent * 100)}%` }} 
+                  />
                 </div>
-                <div style={{ fontSize: '10px', opacity: 0.75, fontWeight: 600 }}>
+                <div className="text-[10px] opacity-75 font-semibold">
                   {currencySymbol}{amountToNext.toLocaleString('id-ID')} lagi ke {nextTier.emoji} {nextTier.rank}
                 </div>
               </div>
             ) : (
-              <div style={{ fontSize: '10px', opacity: 0.75, fontWeight: 700 }}>
+              <div className="text-[10px] opacity-75 font-bold">
                 🏆 Kamu sudah di puncak! Sultan sejati!
               </div>
             )

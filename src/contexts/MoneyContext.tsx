@@ -402,7 +402,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [autoCloudSync, setAutoCloudSync] = useState<{ status: 'idle' | 'pulling' | 'success' | 'error'; total?: number; message?: string }>({ status: 'idle' });
   const [assetCarouselCards, setAssetCarouselCardsState] = useState<string[]>(['net_worth']);
-  const [statsCarouselCards, setStatsCarouselCardsState] = useState<string[]>(['all', 'cash_bank', 'health']);
+  const [statsCarouselCards, setStatsCarouselCardsState] = useState<string[]>(['all', 'cash_bank', 'detailed_analysis', 'health']);
   const [defaultStatsView, setDefaultStatsViewState] = useState<string>('all');
   const [chartStyle, setChartStyleState] = useState<'area' | 'line'>('area');
   const [budgetMode, setBudgetModeState] = useState<BudgetMode>('regular');

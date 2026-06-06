@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Share2, ArrowRight, CheckCircle2, Wallet, ChevronRight, ExternalLink, Info, History as HistoryIcon } from 'lucide-react';
+
 import AssetSelectModal from './AssetSelectModal';
 import CurrencyInput from '../common/CurrencyInput';
 import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
@@ -9,6 +9,7 @@ import SettlementExplanationModal from './SettlementExplanationModal';
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface SettleUpModalProps {
   isOpen: boolean;
@@ -465,7 +466,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                     background: 'var(--bg-card)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
-                    <Wallet size={20} color={'var(--text-muted)'} />
+                    <MaterialIcon name="account_balance_wallet" />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 800, fontSize: '14px' }}>{assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</div>
@@ -494,7 +495,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
                   {isProcessing ? 'Memproses...' : !selectedAssetId ? 'Pilih Aset Dulu' : (parseInt(settleAmount) || 0) <= 0 ? 'Nominal tidak valid' : 'Konfirmasi Pelunasan'}
-                  {!isProcessing && selectedAssetId && (parseInt(settleAmount) || 0) > 0 && <ChevronRight size={18} />}
+                  {!isProcessing && selectedAssetId && (parseInt(settleAmount) || 0) > 0 && <MaterialIcon name="chevron_right" className="text-[18px]" />}
                 </Button>
               </div>
             </div>
@@ -534,7 +535,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 </button>
                 {trip.settlementMode && (
                   <div style={{ position: 'absolute', top: '-18px', right: '0', fontSize: '10px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <HistoryIcon size={10} /> MODE TERKUNCI
+                    <MaterialIcon name="history" className="text-[10px]" /> MODE TERKUNCI
                   </div>
                 )}
               </div>
@@ -611,7 +612,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                            <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setSelectedSettlement(t)}>
                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                                <span style={{ fontWeight: 800 }}>{from?.name}</span>
-                               <ArrowRight size={14} color="var(--text-muted)" />
+                               <MaterialIcon name="arrow_forward" className="text-[14px]" />
                                <span style={{ fontWeight: 800 }}>{to?.name}</span>
                              </div>
                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
@@ -630,7 +631,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                                </div>
                              )}
                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                               Kenapa bayar segini? <Info size={10} />
+                               Kenapa bayar segini? <MaterialIcon name="info" className="text-[10px]" />
                              </div>
                            </div>
                            {(t.from === 'me' || t.to === 'me') && !isPaid && (
@@ -643,12 +644,12 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                                style={{ color: 'var(--success)', background: 'var(--success-glow)' }}
                                title="Tandai sebagai Lunas / Cicil"
                              >
-                               <CheckCircle2 size={20} />
+                               <MaterialIcon name="check_circle" className="text-[20px]" />
                              </button>
                            )}
                            {isPaid && (
                              <div style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800 }}>
-                               <CheckCircle2 size={16} /> LUNAS
+                               <MaterialIcon name="check_circle" className="text-[16px]" /> LUNAS
                              </div>
                            )}
                          </Card>
@@ -665,7 +666,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                   disabled={isSharing}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 8px', fontSize: '12px' }}
                 >
-                  {isSharing ? '...' : shareId ? <><CheckCircle2 size={16} /> Copy</> : <><Share2 size={16} /> Share Link</>}
+                  {isSharing ? '...' : shareId ? <><MaterialIcon name="check_circle" className="text-[16px]" /> Copy</> : <><MaterialIcon name="share" className="text-[16px]" /> Share Link</>}
                 </Button>
                 {shareId && (
                   <Button 
@@ -673,7 +674,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                     onClick={() => window.open(`${window.location.origin}/shared-split/${shareId}`, '_blank')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 8px', fontSize: '12px', background: 'var(--primary-glow)', color: 'var(--primary)', borderColor: 'var(--primary)' }}
                   >
-                    <ExternalLink size={16} /> Buka
+                    <MaterialIcon name="open_in_new" className="text-[16px]" /> Buka
                   </Button>
                 )}
                 <Button 

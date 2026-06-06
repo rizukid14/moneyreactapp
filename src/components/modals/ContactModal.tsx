@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, UserPlus, Edit2 } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Contact } from '../../contexts/MoneyContext';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -65,11 +66,11 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, editingCon
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>
-              {editingContact ? <Edit2 size={22} className="text-primary" /> : <UserPlus size={22} className="text-primary" />}
+              {editingContact ? <MaterialIcon name="edit" className="text-[22px] text-primary" /> : <MaterialIcon name="person_add" className="text-[22px] text-primary" />}
               {editingContact ? 'Edit Kontak' : 'Tambah Kontak Baru'}
             </h2>
             <button onClick={onClose} className="btn-icon">
-              <X size={20} />
+              <MaterialIcon name="close" className="text-[20px]" />
             </button>
           </div>
 
@@ -120,7 +121,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, editingCon
               className="btn btn-primary"
               style={{ width: '100%', padding: '16px', borderRadius: '16px', fontWeight: 800, fontSize: '16px', marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
             >
-              <Save size={20} />
+              <MaterialIcon name="save" className="text-[20px]" />
               {editingContact ? 'Simpan Perubahan' : 'Tambah Kontak'}
             </button>
           </form>

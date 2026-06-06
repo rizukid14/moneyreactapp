@@ -16,14 +16,7 @@ export interface TabBarProps {
 export const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onChange, className = '' }) => {
   return (
     <div 
-      className={className}
-      style={{ 
-        display: 'flex', 
-        background: 'var(--bg-card)', 
-        padding: '4px', 
-        borderRadius: '16px',
-        border: '1px solid var(--border-color)'
-      }}
+      className={`flex bg-surface-container rounded-lg p-1 overflow-x-auto hide-scrollbar border border-outline-variant ${className}`}
     >
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
@@ -33,19 +26,11 @@ export const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onChange, cla
             data-testid={tab['data-testid']}
             type="button"
             onClick={() => onChange(tab.id)}
-            style={{
-              flex: 1,
-              padding: '10px 12px',
-              borderRadius: '12px',
-              border: 'none',
-              background: isActive ? 'var(--primary)' : 'transparent',
-              color: isActive ? 'white' : 'var(--text-muted)',
-              fontWeight: 700,
-              fontSize: '13px',
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              cursor: 'pointer',
-              boxShadow: isActive ? '0 4px 15px var(--primary-glow)' : 'none'
-            }}
+            className={`flex-1 px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap cursor-pointer border-none outline-none ${
+              isActive 
+                ? 'bg-primary text-white shadow-sm' 
+                : 'bg-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-subtle'
+            }`}
           >
             {tab.label}
           </button>
@@ -54,3 +39,5 @@ export const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onChange, cla
     </div>
   );
 };
+
+export const SegmentedControl = TabBar;

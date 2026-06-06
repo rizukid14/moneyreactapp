@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square, ArrowRight, Trash2, Plus } from 'lucide-react';
+import MaterialIcon from '../common/MaterialIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
@@ -698,12 +698,12 @@ const ChatBot: React.FC = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <MessageCircle size={18} />
+                <MaterialIcon name="forum" className="text-[18px]" />
               </div>
               <span style={{ fontWeight: 700, fontSize: '16px' }}>MoneyBot AI</span>
             </div>
             <button onClick={() => setIsChatOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '4px' }}>
-              <X size={20} />
+              <MaterialIcon name="close" className="text-[20px]" />
             </button>
           </div>
 
@@ -743,7 +743,7 @@ const ChatBot: React.FC = () => {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
-                      <AlertCircle size={16} />
+                      <MaterialIcon name="error" className="text-[16px]" />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
                         {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : msg.toolCall.name === 'create_debt' ? 'Draft Catatan Hutang' : 'Draft Langganan Baru'}
                       </span>
@@ -1357,7 +1357,7 @@ const ChatBot: React.FC = () => {
                         }}
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                       >
-                        <Check size={16} /> Konfirmasi
+                        <MaterialIcon name="check" className="text-[16px]" /> Konfirmasi
                       </button>
                     </div>
                   </div>
@@ -1374,7 +1374,7 @@ const ChatBot: React.FC = () => {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
-                      <AlertCircle size={16} />
+                      <MaterialIcon name="error" className="text-[16px]" />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
                         Rekomendasi Anggaran ({MONTH_NAMES[msg.toolCall.arguments.month] || msg.toolCall.arguments.month} {msg.toolCall.arguments.year})
                       </span>
@@ -1440,7 +1440,7 @@ const ChatBot: React.FC = () => {
                                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
                                   onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
                                 >
-                                  <Trash2 size={14} />
+                                  <MaterialIcon name="delete" className="text-[14px]" />
                                 </button>
                               </div>
                             </div>
@@ -1480,7 +1480,7 @@ const ChatBot: React.FC = () => {
                             marginTop: '4px'
                           }}>
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Plus size={14} /> Tambah:
+                              <MaterialIcon name="add" className="text-[14px]" /> Tambah:
                             </span>
                             <button
                               type="button"
@@ -1532,7 +1532,7 @@ const ChatBot: React.FC = () => {
                         marginBottom: '16px' 
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
-                          <ArrowRight size={16} />
+                          <MaterialIcon name="arrow_forward" className="text-[16px]" />
                           <span style={{ fontSize: '12px', fontWeight: 700 }}>
                             Rekomendasi Transfer Saldo
                           </span>
@@ -1563,7 +1563,7 @@ const ChatBot: React.FC = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
                                 <span>{tf.fromAssetName}</span>
-                                <ArrowRight size={12} style={{ color: 'var(--text-muted)' }} />
+                                <MaterialIcon name="arrow_forward" className="text-[12px] text-on-surface-variant" />
                                 <span>{tf.toAssetName}</span>
                               </div>
                               <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
@@ -1597,7 +1597,7 @@ const ChatBot: React.FC = () => {
                             >
                               {tf.isExecuted ? (
                                 <>
-                                  <Check size={12} /> Berhasil Ditransfer
+                                  <MaterialIcon name="check" className="text-[12px]" /> Berhasil Ditransfer
                                 </>
                               ) : (
                                 'Transfer Sekarang'
@@ -1620,7 +1620,7 @@ const ChatBot: React.FC = () => {
                         marginBottom: '16px' 
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
-                          <ArrowRight size={16} />
+                          <MaterialIcon name="arrow_forward" className="text-[16px]" />
                           <span style={{ fontSize: '12px', fontWeight: 700 }}>
                             Rekomendasi Transaksi Rutin
                           </span>
@@ -1673,7 +1673,7 @@ const ChatBot: React.FC = () => {
                             >
                               {rt.isExecuted ? (
                                 <>
-                                  <Check size={12} /> Aktif Berulang
+                                  <MaterialIcon name="check" className="text-[12px]" /> Aktif Berulang
                                 </>
                               ) : (
                                 'Aktifkan Transaksi Rutin'
@@ -1695,7 +1695,7 @@ const ChatBot: React.FC = () => {
                         onClick={() => handleConfirmBudget(idx, msg.toolCall!.arguments)}
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                       >
-                        <Check size={16} /> Terapkan Anggaran
+                        <MaterialIcon name="check" className="text-[16px]" /> Terapkan Anggaran
                       </button>
                     </div>
                   </div>
@@ -2003,7 +2003,7 @@ const ChatBot: React.FC = () => {
                 }}
                 title={isListening ? 'Sedang mendengar...' : 'Voice Input'}
               >
-                {isListening ? <Square size={16} /> : <Mic size={16} />}
+                {isListening ? <MaterialIcon name="stop" className="text-[16px]" /> : <MaterialIcon name="mic" className="text-[16px]" />}
               </button>
               <button 
                 onClick={() => handleSend()}
@@ -2024,7 +2024,7 @@ const ChatBot: React.FC = () => {
                   flexShrink: 0
                 }}
               >
-                <Send size={20} style={{ marginLeft: input.trim() ? '2px' : '0' }} />
+                <MaterialIcon name="send" className={`text-[20px] ${input.trim() ? 'ml-[2px]' : ''}`} />
               </button>
             </div>
           </div>

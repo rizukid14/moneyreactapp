@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Plane, Calendar, Users, ChevronRight, MapPin, Trash2 } from 'lucide-react';
+
 import { motion } from 'framer-motion';
 import { useMoney, type Trip } from '../contexts/MoneyContext';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,9 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import MaterialIcon from '../components/common/MaterialIcon';
 
 const Trips: React.FC = () => {
   const { trips, tripExpenses, currencySymbol, deleteTrip } = useMoney();
@@ -28,13 +31,11 @@ const Trips: React.FC = () => {
   };
 
   return (
-    <div className="page" style={{ paddingBottom: '100px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-        <div>
-          <h1 className="title" style={{ margin: 0 }}>Liburan & Perjalanan</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>Kelola patungan biaya liburan bareng teman</p>
-        </div>
-      </div>
+    <PageWrapper className="pb-[100px]">
+      <PageHeader 
+        title="Liburan & Perjalanan" 
+        subtitle="Kelola patungan biaya liburan bareng teman" 
+      />
 
       <div data-tour="trip-list" style={{ display: 'grid', gap: '16px' }}>
         {trips.length === 0 ? (
@@ -49,7 +50,7 @@ const Trips: React.FC = () => {
               width: '80px', height: '80px', background: 'var(--primary-glow)', borderRadius: '30px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto'
             }}>
-              <Plane size={40} color="var(--primary)" />
+              <MaterialIcon name="flight" className="text-[40px] text-primary" />
             </div>
             <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '8px' }}>Belum ada rencana trip</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '32px' }}>Mulai buat grup liburanmu dan catat pengeluarannya di sini.</p>
@@ -93,17 +94,17 @@ const Trips: React.FC = () => {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
                     boxShadow: '0 8px 16px var(--primary-glow)'
                   }}>
-                    <MapPin size={24} />
+                    <MaterialIcon name="location_on" className="text-2xl" />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={trip.name}>{trip.name}</h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                        <Calendar size={12} />
+                        <MaterialIcon name="event" className="text-[12px]" />
                         {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                        <Users size={12} />
+                        <MaterialIcon name="group" className="text-[12px]" />
                         {trip.members.length} Orang
                       </div>
                     </div>
@@ -118,9 +119,9 @@ const Trips: React.FC = () => {
                       className="btn-icon"
                       style={{ color: 'var(--danger)', width: '32px', height: '32px' }}
                     >
-                      <Trash2 size={16} />
+                      <MaterialIcon name="delete" className="text-base" />
                     </button>
-                    <ChevronRight size={20} color="var(--text-muted)" />
+                    <MaterialIcon name="chevron_right" className="text-xl text-on-surface-variant" />
                   </div>
                 </div>
  
@@ -175,7 +176,7 @@ const Trips: React.FC = () => {
         aria-label="Tambah Trip"
         style={{ zIndex: 100 }}
       >
-        <Plus size={32} strokeWidth={3} />
+        <MaterialIcon name="add" className="text-3xl" />
       </button>
 
       <CreateTripModal 
@@ -205,7 +206,7 @@ const Trips: React.FC = () => {
           { targetSelector: '[data-tour="add-trip"]', title: '➕ Buat Trip Baru', description: 'Tap di sini untuk membuat catatan liburan baru.' }
         ]} 
       />
-    </div>
+    </PageWrapper>
   );
 };
 

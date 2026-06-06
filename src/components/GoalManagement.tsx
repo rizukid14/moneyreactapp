@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Target, MoreVertical, Edit2, Trash2, PlusCircle, Calendar, TrendingUp, CheckCircle2, Clock } from 'lucide-react';
+import MaterialIcon from './common/MaterialIcon';
 import { useMoney, type Goal } from '../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import GoalModal from './modals/GoalModal';
@@ -44,40 +44,35 @@ const GoalCard: React.FC<{
   const barColor = isCompleted ? 'var(--success)' : status === 'behind' ? '#f59e0b' : 'var(--primary)';
 
   return (
-    <div className={`budget-card-v2 ${isCompleted ? 'success' : ''}`} style={{ position: 'relative', border: isCompleted ? '1.5px solid var(--success)' : '1px solid var(--border-color)' }}>
+    <div className={`bg-bg-card p-4 rounded-2xl shadow-bento border relative mb-3 group transition-all ${isCompleted ? 'border-success' : 'border-outline-variant'}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: isCompleted ? 'var(--bg-income)' : 'var(--bg-main)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: isCompleted ? 'var(--success)' : 'var(--primary)', flexShrink: 0
-          }}>
-            {isCompleted ? <CheckCircle2 size={18} /> : <Target size={18} />}
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? 'bg-success-container text-success' : 'bg-primary-container text-primary-color'}`}>
+            <MaterialIcon name={isCompleted ? "check_circle" : "flag"} className="text-lg" />
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>{goal.name}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-              <Calendar size={10} /> Target: {new Date(goal.targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+              <MaterialIcon name="calendar_today" className="text-[10px]" /> Target: {new Date(goal.targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
             </div>
           </div>
         </div>
         <div style={{ position: 'relative' }}>
           <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
-            <MoreVertical size={16} />
+            <MaterialIcon name="more_vert" className="text-base" />
           </button>
           <AnimatePresence>
             {isMenuOpen && (
               <motion.div 
-                className="budget-dropdown" 
+                className="budget-dropdown bg-bg-card shadow-bento rounded-xl overflow-hidden border border-border-light" 
                 style={{ right: 0, top: 28 }}
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
                 transition={{ duration: 0.1 }}
               >
-                <button className="budget-dropdown-item" onClick={onEdit}><Edit2 size={13} /> Edit</button>
-                <button className="budget-dropdown-item danger" onClick={onDelete}><Trash2 size={13} /> Hapus</button>
+                <button className="budget-dropdown-item flex items-center gap-2" onClick={onEdit}><MaterialIcon name="edit" className="text-[13px]" /> Edit</button>
+                <button className="budget-dropdown-item danger flex items-center gap-2" onClick={onDelete}><MaterialIcon name="delete" className="text-[13px]" /> Hapus</button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -110,7 +105,7 @@ const GoalCard: React.FC<{
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Estimasi Selesai</span>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Clock size={10} color={status === 'behind' ? '#f59e0b' : 'var(--primary)'} />
+            <MaterialIcon name="schedule" className={`text-[10px] ${status === 'behind' ? 'text-[#f59e0b]' : 'text-primary'}`} />
             {etaText}
           </div>
         </div>
@@ -164,11 +159,11 @@ export const GoalManagement: React.FC = () => {
     <div className="budget-management-embedded" onClick={() => setActiveMenu(null)}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TrendingUp size={18} color="var(--primary)" />
+          <MaterialIcon name="trending_up" className="text-lg text-primary" />
           <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0 }}>Target Tabungan</h3>
         </div>
         <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <PlusCircle size={14} /> Buat Baru
+          <MaterialIcon name="add_circle" className="text-sm" /> Buat Baru
         </button>
       </div>
 
@@ -191,7 +186,7 @@ export const GoalManagement: React.FC = () => {
             textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px',
             background: 'var(--bg-main)', borderRadius: 16, border: '1px dashed var(--border-color)' 
           }}>
-            <Target size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
+            <MaterialIcon name="flag" className="text-3xl opacity-30 mb-3 block mx-auto" />
             <div style={{ fontSize: 13, fontWeight: 700 }}>Belum ada target tabungan</div>
             <div style={{ fontSize: 11, marginTop: 4 }}>Mulai buat rencana untuk impian Anda!</div>
           </div>

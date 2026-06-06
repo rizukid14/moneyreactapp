@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal, ChevronLeft, ChevronRight, Folder, Wallet } from 'lucide-react';
+
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
@@ -15,6 +15,9 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { TabBar } from '../components/ui/TabBar';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import MaterialIcon from '../components/common/MaterialIcon';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -708,13 +711,13 @@ const ReceiptScanner: React.FC = () => {
   };
 
   return (
-    <div className="page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
-          <ChevronLeft size={20} />
-        </button>
-        <h1 className="title" style={{ margin: 0 }}>{scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'}</h1>
-      </div>
+    <PageWrapper>
+      <button onClick={() => navigate(-1)} className="btn-icon" style={{ marginBottom: '16px' }}>
+        <MaterialIcon name="chevron_left" className="text-2xl" />
+      </button>
+      <PageHeader 
+        title={scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'} 
+      />
       <input type="file" accept="image/*" ref={fileInputRef} data-testid="ocr-file-input" style={{ display: 'none' }} onChange={handleFileSelect} />
 
       {stage === 'upload' && (
@@ -749,11 +752,11 @@ const ReceiptScanner: React.FC = () => {
               display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white',
               marginBottom: 20, boxShadow: '0 8px 16px var(--primary-glow)'
             }}>
-              <Camera size={40} />
+              <MaterialIcon name="photo_camera" className="text-[40px]" />
             </div>
             <div style={{ fontWeight: 800, fontSize: '22px' }}>{scanMode === 'struk' ? 'Ambil Foto Struk' : 'Ambil Foto Mutasi'}</div>
             <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-              <Lightbulb size={16} style={{ color: 'var(--secondary)' }} />
+              <MaterialIcon name="lightbulb" className="text-base text-secondary" />
               <span>Tips: Pastikan foto {scanMode === 'struk' ? 'struk' : 'mutasi'} terlihat jelas dan terang</span>
             </div>
           </Card>
@@ -762,9 +765,9 @@ const ReceiptScanner: React.FC = () => {
           </p>
           {error && (
             <div className="card" style={{ backgroundColor: 'hsla(350,85%,60%,0.1)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <AlertCircle color="var(--danger)" size={20} />
+              <MaterialIcon name="error" className="text-danger text-xl" />
               <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: 600 }}>{error}</span>
-              <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none' }}><X size={18} /></button>
+              <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none' }}><MaterialIcon name="close" className="text-lg" /></button>
             </div>
           )}
         </div>
@@ -786,7 +789,7 @@ const ReceiptScanner: React.FC = () => {
           }}>
             <div style={{ display: 'flex', gap: '8px' }}>
               <Button variant="primary" data-testid="run-scan-btn" style={{ flex: 2 }} onClick={runScan}>
-                <Scissors size={16} /> {cropRect && cropRect.w > 50 ? 'Crop & Scan' : 'Scan Gambar Penuh'}
+                <MaterialIcon name="content_cut" className="text-base" /> {cropRect && cropRect.w > 50 ? 'Crop & Scan' : 'Scan Gambar Penuh'}
               </Button>
               <Button variant="outline" data-testid="cancel-scan-btn" style={{ flex: 1 }} onClick={reset}>Batal</Button>
             </div>
@@ -799,7 +802,7 @@ const ReceiptScanner: React.FC = () => {
 
       {stage === 'scanning' && (
         <div style={{ textAlign: 'center', width: '100%' }}>
-          <Loader2 size={60} className="spin" color="var(--primary)" />
+          <MaterialIcon name="autorenew" className="text-[60px] spin" />
           <h3 className="subtitle">{isInitializing ? 'Memuat Mesin AI...' : `Menganalisa... ${progress}%`}</h3>
         </div>
       )}
@@ -809,7 +812,7 @@ const ReceiptScanner: React.FC = () => {
           <div className="card glass">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <CheckCircle size={24} color="var(--success)" />
+                <MaterialIcon name="check_circle" className="text-success text-2xl" />
                 <span style={{ fontWeight: 700 }}>Struk Dibaca</span>
               </div>
               <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '20px', color: 'white', backgroundColor: CONFIDENCE_BADGE[result.confidence].color }}>
@@ -836,7 +839,7 @@ const ReceiptScanner: React.FC = () => {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Folder size={18} color="var(--primary)" />
+                    <MaterialIcon name="folder" className="text-primary text-lg" />
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Kategori</span>
                       <span style={{ fontWeight: 700, color: selectedCategory ? 'var(--text-main)' : 'var(--text-muted)' }}>
@@ -845,7 +848,7 @@ const ReceiptScanner: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <ChevronRight size={18} color="var(--text-muted)" />
+                  <MaterialIcon name="chevron_right" className="text-text-muted text-lg" />
                 </button>
 
                 {/* Asset Selection */}
@@ -860,7 +863,7 @@ const ReceiptScanner: React.FC = () => {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Wallet size={18} color="var(--primary)" />
+                    <MaterialIcon name="account_balance_wallet" className="text-primary text-lg" />
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Rekening</span>
                       <span style={{ fontWeight: 700, color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>
@@ -868,7 +871,7 @@ const ReceiptScanner: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <ChevronRight size={18} color="var(--text-muted)" />
+                  <MaterialIcon name="chevron_right" className="text-text-muted text-lg" />
                 </button>
               </div>
 
@@ -929,7 +932,7 @@ const ReceiptScanner: React.FC = () => {
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
               <Button variant="outline" style={{ flex: 1 }} onClick={reset}>Batal</Button>
               <Button variant="outline" data-testid="ocr-split-bill-btn" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => setIsSplitModalOpen(true)}>
-                <Users size={16} /> Split Bill
+                <MaterialIcon name="group" className="text-base" /> Split Bill
               </Button>
               <Button variant="primary" data-testid="ocr-save-total-btn" style={{ flex: 2 }} onClick={handleSaveMain}>Simpan Total</Button>
             </div>
@@ -938,7 +941,7 @@ const ReceiptScanner: React.FC = () => {
           <div className="card glass">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Receipt size={16} style={{ color: 'var(--primary)' }} />
+                <MaterialIcon name="receipt_long" className="text-primary text-base" />
                 <span>Rincian Item ({lineItems.length})</span>
               </h3>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -1048,7 +1051,7 @@ const ReceiptScanner: React.FC = () => {
                     onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-expense)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                   >
-                    <Trash2 size={15} />
+                    <MaterialIcon name="delete" className="text-[15px]" />
                   </button>
                 </div>
               ))}
@@ -1098,7 +1101,7 @@ const ReceiptScanner: React.FC = () => {
                 onClick={addItem}
                 style={{ flex: 1, padding: '9px', background: 'none', border: '1.5px dashed var(--border-color)', borderRadius: '10px', cursor: 'pointer', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
               >
-                <Plus size={14} /> Tambah
+                <MaterialIcon name="add" className="text-sm" /> Tambah
               </button>
               <button className="btn btn-primary" data-testid="ocr-save-items-btn" style={{ flex: 2 }} onClick={handleSaveLineItems}>
                 Simpan Item Terpilih
@@ -1112,7 +1115,7 @@ const ReceiptScanner: React.FC = () => {
         <div style={{ marginTop: '24px' }}>
           <details className="card" style={{ padding: '12px 16px' }}>
             <summary style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Terminal size={14} />
+              <MaterialIcon name="terminal" className="text-sm" />
               <span>Diagnostik & Teks Mentah</span>
             </summary>
             {result.debugLogs && (
@@ -1229,7 +1232,7 @@ const ReceiptScanner: React.FC = () => {
         month={reallocationModal.month}
         year={reallocationModal.year}
       />
-    </div>
+    </PageWrapper>
   );
 };
 

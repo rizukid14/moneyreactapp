@@ -1,6 +1,7 @@
+import MaterialIcon from '../components/common/MaterialIcon';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart, LineChart, Line } from 'recharts';
-import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame, Heart, ShieldCheck, Activity, Target, Zap, CreditCard, CheckCircle2, AlertTriangle, LayoutDashboard, HandCoins } from 'lucide-react';
+
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
 import StatDetailModal from '../components/modals/StatDetailModal';
@@ -429,7 +430,7 @@ const Statistics: React.FC = () => {
           fontSize: '13px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer',
           boxShadow: '0 2px 10px var(--primary-glow)'
         }}>
-          <CalendarDays size={16} /> Hari Ini
+          <MaterialIcon name="calendar_month" className="text-[16px]" /> Hari Ini
         </button>
       </div>
 
@@ -477,12 +478,12 @@ const Statistics: React.FC = () => {
                   border: isActive ? 'none' : '1px solid var(--border-color)'
                 }}
               >
-                {viewId === 'health' ? <Flame size={18} style={{ color: isActive ? 'white' : 'var(--secondary)' }} /> :
-                  viewId === 'budget' ? <Target size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
-                    viewId === 'goals' ? <TrendingUp size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
-                      viewId === 'subs' ? <CreditCard size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
-                        viewId === 'forecast' ? <Zap size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
-                          <LayoutDashboard size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} />}
+                {viewId === 'health' ? <MaterialIcon name="local_fire_department" className={isActive ? 'text-white' : 'text-[var(--secondary)]'} /> :
+                  viewId === 'budget' ? <MaterialIcon name="track_changes" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
+                    viewId === 'goals' ? <MaterialIcon name="trending_up" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
+                      viewId === 'subs' ? <MaterialIcon name="credit_card" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
+                        viewId === 'forecast' ? <MaterialIcon name="bolt" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
+                          <MaterialIcon name="dashboard" className={isActive ? 'text-white' : 'text-[var(--primary)]'} />}
                 {def.label}
               </motion.button>
             );
@@ -554,7 +555,7 @@ const Statistics: React.FC = () => {
             <div data-tour="month-nav" className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button onClick={() => changeMonth(-1)} className="btn-icon" data-testid="prev-month-btn">
-                  <ChevronLeft size={24} />
+                  <MaterialIcon name="chevron_left" className="text-[24px]" />
                 </button>
 
                 <div
@@ -566,12 +567,12 @@ const Statistics: React.FC = () => {
                   }}>
                   <div style={{ fontWeight: 800, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
                     {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
-                    <ChevronDown size={18} color="var(--primary)" />
+                    <MaterialIcon name="expand_more" className="text-[18px] text-[var(--primary)]" />
                   </div>
                 </div>
 
                 <button onClick={() => changeMonth(1)} className="btn-icon" data-testid="next-month-btn">
-                  <ChevronRight size={24} />
+                  <MaterialIcon name="chevron_right" className="text-[24px]" />
                 </button>
               </div>
             </div>
@@ -618,7 +619,7 @@ const Statistics: React.FC = () => {
                         padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
                         background: isUp ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
                       }}>
-                        {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                        {isUp ? <MaterialIcon name="call_made" className="text-[12px]" /> : <MaterialIcon name="call_received" className="text-[12px]" />}
                         {Math.abs(growthPct).toFixed(0)}% vs bulan lalu
                       </div>
                     )}
@@ -647,7 +648,7 @@ const Statistics: React.FC = () => {
                         padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
                         background: isUp ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)',
                       }}>
-                        {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                        {isUp ? <MaterialIcon name="call_made" className="text-[12px]" /> : <MaterialIcon name="call_received" className="text-[12px]" />}
                         {Math.abs(growthPct).toFixed(0)}% vs bulan lalu
                       </div>
                     )}
@@ -1048,7 +1049,7 @@ const Statistics: React.FC = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: insights.netSavings >= 0 ? 'var(--bg-income)' : 'var(--bg-expense)', color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--secondary)' }}>
-                    <TrendingUp size={14} />
+                    <MaterialIcon name="trending_up" className="text-[14px]" />
                   </div>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                     Sisa Bersih
@@ -1092,7 +1093,7 @@ const Statistics: React.FC = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(35,80%,55%,0.1)', color: 'hsl(35,80%,45%)' }}>
-                    <Calendar size={14} />
+                    <MaterialIcon name="calendar_today" className="text-[14px]" />
                   </div>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                     Rata-rata/Hari
@@ -1111,7 +1112,7 @@ const Statistics: React.FC = () => {
               <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(260,70%,60%,0.1)', color: 'hsl(260,70%,55%)' }}>
-                    <Receipt size={14} />
+                    <MaterialIcon name="receipt" className="text-[14px]" />
                   </div>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Transaksi</span>
                 </div>
@@ -1127,7 +1128,7 @@ const Statistics: React.FC = () => {
               <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(350,80%,55%,0.1)', color: 'hsl(350,80%,50%)' }}>
-                    <Flame size={14} />
+                    <MaterialIcon name="local_fire_department" className="text-[14px]" />
                   </div>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Hari Terboros</span>
                 </div>
@@ -1150,7 +1151,7 @@ const Statistics: React.FC = () => {
             {insights.biggestExpenseTx && (
               <div className="card glass" style={{ marginBottom: '24px', padding: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: 36, height: 36, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-expense)', color: 'var(--secondary)', flexShrink: 0 }}>
-                  <Wallet size={18} />
+                  <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Pengeluaran Terbesar</div>
@@ -1317,7 +1318,7 @@ const Statistics: React.FC = () => {
             {drillDownCategory && (
               <div className="card glass" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button onClick={() => setDrillDownCategory(null)} className="btn" style={{ padding: '4px 12px', background: 'var(--bg-main)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <ChevronLeft size={16} /> Kembali
+                  <MaterialIcon name="chevron_left" className="text-[16px]" /> Kembali
                 </button>
                 <span style={{ fontWeight: 600 }}>Rincian Sub-kategori: {drillDownCategory.name}</span>
               </div>
@@ -1523,7 +1524,7 @@ const Statistics: React.FC = () => {
                           background: `${cat.color}15`,
                           color: cat.color
                         }}>
-                          {cat.type === 'pendapatan' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                          {cat.type === 'pendapatan' ? <MaterialIcon name="call_made" className="text-[20px]" /> : <MaterialIcon name="call_received" className="text-[20px]" />}
                         </div>
                         <div>
                           <div style={{ fontWeight: 600 }}>{cat.category}</div>
@@ -1729,12 +1730,12 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
       totalUnpaidDebt,
       currentNetWorth,
       metrics: [
-        { label: 'Rasio Tabungan', value: `${savingsRate.toFixed(1)}%`, score: savingsScore, max: 25, icon: TrendingUp },
-        { label: 'Dana Darurat', value: `${efMonths.toFixed(1)} bln`, score: efScore, max: 20, icon: ShieldCheck },
-        { label: 'Rasio Hutang', value: `${debtRatio.toFixed(1)}%`, score: debtScore, max: 20, icon: Zap },
-        { label: 'Kepatuhan Anggaran', value: `${adherenceRate.toFixed(0)}%`, score: budgetScore, max: 20, icon: Target },
-        { label: 'Konsistensi Belanja', value: spendingCV < 0.2 ? 'Stabil' : 'Fluktuatif', score: consistencyScore, max: 10, icon: Activity },
-        { label: 'Stabilitas Income', value: incomeCV < 0.15 ? 'Sangat Stabil' : 'Cukup Stabil', score: stabilityScore, max: 5, icon: Heart },
+        { label: 'Rasio Tabungan', value: `${savingsRate.toFixed(1)}%`, score: savingsScore, max: 25, icon: 'trending_up' },
+        { label: 'Dana Darurat', value: `${efMonths.toFixed(1)} bln`, score: efScore, max: 20, icon: 'security' },
+        { label: 'Rasio Hutang', value: `${debtRatio.toFixed(1)}%`, score: debtScore, max: 20, icon: 'bolt' },
+        { label: 'Kepatuhan Anggaran', value: `${adherenceRate.toFixed(0)}%`, score: budgetScore, max: 20, icon: 'track_changes' },
+        { label: 'Konsistensi Belanja', value: spendingCV < 0.2 ? 'Stabil' : 'Fluktuatif', score: consistencyScore, max: 10, icon: 'local_activity' },
+        { label: 'Stabilitas Income', value: incomeCV < 0.15 ? 'Sangat Stabil' : 'Cukup Stabil', score: stabilityScore, max: 5, icon: 'favorite' },
       ]
     };
   }, [transactions, assets, debts, budgets, categories]);
@@ -1853,7 +1854,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
           >
             <div className="flex-between" style={{ marginBottom: '12px' }}>
               <div style={{ padding: '8px', borderRadius: '12px', background: 'var(--primary-glow)', color: 'var(--primary)' }}>
-                <m.icon size={18} />
+                <MaterialIcon name={m.icon as string} className="text-[18px]" />
               </div>
               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>{m.score}/{m.max}</span>
             </div>
@@ -1878,7 +1879,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Trend Belanja</div>
           <div className="flex-gap" style={{ alignItems: 'center' }}>
             <span style={{ fontSize: '18px', fontWeight: 800 }}>{Math.abs(stats.momSpending).toFixed(0)}%</span>
-            {stats.momSpending > 0 ? <ArrowUpRight size={18} color="#ef4444" /> : <ArrowDownRight size={18} color="#10b981" />}
+            {stats.momSpending > 0 ? <MaterialIcon name="call_made" className="text-[18px] text-[#ef4444]" /> : <MaterialIcon name="call_received" className="text-[18px] text-[#10b981]" />}
           </div>
           <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>vs bulan lalu</div>
         </div>
@@ -1886,7 +1887,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Tabungan Bersih</div>
           <div className="flex-gap" style={{ alignItems: 'center' }}>
             <span style={{ fontSize: '18px', fontWeight: 800 }}>{Math.abs(stats.momSavings).toFixed(0)}%</span>
-            {stats.momSavings > 0 ? <ArrowUpRight size={18} color="#10b981" /> : <ArrowDownRight size={18} color="#ef4444" />}
+            {stats.momSavings > 0 ? <MaterialIcon name="call_made" className="text-[18px] text-[#10b981]" /> : <MaterialIcon name="call_received" className="text-[18px] text-[#ef4444]" />}
           </div>
           <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>vs bulan lalu</div>
         </div>
@@ -1974,7 +1975,7 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
       {budgetMode === 'zero-based' ? (
         <div className="card shadow-soft" style={{ padding: '24px 20px', border: 'none', background: 'var(--primary-gradient)', color: 'white', borderRadius: '24px', boxShadow: '0 12px 30px var(--primary-glow)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.1 }}>
-            <HandCoins size={120} />
+            <MaterialIcon name="payments" className="text-[120px]" />
           </div>
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Total Pendapatan</div>
@@ -2013,7 +2014,7 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
           </div>
           {spendingMap.total > globalBudget.limit && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '12px', padding: '6px 10px', background: 'rgba(255,255,255,0.2)', borderRadius: '8px', fontSize: '11px', fontWeight: 700 }}>
-              <AlertTriangle size={14} /> Melebihi anggaran sebesar {fmt(spendingMap.total - globalBudget.limit)}
+              <MaterialIcon name="warning" className="text-[14px]" /> Melebihi anggaran sebesar {fmt(spendingMap.total - globalBudget.limit)}
             </div>
           )}
         </div>
@@ -2038,7 +2039,7 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: statusColor }}>
-                    <Wallet size={16} />
+                    <MaterialIcon name="account_balance_wallet" className="text-[16px]" />
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '14px' }}>{cat?.name || 'Kategori'}</div>
                 </div>
@@ -2096,7 +2097,7 @@ const GoalStatistics: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: isCompleted ? 'var(--bg-income)' : 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCompleted ? 'var(--success)' : 'var(--primary)' }}>
-                  {isCompleted ? <CheckCircle2 size={20} /> : <Target size={20} />}
+                  {isCompleted ? <MaterialIcon name="check_circle" className="text-[20px]" /> : <MaterialIcon name="track_changes" className="text-[20px]" />}
                 </div>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: '15px' }}>{g.name}</div>
@@ -2131,7 +2132,7 @@ const GoalStatistics: React.FC = () => {
         );
       }) : (
         <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--bg-card)', borderRadius: '20px', border: '1px dashed var(--border-color)' }}>
-          <Target size={40} style={{ opacity: 0.2, marginBottom: '16px' }} />
+          <div style={{ opacity: 0.2, marginBottom: '16px' }}><MaterialIcon name="track_changes" className="text-[40px]" /></div>
           <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>Belum ada target tabungan</div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Mulai buat rencana untuk impian Anda!</div>
         </div>
@@ -2164,7 +2165,7 @@ const SubscriptionStatistics: React.FC = () => {
           <div key={s.id} className="card glass" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: s.isActive ? 1 : 0.6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1' }}>
-                <CreditCard size={20} />
+                <MaterialIcon name="credit_card" className="text-[20px]" />
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '14px' }}>{s.name}</div>
@@ -2363,7 +2364,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
           </div>
           <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(safeToSpend)}</div>
           <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Setelah tagihan 30 hari</div>
-          <Zap size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
+          <div style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }}><MaterialIcon name="bolt" className="text-[40px]" /></div>
         </div>
 
         <div 
@@ -2398,7 +2399,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
           </div>
           <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(projectedInvest)}</div>
           <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Estimasi 30 hari</div>
-          <Target size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
+          <div style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }}><MaterialIcon name="track_changes" className="text-[40px]" /></div>
         </div>
 
         <div className="card shadow-soft" style={{
@@ -2411,7 +2412,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
           <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Zona Bahaya</div>
           <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800 }}>{dangerDays.length} Hari</div>
           <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Saldo prediksi negatif</div>
-          <AlertTriangle size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
+          <div style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }}><MaterialIcon name="warning" className="text-[40px]" /></div>
         </div>
       </div>
 
@@ -2498,7 +2499,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
           <div key={i} className="card glass" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
-                <Calendar size={20} />
+                <MaterialIcon name="calendar_today" className="text-[20px]" />
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '14px' }}>{d.displayDate}</div>

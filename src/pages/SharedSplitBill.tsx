@@ -1,19 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  ArrowUpRight,
-  ArrowDownLeft,
-  AlertCircle,
-  ShoppingBag,
-  Calendar,
-  Share2,
-  ExternalLink,
-  Wallet,
-  Info,
-  CheckCircle2,
-  PlusCircle,
-  X
-} from 'lucide-react';
+import MaterialIcon from '../components/common/MaterialIcon';
 import { motion } from 'framer-motion';
 import { dbGetSharedSplit, type SharedSplit } from '../lib/db';
 import { useMoney } from '../contexts/MoneyContext';
@@ -168,7 +155,7 @@ const SharedSplitBill: React.FC = () => {
           style={{ maxWidth: '400px', width: '100%', background: 'var(--bg-card)', padding: '40px', borderRadius: '32px', border: '1px solid var(--border-color)', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}
         >
           <div style={{ width: '80px', height: '80px', background: 'var(--danger-glow)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto', transform: 'rotate(12deg)' }}>
-            <AlertCircle size={40} color="var(--danger)" style={{ transform: 'rotate(-12deg)' }} />
+            <MaterialIcon name="error" className="text-danger text-[40px] -rotate-12" />
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>Link Terputus!</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '32px', lineHeight: 1.6 }}>
@@ -206,7 +193,7 @@ const SharedSplitBill: React.FC = () => {
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ width: '36px', height: '36px', background: 'var(--primary)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 16px var(--primary-glow)' }}>
-              <Wallet size={20} color="white" />
+              <MaterialIcon name="account_balance_wallet" className="text-white text-xl" />
             </div>
             <span style={{ fontWeight: 800, fontSize: '20px', letterSpacing: '-0.5px' }}>MoneyApp</span>
           </div>
@@ -218,7 +205,7 @@ const SharedSplitBill: React.FC = () => {
               color: copied ? 'white' : 'var(--text-main)', cursor: 'pointer', transition: 'all 0.2s'
             }}
           >
-            {copied ? <><CheckCircle2 size={14} /> Tersalin</> : <><Share2 size={14} /> Bagikan</>}
+            {copied ? <><MaterialIcon name="check_circle" className="text-sm" /> Tersalin</> : <><MaterialIcon name="share" className="text-sm" /> Bagikan</>}
           </button>
         </header>
 
@@ -229,14 +216,14 @@ const SharedSplitBill: React.FC = () => {
           style={{ textAlign: 'center', marginBottom: '40px' }}
         >
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', background: 'var(--primary-glow)', borderRadius: '100px', fontSize: '10px', fontWeight: 900, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px', border: '1px solid hsla(var(--p-h), 80%, 54%, 0.1)' }}>
-            <ShoppingBag size={12} />
+            <MaterialIcon name="shopping_bag" className="text-xs" />
             Shared Split Bill
           </div>
           <h1 style={{ fontSize: '36px', fontWeight: 800, margin: '0 0 8px 0', letterSpacing: '-1px', lineHeight: 1.1 }}>
             {split.merchantName}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700 }}>
-            <Calendar size={14} />
+            <MaterialIcon name="event" className="text-sm" />
             {split.date}
           </div>
         </motion.div>
@@ -284,7 +271,7 @@ const SharedSplitBill: React.FC = () => {
             <h3 style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
               {split.type === 'trip' ? 'Rencana Penyelesaian' : 'Rincian Pembagian'}
             </h3>
-            <Info size={14} color="var(--text-muted)" />
+            <MaterialIcon name="info" className="text-text-muted text-sm" />
           </div>
 
           {/* Mode Toggle (Only for Trip) */}
@@ -339,11 +326,11 @@ const SharedSplitBill: React.FC = () => {
                   <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => split.type === 'trip' && setSelectedSettlement(item)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '14px' }}>
                       <span>{item.from}</span>
-                      <ArrowUpRight size={14} color="var(--text-muted)" />
+                      <MaterialIcon name="north_east" className="text-text-muted text-sm" />
                       <span>{item.to}</span>
                     </div>
                     <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      Penyelesaian Saldo <Info size={10} />
+                      Penyelesaian Saldo <MaterialIcon name="info" className="text-[10px]" />
                     </div>
                   </div>
                 </>
@@ -360,7 +347,7 @@ const SharedSplitBill: React.FC = () => {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', marginBottom: '2px' }}>{item.contactName}</div>
                     <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px', color: item.isPayer ? 'var(--success)' : 'var(--text-muted)' }}>
-                      {item.isPayer ? 'Payer / Sudah Bayar' : <><ArrowDownLeft size={10} color="var(--danger)" /> Belum Bayar</>}
+                      {item.isPayer ? 'Payer / Sudah Bayar' : <><MaterialIcon name="south_west" className="text-[10px] text-danger" /> Belum Bayar</>}
                     </div>
                   </div>
                 </>
@@ -392,7 +379,7 @@ const SharedSplitBill: React.FC = () => {
                     }}
                     title={!isReady ? "Menyiapkan..." : (savedItems.has(idx) ? "Sudah dicatat" : "Catat di Hutang/Piutang")}
                   >
-                    {savedItems.has(idx) ? <CheckCircle2 size={18} /> : <PlusCircle size={20} />}
+                    {savedItems.has(idx) ? <MaterialIcon name="check_circle" className="text-lg" /> : <MaterialIcon name="add_circle" className="text-xl" />}
                   </button>
                 </div>
               </motion.div>
@@ -422,7 +409,7 @@ const SharedSplitBill: React.FC = () => {
                       {split.currencySymbol}{exp.amount.toLocaleString('id-ID')}
                     </div>
                     <div style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 700, marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                      Detail <ArrowUpRight size={10} />
+                      Detail <MaterialIcon name="north_east" className="text-[10px]" />
                     </div>
                   </div>
                 </div>
@@ -442,7 +429,7 @@ const SharedSplitBill: React.FC = () => {
 
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ width: '60px', height: '60px', background: 'var(--primary-glow)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto' }}>
-              <Wallet size={32} color="var(--primary)" />
+              <MaterialIcon name="account_balance_wallet" className="text-[32px] text-primary" />
             </div>
             <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '8px' }}>Atur Keuangan Bareng?</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px', lineHeight: 1.5 }}>
@@ -458,7 +445,7 @@ const SharedSplitBill: React.FC = () => {
               }}
             >
               Coba MoneyApp Gratis
-              <ExternalLink size={18} />
+              <MaterialIcon name="open_in_new" className="text-lg" />
             </button>
           </div>
         </motion.div>
@@ -539,7 +526,7 @@ const SharedSplitBill: React.FC = () => {
                     Saya berhutang ke {identityPicker.item.to}
                   </div>
                 </div>
-                <ArrowUpRight size={16} color="var(--text-muted)" />
+                <MaterialIcon name="north_east" className="text-base text-text-muted" />
               </button>
 
               {/* I am the creditor (to) */}
@@ -566,7 +553,7 @@ const SharedSplitBill: React.FC = () => {
                     {identityPicker.item.from} berhutang ke saya
                   </div>
                 </div>
-                <ArrowDownLeft size={16} color="var(--text-muted)" />
+                <MaterialIcon name="south_west" className="text-base text-text-muted" />
               </button>
             </div>
 
@@ -614,7 +601,7 @@ const SharedSplitBill: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Rincian Tagihan</h3>
               <button onClick={() => setSelectedContactForItems(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={20} />
+                <MaterialIcon name="close" className="text-xl" />
               </button>
             </div>
             
@@ -640,7 +627,7 @@ const SharedSplitBill: React.FC = () => {
               </h4>
               {(!split.itemAssignments || Object.keys(split.itemAssignments).length === 0) ? (
                 <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-neutral)', borderRadius: '16px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                  <ShoppingBag size={24} style={{ opacity: 0.5, marginBottom: '8px', display: 'inline-block' }} />
+                  <MaterialIcon name="shopping_bag" className="text-2xl opacity-50 mb-2 inline-block" />
                   <div>Tagihan ini dibagi rata / secara custom tanpa rincian item.</div>
                 </div>
               ) : (

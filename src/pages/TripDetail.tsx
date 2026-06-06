@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Plus, Users, Wallet, Calendar, Trash2, Edit2, Receipt } from 'lucide-react';
+
 import { motion } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
 import AddTripExpenseModal from '../components/modals/AddTripExpenseModal';
 import SettleUpModal from '../components/modals/SettleUpModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import MaterialIcon from '../components/common/MaterialIcon';
 
 const TripDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,10 +46,12 @@ const TripDetail: React.FC = () => {
 
   if (!trip) {
     return (
-      <div className="page" style={{ textAlign: 'center', paddingTop: '100px' }}>
-        <h2>Trip tidak ditemukan</h2>
-        <button onClick={() => navigate('/trips')} className="btn btn-primary" style={{ marginTop: '20px' }}>Kembali ke Daftar Trip</button>
-      </div>
+      <PageWrapper>
+        <div style={{ textAlign: 'center', paddingTop: '100px' }}>
+          <h2>Trip tidak ditemukan</h2>
+          <button onClick={() => navigate('/trips')} className="btn btn-primary" style={{ marginTop: '20px' }}>Kembali ke Daftar Trip</button>
+        </div>
+      </PageWrapper>
     );
   }
 
@@ -65,9 +69,9 @@ const TripDetail: React.FC = () => {
   };
 
   return (
-    <div className="page" style={{ paddingBottom: '120px' }}>
+    <PageWrapper className="pb-[120px]">
       <button onClick={() => navigate('/trips')} className="btn-icon" style={{ marginBottom: '16px' }}>
-        <ChevronLeft size={24} />
+        <MaterialIcon name="chevron_left" className="text-2xl" />
       </button>
 
       {/* Header Card */}
@@ -82,11 +86,11 @@ const TripDetail: React.FC = () => {
         <h1 style={{ fontSize: '24px', fontWeight: 900, margin: '0 0 8px 0' }}>{trip.name}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13px', opacity: 0.9, marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Calendar size={14} />
+            <MaterialIcon name="event" className="text-sm" />
             {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Users size={14} />
+            <MaterialIcon name="group" className="text-sm" />
             {trip.members.length} Orang
           </div>
         </div>
@@ -118,7 +122,7 @@ const TripDetail: React.FC = () => {
       <div style={{ display: 'grid', gap: '24px' }}>
         {expenses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
-            <Receipt size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+            <MaterialIcon name="receipt_long" className="text-[48px] opacity-20 mb-4" />
             <p style={{ fontSize: '14px', fontWeight: 600 }}>Belum ada pengeluaran dicatat</p>
             <button 
               onClick={() => setIsAddModalOpen(true)}
@@ -155,7 +159,7 @@ const TripDetail: React.FC = () => {
                           width: '44px', height: '44px', background: 'var(--bg-neutral)', borderRadius: '14px',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0
                         }}>
-                          <Wallet size={20} />
+                          <MaterialIcon name="account_balance_wallet" className="text-xl" />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <h4 style={{ fontSize: '15px', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={expense.description}>{expense.description}</h4>
@@ -176,7 +180,7 @@ const TripDetail: React.FC = () => {
                               }}
                               style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', padding: '4px', cursor: 'pointer' }}
                             >
-                              <Edit2 size={14} />
+                              <MaterialIcon name="edit" className="text-sm" />
                             </button>
                             <button 
                               onClick={(e) => {
@@ -186,7 +190,7 @@ const TripDetail: React.FC = () => {
                               }}
                               style={{ background: 'transparent', border: 'none', color: 'var(--danger)', padding: '4px', cursor: 'pointer' }}
                             >
-                              <Trash2 size={14} />
+                              <MaterialIcon name="delete" className="text-sm" />
                             </button>
                           </div>
                         </div>
@@ -239,7 +243,7 @@ const TripDetail: React.FC = () => {
         onClick={() => setIsAddModalOpen(true)}
         aria-label="Tambah Pengeluaran"
       >
-        <Plus size={32} strokeWidth={3} />
+        <MaterialIcon name="add" className="text-3xl" />
       </button>
 
       <AddTripExpenseModal 
@@ -269,7 +273,7 @@ const TripDetail: React.FC = () => {
         title="Hapus Pengeluaran"
         message="Apakah Anda yakin ingin menghapus catatan pengeluaran ini?"
       />
-    </div>
+    </PageWrapper>
   );
 };
 

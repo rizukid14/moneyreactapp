@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { auth } from '../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { motion } from 'framer-motion';
-import { PiggyBank, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import MaterialIcon from './common/MaterialIcon';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
@@ -57,7 +57,7 @@ export const AuthScreen: React.FC = () => {
       <div style={{ width: '100%', maxWidth: '400px' }}>
         <Card padding="lg" variant="solid">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', justifyContent: 'center' }}>
-              <PiggyBank size={36} strokeWidth={2.5} color="var(--primary)" />
+              <MaterialIcon name="savings" className="text-[36px] text-primary" />
               <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 800, letterSpacing: '-0.5px' }}>MoneyApp</h1>
           </div>
           
@@ -79,7 +79,7 @@ export const AuthScreen: React.FC = () => {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              icon={<Mail size={18} />}
+              icon={<MaterialIcon name="mail" className="text-lg" />}
               placeholder="nama@email.com"
             />
 
@@ -106,7 +106,7 @@ export const AuthScreen: React.FC = () => {
                     onChange={e => setPassword(e.target.value)}
                     required
                     minLength={6}
-                    icon={<Lock size={18} />}
+                    icon={<MaterialIcon name="lock" className="text-lg" />}
                     placeholder="Minimal 6 karakter"
                   />
                   <button
@@ -127,7 +127,7 @@ export const AuthScreen: React.FC = () => {
                       justifyContent: 'center'
                     }}
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? <MaterialIcon name="visibility_off" className="text-lg" /> : <MaterialIcon name="visibility" className="text-lg" />}
                   </button>
                 </div>
               </div>

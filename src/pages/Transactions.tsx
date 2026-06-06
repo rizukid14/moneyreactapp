@@ -9,6 +9,8 @@ import DatePickerModal from '../components/modals/DatePickerModal';
 import WhatsNewModal from '../components/modals/WhatsNewModal';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import MaterialIcon from '../components/common/MaterialIcon';
+import { SearchInput } from '../components/ui/SearchInput';
+import { FilterChip } from '../components/ui/FilterChip';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -1025,83 +1027,55 @@ const Transactions: React.FC = () => {
           {/* Left: Transaction List (60%) */}
           <div className="lg:w-[60%] space-y-6">
             <div className="bg-bg-card rounded-3xl shadow-bento overflow-hidden">
-              <div className="px-4 pt-4 pb-3 border-b border-border-light flex flex-col gap-3">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  {/* Search box */}
-                  <div className="flex items-center gap-2 bg-surface-container-low rounded-lg px-3 py-1.5 border border-outline-variant max-w-[220px] w-full">
-                    <MaterialIcon name="search" className="text-on-surface-variant text-sm" />
-                    <input 
-                      className="bg-transparent border-none focus:ring-0 text-sm w-full font-body-md outline-none text-on-surface !p-0 !mb-0" 
-                      placeholder="Cari transaksi..." 
-                      type="text"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      data-testid="search-input"
-                    />
-                    {searchQuery && (
-                      <MaterialIcon name="close" className="text-on-surface-variant text-sm cursor-pointer" onClick={() => setSearchQuery('')} />
-                    )}
-                  </div>
-                  
-                  {/* Group By Filter */}
-                  <div className="flex bg-surface-container rounded-lg p-0.5 shrink-0">
-                    <button
-                      onClick={() => setGroupBy('date')}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${groupBy === 'date' ? 'bg-primary text-white shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
-                    >
-                      Tanggal
-                    </button>
-                    <button
-                      onClick={() => setGroupBy('category')}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${groupBy === 'category' ? 'bg-primary text-white shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
-                    >
-                      Kategori
-                    </button>
-                  </div>
-                </div>
+              <div className="px-4 pt-4 pb-4 border-b border-border-light flex flex-col gap-4">
+                <SearchInput 
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Cari nama, kategori, atau catatan transaksi..."
+                  maxWidth="100%"
+                />
 
-                {/* Type Filters */}
-                <div className="flex gap-2 overflow-x-auto hide-scrollbar">
-                  <button 
-                    onClick={() => setTypeFilter('all')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border-none cursor-pointer ${typeFilter === 'all' ? 'bg-primary text-white font-bold' : 'bg-transparent text-on-surface-variant hover:bg-surface-container'}`}
-                  >
-                    Semua
-                  </button>
-                  <button 
-                    onClick={() => setTypeFilter('pengeluaran')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border-none cursor-pointer ${typeFilter === 'pengeluaran' ? 'bg-primary text-white font-bold' : 'bg-transparent text-on-surface-variant hover:bg-surface-container'}`}
-                  >
-                    Pengeluaran
-                  </button>
-                  <button 
-                    onClick={() => setTypeFilter('pendapatan')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border-none cursor-pointer ${typeFilter === 'pendapatan' ? 'bg-primary text-white font-bold' : 'bg-transparent text-on-surface-variant hover:bg-surface-container'}`}
-                  >
-                    Pendapatan
-                  </button>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  {/* Type Filters */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar w-full sm:w-auto">
+                    <FilterChip label="Semua" isActive={typeFilter === 'all'} onClick={() => setTypeFilter('all')} />
+                    <FilterChip label="Keluar" icon={<MaterialIcon name="arrow_downward" className="text-[12px]" />} isActive={typeFilter === 'pengeluaran'} onClick={() => setTypeFilter('pengeluaran')} className={typeFilter === 'pengeluaran' ? '!bg-error !text-white' : 'hover:!text-error'} />
+                    <FilterChip label="Masuk" icon={<MaterialIcon name="arrow_upward" className="text-[12px]" />} isActive={typeFilter === 'pendapatan'} onClick={() => setTypeFilter('pendapatan')} className={typeFilter === 'pendapatan' ? '!bg-primary-color !text-white' : 'hover:!text-primary-color'} />
+                  </div>
+
+                  {/* Group By Filter */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider hidden sm:block">Grup:</span>
+                    <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+                      <FilterChip label="Tanggal" isActive={groupBy === 'date'} onClick={() => setGroupBy('date')} />
+                      <FilterChip label="Kategori" isActive={groupBy === 'category'} onClick={() => setGroupBy('category')} />
+                      <FilterChip label="Aset" isActive={groupBy === 'asset'} onClick={() => setGroupBy('asset')} />
+                    </div>
+                  </div>
                 </div>
               </div>
               
-              <div className="divide-y divide-border-light min-h-[300px]">
+              <div className="flex flex-col gap-4 p-4 min-h-[300px] bg-bg-main lg:bg-transparent">
                 {groups.length === 0 ? (
-                  <div className="p-12 text-center text-on-surface-variant">
+                  <div className="p-12 text-center text-on-surface-variant bg-bg-card rounded-2xl border border-outline-variant">
                     <MaterialIcon name="receipt_long" className="text-4xl opacity-50 mb-2" />
                     <p>Tidak ada transaksi.</p>
                   </div>
                 ) : (
                   groups.map(group => (
-                    <div key={group.id}>
+                    <div key={group.id} className="flex flex-col gap-3">
                         {group.title && (
                           <div 
-                            className="bg-surface-container-lowest px-4 py-2 text-xs font-bold text-on-surface-variant uppercase tracking-wider sticky top-0 z-10 border-b border-border-light flex justify-between items-center cursor-pointer"
+                            className="flex justify-between items-center cursor-pointer pt-2 pb-1"
                             onClick={() => toggleGroup(group.id)}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 text-on-surface-variant font-bold text-sm uppercase tracking-wider">
                               <MaterialIcon name={collapsedGroups[group.id] ? "chevron_right" : "expand_more"} className="text-sm" />
                               <span>{group.title}</span>
                             </div>
-                            <span className="opacity-70 text-[10px]">{formatCurrency(group.income - group.expense, currencySymbol)}</span>
+                            <span className="font-bold text-on-surface text-xs bg-surface-container px-2 py-1 rounded-lg shadow-sm">
+                              {formatCurrency(group.income - group.expense, currencySymbol)}
+                            </span>
                           </div>
                         )}
                         {!collapsedGroups[group.id] && (

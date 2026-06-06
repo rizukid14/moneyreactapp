@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowRightLeft, AlertTriangle, Calculator, Folder, ChevronRight, Wallet, Target } from 'lucide-react';
+
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Asset, RecurringTransaction, Transaction } from '../../contexts/MoneyContext';
 import CalculatorModal from './CalculatorModal';
@@ -15,6 +15,7 @@ import { Modal } from '../ui/Modal';
 import { TabBar } from '../ui/TabBar';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -672,7 +673,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           cursor: 'pointer', flexShrink: 0
                         }}
                       >
-                        <Calculator size={20} />
+                        <MaterialIcon name="calculate" className="text-[20px]" />
                       </button>
                     </div>
 
@@ -691,12 +692,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           data-tour="modal-category"
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Folder size={18} color="var(--primary)" />
+                            <MaterialIcon name="folder" className="text-[18px]" />
                             <span style={{ fontSize: '14px', fontWeight: category ? 700 : 500 }}>
                               {category ? (subCategory ? `${category}  >  ${subCategory}` : category) : '-- Pilih Kategori --'}
                             </span>
                           </div>
-                          <ChevronRight size={18} color="var(--text-muted)" />
+                          <MaterialIcon name="chevron_right" className="text-[18px]" />
                         </button>
 
                         {/* Asset selector button */}
@@ -719,12 +720,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               data-tour="modal-asset"
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Wallet size={18} color="var(--primary)" />
+                                <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                                 <span style={{ fontSize: '14px', fontWeight: selectedAsset ? 700 : 500 }}>
                                   {selectedAsset ? selectedAsset.name : '-- Pilih Dompet/Rekening --'}
                                 </span>
                               </div>
-                              <ChevronRight size={18} color="var(--text-muted)" />
+                              <MaterialIcon name="chevron_right" className="text-[18px]" />
                             </button>
                           );
                         })()}
@@ -746,12 +747,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Target size={18} color="var(--primary)" />
+                                <MaterialIcon name="track_changes" className="text-[18px]" />
                                 <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
                                   {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
                                 </span>
                               </div>
-                              <ChevronRight size={18} color="var(--text-muted)" />
+                              <MaterialIcon name="chevron_right" className="text-[18px]" />
                             </button>
                           </div>
                         )}
@@ -781,12 +782,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {asset ? asset.name : '-- Dari --'}
                               </span>
-                              <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                              <MaterialIcon name="chevron_right" />
                             </button>
                           );
                         })()}
 
-                        <ArrowRightLeft color="var(--text-muted)" size={18} style={{ flexShrink: 0 }} />
+                        <MaterialIcon name="swap_horiz" />
 
                         {/* To Asset Button */}
                         {(() => {
@@ -810,7 +811,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {asset ? asset.name : '-- Ke --'}
                               </span>
-                              <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                              <MaterialIcon name="chevron_right" />
                             </button>
                           );
                         })()}
@@ -833,12 +834,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <Target size={18} color="var(--primary)" />
+                              <MaterialIcon name="track_changes" className="text-[18px]" />
                               <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
                                 {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
                               </span>
                             </div>
-                            <ChevronRight size={18} color="var(--text-muted)" />
+                            <MaterialIcon name="chevron_right" className="text-[18px]" />
                           </button>
                         </div>
                       )}
@@ -930,7 +931,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       }}>
                         <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <ArrowRightLeft size={16} color={isRecurring ? 'var(--primary)' : 'var(--text-muted)'} />
+                            <MaterialIcon name="swap_horiz" />
                             <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Jadikan Transaksi Rutin</span>
                           </div>
                           <input
@@ -993,7 +994,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     {/* Budget Alert Banner */}
                     {budgetAlerts.length > 0 && (
                       <div className="budget-alert-banner">
-                        <AlertTriangle size={16} className="ba-icon" />
+                        <MaterialIcon name="warning" className="text-[16px] ba-icon" />
                         <div>
                           <div className="ba-title">Peringatan Anggaran</div>
                           {budgetAlerts.map((alert, i) => (

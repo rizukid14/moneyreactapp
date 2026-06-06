@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Delete } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface CalculatorModalProps {
   isOpen: boolean;
@@ -162,7 +163,7 @@ const CalculatorModal: React.FC<CalculatorModalProps> = ({ isOpen, onClose, onCo
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Kalkulator</h2>
-              <button className="close-btn" onClick={onClose}><X size={20} /></button>
+              <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-[20px]" /></button>
             </div>
 
             <div style={{ 
@@ -195,7 +196,7 @@ const CalculatorModal: React.FC<CalculatorModalProps> = ({ isOpen, onClose, onCo
               <button style={btnStyle} onClick={handleClear}><span style={{ color: 'var(--danger)' }}>C</span></button>
               <button style={opBtnStyle} onClick={() => handlePress('÷')}>÷</button>
               <button style={opBtnStyle} onClick={() => handlePress('×')}>×</button>
-              <button style={{...btnStyle, color: 'var(--danger)'}} onClick={handleBackspace}><Delete size={24} /></button>
+              <button style={{...btnStyle, color: 'var(--danger)'}} onClick={handleBackspace}><MaterialIcon name="backspace" className="text-[24px]" /></button>
 
               <button style={btnStyle} onClick={() => handlePress('7')}>7</button>
               <button style={btnStyle} onClick={() => handlePress('8')}>8</button>

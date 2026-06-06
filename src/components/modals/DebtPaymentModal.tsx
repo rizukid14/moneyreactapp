@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Check, ArrowRightLeft, Wallet } from 'lucide-react';
 import AssetSelectModal from './AssetSelectModal';
 import { getLocalDate, getLocalTime, formatCurrency } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
@@ -8,6 +7,7 @@ import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface DebtPaymentModalProps {
   isOpen: boolean;
@@ -163,7 +163,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                       background: 'var(--bg-card)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                     }}>
-                      <Wallet size={18} color={'var(--text-muted)'} />
+                      <MaterialIcon name="account_balance_wallet" />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 800, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeAssets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</div>
@@ -214,7 +214,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                   fontWeight: 700, padding: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
                 }}
               >
-                {isFullSettle ? <Check size={18} /> : <ArrowRightLeft size={18} />}
+                {isFullSettle ? <MaterialIcon name="check" className="text-[18px]" /> : <MaterialIcon name="swap_horiz" className="text-[18px]" />}
                 {isFullSettle ? 'Konfirmasi Pelunasan' : 'Konfirmasi Pembayaran Cicilan'}
               </Button>
     </Modal>

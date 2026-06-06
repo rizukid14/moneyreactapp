@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, Target, Check } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Goal } from '../../contexts/MoneyContext';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface GoalSelectModalProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ const GoalSelectModal: React.FC<GoalSelectModalProps> = ({
               padding: '20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0,
             }}>
               <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Target Tabungan</h2>
-              <button className="close-btn" onClick={onClose}><X size={20} /></button>
+              <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-[20px]" /></button>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
@@ -57,7 +58,7 @@ const GoalSelectModal: React.FC<GoalSelectModalProps> = ({
                 <div style={{ fontSize: '14px', fontWeight: !selectedGoalId ? 700 : 500, color: !selectedGoalId ? 'var(--primary)' : 'var(--text-main)' }}>
                   -- Tidak Dihubungkan --
                 </div>
-                {!selectedGoalId && <Check size={18} color="var(--primary)" />}
+                {!selectedGoalId && <MaterialIcon name="check" className="text-[18px]" />}
               </button>
 
               {goals.map(goal => {
@@ -81,13 +82,13 @@ const GoalSelectModal: React.FC<GoalSelectModalProps> = ({
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: isSelected ? 'white' : 'var(--primary)', flexShrink: 0
                       }}>
-                        <Target size={16} />
+                        <MaterialIcon name="track_changes" className="text-[16px]" />
                       </div>
                       <div style={{ fontSize: '14px', fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--primary)' : 'var(--text-main)' }}>
                         {goal.name}
                       </div>
                     </div>
-                    {isSelected && <Check size={18} color="var(--primary)" />}
+                    {isSelected && <MaterialIcon name="check" className="text-[18px]" />}
                   </button>
                 );
               })}

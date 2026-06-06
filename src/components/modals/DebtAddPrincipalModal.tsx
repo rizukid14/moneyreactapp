@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wallet, ChevronRight } from 'lucide-react';
+
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
 import AssetSelectModal from './AssetSelectModal';
@@ -7,6 +7,7 @@ import CurrencyInput from '../common/CurrencyInput';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface DebtAddPrincipalModalProps {
   isOpen: boolean;
@@ -94,12 +95,12 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Wallet size={18} color="var(--primary)" />
+                      <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                       <span style={{ fontWeight: 600, color: selectedAsset ? 'var(--text-main)' : 'var(--text-muted)' }}>
                         {selectedAsset ? selectedAsset.name : '-- Tidak Ada / Tunai --'}
                       </span>
                     </div>
-                    <ChevronRight size={18} color="var(--text-muted)" />
+                    <MaterialIcon name="chevron_right" className="text-[18px]" />
                   </button>
                 </div>
 

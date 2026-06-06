@@ -1,7 +1,8 @@
 import React from 'react';
-import { Receipt } from 'lucide-react';
+
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface SharedExpenseDetailModalProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ const SharedExpenseDetailModal: React.FC<SharedExpenseDetailModalProps> = ({
     >
           <Card variant="glass" style={{ padding: '20px', marginBottom: '24px', textAlign: 'center' }}>
             <div style={{ width: '48px', height: '48px', background: 'var(--primary-glow)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
-              <Receipt size={24} color="var(--primary)" />
+              <MaterialIcon name="receipt" className="text-[24px]" />
             </div>
             <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '4px' }}>{expense.description}</h3>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>

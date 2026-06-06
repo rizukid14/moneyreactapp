@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Calculator, Folder, ChevronRight } from 'lucide-react';
+
 import { type Category, type Budget } from '../../contexts/MoneyContext';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -7,6 +7,7 @@ import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
 import CurrencyInput from '../common/CurrencyInput';
 import { useToast } from '../common/Toast';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface BudgetModalProps {
   isOpen: boolean;
@@ -88,7 +89,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
         onClose={onClose}
         title={
            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-             <Target size={24} color="var(--primary)" />
+             <MaterialIcon name="track_changes" className="text-[24px]" />
              <span>{editingBudget ? 'Edit Anggaran' : 'Set Anggaran'}</span>
            </div>
         }
@@ -127,7 +128,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Folder size={18} color={categoryId !== 'total' ? 'var(--primary)' : 'var(--text-muted)'} />
+                      <MaterialIcon name="folder" />
                       <span style={{ 
                         fontWeight: categoryId !== 'total' ? 700 : 500, 
                         color: categoryId !== 'total' ? 'var(--text-main)' : 'var(--text-muted)' 
@@ -135,7 +136,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                         {categoryId !== 'total' && selectedCategory ? selectedCategory.name : 'Pilih Kategori Spesifik...'}
                       </span>
                     </div>
-                    <ChevronRight size={18} color="var(--text-muted)" />
+                    <MaterialIcon name="chevron_right" className="text-[18px]" />
                   </button>
                 </div>
 
@@ -155,7 +156,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                     onClick={() => setIsCalcOpen(true)} 
                     style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg-income)', border: '1px solid var(--primary-glow)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                   >
-                    <Calculator size={20} />
+                    <MaterialIcon name="calculate" className="text-[20px]" />
                   </button>
                 </div>
 

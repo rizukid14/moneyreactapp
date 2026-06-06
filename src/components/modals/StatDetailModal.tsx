@@ -1,6 +1,7 @@
 import React from 'react';
-import { Info, Calculator } from 'lucide-react';
+
 import { Modal } from '../ui/Modal';
+import MaterialIcon from '../common/MaterialIcon';
 
 export interface StatDetailItem {
   label: string;
@@ -31,7 +32,7 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
             background: 'var(--bg-income)', color: 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-            <Calculator size={18} />
+            <MaterialIcon name="calculate" className="text-[18px]" />
           </div>
           {title}
         </div>
@@ -50,7 +51,7 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
                   gap: '12px',
                   alignItems: 'flex-start'
                 }}>
-                  <Info size={18} color="var(--text-muted)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                  <MaterialIcon name="info" />
                   <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5, color: 'var(--text-main)', opacity: 0.9 }}>
                     {explanation}
                   </p>

@@ -3,7 +3,7 @@ import React from 'react';
 export interface ListItemProps {
   left?: React.ReactNode;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   right?: React.ReactNode;
   onClick?: () => void;
   className?: string;

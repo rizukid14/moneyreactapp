@@ -1,9 +1,10 @@
 import React from 'react';
-import { ArrowRightLeft, TrendingDown, TrendingUp, CheckCircle2 } from 'lucide-react';
+
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface DebtOffsetModalProps {
   isOpen: boolean;
@@ -41,7 +42,7 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 12px'
             }}>
-              <ArrowRightLeft size={30} />
+              <MaterialIcon name="swap_horiz" className="text-[30px]" />
             </div>
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{contactName}</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
@@ -52,14 +53,14 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
           <Card variant="default" style={{ padding: '16px', marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <TrendingDown size={14} color="var(--danger)" />
+                <MaterialIcon name="trending_down" className="text-[14px]" />
                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Total Hutang</span>
               </div>
               <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)' }}>{fmt(totalHutang, currencySymbol)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <TrendingUp size={14} color="var(--primary)" />
+                <MaterialIcon name="trending_up" className="text-[14px]" />
                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Total Piutang</span>
               </div>
               <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>{fmt(totalPiutang, currencySymbol)}</span>
@@ -115,7 +116,7 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
             }}
           >
-            <CheckCircle2 size={18} /> Konfirmasi Potong Silang
+            <MaterialIcon name="check_circle" className="text-[18px]" /> Konfirmasi Potong Silang
           </Button>
         </div>
     </Modal>

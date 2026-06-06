@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ChevronRight, Folder, FolderOpen, Check, Plus, Search } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Category, useMoney } from '../../contexts/MoneyContext';
 import CategoryModal from './CategoryModal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface CategorySelectModalProps {
   isOpen: boolean;
@@ -133,9 +134,9 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                     }}
                     title="Tambah Kategori Baru"
                   >
-                    <Plus size={18} />
+                    <MaterialIcon name="add" className="text-[18px]" />
                   </button>
-                  <button className="close-btn" onClick={onClose}><X size={20} /></button>
+                  <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-[20px]" /></button>
                 </div>
               </div>
 
@@ -146,13 +147,13 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                   placeholder="Cari kategori atau sub-kategori..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  icon={<Search size={16} />}
+                  icon={<MaterialIcon name="search" className="text-[16px]" />}
                   rightElement={searchQuery ? (
                     <button
                       onClick={() => setSearchQuery('')}
                       style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
                     >
-                      <X size={14} />
+                      <MaterialIcon name="close" className="text-[14px]" />
                     </button>
                   ) : undefined}
                   style={{ marginBottom: 0 }}
@@ -203,7 +204,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>
-                              {isActive ? <FolderOpen size={18} /> : <Folder size={18} />}
+                              {isActive ? <MaterialIcon name="folder_open" className="text-[18px]" /> : <MaterialIcon name="folder" className="text-[18px]" />}
                             </div>
                             <span style={{
                               fontSize: '14px',
@@ -214,7 +215,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                             </span>
                           </div>
                           {hasSub && (
-                            <ChevronRight size={16} color={isActive ? 'var(--primary)' : 'var(--border-color)'} />
+                            <MaterialIcon name="chevron_right" />
                           )}
                         </button>
                       );
@@ -232,7 +233,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                   {activeCategoryObj && (!activeCategoryObj.subcategories || activeCategoryObj.subcategories.length === 0) ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '20px', textAlign: 'center' }}>
                       <div style={{ width: 48, height: 48, borderRadius: 24, background: 'var(--bg-income)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                        <Check size={24} />
+                        <MaterialIcon name="check" className="text-[24px]" />
                       </div>
                       <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: 4 }}>"{activeCategoryObj.name}"</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 20 }}>Kategori ini tidak memiliki sub-kategori.</div>
@@ -257,7 +258,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                         <span style={{ fontSize: '14px', fontWeight: !initialSubCategory ? 700 : 500, color: !initialSubCategory ? 'var(--primary)' : 'var(--text-main)', fontStyle: 'italic' }}>
                           Tanpa Sub-Kategori
                         </span>
-                        {!initialSubCategory && <Check size={16} color="var(--primary)" />}
+                        {!initialSubCategory && <MaterialIcon name="check" className="text-[16px]" />}
                       </button>
 
                       {sortedSubcategories.map(sub => {
@@ -275,7 +276,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                             <span style={{ fontSize: '14px', fontWeight: isSubActive ? 700 : 500, color: isSubActive ? 'var(--primary)' : 'var(--text-main)' }}>
                               {sub.name}
                             </span>
-                            {isSubActive && <Check size={16} color="var(--primary)" />}
+                            {isSubActive && <MaterialIcon name="check" className="text-[16px]" />}
                           </button>
                         );
                       })}

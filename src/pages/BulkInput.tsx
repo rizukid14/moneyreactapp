@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, Loader2, X, Sparkles, ChevronLeft, Mic, Square } from 'lucide-react';
+
 import { useMoney } from '../contexts/MoneyContext';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
@@ -8,6 +8,9 @@ import { useToast } from '../components/common/Toast';
 import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import MaterialIcon from '../components/common/MaterialIcon';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
@@ -239,19 +242,19 @@ const BulkInput: React.FC = () => {
   }, [showToast, assets, categories, handleParse]);
 
   return (
-    <div className="page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
-          <ChevronLeft size={20} />
-        </button>
-        <h1 className="title" style={{ margin: 0 }}>Input Sekaligus</h1>
-      </div>
+    <PageWrapper>
+      <button onClick={() => navigate(-1)} className="btn-icon" style={{ marginBottom: '16px' }}>
+        <MaterialIcon name="chevron_left" className="text-2xl" />
+      </button>
+      <PageHeader 
+        title="Input Sekaligus" 
+      />
 
       {error && (
         <div className="card" style={{ backgroundColor: 'hsla(350,85%,60%,0.1)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <AlertCircle color="var(--danger)" size={20} />
-          <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: 600 }}>{error}</span>
-          <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none' }}><X size={18} /></button>
+          <MaterialIcon name="error" className="text-danger text-xl" />
+          <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: 600, flex: 1 }}>{error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none' }}><MaterialIcon name="close" className="text-lg text-danger" /></button>
         </div>
       )}
 
@@ -289,7 +292,7 @@ const BulkInput: React.FC = () => {
                   padding: '8px 10px', cursor: 'pointer', fontWeight: 700, fontSize: '12px'
                 }}
               >
-                {isListening ? <Square size={14} /> : <Mic size={14} />}
+                {isListening ? <MaterialIcon name="square" className="text-sm" /> : <MaterialIcon name="mic" className="text-sm" />}
                 {isListening ? 'Mendengar...' : 'Voice Input'}
               </button>
             </div>
@@ -305,11 +308,11 @@ const BulkInput: React.FC = () => {
           >
             {isParsing ? (
               <>
-                <Loader2 size={18} className="spin" /> Menganalisa...
+                <MaterialIcon name="autorenew" className="text-[18px] spin" /> Menganalisa...
               </>
             ) : (
               <>
-                <Sparkles size={18} /> Mulai Analisa
+                <MaterialIcon name="auto_awesome" className="text-lg" /> Mulai Analisa
               </>
             )}
           </Button>
@@ -379,7 +382,7 @@ const BulkInput: React.FC = () => {
         month={reallocationModal.month}
         year={reallocationModal.year}
       />
-    </div>
+    </PageWrapper>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Check, UserPlus } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Contact } from '../../contexts/MoneyContext';
 
@@ -15,6 +15,7 @@ interface ContactSelectModalProps {
 }
 
 import ContactModal from './ContactModal';
+import MaterialIcon from '../common/MaterialIcon';
 
 const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
   isOpen,
@@ -92,7 +93,7 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
               padding: '20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0,
             }}>
               <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Kontak</h2>
-              <button className="close-btn" onClick={onClose}><X size={20} /></button>
+              <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-[20px]" /></button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -128,7 +129,7 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
                       cursor: 'pointer'
                     }}
                   >
-                    <UserPlus size={20} />
+                    <MaterialIcon name="person_add" className="text-[20px]" />
                   </button>
                 </div>
 
@@ -198,7 +199,7 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
                               )}
                             </div>
                           </div>
-                          {isSelected && <Check size={18} color="var(--primary)" />}
+                          {isSelected && <MaterialIcon name="check" className="text-[18px]" />}
                         </button>
                       );
                     })

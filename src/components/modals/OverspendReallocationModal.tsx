@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { X, AlertTriangle, CheckCircle2, Wallet, ArrowRight } from 'lucide-react';
+
 import { useMoney } from '../../contexts/MoneyContext';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface OverspendReallocationModalProps {
   isOpen: boolean;
@@ -137,7 +138,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
               width: '40px', height: '40px', borderRadius: '12px', background: 'var(--danger-glow, rgba(239,68,68,0.1))',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <AlertTriangle size={20} color="var(--danger)" />
+              <MaterialIcon name="warning" className="text-[20px]" />
             </div>
             <div>
               <h2 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--danger)', margin: 0 }}>Overbudget!</h2>
@@ -145,7 +146,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
             </div>
           </div>
           <button className="close-btn" onClick={onClose} style={{ background: 'var(--bg-neutral)', borderRadius: '10px', border: 'none', padding: '8px', cursor: 'pointer' }}>
-            <X size={18} />
+            <MaterialIcon name="close" className="text-[18px]" />
           </button>
         </div>
 
@@ -185,7 +186,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: isUnassignedSelected ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'
             }}>
-              <Wallet size={18} color={isUnassignedSelected ? 'var(--primary)' : 'var(--text-muted)'} />
+              <MaterialIcon name="account_balance_wallet" />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -195,7 +196,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
                 Tersedia: {fmt(unassignedMoney)} {!unassignedEnough && '• Tidak cukup'}
               </div>
             </div>
-            {isUnassignedSelected && <CheckCircle2 size={18} color="var(--primary)" />}
+            {isUnassignedSelected && <MaterialIcon name="check_circle" className="text-[18px]" />}
           </button>
 
           {/* Category Budget Options — only those with remaining > 0 */}
@@ -234,7 +235,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
                     Sisa: {fmt(remaining)} {!hasEnough && '• Sebagian'}
                   </div>
                 </div>
-                {isSelected && <CheckCircle2 size={18} color="var(--primary)" />}
+                {isSelected && <MaterialIcon name="check_circle" className="text-[18px]" />}
               </button>
             );
           })}
@@ -256,7 +257,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
               {fromId === 'unassigned' ? 'Belum Dialokasikan' : categories.find(c => c.id === fromId)?.name || 'Sumber'}
             </span>
-            <ArrowRight size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+            <MaterialIcon name="arrow_forward" />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
               {targetCategory?.name || 'Target'}
             </span>

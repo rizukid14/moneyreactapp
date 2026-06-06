@@ -1,11 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
-  Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
-  LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, Save, Search, CreditCard, Calendar, ChevronLeft, Folder, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Share2, Plane
-} from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
@@ -22,6 +17,9 @@ import CategorySelectModal from '../components/modals/CategorySelectModal';
 import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
 import ContactModal from '../components/modals/ContactModal';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import MaterialIcon from '../components/common/MaterialIcon';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import CurrencyInput from '../components/common/CurrencyInput';
 
@@ -76,11 +74,11 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <LayoutDashboard size={18} color="var(--primary)" />
+        <MaterialIcon name="dashboard" className="text-[18px]" />
         <span style={{ fontWeight: 700, fontSize: 14 }}>Rekap Aset di Halaman Aset</span>
       </div>
       <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
-        Pilih kartu yang tampil di carousel atas. Seret <GripVertical size={12} style={{ verticalAlign: 'middle', display: 'inline' }} /> untuk mengurutkan.
+        Pilih kartu yang tampil di carousel atas. Seret <MaterialIcon name="drag_indicator" /> untuk mengurutkan.
       </p>
 
       {/* Active cards – draggable order list */}
@@ -117,7 +115,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
                     userSelect: 'none',
                   }}
                 >
-                  <GripVertical size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                  <MaterialIcon name="drag_indicator" />
                   {/* Tier color dot */}
                   <div style={{
                     width: 10, height: 10, borderRadius: '50%',
@@ -136,7 +134,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
                     style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, opacity: activeCards.length <= 1 ? 0.3 : 0.7, flexShrink: 0 }}
                     disabled={activeCards.length <= 1}
                   >
-                    <X size={14} />
+                    <MaterialIcon name="close" className="text-[14px]" />
                   </button>
                 </div>
               );
@@ -166,7 +164,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-glow)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-card)'; }}
             >
-              <Plus size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+              <MaterialIcon name="add" />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -196,6 +194,7 @@ export const ALL_STATS_VIEWS = [
   { id: 'subs', label: 'Langganan', description: 'Biaya rutin bulanan' },
   { id: 'health', label: 'Kesehatan Finansial', description: 'Skor kesehatan finansial' },
   { id: 'forecast', label: 'Proyeksi Kas', description: 'Prediksi saldo 90 hari ke depan' },
+  { id: 'detailed_analysis', label: 'Analisis Detail', description: 'Heatmap & Grafik Kategori' },
 ];
 
 interface StatsViewSettingsProps {
@@ -240,7 +239,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
   return (
     <div style={{ marginBottom: 20, marginTop: 30, paddingTop: 30, borderTop: '1px solid var(--border-color)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <TrendingUp size={18} color="var(--primary)" />
+        <MaterialIcon name="trending_up" className="text-[18px]" />
         <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilan Statistik</span>
       </div>
       <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
@@ -269,7 +268,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
                 cursor: 'grab', transition: 'all 0.15s'
               }}
             >
-              <GripVertical size={16} color="var(--text-muted)" />
+              <MaterialIcon name="drag_indicator" className="text-[16px]" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
@@ -291,7 +290,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
                   disabled={activeViews.length <= 1}
                   style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', opacity: activeViews.length <= 1 ? 0.3 : 0.7 }}
                 >
-                  <X size={14} />
+                  <MaterialIcon name="close" className="text-[14px]" />
                 </button>
               </div>
             </div>
@@ -312,7 +311,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
               background: 'var(--bg-card)', border: '1.5px dashed var(--border-color)', cursor: 'pointer', textAlign: 'left'
             }}
           >
-            <Plus size={14} color="var(--primary)" />
+            <MaterialIcon name="add" className="text-[14px]" />
             <div>
               <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
@@ -462,37 +461,37 @@ const Settings: React.FC = () => {
     {
       title: 'Akun & Personalisasi',
       items: [
-        { id: 'profile', icon: User, label: 'Profil Saya' },
-        { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
-        { id: 'theme', icon: Moon, label: 'Tema Gelap', isToggle: true },
-        { id: 'security', icon: Shield, label: 'Keamanan' },
+        { id: 'profile', icon: 'person', label: 'Profil Saya' },
+        { id: 'preferences', icon: 'tune', label: 'Preferensi Aplikasi' },
+        { id: 'theme', icon: 'dark_mode', label: 'Tema Gelap', isToggle: true },
+        { id: 'security', icon: 'security', label: 'Keamanan' },
       ]
     },
     {
       title: 'Manajemen Keuangan',
       items: [
-        { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
-        { id: 'budgets', icon: Target, label: 'Budgeting & Goals' },
-        { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
-        { id: 'subscriptions', icon: CreditCard, label: 'Langganan (Subs)' },
-        { id: 'debts', icon: HandCoins, label: 'Hutang & Piutang' },
+        { id: 'categories', icon: 'sell', label: 'Manajemen Kategori' },
+        { id: 'budgets', icon: 'track_changes', label: 'Budgeting & Goals' },
+        { id: 'recurring', icon: 'autorenew', label: 'Transaksi Rutin' },
+        { id: 'subscriptions', icon: 'credit_card', label: 'Langganan (Subs)' },
+        { id: 'debts', icon: 'handshake', label: 'Hutang & Piutang' },
       ]
     },
     {
       title: 'Sosial & Fitur Berbagi',
       items: [
-        { id: 'contacts', icon: BookUser, label: 'Daftar Kontak' },
-        { id: 'trips', icon: Plane, label: 'Holiday Trip (Bagi Biaya)' },
-        { id: 'shared_bills', icon: Share2, label: 'Shared Split Bills' },
+        { id: 'contacts', icon: 'contact_page', label: 'Daftar Kontak' },
+        { id: 'trips', icon: 'flight_takeoff', label: 'Holiday Trip (Bagi Biaya)' },
+        { id: 'shared_bills', icon: 'receipt_long', label: 'Shared Split Bills' },
       ]
     },
     {
       title: 'Data & Sistem',
       items: [
-        { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
-        { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
-        { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
-        { id: 'reset_tutorial', icon: RefreshCw, label: 'Ulangi Tutorial Aplikasi' },
+        { id: 'backup', icon: 'backup', label: 'Backup & Restore Data' },
+        { id: 'whats_new', icon: 'new_releases', label: "Apa yang Baru" },
+        { id: 'help', icon: 'help', label: 'Bantuan & Dukungan' },
+        { id: 'reset_tutorial', icon: 'restart_alt', label: 'Ulangi Tutorial Aplikasi' },
       ]
     }
   ];
@@ -685,7 +684,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Daftar Kontak</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}><X /></button>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingBottom: '20px' }}>
@@ -702,16 +701,14 @@ const Settings: React.FC = () => {
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
                   }}
                 >
-                  <Plus size={14} /> Tambah
+                  <MaterialIcon name="add" className="text-[14px]" /> Tambah
                 </button>
               </div>
 
               {/* Search Bar */}
               <div style={{ padding: '0 20px', marginBottom: '12px' }}>
                 <div style={{ position: 'relative' }}>
-                  <Search
-                    size={18}
-                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
+                  <MaterialIcon name="search"
                   />
                   <input
                     type="text"
@@ -785,7 +782,7 @@ const Settings: React.FC = () => {
                           setEditingContact(c.id);
                           setIsContactModalOpen(true);
                         }} className="btn-icon" style={{ color: 'var(--primary)', padding: 6 }}>
-                          <Edit2 size={18} />
+                          <MaterialIcon name="edit" className="text-[18px]" />
                         </button>
                         <button onClick={() => {
                           showConfirm(
@@ -794,7 +791,7 @@ const Settings: React.FC = () => {
                             () => deleteContact(c.id)
                           );
                         }} className="btn-icon" style={{ color: 'var(--danger)', padding: 6 }}>
-                          <Trash2 size={18} />
+                          <MaterialIcon name="delete" className="text-[18px]" />
                         </button>
                       </div>
                     </div>
@@ -811,7 +808,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Kategori</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
@@ -892,10 +889,10 @@ const Settings: React.FC = () => {
                           <span style={{ fontSize: '14px', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--text-main)' : 'var(--text-muted)' }}>{c.name}</span>
                           <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
                             <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                              <Edit2 size={12} />
+                              <MaterialIcon name="edit" className="text-[12px]" />
                             </button>
                             <button onClick={() => showConfirm('Hapus Kategori', `Hapus "${c.name}"?`, () => deleteCategory(c.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                              <Trash2 size={12} />
+                              <MaterialIcon name="delete" className="text-[12px]" />
                             </button>
                           </div>
                         </>
@@ -940,10 +937,10 @@ const Settings: React.FC = () => {
                               <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{sub.name}</span>
                               <div style={{ display: 'flex', gap: '4px' }}>
                                 <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                                  <Edit2 size={12} />
+                                  <MaterialIcon name="edit" className="text-[12px]" />
                                 </button>
                                 <button onClick={() => showConfirm('Hapus Sub-kategori', `Hapus "${sub.name}"?`, () => deleteSubCategory(expandedCat, sub.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                                  <Trash2 size={12} />
+                                  <MaterialIcon name="delete" className="text-[12px]" />
                                 </button>
                               </div>
                             </>
@@ -963,7 +960,7 @@ const Settings: React.FC = () => {
                           style={{ flex: 1, marginBottom: 0, padding: '8px 12px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                         />
                         <button onClick={() => handleAddSubCat(expandedCat, newSubCatName)} className="btn btn-primary" style={{ padding: '0 12px', margin: 0, borderRadius: '8px' }}>
-                          <Plus size={16} />
+                          <MaterialIcon name="add" className="text-[16px]" />
                         </button>
                       </div>
                     </div>
@@ -1002,7 +999,7 @@ const Settings: React.FC = () => {
                 required
               />
               <button type="submit" className="btn btn-primary" style={{ width: '50px', padding: 0, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }}>
-                <Plus size={22} />
+                <MaterialIcon name="add" className="text-[22px]" />
               </button>
             </form>
           </>
@@ -1033,9 +1030,9 @@ const Settings: React.FC = () => {
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
                   }}
                 >
-                  <Plus size={14} /> Tambah
+                  <MaterialIcon name="add" className="text-[14px]" /> Tambah
                 </button>
-                <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+                <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><MaterialIcon name="close" className="text-base" /></button>
               </div>
             </div>
 
@@ -1075,7 +1072,7 @@ const Settings: React.FC = () => {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{s.name}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <CreditCard size={10} /> {currencySymbol}{s.amount.toLocaleString('id-ID')} • <Calendar size={10} /> {s.nextBillingDate} ({s.billingCycle === 'monthly' ? 'Bln' : 'Thn'})
+                        <MaterialIcon name="credit_card" className="text-[10px]" /> {currencySymbol}{s.amount.toLocaleString('id-ID')} • <MaterialIcon name="calendar_today" className="text-[10px]" /> {s.nextBillingDate} ({s.billingCycle === 'monthly' ? 'Bln' : 'Thn'})
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -1084,7 +1081,7 @@ const Settings: React.FC = () => {
                         className="btn-icon"
                         style={{ color: s.isActive ? 'var(--primary)' : 'var(--text-muted)', padding: 6 }}
                       >
-                        <RefreshCw size={18} style={{ opacity: s.isActive ? 1 : 0.4 }} />
+                        <MaterialIcon name="refresh" />
                       </button>
                       <button
                         onClick={() => {
@@ -1099,14 +1096,14 @@ const Settings: React.FC = () => {
                         className="btn-icon"
                         style={{ color: 'var(--primary)', padding: 6 }}
                       >
-                        <Edit2 size={18} />
+                        <MaterialIcon name="edit" className="text-[18px]" />
                       </button>
                       <button
                         onClick={() => showConfirm('Hapus Langganan', `Hapus "${s.name}"?`, () => deleteSubscription(s.id))}
                         className="btn-icon"
                         style={{ color: 'var(--danger)', padding: 6 }}
                       >
-                        <Trash2 size={18} />
+                        <MaterialIcon name="delete" className="text-[18px]" />
                       </button>
                     </div>
                   </div>
@@ -1127,12 +1124,12 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Preferensi Aplikasi</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Wallet size={18} color="var(--primary)" />
+                <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Dompet Utama</span>
               </div>
               <button
@@ -1148,34 +1145,32 @@ const Settings: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {(() => {
                     const asset = assets.find(a => a.id === defaultAssetId);
-                    if (!asset) return <Wallet size={18} color="var(--primary)" />;
-                    // Import icons or use a local helper. 
-                    // Since we already have Wallet, Landmark, etc. imported or available.
-                    let Icon = Wallet;
-                    let color = 'var(--primary)';
+                    if (!asset) return <MaterialIcon name="account_balance_wallet" className="text-[18px]" />;
+                    let iconName = 'account_balance_wallet';
+                    let colorClass = 'text-[var(--primary)]';
                     switch (asset.type) {
-                      case 'Cash': Icon = Wallet; color = 'var(--secondary)'; break;
-                      case 'Bank Account': Icon = Landmark; color = 'var(--primary)'; break;
-                      case 'Credit Card': Icon = CreditCard; color = 'var(--danger)'; break;
-                      case 'eWallet': Icon = Smartphone; color = 'var(--success)'; break;
-                      case 'Savings': Icon = PiggyBank; color = '#3b82f6'; break;
-                      case 'Investment': Icon = TrendingUp; color = '#10b981'; break;
-                      case 'Loan': Icon = HandCoins; color = 'var(--danger)'; break;
+                      case 'Cash': iconName = 'payments'; colorClass = 'text-[var(--secondary)]'; break;
+                      case 'Bank Account': iconName = 'account_balance'; colorClass = 'text-[var(--primary)]'; break;
+                      case 'Credit Card': iconName = 'credit_card'; colorClass = 'text-[var(--danger)]'; break;
+                      case 'eWallet': iconName = 'smartphone'; colorClass = 'text-[var(--success)]'; break;
+                      case 'Savings': iconName = 'savings'; colorClass = 'text-[#3b82f6]'; break;
+                      case 'Investment': iconName = 'trending_up'; colorClass = 'text-[#10b981]'; break;
+                      case 'Loan': iconName = 'handshake'; colorClass = 'text-[var(--danger)]'; break;
                     }
-                    return <Icon size={18} color={color} />;
+                    return <MaterialIcon name={iconName} className={`text-[18px] ${colorClass}`} />;
                   })()}
                   <span style={{ fontWeight: 600, color: defaultAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>
                     {assets.find(a => a.id === defaultAssetId)?.name || 'Pilih Dompet Utama...'}
                   </span>
                 </div>
-                <ChevronRight size={18} color="var(--text-muted)" />
+                <MaterialIcon name="chevron_right" className="text-[18px]" />
               </button>
               <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 8 }}>Digunakan sebagai pilihan otomatis saat mencatat transaksi baru.</p>
             </div>
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <RefreshCw size={18} color="var(--primary)" />
+                <MaterialIcon name="refresh" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Siklus Finansial</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1223,7 +1218,7 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <HandCoins size={18} color="var(--primary)" />
+                <MaterialIcon name="payments" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilkan Transaksi Hutang/Piutang</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1242,7 +1237,7 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Wallet size={18} color="var(--primary)" />
+                <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Mata Uang & Simbol</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1262,7 +1257,7 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Moon size={18} color="var(--primary)" />
+                <MaterialIcon name="dark_mode" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Gaya Grafik Transaksi Harian</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1312,7 +1307,7 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Target size={18} color="var(--primary)" />
+                <MaterialIcon name="track_changes" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Metode Budgeting</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1413,7 +1408,7 @@ const Settings: React.FC = () => {
           <form onSubmit={handleUpdateProfile} style={{ padding: '0 4px' }}>
             <div className="modal-header" style={{ marginBottom: '20px' }}>
               <h2 className="subtitle" style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Profil Saya</h2>
-              <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><X size={18} /></button>
+              <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-[18px]" /></button>
             </div>
 
             {/* Premium Financial Member Pass Card */}
@@ -1499,7 +1494,7 @@ const Settings: React.FC = () => {
                     onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)'; }}
                     title="Ubah Foto"
                   >
-                    <Camera size={12} style={{ flexShrink: 0, display: 'block' }} />
+                    <MaterialIcon name="camera_alt" />
                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
                   </label>
                 </div>
@@ -1600,12 +1595,12 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Keamanan</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             {pin ? (
               <div style={{ textAlign: 'center' }}>
-                <ShieldCheck size={48} color="var(--success)" style={{ margin: '0 auto 16px auto' }} />
+                <MaterialIcon name="verified_user" />
                 <p style={{ marginBottom: '20px', color: 'var(--text-main)', fontWeight: 600 }}>Keamanan PIN Aktif</p>
                 <button type="button" onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-expense)', color: 'var(--danger)', marginBottom: '10px', width: '100%' }}>Nonaktifkan PIN</button>
                 <button type="button" onClick={lockApp} className="btn btn-primary" style={{ width: '100%' }}>Kunci Sekarang</button>
@@ -1613,7 +1608,7 @@ const Settings: React.FC = () => {
             ) : (
               <form onSubmit={handleSetPin}>
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                  <Lock size={48} color="var(--secondary)" style={{ margin: '0 auto 16px auto' }} />
+                  <MaterialIcon name="lock" />
                   <p style={{ color: 'var(--text-muted)' }}>Setel PIN untuk mengamankan data Anda.</p>
                 </div>
                 <input
@@ -1644,13 +1639,13 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Backup & Restore</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setExcelResult(null); }}><X /></button>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setExcelResult(null); }}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             {/* ── Section 1: JSON Backup ── */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <DatabaseBackup size={15} color="var(--primary)" />
+                <MaterialIcon name="backup" className="text-[15px]" />
                 <span style={{ fontWeight: 700, fontSize: 13 }}>Backup JSON (Full Data)</span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1663,7 +1658,7 @@ const Settings: React.FC = () => {
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   onClick={exportData}
                 >
-                  <Download size={15} /> Ekspor Backup (.json)
+                  <MaterialIcon name="download" className="text-[15px]" /> Ekspor Backup (.json)
                 </button>
                 <button
                   data-testid="import-data-btn"
@@ -1672,7 +1667,7 @@ const Settings: React.FC = () => {
                   onClick={() => importInputRef.current?.click()}
                   disabled={isImporting}
                 >
-                  <Upload size={15} /> {isImporting ? 'Mengimpor...' : 'Restore Backup (.json)'}
+                  <MaterialIcon name="upload" className="text-[15px]" /> {isImporting ? 'Mengimpor...' : 'Restore Backup (.json)'}
                 </button>
               </div>
             </div>
@@ -1680,7 +1675,7 @@ const Settings: React.FC = () => {
             {/* ── Section 1.5: Pull from Cloud ── */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <RefreshCw size={15} color="var(--secondary)" />
+                <MaterialIcon name="refresh" className="text-[15px]" />
                 <span style={{ fontWeight: 700, fontSize: 13 }}>Tarik Data dari Cloud</span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1705,7 +1700,7 @@ const Settings: React.FC = () => {
                 onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); }}
                 disabled={isPulling}
               >
-                <RefreshCw size={15} style={{ animation: isPulling ? 'spin 1s linear infinite' : 'none' }} />
+                <MaterialIcon name="refresh" />
                 {isPulling ? 'Menarik data...' : 'Tarik Data dari Cloud'}
               </button>
             </div>
@@ -1715,7 +1710,7 @@ const Settings: React.FC = () => {
             {/* ── Section 2: Excel Import ── */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <FileSpreadsheet size={15} color="hsl(152,70%,42%)" />
+                <MaterialIcon name="table_view" className="text-[15px]" />
                 <span style={{ fontWeight: 700, fontSize: 13 }}>Import dari Excel</span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1736,8 +1731,8 @@ const Settings: React.FC = () => {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                     {excelResult.imported > 0
-                      ? <CheckCircle2 size={15} color="var(--success)" />
-                      : <AlertCircle size={15} color="var(--danger)" />}
+                      ? <MaterialIcon name="check_circle" className="text-[15px]" />
+                      : <MaterialIcon name="error" className="text-[15px]" />}
                     <span style={{ fontWeight: 700, fontSize: 13, color: excelResult.imported > 0 ? 'var(--success)' : 'var(--danger)' }}>
                       {excelResult.imported > 0
                         ? `${excelResult.imported} transaksi berhasil diimpor`
@@ -1761,14 +1756,14 @@ const Settings: React.FC = () => {
                   onClick={() => excelImportRef.current?.click()}
                   disabled={isImportingExcel}
                 >
-                  <FileSpreadsheet size={15} /> {isImportingExcel ? 'Memproses...' : 'Import Excel (.xlsx / .xls)'}
+                  <MaterialIcon name="table_view" className="text-[15px]" /> {isImportingExcel ? 'Memproses...' : 'Import Excel (.xlsx / .xls)'}
                 </button>
                 <button
                   className="btn"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--bg-neutral)', color: 'var(--text-muted)', border: '1px dashed var(--border-color)' }}
                   onClick={downloadSampleExcel}
                 >
-                  <Download size={15} /> Download Contoh Format Excel
+                  <MaterialIcon name="download" className="text-[15px]" /> Download Contoh Format Excel
                 </button>
               </div>
             </div>
@@ -1824,11 +1819,11 @@ const Settings: React.FC = () => {
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button className="btn-icon" onClick={() => setActiveModal('subscriptions')} style={{ padding: 0 }}>
-                  <ChevronLeft size={20} />
+                  <MaterialIcon name="chevron_left" className="text-[20px]" />
                 </button>
                 <h2 className="subtitle" style={{ margin: 0 }}>{editingSub ? 'Edit Langganan' : 'Tambah Langganan'}</h2>
               </div>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ padding: '20px' }}>
@@ -1921,12 +1916,12 @@ const Settings: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Folder size={18} color="var(--primary)" />
+                      <MaterialIcon name="folder" className="text-[18px]" />
                       <span style={{ fontWeight: 600, color: newSubCat ? 'var(--text-main)' : 'var(--text-muted)' }}>
                         {newSubCat || 'Pilih Kategori...'}
                       </span>
                     </div>
-                    <ChevronRight size={18} color="var(--text-muted)" />
+                    <MaterialIcon name="chevron_right" className="text-[18px]" />
                   </button>
                 </div>
 
@@ -1942,18 +1937,18 @@ const Settings: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Wallet size={18} color="var(--primary)" />
+                      <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                       <span style={{ fontWeight: 600, color: newSubAsset ? 'var(--text-main)' : 'var(--text-muted)' }}>
                         {assets.find(a => a.id === newSubAsset)?.name || 'Pilih Dompet...'}
                       </span>
                     </div>
-                    <ChevronRight size={18} color="var(--text-muted)" />
+                    <MaterialIcon name="chevron_right" className="text-[18px]" />
                   </button>
                 </div>
 
                 <div style={{ marginTop: 8 }}>
                   <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '14px', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <Save size={18} /> {editingSub ? 'Simpan Perubahan' : 'Tambah Langganan'}
+                    <MaterialIcon name="save" className="text-[18px]" /> {editingSub ? 'Simpan Perubahan' : 'Tambah Langganan'}
                   </button>
                 </div>
               </form>
@@ -1966,7 +1961,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Transaksi Rutin</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
@@ -2017,7 +2012,7 @@ const Settings: React.FC = () => {
                             }}
                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
                           >
-                            <Trash2 size={16} />
+                            <MaterialIcon name="delete" className="text-[16px]" />
                           </button>
                         </div>
                       </div>
@@ -2047,7 +2042,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
               <h2 className="subtitle">Budgeting & Goals</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ display: 'flex', gap: '8px', margin: '16px 0', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
@@ -2088,7 +2083,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Apa yang Baru ✨</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {changelogData.map(v => (
@@ -2139,10 +2134,8 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="page" style={{ paddingBottom: '80px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 className="title" style={{ margin: 0 }}>Settings</h1>
-      </div>
+    <PageWrapper>
+      <PageHeader title="Settings" />
 
       <QuotaBanner />
 
@@ -2175,7 +2168,7 @@ const Settings: React.FC = () => {
             </h3>
             <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
               {group.items.map((item, index) => {
-                const Icon = item.icon;
+                const IconName = item.icon;
                 const isLast = index === group.items.length - 1;
 
                 if ((item as any).isToggle) {
@@ -2188,7 +2181,7 @@ const Settings: React.FC = () => {
                       borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <Icon size={20} color="var(--text-muted)" style={{ marginRight: '20px' }} />
+                        <MaterialIcon name={IconName} className="text-xl text-on-surface-variant mr-5" />
                         <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
                       </div>
                       <div
@@ -2213,27 +2206,25 @@ const Settings: React.FC = () => {
                 }
 
                 return (
-                  <div
-                    key={item.id}
+                  <div key={item.id} data-testid={`settings-${item.id}`}
                     onClick={() => handleMenuClick(item.id)}
-                    data-testid={`settings-${item.id}`}
                     data-tour={item.id === 'preferences' ? 'settings-preferences' : undefined}
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '16px 0',
+                      cursor: 'pointer',
                       borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-                      cursor: 'pointer'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
+                      <MaterialIcon name={IconName} className={`text-xl mr-5 ${item.id === 'security' && pin ? 'text-success' : 'text-on-surface-variant'}`} />
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
-                      <ChevronRight size={20} color="var(--text-muted)" />
+                      <MaterialIcon name="chevron_right" className="text-xl text-on-surface-variant" />
                     </div>
                   </div>
                 );
@@ -2246,7 +2237,7 @@ const Settings: React.FC = () => {
       <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Bell size={18} color="var(--text-muted)" style={{ marginRight: '12px' }} />
+            <MaterialIcon name="notifications" className="text-xl text-on-surface-variant mr-3" />
             <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Notifikasi Otomatis</span>
           </div>
           <span style={{
@@ -2287,7 +2278,7 @@ const Settings: React.FC = () => {
         borderWidth: '1px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 700 }}>
-          <Mail size={18} />
+          <MaterialIcon name="mail" className="text-[18px]" />
           Hubungi Dukungan
         </div>
         <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
@@ -2319,7 +2310,7 @@ const Settings: React.FC = () => {
             border: '1px solid var(--danger-glow)'
           }}
         >
-          <LogOut size={20} /> Logout dari Akun
+          <MaterialIcon name="logout" className="text-[20px]" /> Logout dari Akun
         </button>
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
           MoneyApp v1.0.18 • Dibuat dengan ❤️ by Dappal
@@ -2459,7 +2450,7 @@ const Settings: React.FC = () => {
           { targetSelector: '[data-tour="settings-menu"]', title: '🛠️ Pengaturan Lainnya', description: 'Temukan berbagai pengaturan lainnya mulai dari kategori, backup data, hingga mengulang tutorial.', onBeforeShow: () => setActiveModal(null) }
         ]}
       />
-    </div>
+    </PageWrapper>
   );
 };
 

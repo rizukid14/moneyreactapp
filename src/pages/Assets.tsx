@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Wallet, CreditCard, Landmark, Plus, Smartphone, Pencil, EyeOff, TrendingUp, PiggyBank, HandCoins, X, ArrowUpRight, ArrowDownRight, ArrowRightLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
@@ -9,31 +8,51 @@ import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
 import type { CardId } from '../components/AssetSummaryCarousel';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import { Card } from '../components/ui/Card';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import { SectionHeader } from '../components/ui/SectionHeader';
+import { IconBlock } from '../components/ui/IconBlock';
+import type { IconBlockColor } from '../components/ui/IconBlock';
+import { EmptyState } from '../components/ui/EmptyState';
+import MaterialIcon from '../components/common/MaterialIcon';
+import { Button } from '../components/ui/Button';
 
-const getIconForType = (type: AssetType) => {
-// ... existing code ...
+const getIconForType = (type: AssetType): string => {
   switch (type) {
-    case 'Cash': return Wallet;
-    case 'Bank Account': return Landmark;
-    case 'Credit Card': return CreditCard;
-    case 'eWallet': return Smartphone;
-    case 'Savings': return PiggyBank;
-    case 'Investment': return TrendingUp;
-    case 'Loan': return HandCoins;
-    default: return Wallet;
+    case 'Cash': return 'account_balance_wallet';
+    case 'Bank Account': return 'account_balance';
+    case 'Credit Card': return 'credit_card';
+    case 'eWallet': return 'smartphone';
+    case 'Savings': return 'savings';
+    case 'Investment': return 'trending_up';
+    case 'Loan': return 'request_quote';
+    default: return 'account_balance_wallet';
   }
 };
 
-const getColorForType = (type: AssetType) => {
+const getColorForType = (type: AssetType): IconBlockColor => {
   switch (type) {
-    case 'Cash': return 'var(--secondary)';
-    case 'Bank Account': return 'var(--primary)';
-    case 'Credit Card': return 'var(--danger)';
-    case 'eWallet': return 'var(--success)';
-    case 'Savings': return '#3b82f6';
-    case 'Investment': return '#10b981';
-    case 'Loan': return 'var(--danger)';
-    default: return 'var(--text-muted)';
+    case 'Cash': return 'secondary';
+    case 'Bank Account': return 'primary';
+    case 'Credit Card': return 'error';
+    case 'eWallet': return 'success';
+    case 'Savings': return 'primary';
+    case 'Investment': return 'success';
+    case 'Loan': return 'error';
+    default: return 'neutral';
+  }
+};
+
+const getCardGradient = (type: AssetType): string => {
+  switch (type) {
+    case 'Bank Account': return 'bg-gradient-to-br from-blue-500 to-indigo-700 shadow-blue-900/20';
+    case 'eWallet': return 'bg-gradient-to-br from-emerald-400 to-teal-600 shadow-emerald-900/20';
+    case 'Credit Card': return 'bg-gradient-to-br from-rose-500 to-red-700 shadow-rose-900/20';
+    case 'Investment': return 'bg-gradient-to-br from-amber-400 to-orange-600 shadow-orange-900/20';
+    case 'Savings': return 'bg-gradient-to-br from-violet-500 to-purple-800 shadow-purple-900/20';
+    case 'Loan': return 'bg-gradient-to-br from-stone-600 to-stone-800 shadow-stone-900/20';
+    case 'Cash': return 'bg-gradient-to-br from-slate-700 to-slate-900 shadow-slate-900/20';
+    default: return 'bg-gradient-to-br from-gray-700 to-gray-900 shadow-gray-900/20';
   }
 };
 
@@ -134,13 +153,7 @@ const AssetDetailDrawer: React.FC<{
             borderBottom: '1px solid var(--border-color)',
             flexShrink: 0
           }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 16,
-              backgroundColor: 'var(--bg-main)', color,
-              display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0
-            }}>
-              <Icon size={24} />
-            </div>
+            <IconBlock icon={Icon} color={color} size="lg" />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>{asset.name}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -152,15 +165,15 @@ const AssetDetailDrawer: React.FC<{
                 onClick={() => onEditAsset(asset)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 8, cursor: 'pointer' }}
               >
-                <Pencil size={16} />
+                <MaterialIcon name="edit" className="text-base" />
               </button>
               <button
                 onClick={() => setIsConfirmOpen(true)}
                 style={{ background: 'none', border: 'none', color: 'var(--danger)', padding: 8, cursor: 'pointer', opacity: 0.8 }}
               >
-                <Trash2 size={16} />
+                <MaterialIcon name="delete" className="text-base" />
               </button>
-              <button className="close-btn" onClick={onClose}><X size={18} /></button>
+              <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-lg" /></button>
             </div>
           </div>
   
@@ -198,7 +211,7 @@ const AssetDetailDrawer: React.FC<{
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                  <ArrowUpRight size={12} color="var(--primary)" />
+                  <MaterialIcon name="arrow_upward" className="text-[12px] text-primary" />
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Masuk</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--primary)' }}>
@@ -219,7 +232,7 @@ const AssetDetailDrawer: React.FC<{
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                  <ArrowDownRight size={12} color="var(--danger)" />
+                  <MaterialIcon name="arrow_downward" className="text-[12px] text-error" />
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase' }}>Keluar</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--danger)' }}>
@@ -239,7 +252,7 @@ const AssetDetailDrawer: React.FC<{
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                  <ArrowRightLeft size={12} color="var(--text-muted)" />
+                  <MaterialIcon name="sync_alt" className="text-[12px] text-on-surface-variant" />
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Transaksi</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-main)' }}>{stats.count}</div>
@@ -282,10 +295,10 @@ const AssetDetailDrawer: React.FC<{
                         color: tx.type === 'pengeluaran' ? 'var(--danger)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
                       }}>
                         {tx.type === 'pengeluaran'
-                          ? <ArrowDownRight size={16} />
+                          ? <MaterialIcon name="arrow_downward" className="text-base" />
                           : tx.type === 'pendapatan'
-                          ? <ArrowUpRight size={16} />
-                          : <ArrowRightLeft size={16} />}
+                          ? <MaterialIcon name="arrow_upward" className="text-base" />
+                          : <MaterialIcon name="sync_alt" className="text-base" />}
                       </div>
 
                       {/* Info */}
@@ -312,7 +325,7 @@ const AssetDetailDrawer: React.FC<{
                           onClick={e => { e.stopPropagation(); onEditTx(tx); }}
                           style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 5, cursor: 'pointer' }}
                         >
-                          <Pencil size={13} />
+                          <MaterialIcon name="edit" className="text-[13px]" />
                         </button>
                       </div>
                     </div>
@@ -371,10 +384,8 @@ const Assets: React.FC = () => {
   }, []);
 
   return (
-    <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 className="title" style={{ margin: 0 }}>Aset Saya</h1>
-      </div>
+    <PageWrapper>
+      <PageHeader title="Aset Saya" />
 
       {/* Asset Summary Carousel */}
       <div data-tour="net-worth" data-testid="net-worth-carousel">
@@ -389,19 +400,18 @@ const Assets: React.FC = () => {
       </div>
 
       {/* Asset list */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h2 className="subtitle" style={{ margin: 0 }}>Daftar Rekening</h2>
-        <button data-tour="add-asset" data-testid="add-asset-btn" onClick={handleAdd} style={{
-          background: 'none', border: 'none', color: 'var(--primary)',
-          display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '14px'
-        }}>
-          <Plus size={20} /> Tambah
-        </button>
-      </div>
+      <SectionHeader 
+        title="Daftar Rekening" 
+        action={
+          <Button variant="ghost" size="sm" onClick={handleAdd} data-tour="add-asset" data-testid="add-asset-btn" className="text-primary hover:bg-primary/10">
+            <MaterialIcon name="add" className="text-lg" /> Tambah
+          </Button>
+        } 
+      />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: 100 }}>
+      <div className="flex flex-col gap-5 pb-24">
         {assets.filter(a => !a.isDeleted).length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada aset.</div>
+          <EmptyState icon="account_balance_wallet" title="Belum ada aset" description="Tambahkan aset pertama Anda." actionLabel="Tambah Aset" onAction={handleAdd} />
         ) : (
           <>
             {(Object.keys(assetGroups) as AssetType[]).map(typeKey => {
@@ -409,15 +419,15 @@ const Assets: React.FC = () => {
               if (visibleAssets.length === 0) return null;
               return (
                 <div key={typeKey}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 12px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  <div className="flex justify-between items-center mb-3 px-3">
+                    <div className="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-wider">
                       {TYPE_LABELS[typeKey]} ({visibleAssets.length})
                     </div>
-                    <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)' }}>
+                    <div className="text-xs font-extrabold text-on-surface">
                       {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${visibleAssets.reduce((sum, a) => sum + (balances[a.id] || 0), 0).toLocaleString('id-ID')}`}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {visibleAssets.map((asset: Asset) => {
                       const Icon = getIconForType(asset.type);
                       const color = getColorForType(asset.type);
@@ -428,37 +438,39 @@ const Assets: React.FC = () => {
                         tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
                       ).length;
                       return (
-                        <Card
-                          variant="default"
+                        <div
                           key={asset.id}
                           data-testid={`asset-card-${asset.id}`}
                           onClick={() => setSelectedAsset(asset)}
-                          style={{
-                            display: 'flex', alignItems: 'center', marginBottom: 0,
-                            cursor: 'pointer',
-                            transition: 'transform 0.15s, box-shadow 0.15s',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.08)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+                          className="bg-bg-card p-3.5 rounded-[20px] shadow-sm flex flex-col justify-between cursor-pointer group hover:-translate-y-1 transition-all border border-outline-variant/30"
                         >
-                          <div style={{ width: 48, height: 48, borderRadius: '16px', backgroundColor: 'var(--bg-main)', color, display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '16px', flexShrink: 0 }}>
-                            <Icon size={24} />
+                          <div className="flex justify-between items-start mb-3">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-sm
+                              ${color === 'primary' ? 'bg-primary-container text-primary-color' : 
+                                color === 'error' ? 'bg-error-container/30 text-error' : 
+                                color === 'success' ? 'bg-[#10b981]/10 text-[#10b981]' : 
+                                'bg-surface-container text-on-surface-variant'}`}
+                            >
+                              <MaterialIcon name={Icon} className="text-[18px]" />
+                            </div>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={e => { e.stopPropagation(); handleEdit(asset); }} 
+                                className="p-1 text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-full transition-colors"
+                              >
+                                <MaterialIcon name="edit" className="text-[12px]" />
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{asset.name}</div>
-                            <div data-testid={`asset-balance-${asset.id}`} style={{ fontSize: '18px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
-                              {isLiability && <span style={{ fontSize: '13px', marginRight: '4px', opacity: 0.8 }}>Hutang:</span>}
+                          
+                          <div>
+                            <div className="font-bold text-on-surface-variant text-[10px] uppercase tracking-wider line-clamp-1 mb-0.5">{asset.name}</div>
+                            {isLiability && <div className="text-[9px] text-error mb-0.5 font-bold">HUTANG</div>}
+                            <div data-testid={`asset-balance-${asset.id}`} className={`text-sm md:text-base font-extrabold tracking-tight truncate ${isLiability ? 'text-error' : 'text-on-surface'}`}>
                               {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{txCount} transaksi</div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <button onClick={e => { e.stopPropagation(); handleEdit(asset); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.5 }}>
-                              <Pencil size={16} />
-                            </button>
-                            <ChevronRight size={16} color="var(--border-color)" />
-                          </div>
-                        </Card>
+                        </div>
                       );
                     })}
                   </div>
@@ -475,30 +487,22 @@ const Assets: React.FC = () => {
                   <button
                     data-testid="hidden-assets-toggle"
                     onClick={() => setHiddenOpen(o => !o)}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      background: 'none', border: '1.5px dashed var(--border-color)',
-                      borderRadius: 16, padding: '12px 16px', cursor: 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-glow)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'none'; }}
+                    className="w-full flex items-center justify-between border-2 border-dashed border-outline-variant rounded-2xl p-4 cursor-pointer transition-colors hover:border-primary hover:bg-primary/5 group"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <EyeOff size={15} color="var(--text-muted)" />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>
+                    <div className="flex items-center gap-2">
+                      <MaterialIcon name="visibility_off" className="text-sm text-on-surface-variant group-hover:text-primary transition-colors" />
+                      <span className="text-sm font-bold text-on-surface-variant group-hover:text-primary transition-colors">
                         Tersembunyi ({hiddenAssets.length})
                       </span>
                     </div>
-                    <ChevronRight
-                      size={16}
-                      color="var(--text-muted)"
-                      style={{ transform: hiddenOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}
+                    <MaterialIcon 
+                      name="chevron_right" 
+                      className={`text-on-surface-variant group-hover:text-primary transition-all ${hiddenOpen ? 'rotate-90' : ''}`} 
                     />
                   </button>
 
                   {hiddenOpen && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
                       {hiddenAssets.map((asset: Asset) => {
                         const Icon = getIconForType(asset.type);
                         const color = getColorForType(asset.type);
@@ -509,41 +513,42 @@ const Assets: React.FC = () => {
                           tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
                         ).length;
                         return (
-                          <Card
-                            variant="default"
+                          <div
                             key={asset.id}
                             data-testid={`asset-card-${asset.id}`}
                             onClick={() => setSelectedAsset(asset)}
-                            style={{
-                              display: 'flex', alignItems: 'center', marginBottom: 0,
-                              cursor: 'pointer',
-                              opacity: 0.65,
-                              transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.15s',
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.opacity = '1'; }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = '0.65'; }}
+                            className="bg-bg-card p-3.5 rounded-[20px] shadow-sm flex flex-col justify-between cursor-pointer group hover:-translate-y-1 transition-all border border-dashed border-outline-variant opacity-60 hover:opacity-100"
                           >
-                            <div style={{ width: 48, height: 48, borderRadius: '16px', backgroundColor: 'var(--bg-main)', color, display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '16px', flexShrink: 0 }}>
-                              <Icon size={24} />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <div style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{asset.name}</div>
-                                <EyeOff size={12} color="var(--text-muted)" />
+                            <div className="flex justify-between items-start mb-3">
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-sm
+                                ${color === 'primary' ? 'bg-primary-container text-primary-color' : 
+                                  color === 'error' ? 'bg-error-container/30 text-error' : 
+                                  color === 'success' ? 'bg-[#10b981]/10 text-[#10b981]' : 
+                                  'bg-surface-container text-on-surface-variant'}`}
+                              >
+                                <MaterialIcon name={Icon} className="text-[18px]" />
                               </div>
-                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>{TYPE_LABELS[asset.type as AssetType]}</div>
-                              <div data-testid={`asset-balance-${asset.id}`} style={{ fontSize: '16px', fontWeight: '800', color: isLiability ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={e => { e.stopPropagation(); handleEdit(asset); }} 
+                                  className="p-1 text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-full transition-colors"
+                                >
+                                  <MaterialIcon name="edit" className="text-[12px]" />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="font-bold text-on-surface-variant text-[10px] uppercase tracking-wider line-clamp-1">{asset.name}</span>
+                                <MaterialIcon name="visibility_off" className="text-[10px] text-on-surface-variant" />
+                              </div>
+                              {isLiability && <div className="text-[9px] text-error mb-0.5 font-bold">HUTANG</div>}
+                              <div data-testid={`asset-balance-${asset.id}`} className={`text-sm md:text-base font-extrabold tracking-tight truncate ${isLiability ? 'text-error' : 'text-on-surface'}`}>
                                 {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
                               </div>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{txCount} transaksi</div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <button onClick={e => { e.stopPropagation(); handleEdit(asset); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', opacity: 0.5 }}>
-                                <Pencil size={16} />
-                              </button>
-                              <ChevronRight size={16} color="var(--border-color)" />
-                            </div>
-                          </Card>
+                          </div>
                         );
                       })}
                     </div>
@@ -607,7 +612,7 @@ const Assets: React.FC = () => {
           { targetSelector: '[data-tour="add-asset"]', title: '🏦 Tambah Rekening', description: 'Tap di sini untuk menambahkan rekening bank, dompet digital, atau aset tunai baru.' }
         ]} 
       />
-    </div>
+    </PageWrapper>
   );
 };
 

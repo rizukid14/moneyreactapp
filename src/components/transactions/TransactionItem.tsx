@@ -3,6 +3,8 @@ import { useMoney } from '../../contexts/MoneyContext';
 import type { Transaction } from '../../contexts/MoneyContext';
 import ConfirmDialog from '../common/ConfirmDialog';
 import MaterialIcon from '../common/MaterialIcon';
+import { ListItem } from '../ui/ListItem';
+import { IconBlock } from '../ui/IconBlock';
 import { formatCurrency } from '../../lib/utils';
 
 interface TransactionItemProps {
@@ -34,82 +36,66 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
   return (
     <>
-      <div
+      <ListItem
         data-testid={`transaction-item-${tx.id}`}
-        className="p-4 flex items-center justify-between hover:bg-surface-subtle transition-colors cursor-pointer group relative overflow-hidden"
         onClick={() => onEdit(tx)}
-      >
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <div className={`w-12 h-12 bg-surface-container rounded-xl flex items-center justify-center transition-colors shrink-0
-            ${isIncomeLike ? 'text-tertiary group-hover:bg-tertiary-container group-hover:text-on-tertiary-container' :
-              isExpenseLike ? 'text-primary group-hover:bg-primary-container group-hover:text-on-primary-container' : 'text-secondary'}
-          `}>
-            <MaterialIcon name={isIncomeLike ? 'work' : tx.type === 'transfer' ? 'sync_alt' : 'shopping_bag'} />
-          </div>
-          <div className="truncate pr-2">
-            <h4 className="font-label-md text-label-md text-on-surface truncate flex flex-col">
-              {tx.type === 'transfer' ? (
-                <span className="flex items-center gap-1 text-[13px]">
-                  {fromAssetName} <MaterialIcon name="arrow_forward" className="text-[12px] mx-1" /> {toAssetName}
-                </span>
-              ) : (
-                <div className="flex flex-col">
-                  <span>{tx.category}</span>
-                  {tx.subCategory && (
-                    <span className="text-[11px] text-on-surface-variant font-semibold mt-[1px]">
-                      {tx.subCategory}
-                    </span>
-                  )}
-                </div>
-              )}
-            </h4>
-            <div className="text-[11px] text-on-surface-variant font-medium flex items-center flex-wrap">
-              {showDate && <span className="mr-1.5">{tx.date}</span>}
-              {tx.time && <span className="mr-1.5 font-bold text-primary">{tx.time} WIB</span>}
+        left={
+          <IconBlock 
+            icon={isIncomeLike ? 'work' : tx.type === 'transfer' ? 'sync_alt' : 'shopping_bag'} 
+            color={isIncomeLike ? 'income' : isExpenseLike ? 'expense' : 'neutral'}
+            size="md"
+          />
+        }
+        title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : tx.category}
+        subtitle={
+          <div className="flex flex-col gap-0.5">
+            {tx.type !== 'transfer' && tx.subCategory && (
+              <span className="font-semibold text-[11px]">{tx.subCategory}</span>
+            )}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {showDate && <span>{tx.date}</span>}
+              {tx.time && <span className="font-bold text-primary">{tx.time} WIB</span>}
+              <span className="opacity-70">•</span>
               <span>{tx.type !== 'transfer' ? assetName : 'Transfer'}</span>
-              {tx.note && <span className="ml-1.5 opacity-80 truncate max-w-[120px]">• {tx.note}</span>}
-              {tx.description && <MaterialIcon name="description" className="text-[10px] ml-1.5 opacity-60" />}
+              {tx.note && <span className="truncate max-w-[100px] opacity-80">• {tx.note}</span>}
+              {tx.description && <MaterialIcon name="description" className="text-[10px] opacity-60" />}
             </div>
           </div>
-        </div>
-
-        <div className="text-right shrink-0 flex flex-col items-end">
-          <p className={`font-bold ${isIncomeLike ? 'text-tertiary' : isExpenseLike ? 'text-error' : 'text-on-surface'}`}>
-            {isIncomeLike ? '+' : isExpenseLike ? '-' : ''} {formatCurrency(tx.amount, currencySymbol)}
-          </p>
-          <div className="flex items-center gap-1">
-            {showDate && <p className="text-[10px] text-on-surface-variant">{tx.date}</p>}
-            {tx.time && <p className="text-[10px] text-on-surface-variant font-medium text-primary">{tx.time} WIB</p>}
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-1 mt-2 lg:mt-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-            {onCopy && (
+        }
+        right={
+          <div className="flex flex-col items-end gap-1">
+            <span className={`font-bold text-sm ${isIncomeLike ? 'text-primary-color' : isExpenseLike ? 'text-error' : 'text-on-surface'}`}>
+              {isIncomeLike ? '+' : isExpenseLike ? '-' : ''} {formatCurrency(tx.amount, currencySymbol)}
+            </span>
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+              {onCopy && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onCopy(tx); }}
+                  title="Salin"
+                  className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-lg transition-colors bg-surface-container"
+                >
+                  <MaterialIcon name="content_copy" className="text-[14px]" />
+                </button>
+              )}
               <button
-                onClick={(e) => { e.stopPropagation(); onCopy(tx); }}
-                title="Salin"
-                className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-md transition-colors"
+                onClick={(e) => { e.stopPropagation(); onEdit(tx); }}
+                title="Edit"
+                className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-lg transition-colors bg-surface-container"
               >
-                <MaterialIcon name="content_copy" className="text-[14px]" />
+                <MaterialIcon name="edit" className="text-[14px]" />
               </button>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(tx); }}
-              title="Edit"
-              className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-md transition-colors"
-            >
-              <MaterialIcon name="edit" className="text-[14px]" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsConfirmOpen(true); }}
-              title="Hapus"
-              className="p-1.5 text-error hover:bg-error-container rounded-md transition-colors"
-            >
-              <MaterialIcon name="delete" className="text-[14px]" />
-            </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsConfirmOpen(true); }}
+                title="Hapus"
+                className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container rounded-lg transition-colors bg-surface-container"
+              >
+                <MaterialIcon name="delete" className="text-[14px]" />
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
+        }
+        className="group"
+      />
 
       <ConfirmDialog
         isOpen={isConfirmOpen}

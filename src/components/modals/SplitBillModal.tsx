@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Wallet, ArrowUpRight, ArrowDownLeft, Share2, Link2Off, Copy, ExternalLink, Check } from 'lucide-react';
+
 import { useMoney, type Asset, type Category } from '../../contexts/MoneyContext';
 import { dbSaveSharedSplit, dbDeleteSharedSplit } from '../../lib/db';
 import ContactSelectModal from './ContactSelectModal';
@@ -12,6 +12,7 @@ import ConfirmDialog from '../common/ConfirmDialog';
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface SplitPerson {
   id: string;
@@ -372,14 +373,14 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   title="Salin Link"
                   style={{ color: showCopySuccess ? 'var(--success)' : 'var(--primary)' }}
                 >
-                  {showCopySuccess ? <Check size={18} /> : <Copy size={18} />}
+                  {showCopySuccess ? <MaterialIcon name="check" className="text-[18px]" /> : <MaterialIcon name="content_copy" className="text-[18px]" />}
                 </button>
                 <button
                   className="close-btn"
                   onClick={() => window.open(`/shared-split/${activeSharedId}`, '_blank')}
                   title="Buka Link"
                 >
-                  <ExternalLink size={18} />
+                  <MaterialIcon name="open_in_new" className="text-[18px]" />
                 </button>
                 <button
                   className="close-btn"
@@ -387,7 +388,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   title="Hapus Link Sharing"
                   style={{ color: 'var(--danger)' }}
                 >
-                  <Link2Off size={18} />
+                  <MaterialIcon name="link_off" className="text-[18px]" />
                 </button>
               </div>
             ) : (
@@ -398,7 +399,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                 title="Bagikan Split Bill"
                 style={{ color: 'var(--primary)', opacity: isSharing ? 0.5 : 1 }}
               >
-                <Share2 size={18} className={isSharing ? 'animate-pulse' : ''} />
+                <MaterialIcon name="share"   className={isSharing ? 'animate-pulse' : ''} />
               </button>
             )}
           </div>
@@ -416,7 +417,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   {merchantName} • {date}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Wallet size={20} color="var(--primary)" />
+                  <MaterialIcon name="account_balance_wallet" className="text-[20px]" />
                   <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--primary)' }}>
                     {currencySymbol}{totalAmount.toLocaleString('id-ID')}
                   </span>
@@ -573,7 +574,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                       border: '1.5px dashed var(--border-color)',
                     }}
                   >
-                    <Users size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
+                    <MaterialIcon name="people" />
                     <div style={{ fontSize: 14, marginBottom: 8 }}>
                       Belum ada orang ditambahkan
                     </div>
@@ -639,12 +640,12 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                           >
                             {split.isPayer ? (
                               <>
-                                <ArrowUpRight size={12} />
+                                <MaterialIcon name="call_made" className="text-[12px]" />
                                 <span>Pemberi Dana (Piutang)</span>
                               </>
                             ) : (
                               <>
-                                <ArrowDownLeft size={12} style={{ color: 'var(--danger)' }} />
+                                <MaterialIcon name="call_received" />
                                 <span style={{ color: 'var(--text-muted)' }}>Penerima Dana (Hutang)</span>
                               </>
                             )}
@@ -688,7 +689,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                           }}
                           title="Ubah peran pembayar/penerima"
                         >
-                          {split.isPayer ? <ArrowUpRight size={16} /> : <ArrowDownLeft size={16} />}
+                          {split.isPayer ? <MaterialIcon name="call_made" className="text-[16px]" /> : <MaterialIcon name="call_received" className="text-[16px]" />}
                         </button>
 
                         <button
@@ -710,7 +711,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-expense)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                         >
-                          <Trash2 size={16} />
+                          <MaterialIcon name="delete" className="text-[16px]" />
                         </button>
                       </div>
                     ))}
@@ -729,7 +730,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                         border: 'none', color: 'var(--primary)', fontSize: '11px', fontWeight: 800, cursor: 'pointer' 
                       }}
                     >
-                      <Plus size={14} style={{ marginRight: 4, display: 'inline' }} /> Tambah Item
+                      <MaterialIcon name="add" /> Tambah Item
                     </button>
                   </div>
                   <div style={{ maxHeight: 250, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }} className="custom-scrollbar">
@@ -761,7 +762,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                               onClick={() => removeLocalItem(idx)}
                               style={{ padding: '6px', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
                             >
-                              <Trash2 size={16} />
+                              <MaterialIcon name="delete" className="text-[16px]" />
                             </button>
                           </div>
                           
@@ -866,7 +867,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                   padding: '12px'
                 }}
               >
-                <Plus size={16} />
+                <MaterialIcon name="add" className="text-[16px]" />
                 Tambah Orang
               </Button>
 
@@ -877,7 +878,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                     onClick={() => window.open(`${window.location.origin}/shared-split/${activeSharedId}`, '_blank')}
                     style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   >
-                    <ExternalLink size={16} /> Buka Link
+                    <MaterialIcon name="open_in_new" className="text-[16px]" /> Buka Link
                   </Button>
                 ) : (
                   <Button

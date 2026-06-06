@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, CheckCircle2 } from 'lucide-react';
+
 import { getLocalDate } from '../../lib/utils';
 import type { Asset, AssetType, Transaction } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
@@ -8,6 +8,7 @@ import CurrencyInput from '../common/CurrencyInput';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface AssetModalProps {
   isOpen: boolean;
@@ -229,7 +230,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
                         flexShrink: 0
                       }}
                     >
-                      <Trash2 size={24} />
+                      <MaterialIcon name="delete" className="text-[24px]" />
                     </Button>
                   )}
 
@@ -237,7 +238,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
                     flex: 1, height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                     boxShadow: '0 8px 24px var(--primary-glow)', margin: 0
                   }}>
-                    <CheckCircle2 size={22} />
+                    <MaterialIcon name="check_circle" className="text-[22px]" />
                     {editingAsset ? 'Simpan' : 'Simpan Aset'}
                   </Button>
                 </div>

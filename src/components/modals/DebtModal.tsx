@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Folder, Wallet, ChevronRight } from 'lucide-react';
+
 import { useMoney, type Debt, type Asset, type Category } from '../../contexts/MoneyContext';
 import CalculatorModal from './CalculatorModal';
 import CurrencyInput from '../common/CurrencyInput';
 import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
 import ContactSelectModal from './ContactSelectModal';
-import { User } from 'lucide-react';
+
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface DebtModalProps {
   isOpen: boolean;
@@ -223,7 +224,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                 data-tour="debt-modal-contact"
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <User size={16} color={typeColor} />
+                  <MaterialIcon name="person" />
                   <span style={{
                     fontSize: 13,
                     fontWeight: contact ? 600 : 400,
@@ -232,7 +233,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                     {contact || '-- Pilih Kontak --'}
                   </span>
                 </div>
-                <ChevronRight size={16} color="var(--text-muted)" />
+                <MaterialIcon name="chevron_right" className="text-[16px]" />
               </button>
 
               <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Keterangan</label>
@@ -260,7 +261,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                     display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 
                   }}
                 >
-                  <Calculator size={20} />
+                  <MaterialIcon name="calculate" className="text-[20px]" />
                 </button>
               </div>
 
@@ -366,28 +367,28 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏷️ Kategori Pengeluaran</label>
                       <button type="button" onClick={() => setCatModalOpen(true)} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, cursor: 'pointer' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Folder size={16} color={typeColor} />
+                          <MaterialIcon name="folder" />
                           <span style={{ fontSize: 13, fontWeight: creditCatName ? 600 : 400, color: creditCatName ? 'var(--text-main)' : 'var(--text-muted)' }}>
                             {creditCatName ? (creditSubCatName ? `${creditCatName} > ${creditSubCatName}` : creditCatName) : '-- Pilih Kategori --'}
                           </span>
                         </div>
-                        <ChevronRight size={16} color="var(--text-muted)" />
+                        <MaterialIcon name="chevron_right" className="text-[16px]" />
                       </button>
                     </>
                   )}
 
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>💳 {hutangMode === 'credit' ? 'Bayar pakai (Kartu Kredit / Paylater)' : 'Tempat hutangnya (misal: ShopeePay Later)'}</label>
                   <button type="button" onClick={() => setAssetModalTarget('liability')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: hutangMode === 'cash' ? 10 : 16, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: liabilityAssetId ? 600 : 400, color: liabilityAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{liabilityAssetId ? getAssetName(liabilityAssetId) : '-- Tidak ada / Tunai --'}</span></div>
-                    <ChevronRight size={16} color="var(--text-muted)" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MaterialIcon name="account_balance_wallet" /><span style={{ fontSize: 13, fontWeight: liabilityAssetId ? 600 : 400, color: liabilityAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{liabilityAssetId ? getAssetName(liabilityAssetId) : '-- Tidak ada / Tunai --'}</span></div>
+                    <MaterialIcon name="chevron_right" className="text-[16px]" />
                   </button>
 
                   {hutangMode === 'cash' && !editingDebt && (
                     <>
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏦 Uang masuk ke rekening mana</label>
                       <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
-                        <ChevronRight size={16} color="var(--text-muted)" />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MaterialIcon name="account_balance_wallet" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
+                        <MaterialIcon name="chevron_right" className="text-[16px]" />
                       </button>
                     </>
                   )}
@@ -396,8 +397,8 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                     <>
                       <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginTop: 10, display: 'block' }}>🏦 Bayar dari rekening (misal: BCA)</label>
                       <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
-                        <ChevronRight size={16} color="var(--text-muted)" />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MaterialIcon name="account_balance_wallet" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada --'}</span></div>
+                        <MaterialIcon name="chevron_right" className="text-[16px]" />
                       </button>
                     </>
                   )}
@@ -411,14 +412,14 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                   </div>
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>💰 Pinjamkan dari rekening (Dana keluar)</label>
                   <button type="button" onClick={() => setAssetModalTarget('payment')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada (Hanya catatan) --'}</span></div>
-                    <ChevronRight size={16} color="var(--text-muted)" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MaterialIcon name="account_balance_wallet" /><span style={{ fontSize: 13, fontWeight: paymentAssetId ? 600 : 400, color: paymentAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{paymentAssetId ? getAssetName(paymentAssetId) : '-- Tidak ada (Hanya catatan) --'}</span></div>
+                    <MaterialIcon name="chevron_right" className="text-[16px]" />
                   </button>
 
                   <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>🏦 Terima cicilan ke rekening mana (Dana masuk)</label>
                   <button type="button" onClick={() => setAssetModalTarget('receive')} style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card-solid)', border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} color={typeColor} /><span style={{ fontSize: 13, fontWeight: receiveAssetId ? 600 : 400, color: receiveAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{receiveAssetId ? getAssetName(receiveAssetId) : '-- Tidak ada --'}</span></div>
-                    <ChevronRight size={16} color="var(--text-muted)" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MaterialIcon name="account_balance_wallet" /><span style={{ fontSize: 13, fontWeight: receiveAssetId ? 600 : 400, color: receiveAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>{receiveAssetId ? getAssetName(receiveAssetId) : '-- Tidak ada --'}</span></div>
+                    <MaterialIcon name="chevron_right" className="text-[16px]" />
                   </button>
                 </div>
               )}
@@ -465,7 +466,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                         display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 
                       }}
                     >
-                      <Calculator size={20} />
+                      <MaterialIcon name="calculate" className="text-[20px]" />
                     </button>
                   </div>
 

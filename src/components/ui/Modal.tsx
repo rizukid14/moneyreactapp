@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import MaterialIcon from '../common/MaterialIcon';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -9,9 +9,10 @@ export interface ModalProps {
   'data-testid'?: string;
   testId?: string;
   headerActions?: React.ReactNode;
+  maxWidth?: string;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 'data-testid': dataTestId, testId, headerActions }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 'data-testid': dataTestId, testId, headerActions, maxWidth }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,24 +41,19 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   return (
     <div 
-      className="modal-overlay" 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity duration-200" 
       onClick={handleOverlayClick}
       data-testid={dataTestId || testId}
-      style={{
-        animation: 'fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-      }}
     >
       <div 
-        className="modal-content"
+        className={`bg-bg-card rounded-3xl w-full shadow-bento overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 ${!maxWidth ? 'max-w-lg' : ''}`}
+        style={maxWidth ? { maxWidth } : undefined}
         ref={contentRef}
-        style={{
-          animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}
       >
-        <div className="modal-header">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border-light shrink-0">
           {title ? (
             typeof title === 'string' ? (
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
+              <h2 className="m-0 text-xl font-extrabold text-on-surface tracking-tight">
                 {title}
               </h2>
             ) : (
@@ -66,19 +62,19 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
           ) : (
             <div></div> // Spacer if no title
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-2">
             {headerActions}
             <button 
-              className="close-btn" 
+              className="p-2 rounded-full hover:bg-surface-container text-on-surface-variant transition-colors" 
               onClick={onClose}
               aria-label="Tutup"
               data-testid="modal-close-btn"
             >
-              <X size={18} />
+              <MaterialIcon name="close" className="text-lg" />
             </button>
           </div>
         </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="p-6 overflow-y-auto flex flex-col gap-4">
           {children}
         </div>
       </div>

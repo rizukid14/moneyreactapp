@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, Trash2, HelpCircle, X } from 'lucide-react';
+import MaterialIcon from './MaterialIcon';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   confirmText = 'Ya, Hapus',
   cancelText = 'Batal'
 }) => {
-  const Icon = type === 'danger' ? Trash2 : type === 'warning' ? AlertCircle : HelpCircle;
+  const IconName = type === 'danger' ? 'delete' : type === 'warning' ? 'error' : 'help';
   const accentColor = type === 'danger' ? 'var(--danger)' : type === 'warning' ? 'var(--secondary)' : 'var(--primary)';
   const glowColor = type === 'danger' ? 'hsla(350, 80%, 58%, 0.15)' : type === 'warning' ? 'hsla(35, 90%, 52%, 0.15)' : 'var(--primary-glow)';
 
@@ -69,7 +69,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: accentColor, border: `1px solid ${accentColor}22`
               }}>
-                <Icon size={32} />
+                <MaterialIcon name={IconName} className="text-[32px]" />
               </div>
 
               <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>{title}</h3>
@@ -106,7 +106,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               onClick={onClose}
               style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', opacity: 0.5 }}
             >
-              <X size={20} />
+              <MaterialIcon name="close" className="text-xl" />
             </button>
           </motion.div>
         </motion.div>

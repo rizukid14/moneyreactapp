@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, CheckCircle2, TrendingUp } from 'lucide-react';
+import MaterialIcon from '../common/MaterialIcon';
+
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -12,37 +13,37 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
 
   const features = [
     {
-      icon: <CheckCircle2 className="text-primary" size={24} />,
+      icon: <MaterialIcon name="check_circle"  className="text-primary"  />,
       title: 'Holiday Trip Ecosystem',
       description: 'Manajemen biaya perjalanan premium dengan input nominal besar, scroll pembayar horizontal, integrasi aset riil, dan edit OCR manual.'
     },
     {
-      icon: <TrendingUp className="text-emerald-500" size={24} />,
+      icon: <MaterialIcon name="trending_up"  className="text-emerald-500"  />,
       title: 'Smart Settle-Up Trip',
       description: 'Lakukan pelunasan bagi biaya otomatis dengan dukungan tombol "Buka Link" (Open in App) dan identifikasi warna rekening.'
     },
     {
-      icon: <CheckCircle2 className="text-primary" size={24} />,
+      icon: <MaterialIcon name="check_circle"  className="text-primary"  />,
       title: 'Grouped Settings Menu',
       description: 'Navigasi pengaturan baru yang terorganisir ke dalam kategori logis (Akun, Keuangan, Sosial, Sistem) untuk akses lebih cepat.'
     },
     {
-      icon: <TrendingUp className="text-emerald-500" size={24} />,
+      icon: <MaterialIcon name="trending_up"  className="text-emerald-500"  />,
       title: 'AI Chatbot Knowledge',
       description: 'MoneyBot asisten pintar sekarang dibekali basis pengetahuan fitur v17, siap membantu menjelaskan cara kerja ekosistem trip dan lainnya.'
     },
     {
-      icon: <CheckCircle2 className="text-primary" size={24} />,
+      icon: <MaterialIcon name="check_circle"  className="text-primary"  />,
       title: 'Zero-Based Budgeting',
       description: 'Alokasikan setiap rupiah pendapatan ke kategori pilihan hingga sisa Rp 0 untuk perencanaan keuangan yang lebih disiplin.'
     },
     {
-      icon: <TrendingUp className="text-emerald-500" size={24} />,
+      icon: <MaterialIcon name="trending_up"  className="text-emerald-500"  />,
       title: 'Target Tabungan (Goals)',
       description: 'Buat target menabung untuk impianmu dan hubungkan langsung dengan transaksi agar progres tercatat secara otomatis.'
     },
     {
-      icon: <CheckCircle2 className="text-rose-500" size={24} />,
+      icon: <MaterialIcon name="check_circle"  className="text-rose-500"  />,
       title: 'Financial Health Score',
       description: 'Dapatkan skor kesehatan finansial (0-100) berdasarkan rasio tabungan, ketaatan anggaran, dan konsistensi pengeluaran.'
     }
@@ -66,7 +67,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Fitur terbaru untuk pengalaman lebih baik</p>
           </div>
           <button onClick={onClose} className="btn-icon">
-            <X size={24} />
+            <MaterialIcon name="close" className="text-[24px]" />
           </button>
         </div>
 
@@ -106,7 +107,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
           className="btn-primary"
           style={{ width: '100%', padding: '16px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
         >
-          <CheckCircle2 size={20} />
+          <MaterialIcon name="check_circle" className="text-[20px]" />
           Mantap, Mengerti!
         </button>
       </motion.div>

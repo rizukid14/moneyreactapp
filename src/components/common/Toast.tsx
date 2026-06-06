@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import MaterialIcon from './MaterialIcon';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -32,31 +32,31 @@ export const useToast = (): ToastContextValue => {
 // ─── Theme Map ───────────────────────────────────────────────────────────────
 
 const TOAST_CONFIG: Record<ToastType, {
-  icon: React.FC<{ size: number }>;
+  iconName: string;
   bg: string;
   border: string;
   color: string;
 }> = {
   success: {
-    icon: CheckCircle2,
+    iconName: 'check_circle',
     bg: 'hsla(152,70%,42%,0.12)',
     border: 'hsla(152,70%,42%,0.35)',
     color: 'var(--success)',
   },
   error: {
-    icon: XCircle,
+    iconName: 'cancel',
     bg: 'hsla(350,80%,58%,0.12)',
     border: 'hsla(350,80%,58%,0.35)',
     color: 'var(--danger)',
   },
   warning: {
-    icon: AlertTriangle,
+    iconName: 'warning',
     bg: 'hsla(35,90%,52%,0.12)',
     border: 'hsla(35,90%,52%,0.35)',
     color: '#f59e0b',
   },
   info: {
-    icon: Info,
+    iconName: 'info',
     bg: 'hsla(220,90%,60%,0.12)',
     border: 'hsla(220,90%,60%,0.35)',
     color: 'var(--primary)',
@@ -67,7 +67,7 @@ const TOAST_CONFIG: Record<ToastType, {
 
 const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = ({ toast, onDismiss }) => {
   const cfg = TOAST_CONFIG[toast.type];
-  const Icon = cfg.icon;
+  const IconName = cfg.iconName;
 
   return (
     <motion.div
@@ -92,7 +92,7 @@ const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = (
       }}
     >
       <span style={{ color: cfg.color, flexShrink: 0, display: 'flex' }}>
-        <Icon size={20} />
+        <MaterialIcon name={IconName} className="text-xl" />
       </span>
       <span style={{
         flex: 1,
@@ -138,7 +138,7 @@ const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = (
           lineHeight: 1,
         }}
       >
-        <X size={16} />
+        <MaterialIcon name="close" className="text-base" />
       </button>
     </motion.div>
   );

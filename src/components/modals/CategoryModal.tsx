@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Plus } from 'lucide-react';
+
 import { useToast } from '../common/Toast';
 import type { Category, SubCategory } from '../../contexts/MoneyContext';
 import { generateId } from '../../lib/utils';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -157,7 +158,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
                         margin: 0
                       }}
                     >
-                      <Plus size={20} />
+                      <MaterialIcon name="add" className="text-[20px]" />
                     </button>
                   </div>
 
@@ -169,7 +170,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
                       }}>
                         <span>{sub.name}</span>
                         <button type="button" onClick={() => handleRemoveSub(sub.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                          <X size={14} />
+                          <MaterialIcon name="close" className="text-[14px]" />
                         </button>
                       </div>
                     ))}
@@ -178,7 +179,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
               )}
 
         <Button variant="primary" type="submit" fullWidth style={{ height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 800 }}>
-          <Save size={20} />
+          <MaterialIcon name="save" className="text-[20px]" />
           {editingCategory ? 'Simpan Perubahan' : 'Simpan Kategori'}
         </Button>
       </form>

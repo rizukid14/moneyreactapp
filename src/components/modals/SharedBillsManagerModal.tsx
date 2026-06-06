@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, Copy, ExternalLink, Calendar, ShoppingBag, Plane, Loader2, Link2Off, Check } from 'lucide-react';
+
 import { dbGetMySharedSplits, dbDeleteSharedSplit, type SharedSplit } from '../../lib/db';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { useToast } from '../common/Toast';
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface SharedBillsManagerModalProps {
   isOpen: boolean;
@@ -93,13 +94,13 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
               <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
                 {loading ? (
                   <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 16px auto', color: 'var(--primary)' }} />
+                    <MaterialIcon name="autorenew"   className="animate-spin" />
                     <p style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Syncing links...</p>
                   </div>
                 ) : sharedSplits.length === 0 ? (
                   <div style={{ padding: '60px 24px', textAlign: 'center' }}>
                     <div style={{ width: '80px', height: '80px', background: 'var(--bg-neutral)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto', opacity: 0.5 }}>
-                      <Link2Off size={40} color="var(--text-muted)" />
+                      <MaterialIcon name="link_off" className="text-[40px]" />
                     </div>
                     <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '8px' }}>No active links</h3>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
@@ -125,12 +126,12 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                               background: split.type === 'trip' ? 'var(--secondary-glow)' : 'var(--primary-glow)',
                               color: split.type === 'trip' ? 'var(--secondary)' : 'var(--primary)'
                             }}>
-                              {split.type === 'trip' ? <Plane size={22} /> : <ShoppingBag size={22} />}
+                              {split.type === 'trip' ? <MaterialIcon name="flight" className="text-[22px]" /> : <MaterialIcon name="shopping_bag" className="text-[22px]" />}
                             </div>
                             <div>
                               <h4 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>{split.merchantName}</h4>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
-                                <Calendar size={12} />
+                                <MaterialIcon name="calendar_today" className="text-[12px]" />
                                 {split.date}
                               </div>
                             </div>
@@ -151,7 +152,7 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                             onClick={() => handleCopy(split.id)}
                             style={{ flex: 1, height: '40px', borderRadius: '12px', fontSize: '11px', fontWeight: 800 }}
                           >
-                            {copySuccessId === split.id ? <><Check size={14} /> Link Copied</> : <><Copy size={14} /> Copy Link</>}
+                            {copySuccessId === split.id ? <><MaterialIcon name="check" className="text-[14px]" /> Link Copied</> : <><MaterialIcon name="content_copy" className="text-[14px]" /> Copy Link</>}
                           </Button>
                           
                           <Button
@@ -160,7 +161,7 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                             style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             title="Preview"
                           >
-                            <ExternalLink size={16} />
+                            <MaterialIcon name="open_in_new" className="text-[16px]" />
                           </Button>
 
                           <Button
@@ -169,7 +170,7 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                             style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             title="Delete Link"
                           >
-                            <Trash2 size={16} />
+                            <MaterialIcon name="delete" className="text-[16px]" />
                           </Button>
                         </div>
                       </Card>

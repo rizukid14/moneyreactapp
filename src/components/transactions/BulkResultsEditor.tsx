@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, Trash2, Plus, Folder, Wallet, Calculator, ChevronRight } from 'lucide-react';
+import MaterialIcon from '../common/MaterialIcon';
 import { motion } from 'framer-motion';
 import type { ParsedTransaction } from '../../hooks/useBulkParseAI';
 import type { Category, Asset } from '../../contexts/MoneyContext';
@@ -96,7 +96,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
       <div className="card glass" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CheckCircle size={24} color="var(--success)" />
+            <MaterialIcon name="check_circle" className="text-success text-2xl" />
             <span style={{ fontWeight: 700 }}>{results.length} Data Terbaca</span>
           </div>
         </div>
@@ -111,7 +111,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
             data-testid="bulk-global-asset-btn"
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Wallet size={20} color="var(--primary)" />
+              <MaterialIcon name="account_balance_wallet" className="text-primary text-xl" />
               <span style={{ 
                 fontSize: '15px', 
                 fontWeight: batchAssetId ? 700 : 500,
@@ -120,7 +120,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                 {getAssetLabel(batchAssetId)}
               </span>
             </div>
-            <ChevronRight size={18} color="var(--text-muted)" />
+            <MaterialIcon name="chevron_right" className="text-on-surface-variant text-lg" />
           </button>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', fontStyle: 'italic' }}>
             {isMutation 
@@ -199,7 +199,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
               </div>
 
               <button onClick={() => deleteResult(item.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                <Trash2 size={16} />
+                <MaterialIcon name="delete" className="text-base" />
               </button>
             </div>
 
@@ -209,7 +209,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                 <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Nominal ({currencySymbol})</label>
                 <button style={btnStyle} onClick={() => openModal('calculator', item.id)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Calculator size={14} color="var(--primary)" />
+                    <MaterialIcon name="calculate" className="text-primary text-sm" />
                     <span style={{ fontSize: '14px', fontWeight: 700, color: item.type === 'pengeluaran' ? 'var(--danger)' : 'var(--success)' }}>
                       {item.amount > 0 ? item.amount.toLocaleString('id-ID') : '0'}
                     </span>
@@ -236,12 +236,12 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rekening</label>
                       <button style={btnStyle} onClick={() => openModal('asset', item.id)}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Wallet size={14} color="var(--primary)" />
+                          <MaterialIcon name="account_balance_wallet" className="text-primary text-sm" />
                           <span style={{ fontSize: '13px', fontWeight: item.asset ? 600 : 400, color: item.asset ? 'var(--text-main)' : 'var(--text-muted)' }}>
                             {getAssetLabel(item.asset)}
                           </span>
                         </div>
-                        <ChevronRight size={14} color="var(--text-muted)" />
+                        <MaterialIcon name="chevron_right" className="text-on-surface-variant text-sm" />
                       </button>
                     </div>
                   )}
@@ -251,12 +251,12 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                     <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kategori</label>
                     <button style={btnStyle} onClick={() => openModal('category', item.id)}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Folder size={14} color="var(--primary)" />
+                        <MaterialIcon name="folder" className="text-primary text-sm" />
                         <span style={{ fontSize: '13px', fontWeight: item.category ? 600 : 400, color: item.category ? 'var(--text-main)' : 'var(--text-muted)' }}>
                           {getCategoryLabel(item)}
                         </span>
                       </div>
-                      <ChevronRight size={14} color="var(--text-muted)" />
+                      <MaterialIcon name="chevron_right" className="text-on-surface-variant text-sm" />
                     </button>
                   </div>
                 </>
@@ -268,12 +268,12 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Lawan Transaksi (Rekening Lain)</label>
                       <button style={btnStyle} onClick={() => openModal(item.fromAsset && item.fromAsset !== batchAssetId ? 'fromAsset' : 'toAsset', item.id)}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Wallet size={14} color="var(--primary)" />
+                          <MaterialIcon name="account_balance_wallet" className="text-primary text-sm" />
                           <span style={{ fontSize: '13px', fontWeight: (item.fromAsset && item.fromAsset !== batchAssetId) || (item.toAsset && item.toAsset !== batchAssetId) ? 600 : 400, color: (item.fromAsset && item.fromAsset !== batchAssetId) || (item.toAsset && item.toAsset !== batchAssetId) ? 'var(--text-main)' : 'var(--text-muted)' }}>
                             {getAssetLabel(item.fromAsset && item.fromAsset !== batchAssetId ? item.fromAsset : item.toAsset, '-- Pilih Rekening Lawan --')}
                           </span>
                         </div>
-                        <ChevronRight size={14} color="var(--text-muted)" />
+                        <MaterialIcon name="chevron_right" className="text-on-surface-variant text-sm" />
                       </button>
                     </div>
                   ) : (
@@ -282,7 +282,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                         <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dari</label>
                         <button style={btnStyle} onClick={() => openModal('fromAsset', item.id)}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Wallet size={14} color="var(--primary)" />
+                            <MaterialIcon name="account_balance_wallet" className="text-primary text-sm" />
                             <span style={{ fontSize: '13px', fontWeight: item.fromAsset ? 600 : 400, color: item.fromAsset ? 'var(--text-main)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {getAssetLabel(item.fromAsset)}
                             </span>
@@ -293,7 +293,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                         <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ke</label>
                         <button style={btnStyle} onClick={() => openModal('toAsset', item.id)}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Wallet size={14} color="var(--primary)" />
+                            <MaterialIcon name="account_balance_wallet" className="text-primary text-sm" />
                             <span style={{ fontSize: '13px', fontWeight: item.toAsset ? 600 : 400, color: item.toAsset ? 'var(--text-main)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {getAssetLabel(item.toAsset)}
                             </span>
@@ -347,7 +347,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
             cursor: 'pointer', marginTop: '8px'
           }}
         >
-          <Plus size={16} /> Tambah Baris Manual
+          <MaterialIcon name="add" className="text-base" /> Tambah Baris Manual
         </button>
 
         <button

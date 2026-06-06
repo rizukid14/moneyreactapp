@@ -12,44 +12,35 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className = '', label, error, icon, rightElement, fullWidth = true, ...props }, ref) => {
     
     return (
-      <div style={{ width: fullWidth ? '100%' : 'auto', marginBottom: '16px', display: 'flex', flexDirection: 'column' }} className={className}>
+      <div className={`flex flex-col ${fullWidth ? 'w-full' : 'w-auto'} ${className}`}>
         {label && (
-          <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
+          <label className="text-xs font-bold text-on-surface-variant mb-1.5">
             {label}
           </label>
         )}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        <div className="relative flex items-center">
           {icon && (
-            <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
+            <div className="absolute left-3 text-on-surface-variant flex items-center justify-center">
               {icon}
             </div>
           )}
           <input
             ref={ref}
+            className={`w-full bg-surface-container-low border-2 rounded-xl text-sm text-on-surface transition-all focus:outline-none focus:ring-0 ${
+              error 
+                ? 'border-error focus:border-error bg-error-container/10' 
+                : 'border-outline-variant focus:border-primary focus:shadow-sm'
+            } ${icon ? 'pl-10' : 'pl-4'} ${rightElement ? 'pr-10' : 'pr-4'} py-3 !m-0`}
             {...props}
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              paddingLeft: icon ? '40px' : '16px',
-              paddingRight: rightElement ? '40px' : '16px',
-              background: 'var(--bg-card-solid)',
-              border: `2px solid ${error ? 'var(--danger)' : 'var(--border-color)'}`,
-              borderRadius: '14px',
-              color: 'var(--text-main)',
-              fontSize: '14px',
-              transition: 'border-color 0.2s, box-shadow 0.2s',
-              margin: 0,
-              ...props.style
-            }}
           />
           {rightElement && (
-            <div style={{ position: 'absolute', right: '12px', display: 'flex', alignItems: 'center' }}>
+            <div className="absolute right-3 flex items-center justify-center">
               {rightElement}
             </div>
           )}
         </div>
         {error && (
-          <span style={{ fontSize: '11px', color: 'var(--danger)', marginTop: '4px', fontWeight: 600 }}>
+          <span className="text-[11px] font-semibold text-error mt-1.5">
             {error}
           </span>
         )}

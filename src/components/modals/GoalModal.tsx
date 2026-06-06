@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Target, Calculator, Wallet, ChevronRight } from 'lucide-react';
+
 import { type Goal, type Asset, useMoney } from '../../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import CalculatorModal from './CalculatorModal';
@@ -7,6 +7,7 @@ import AssetSelectModal from './AssetSelectModal';
 import CurrencyInput from '../common/CurrencyInput';
 import { useToast } from '../common/Toast';
 import { getLocalDate } from '../../lib/utils';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface GoalModalProps {
   isOpen: boolean;
@@ -136,10 +137,10 @@ const GoalModal: React.FC<GoalModalProps> = ({
             >
               <div className="modal-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                   <Target size={24} color="var(--primary)" />
+                   <MaterialIcon name="track_changes" className="text-[24px]" />
                    <h2 className="subtitle" style={{ margin: 0 }}>{editingGoal ? 'Edit Tabungan' : 'Target Tabungan Baru'}</h2>
                 </div>
-                <button className="close-btn" onClick={onClose}><X size={24} /></button>
+                <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-[24px]" /></button>
               </div>
 
               <form onSubmit={handleSave}>
@@ -170,7 +171,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
                     onClick={() => setIsCalcOpen(true)} 
                     style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg-income)', border: '1px solid var(--primary-glow)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                   >
-                    <Calculator size={20} />
+                    <MaterialIcon name="calculate" className="text-[20px]" />
                   </button>
                 </div>
 
@@ -198,12 +199,12 @@ const GoalModal: React.FC<GoalModalProps> = ({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Wallet size={18} color="var(--primary)" />
+                    <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                     <span style={{ fontSize: '14px', fontWeight: selectedAsset ? 700 : 500 }}>
                       {selectedAsset ? selectedAsset.name : '-- Pilih Rekening --'}
                     </span>
                   </div>
-                  <ChevronRight size={18} color="var(--text-muted)" />
+                  <MaterialIcon name="chevron_right" className="text-[18px]" />
                 </button>
 
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
@@ -295,12 +296,12 @@ const GoalModal: React.FC<GoalModalProps> = ({
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Wallet size={16} color="var(--primary)" />
+                            <MaterialIcon name="account_balance_wallet" className="text-[16px]" />
                             <span style={{ fontSize: '14px', fontWeight: selectedAutoFromAsset ? 700 : 500 }}>
                               {selectedAutoFromAsset ? selectedAutoFromAsset.name : '-- Pilih Rekening Sumber --'}
                             </span>
                           </div>
-                          <ChevronRight size={16} color="var(--text-muted)" />
+                          <MaterialIcon name="chevron_right" className="text-[16px]" />
                         </button>
                       </div>
                     )}
