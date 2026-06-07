@@ -551,34 +551,51 @@ const Statistics: React.FC = () => {
             transition={{ duration: 0.2 }}
           >
 
-            {/* Month Switcher Header */}
-            <div data-tour="month-nav" className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button onClick={() => changeMonth(-1)} className="btn-icon" data-testid="prev-month-btn">
-                  <MaterialIcon name="chevron_left" className="text-[24px]" />
-                </button>
+            {/* Outer Wrapper matching Transactions.tsx */}
+            <div className="px-4 lg:px-6 space-y-6 max-w-container-max mx-auto pb-safe pt-6">
+              <div className="max-w-container-max mx-auto px-4 md:px-gutter space-y-8">
+                
+                {/* Header with Month Selector matching Transactions.tsx */}
+                <div data-tour="month-nav" className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-light pb-4">
+                  <div>
+                    <h2 className="font-headline-md text-headline-md text-on-surface">Analisis Statistik</h2>
+                    <p className="text-sm text-on-surface-variant mt-1">Pantau tren dan riwayat finansial Anda</p>
+                  </div>
+                  
+                  <div 
+                    className="flex items-center bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm self-start sm:self-auto" 
+                    onClick={() => setIsDatePickerOpen(true)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="prev-month-btn">
+                        <MaterialIcon name="chevron_left" className="text-on-surface-variant text-base" />
+                      </button>
+                      
+                      <div className="flex items-center gap-2" data-testid="month-picker-toggle">
+                        <MaterialIcon name="calendar_month" className="text-primary text-base" />
+                        <span className="font-label-md text-label-md text-on-surface font-semibold" data-testid="month-label">
+                          {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
+                        </span>
+                        <MaterialIcon name="expand_more" className="text-base text-on-surface-variant" />
+                      </div>
 
-                <div
-                  onClick={() => setIsDatePickerOpen(true)}
-                  data-testid="month-picker-toggle"
-                  style={{
-                    textAlign: 'center', cursor: 'pointer', padding: '10px 20px', borderRadius: '14px',
-                    background: 'var(--bg-main)', flex: 1, margin: '0 8px'
-                  }}>
-                  <div style={{ fontWeight: 800, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
-                    {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
-                    <MaterialIcon name="expand_more" className="text-[18px] text-[var(--primary)]" />
+                      <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="next-month-btn">
+                        <MaterialIcon name="chevron_right" className="text-on-surface-variant text-base" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <button onClick={() => changeMonth(1)} className="btn-icon" data-testid="next-month-btn">
-                  <MaterialIcon name="chevron_right" className="text-[24px]" />
-                </button>
-              </div>
-            </div>
+                {/* Hero Summary Section - Bento Grid */}
+                <section className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
 
-            <div data-tour="stats-chart" className="card glass">
-              <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Tren 6 Bulan Terakhir</h2>
+            <div data-tour="stats-chart" className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative overflow-hidden">
+              <div className="flex items-center justify-between mb-4 relative z-10">
+                <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Tren 6 Bulan Terakhir</span>
+                <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                  <MaterialIcon name="bar_chart" className="text-primary text-base" />
+                </div>
+              </div>
               <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer>
                   <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
@@ -598,7 +615,7 @@ const Statistics: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
+            <div className="col-span-1 md:col-span-12 flex flex-col md:flex-row gap-4 lg:gap-6 mb-2">
               {/* Pendapatan Card */}
               {(() => {
                 const growthPct = prevMonthIncome > 0
@@ -606,23 +623,27 @@ const Statistics: React.FC = () => {
                   : (currentMonthIncome > 0 ? 100 : 0);
                 const isUp = growthPct >= 0;
                 return (
-                  <div className="card" style={{
-                    flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)',
-                    color: 'white', border: 'none', padding: '16px',
-                    boxShadow: '0 10px 25px var(--primary-glow)'
-                  }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pendapatan</div>
-                    <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmt(currentMonthIncome)}</div>
-                    {(currentMonthIncome > 0 || prevMonthIncome > 0) && (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '6px',
-                        padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
-                        background: isUp ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
-                      }}>
-                        {isUp ? <MaterialIcon name="call_made" className="text-[12px]" /> : <MaterialIcon name="call_received" className="text-[12px]" />}
-                        {Math.abs(growthPct).toFixed(0)}% vs bulan lalu
+                  <div className="flex-1 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-primary opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+                    
+                    <div className="flex justify-between items-center relative z-10">
+                      <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pendapatan</span>
+                      <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                        <MaterialIcon name="arrow_downward" className="text-primary text-base" />
                       </div>
-                    )}
+                    </div>
+                    
+                    <div className="mt-2.5 relative z-10">
+                      <h2 className="text-3xl md:text-4xl font-bold text-on-surface tracking-tight truncate">{fmt(currentMonthIncome)}</h2>
+                      {(currentMonthIncome > 0 || prevMonthIncome > 0) && (
+                        <div className="mt-0.5">
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${isUp ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
+                            <MaterialIcon name={isUp ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
+                            {Math.abs(growthPct).toFixed(1)}% vs bulan lalu
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
@@ -635,23 +656,27 @@ const Statistics: React.FC = () => {
                 const isUp = growthPct >= 0;
                 // For expense: going up is bad (red-ish), going down is good (green-ish)
                 return (
-                  <div className="card" style={{
-                    flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)',
-                    color: 'white', border: 'none', padding: '16px',
-                    boxShadow: '0 10px 25px var(--secondary-glow)'
-                  }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</div>
-                    <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmt(currentMonthExpense)}</div>
-                    {(currentMonthExpense > 0 || prevMonthExpense > 0) && (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '6px',
-                        padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
-                        background: isUp ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)',
-                      }}>
-                        {isUp ? <MaterialIcon name="call_made" className="text-[12px]" /> : <MaterialIcon name="call_received" className="text-[12px]" />}
-                        {Math.abs(growthPct).toFixed(0)}% vs bulan lalu
+                  <div className="flex-1 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-secondary opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+                    
+                    <div className="flex justify-between items-center relative z-10">
+                      <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran</span>
+                      <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                        <MaterialIcon name="arrow_upward" className="text-secondary text-base" />
                       </div>
-                    )}
+                    </div>
+                    
+                    <div className="mt-2.5 relative z-10">
+                      <h2 className="text-3xl md:text-4xl font-bold text-on-surface tracking-tight truncate">{fmt(currentMonthExpense)}</h2>
+                      {(currentMonthExpense > 0 || prevMonthExpense > 0) && (
+                        <div className="mt-0.5">
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${isUp ? 'bg-error-container/20 text-error' : 'bg-primary-container/20 text-primary-color'}`} title="Dari bulan lalu">
+                            <MaterialIcon name={isUp ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
+                            {Math.abs(growthPct).toFixed(1)}% vs bulan lalu
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
@@ -783,8 +808,7 @@ const Statistics: React.FC = () => {
 
               return (
                 <div
-                  className="card glass"
-                  style={{ marginBottom: '24px', padding: '16px', position: 'relative' }}
+                  className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento relative group"
                   onClick={() => setHoveredCell(null)}
                 >
                   {/* Scoped animations */}
@@ -801,9 +825,14 @@ const Statistics: React.FC = () => {
               }
             `}</style>
                   {/* Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Aktivitas Pengeluaran</h2>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{activeDays} hari aktif</span>
+                  <div className="flex justify-between items-center mb-4 relative z-10">
+                    <div className="flex items-center gap-2">
+                      <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Aktivitas Pengeluaran</span>
+                      <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                        <MaterialIcon name="grid_view" className="text-primary text-base" />
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-on-surface-variant">{activeDays} hari aktif</span>
                   </div>
 
                   {/* Scrollable container with modern scrollbar styling */}
@@ -1028,13 +1057,10 @@ const Statistics: React.FC = () => {
 
 
             {/* ── Insights Section ────────────────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
+            <div className="col-span-1 md:col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6 mb-2">
               {/* Net Savings */}
               <div 
-                className="card glass" 
-                style={{ marginBottom: 0, padding: '14px', cursor: 'pointer', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                className="bg-bg-card p-4 rounded-3xl shadow-bento group cursor-pointer hover:-translate-y-1 transition-all flex flex-col justify-between relative overflow-hidden" 
                 onClick={() => setDetailModalProps({
                   isOpen: true,
                   title: 'Sisa Bersih (Net Savings)',
@@ -1047,31 +1073,27 @@ const Statistics: React.FC = () => {
                   ]
                 })}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: insights.netSavings >= 0 ? 'var(--bg-income)' : 'var(--bg-expense)', color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--secondary)' }}>
-                    <MaterialIcon name="trending_up" className="text-[14px]" />
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Sisa Bersih</span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm ${insights.netSavings >= 0 ? 'bg-primary-container text-primary-color' : 'bg-error-container text-error'}`}>
+                    <MaterialIcon name="trending_up" className="text-base" />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    Sisa Bersih
-                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>!</div>
-                  </span>
                 </div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
-                  {insights.netSavings >= 0 ? '+' : ''}{fmt(insights.netSavings)}
+                <div className="mt-1 relative z-10">
+                  <h2 className={`text-xl font-bold truncate ${insights.netSavings >= 0 ? 'text-primary-color' : 'text-error'}`}>
+                    {insights.netSavings >= 0 ? '+' : ''}{fmt(insights.netSavings)}
+                  </h2>
+                  {currentMonthIncome > 0 && (
+                    <div className="text-xs text-on-surface-variant mt-1 font-medium">
+                      Rasio tabungan: {insights.savingsRate.toFixed(0)}%
+                    </div>
+                  )}
                 </div>
-                {currentMonthIncome > 0 && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Rasio tabungan: {insights.savingsRate.toFixed(0)}%
-                  </div>
-                )}
               </div>
 
               {/* Daily Average Spending */}
               <div 
-                className="card glass" 
-                style={{ marginBottom: 0, padding: '14px', cursor: 'pointer', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                className="bg-bg-card p-4 rounded-3xl shadow-bento group cursor-pointer hover:-translate-y-1 transition-all flex flex-col justify-between relative overflow-hidden" 
                 onClick={() => {
                    const now = new Date();
                    const vM = viewDate.getMonth();
@@ -1091,75 +1113,72 @@ const Statistics: React.FC = () => {
                    });
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(35,80%,55%,0.1)', color: 'hsl(35,80%,45%)' }}>
-                    <MaterialIcon name="calendar_today" className="text-[14px]" />
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Rata-rata/Hari</span>
+                  <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="calendar_today" className="text-secondary text-base" />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    Rata-rata/Hari
-                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>!</div>
-                  </span>
                 </div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--secondary)' }}>
-                  {fmt(insights.avgDailySpending)}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  pengeluaran harian
+                <div className="mt-1 relative z-10">
+                  <h2 className="text-xl font-bold text-on-surface truncate">{fmt(insights.avgDailySpending)}</h2>
+                  <div className="text-xs text-on-surface-variant mt-1 font-medium">
+                    pengeluaran harian
+                  </div>
                 </div>
               </div>
 
               {/* Transaction Count */}
-              <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(260,70%,60%,0.1)', color: 'hsl(260,70%,55%)' }}>
-                    <MaterialIcon name="receipt" className="text-[14px]" />
+              <div className="bg-bg-card p-4 rounded-3xl shadow-bento group flex flex-col justify-between relative overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Transaksi</span>
+                  <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="receipt" className="text-on-surface-variant text-base" />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Transaksi</span>
                 </div>
-                <div style={{ fontSize: '15px', fontWeight: 800 }}>
-                  {insights.txCountTotal}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {insights.txCountExpense} keluar · {insights.txCountIncome} masuk{insights.txCountTransfer > 0 ? ` · ${insights.txCountTransfer} tf` : ''}
+                <div className="mt-1 relative z-10">
+                  <h2 className="text-xl font-bold text-on-surface truncate">{insights.txCountTotal}</h2>
+                  <div className="text-[10px] text-on-surface-variant mt-1 font-medium truncate">
+                    {insights.txCountExpense} keluar · {insights.txCountIncome} masuk{insights.txCountTransfer > 0 ? ` · ${insights.txCountTransfer} tf` : ''}
+                  </div>
                 </div>
               </div>
 
               {/* Top Spending Day */}
-              <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(350,80%,55%,0.1)', color: 'hsl(350,80%,50%)' }}>
-                    <MaterialIcon name="local_fire_department" className="text-[14px]" />
+              <div className="bg-bg-card p-4 rounded-3xl shadow-bento group flex flex-col justify-between relative overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Hari Terboros</span>
+                  <div className="w-8 h-8 rounded-lg bg-error-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="local_fire_department" className="text-error text-base" />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Hari Terboros</span>
                 </div>
-                {insights.topSpendingDay ? (
-                  <>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--danger)' }}>
-                      {fmt(insights.topSpendingDay.amount)}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {new Date(insights.topSpendingDay.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>-</div>
-                )}
+                <div className="mt-1 relative z-10">
+                  {insights.topSpendingDay ? (
+                    <>
+                      <h2 className="text-xl font-bold text-error truncate">{fmt(insights.topSpendingDay.amount)}</h2>
+                      <div className="text-xs text-on-surface-variant mt-1 font-medium">
+                        {new Date(insights.topSpendingDay.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-on-surface-variant">-</div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Biggest Transaction */}
             {insights.biggestExpenseTx && (
-              <div className="card glass" style={{ marginBottom: '24px', padding: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-expense)', color: 'var(--secondary)', flexShrink: 0 }}>
-                  <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
+              <div className="col-span-1 md:col-span-12 bg-bg-card p-4 rounded-3xl shadow-bento group flex items-center gap-4 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-error-container flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                  <MaterialIcon name="account_balance_wallet" className="text-error text-xl" />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Pengeluaran Terbesar</div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider mb-0.5">Pengeluaran Terbesar</div>
+                  <div className="text-sm font-bold text-on-surface truncate">
                     {insights.biggestExpenseTx.note || insights.biggestExpenseTx.category}
                   </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--danger)', flexShrink: 0 }}>
+                <div className="text-lg font-bold text-error shrink-0">
                   {fmt(insights.biggestExpenseTx.amount)}
                 </div>
               </div>
@@ -1167,33 +1186,22 @@ const Statistics: React.FC = () => {
 
             {/* ── Daily Expense Area Chart ──────────────────────────── */}
             {currentMonthExpense > 0 && (
-              <div className="card glass" style={{ marginBottom: '24px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '16px', gap: '12px' }}>
-                  <div>
-                    <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Pengeluaran &amp; Pendapatan Harian</h2>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
-                      {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
+              <div className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative overflow-hidden mb-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 relative z-10 gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran &amp; Pendapatan Harian</span>
+                    <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                      <MaterialIcon name="show_chart" className="text-primary text-base" />
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '12px', padding: '2px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+                  <div className="flex bg-surface-container-lowest border border-outline-variant rounded-xl p-1 w-fit shadow-sm">
                     {(['linear', 'dual', 'log'] as const).map(scale => (
                       <button
                         key={scale}
                         data-testid={`chart-scale-${scale}`}
                         onClick={() => changeChartScale(scale)}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '10px',
-                          border: 'none',
-                          background: chartScale === scale ? 'var(--bg-card-solid)' : 'transparent',
-                          color: chartScale === scale ? 'var(--text-main)' : 'var(--text-muted)',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          boxShadow: chartScale === scale ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartScale === scale ? 'bg-surface-container-highest text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
                       >
                         {scale === 'linear' ? 'Gabungan' : scale === 'dual' ? 'Mandiri' : 'Log'}
                       </button>
@@ -1316,18 +1324,23 @@ const Statistics: React.FC = () => {
             )}
 
             {drillDownCategory && (
-              <div className="card glass" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button onClick={() => setDrillDownCategory(null)} className="btn" style={{ padding: '4px 12px', background: 'var(--bg-main)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <MaterialIcon name="chevron_left" className="text-[16px]" /> Kembali
+              <div className="col-span-1 md:col-span-12 bg-surface-container-lowest border border-outline-variant rounded-xl p-3 mb-4 flex items-center gap-3">
+                <button onClick={() => setDrillDownCategory(null)} className="flex items-center gap-1 bg-surface-container hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-sm font-bold text-on-surface transition-colors">
+                  <MaterialIcon name="chevron_left" className="text-base" /> Kembali
                 </button>
-                <span style={{ fontWeight: 600 }}>Rincian Sub-kategori: {drillDownCategory.name}</span>
+                <span className="font-semibold text-sm text-on-surface">Rincian Sub-kategori: {drillDownCategory.name}</span>
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+            <div className="col-span-1 md:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-2">
               {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
-                <div data-tour="stats-breakdown" className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
-                  <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
+                <div data-tour="stats-breakdown" className="bg-bg-card p-5 rounded-3xl shadow-bento group flex flex-col relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-4 relative z-10">
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</span>
+                    <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                      <MaterialIcon name="pie_chart" className="text-secondary text-base" />
+                    </div>
+                  </div>
                   <div style={{ width: '100%', height: 180 }}>
                     <ResponsiveContainer>
                       <PieChart>
@@ -1412,8 +1425,13 @@ const Statistics: React.FC = () => {
               )}
 
               {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
-                <div className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
-                  <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
+                <div data-tour="stats-breakdown" className="bg-bg-card p-5 rounded-3xl shadow-bento group flex flex-col relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-4 relative z-10">
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</span>
+                    <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                      <MaterialIcon name="pie_chart" className="text-primary text-base" />
+                    </div>
+                  </div>
                   <div style={{ width: '100%', height: 180 }}>
                     <ResponsiveContainer>
                       <PieChart>
@@ -1499,12 +1517,17 @@ const Statistics: React.FC = () => {
             </div>
 
             {topCategories.length > 0 && (
-              <div className="card glass" style={{ marginBottom: '80px' }}>
-                <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>
-                  {drillDownCategory ? `Rincian Sub-kategori: ${drillDownCategory.name}` : 'Total Terbesar per Kategori'}
-                </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {topCategories.map(cat => (
+              <div className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative mb-20">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+                    {drillDownCategory ? `Rincian Sub-kategori: ${drillDownCategory.name}` : 'Total Terbesar per Kategori'}
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="star" className="text-primary text-base" />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {topCategories.map((cat, i) => (
                     <div
                       key={cat.id}
                       onClick={() => {
@@ -1512,28 +1535,23 @@ const Statistics: React.FC = () => {
                           setDrillDownCategory({ name: cat.category, type: cat.type, colorIndex: cat.colorIndex });
                         }
                       }}
-                      style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '12px', background: 'var(--bg-main)', borderRadius: '12px',
-                        cursor: drillDownCategory ? 'default' : 'pointer'
-                      }}
+                      className={`flex justify-between items-center bg-surface-container-lowest p-2 rounded-xl border border-outline-variant transition-colors ${drillDownCategory ? '' : 'hover:bg-surface-container cursor-pointer'}`}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: `${cat.color}15`,
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 font-bold text-xs" style={{
+                          background: `${cat.color}20`,
                           color: cat.color
                         }}>
-                          {cat.type === 'pendapatan' ? <MaterialIcon name="call_made" className="text-[20px]" /> : <MaterialIcon name="call_received" className="text-[20px]" />}
+                          {i + 1}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600 }}>{cat.category}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          <div className="font-bold text-sm text-on-surface">{cat.category}</div>
+                          <div className="text-xs text-on-surface-variant">
                             {drillDownCategory ? 'Sub-kategori' : (cat.type === 'pendapatan' ? 'Total Pendapatan' : 'Total Pengeluaran')}
                           </div>
                         </div>
                       </div>
-                      <div style={{ fontWeight: 700, color: cat.type === 'pendapatan' ? 'var(--primary)' : 'var(--secondary)' }}>
+                      <div className={`font-bold text-base shrink-0 ${cat.type === 'pendapatan' ? 'text-primary-color' : 'text-error'}`}>
                         {cat.type === 'pendapatan' ? '+' : '-'}{fmt(cat.amount)}
                       </div>
                     </div>
@@ -1541,6 +1559,10 @@ const Statistics: React.FC = () => {
                 </div>
               </div>
             )}
+
+              </section>
+            </div>
+          </div>
 
           </motion.div>
         )}

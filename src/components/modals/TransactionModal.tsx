@@ -11,6 +11,7 @@ import { useToast } from '../common/Toast';
 import OverspendReallocationModal from './OverspendReallocationModal';
 import CurrencyInput from '../common/CurrencyInput';
 import ConfirmDialog from '../common/ConfirmDialog';
+import { useTransactionPresets } from '../../hooks/useTransactionPresets';
 import { Modal } from '../ui/Modal';
 import { TabBar } from '../ui/TabBar';
 import { Input } from '../ui/Input';
@@ -77,24 +78,15 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
   const [pendingTxData, setPendingTxData] = useState<any>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [pinnedPresetKeys, setPinnedPresetKeys] = useState<Record<'pengeluaran' | 'pendapatan' | 'transfer', string[]>>({
-    pengeluaran: [],
-    pendapatan: [],
-    transfer: []
-  });
-
-  type HabitPreset = {
-    id: string;
-    type: 'pengeluaran' | 'pendapatan' | 'transfer';
-    label: string;
-    amount: number;
-    category?: string;
-    subCategory?: string;
-    assetId?: string;
-    fromAssetId?: string;
-    toAssetId?: string;
-    note?: string;
-  };
+  const { pinnedPresets, habitPresets, togglePin, isPinned } = useTransactionPresets();
+  const mergedPresets = React.useMemo(() => {
+    const t = type === 'transfer' ? 'transfer' : type;
+    const currentHabits = habitPresets.filter((p: any) => p.type === t);
+    const currentPinned = pinnedPresets.filter((p: any) => p.type === t);
+    
+    const unpinnedHabits = currentHabits.filter((h: any) => !isPinned(h));
+    return [...currentPinned, ...unpinnedHabits].slice(0, 8); // show up to 8
+  }, [type, pinnedPresets, habitPresets, isPinned]);
 
   // ─── Draft Logic ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -435,122 +427,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     onClose();
   };
 
-  useEffect(() => {
-    const raw = localStorage.getItem('tx_pinned_presets');
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      setPinnedPresetKeys({
-        pengeluaran: Array.isArray(parsed?.pengeluaran) ? parsed.pengeluaran : [],
-        pendapatan: Array.isArray(parsed?.pendapatan) ? parsed.pendapatan : [],
-        transfer: Array.isArray(parsed?.transfer) ? parsed.transfer : []
-      });
-    } catch {
-      // no-op
-    }
-  }, []);
-
-  const habitPresets = useMemo<HabitPreset[]>(() => {
-    const targetTypes: Transaction['type'][] =
-      type === 'transfer' ? ['transfer'] : [type];
-    const txs = transactions.filter(t => targetTypes.includes(t.type) && t.amount > 0);
-    if (txs.length === 0) return [];
-
-    if (type === 'transfer') {
-      const map = new Map<string, { count: number; last: Transaction }>();
-      txs.forEach(t => {
-        const key = `${t.fromAssetId || ''}|${t.toAssetId || ''}|${(t.note || '').trim().toLowerCase()}`;
-        const prev = map.get(key);
-        if (!prev) map.set(key, { count: 1, last: t });
-        else {
-          const newer = (new Date(t.date).getTime() > new Date(prev.last.date).getTime()) ? t : prev.last;
-          map.set(key, { count: prev.count + 1, last: newer });
-        }
-      });
-
-      return Array.from(map.values())
-        .sort((a, b) => (b.count - a.count) || (new Date(b.last.date).getTime() - new Date(a.last.date).getTime()))
-        .slice(0, 4)
-        .map((item, idx) => {
-          const fromName = assets.find(a => a.id === item.last.fromAssetId)?.name || 'Dari';
-          const toName = assets.find(a => a.id === item.last.toAssetId)?.name || 'Ke';
-          return {
-            id: `tf-${idx}-${item.last.id}`,
-            type: 'transfer',
-            label: `${fromName} -> ${toName}`,
-            amount: item.last.amount,
-            fromAssetId: item.last.fromAssetId,
-            toAssetId: item.last.toAssetId,
-            note: item.last.note
-          };
-        });
-    }
-
-    const map = new Map<string, { count: number; last: Transaction }>();
-    txs.forEach(t => {
-      const key = `${t.category || ''}|${t.subCategory || ''}|${t.assetId || ''}|${(t.note || '').trim().toLowerCase()}`;
-      const prev = map.get(key);
-      if (!prev) map.set(key, { count: 1, last: t });
-      else {
-        const newer = (new Date(t.date).getTime() > new Date(prev.last.date).getTime()) ? t : prev.last;
-        map.set(key, { count: prev.count + 1, last: newer });
-      }
-    });
-
-    return Array.from(map.values())
-      .sort((a, b) => (b.count - a.count) || (new Date(b.last.date).getTime() - new Date(a.last.date).getTime()))
-      .slice(0, 4)
-      .map((item, idx) => ({
-        id: `tx-${idx}-${item.last.id}`,
-        type: type as 'pengeluaran' | 'pendapatan',
-        label: item.last.subCategory ? `${item.last.category} -> ${item.last.subCategory}` : item.last.category,
-        amount: item.last.amount,
-        category: item.last.category,
-        subCategory: item.last.subCategory,
-        assetId: item.last.assetId,
-        note: item.last.note
-      }));
-  }, [type, transactions, assets]);
-
-  const presetKey = (preset: HabitPreset) => JSON.stringify({
-    type: preset.type,
-    label: preset.label,
-    amount: preset.amount,
-    category: preset.category || '',
-    subCategory: preset.subCategory || '',
-    assetId: preset.assetId || '',
-    fromAssetId: preset.fromAssetId || '',
-    toAssetId: preset.toAssetId || '',
-    note: (preset.note || '').trim().toLowerCase()
-  });
-
-  const mergedPresets = useMemo(() => {
-    const t = type === 'transfer' ? 'transfer' : type;
-    const pinned = pinnedPresetKeys[t as 'pengeluaran' | 'pendapatan' | 'transfer'] || [];
-    const list = [...habitPresets];
-    list.sort((a, b) => {
-      const aPinned = pinned.includes(presetKey(a)) ? 1 : 0;
-      const bPinned = pinned.includes(presetKey(b)) ? 1 : 0;
-      return bPinned - aPinned;
-    });
-    return list;
-  }, [habitPresets, pinnedPresetKeys, type]);
-
-  const togglePinPreset = (preset: HabitPreset) => {
-    const t = preset.type;
-    const key = presetKey(preset);
-    setPinnedPresetKeys(prev => {
-      const current = prev[t] || [];
-      const nextType = current.includes(key)
-        ? current.filter(k => k !== key)
-        : [key, ...current];
-      const next = { ...prev, [t]: nextType };
-      localStorage.setItem('tx_pinned_presets', JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const applyHabitPreset = (preset: HabitPreset) => {
+  const applyHabitPreset = (preset: any) => {
     setAmount(preset.amount.toLocaleString('id-ID'));
     if (preset.type === 'transfer') {
       setFromAssetId(preset.fromAssetId || fromAssetId);
@@ -603,15 +480,15 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       </div>
                       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="custom-scrollbar">
                         {mergedPresets.map(preset => {
-                          const isPinned = pinnedPresetKeys[preset.type]?.includes(presetKey(preset));
+                          const pinned = isPinned(preset);
                           return (
                             <div
                               key={preset.id}
                               style={{
                                 flexShrink: 0,
-                                border: `1px solid ${isPinned ? 'var(--primary)' : 'var(--border-color)'}`,
+                                border: `1px solid ${pinned ? 'var(--primary)' : 'var(--border-color)'}`,
                                 borderRadius: '10px',
-                                background: isPinned ? 'var(--bg-income)' : 'var(--bg-card)',
+                                background: pinned ? 'var(--bg-income)' : 'var(--bg-card)',
                                 padding: '8px 10px',
                                 minWidth: '160px'
                               }}
@@ -630,19 +507,19 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => togglePinPreset(preset)}
+                                onClick={() => togglePin(preset)}
                                 style={{
                                   marginTop: '6px',
                                   background: 'transparent',
                                   border: 'none',
-                                  color: isPinned ? 'var(--primary)' : 'var(--text-muted)',
+                                  color: pinned ? 'var(--primary)' : 'var(--text-muted)',
                                   fontSize: '11px',
                                   fontWeight: 700,
                                   cursor: 'pointer',
                                   padding: 0
                                 }}
                               >
-                                {isPinned ? 'Unpin' : 'Pin'}
+                                {pinned ? 'Unpin' : 'Pin'}
                               </button>
                             </div>
                           );

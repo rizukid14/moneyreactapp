@@ -43,18 +43,6 @@ const getColorForType = (type: AssetType): IconBlockColor => {
   }
 };
 
-const getCardGradient = (type: AssetType): string => {
-  switch (type) {
-    case 'Bank Account': return 'bg-gradient-to-br from-blue-500 to-indigo-700 shadow-blue-900/20';
-    case 'eWallet': return 'bg-gradient-to-br from-emerald-400 to-teal-600 shadow-emerald-900/20';
-    case 'Credit Card': return 'bg-gradient-to-br from-rose-500 to-red-700 shadow-rose-900/20';
-    case 'Investment': return 'bg-gradient-to-br from-amber-400 to-orange-600 shadow-orange-900/20';
-    case 'Savings': return 'bg-gradient-to-br from-violet-500 to-purple-800 shadow-purple-900/20';
-    case 'Loan': return 'bg-gradient-to-br from-stone-600 to-stone-800 shadow-stone-900/20';
-    case 'Cash': return 'bg-gradient-to-br from-slate-700 to-slate-900 shadow-slate-900/20';
-    default: return 'bg-gradient-to-br from-gray-700 to-gray-900 shadow-gray-900/20';
-  }
-};
 
 const TYPE_LABELS: Record<AssetType, string> = {
   'Cash': 'Tunai & Dompet Pribadi',
@@ -434,9 +422,6 @@ const Assets: React.FC = () => {
                       const balance = balances[asset.id] || 0;
                       const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
                       const displayBalance = isLiability ? Math.abs(balance) : balance;
-                      const txCount = transactions.filter(tx =>
-                        tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
-                      ).length;
                       return (
                         <div
                           key={asset.id}
@@ -509,9 +494,6 @@ const Assets: React.FC = () => {
                         const balance = balances[asset.id] || 0;
                         const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
                         const displayBalance = isLiability ? Math.abs(balance) : balance;
-                        const txCount = transactions.filter(tx =>
-                          tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id
-                        ).length;
                         return (
                           <div
                             key={asset.id}

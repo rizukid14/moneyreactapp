@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
@@ -11,6 +11,9 @@ import OnboardingTutorial from '../components/OnboardingTutorial';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { SearchInput } from '../components/ui/SearchInput';
 import { FilterChip } from '../components/ui/FilterChip';
+
+import { useTransactionPresets } from '../hooks/useTransactionPresets';
+import { PresetManagerModal } from '../components/modals/PresetManagerModal';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -50,6 +53,21 @@ const Transactions: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'all' | 'pengeluaran' | 'pendapatan'>('all');
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [visibleLimit, setVisibleLimit] = useState(15);
+  const { pinnedPresets, habitPresets } = useTransactionPresets();
+  const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
+
+  // Smart AI Input state
+  const [bulkInputText, setBulkInputText] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const speechBaseRef = useRef('');
+  const finalTranscriptRef = useRef('');
+
+  const displayPresets = useMemo(() => {
+    if (pinnedPresets.length > 0) return pinnedPresets;
+    return habitPresets.slice(0, 4);
+  }, [pinnedPresets, habitPresets]);
 
   const toggleGroup = useCallback((groupId: string) => {
     setCollapsedGroups(prev => {
@@ -57,6 +75,13 @@ const Transactions: React.FC = () => {
       return { ...prev, [groupId]: !isCurrentlyCollapsed };
     });
   }, [groupBy]);
+
+  const handleAdd = useCallback((type: Transaction['type'] = 'pengeluaran', partialData?: Partial<Transaction>) => {
+    setEditingTransaction(partialData ? { ...partialData, id: '', type, amount: 0, date: getLocalDate(), note: partialData.note || '', category: partialData.category || '' } as any : null);
+    setIsCopyMode(false);
+    setInitialType(type);
+    setIsModalOpen(true);
+  }, []);
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -103,7 +128,7 @@ const Transactions: React.FC = () => {
     setIsModalOpen(true);
   }, []);
 
-  const { groups, monthlyIncome, monthlyExpense } = useMemo(() => {
+  const { groups, monthlyIncome, monthlyExpense, hasMore } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
@@ -154,10 +179,13 @@ const Transactions: React.FC = () => {
     });
 
     if (groupBy === 'none') {
+      const paginatedTransactions = filtered.slice(0, visibleLimit * 2); // Double limit for individual tx
+      const hasMore = filtered.length > visibleLimit * 2;
       return {
-        groups: [{ id: 'all', title: '', transactions: filtered, income: inc, expense: exp }],
+        groups: [{ id: 'all', title: '', transactions: paginatedTransactions, income: inc, expense: exp }],
         monthlyIncome: inc,
-        monthlyExpense: exp
+        monthlyExpense: exp,
+        hasMore
       };
     }
 
@@ -208,8 +236,11 @@ const Transactions: React.FC = () => {
       return a.title.localeCompare(b.title);
     });
 
-    return { groups: sortedGroups, monthlyIncome: inc, monthlyExpense: exp };
-  }, [transactions, searchQuery, viewDate, startOfMonthDay, groupBy, showDebtInTransactions, getAssetName]);
+    const paginatedGroups = sortedGroups.slice(0, visibleLimit);
+    const hasMore = sortedGroups.length > visibleLimit;
+
+    return { groups: paginatedGroups, monthlyIncome: inc, monthlyExpense: exp, hasMore };
+  }, [transactions, searchQuery, viewDate, startOfMonthDay, groupBy, showDebtInTransactions, getAssetName, typeFilter, visibleLimit]);
 
   // Pace Info Calculation
   const paceInfo = useMemo(() => {
@@ -690,12 +721,53 @@ const Transactions: React.FC = () => {
     setIsModalOpen(true);
   }, []);
 
-  const handleAdd = (type: Transaction['type'] = 'pengeluaran', partialData?: Partial<Transaction>) => {
-    setEditingTransaction(partialData ? { ...partialData, id: '', type, amount: 0, date: getLocalDate(), note: partialData.note || '', category: partialData.category || '' } as any : null);
-    setIsCopyMode(false);
-    setInitialType(type);
-    setIsModalOpen(true);
-  };
+  // Speech-to-Text for Smart AI Input on main page
+  const handleSpeechToText = useCallback(() => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      alert('Speech-to-text tidak didukung di browser ini.');
+      return;
+    }
+
+    const recognition = new SR();
+    recognition.lang = 'id-ID';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognitionRef.current = recognition;
+    speechBaseRef.current = bulkInputText.trim();
+    finalTranscriptRef.current = '';
+    setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let newFinalText = '';
+      let interimText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) newFinalText += t;
+        else interimText += t;
+      }
+      if (newFinalText) finalTranscriptRef.current += newFinalText;
+      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current} ${interimText}`.trim();
+      setBulkInputText(combined);
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.onend = () => {
+      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current}`.trim();
+      if (combined) setBulkInputText(combined);
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.start();
+  }, [isListening, bulkInputText]);
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
@@ -991,25 +1063,19 @@ const Transactions: React.FC = () => {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-headline-md text-headline-md text-on-surface">Input Cepat</h3>
-            <button className="text-primary font-label-md text-label-md hover:underline bg-transparent border-none">Edit Presets</button>
+            <button onClick={() => setIsPresetManagerOpen(true)} className="text-primary font-label-md text-label-md hover:underline bg-transparent border-none cursor-pointer">Edit Presets</button>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
-            <button onClick={() => handleAdd('pengeluaran', { category: 'Makanan', note: 'Makan Siang' })} className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer">
-              <MaterialIcon name="restaurant" className="text-sm" />
-              <span className="font-label-md text-label-md">Makan Siang</span>
-            </button>
-            <button onClick={() => handleAdd('pengeluaran', { category: 'Transportasi', note: 'Isi Bensin' })} className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer">
-              <MaterialIcon name="local_gas_station" className="text-sm" />
-              <span className="font-label-md text-label-md">Isi Bensin</span>
-            </button>
-            <button onClick={() => handleAdd('pendapatan', { category: 'Gaji', note: 'Gaji Bulanan' })} className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer">
-              <MaterialIcon name="payments" className="text-sm" />
-              <span className="font-label-md text-label-md">Gaji Bulanan</span>
-            </button>
-            <button onClick={() => handleAdd('pengeluaran', { category: 'Belanja', note: 'Belanja Bulanan' })} className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer">
-              <MaterialIcon name="shopping_cart" className="text-sm" />
-              <span className="font-label-md text-label-md">Belanja Bulanan</span>
-            </button>
+            {displayPresets.map(preset => (
+              <button 
+                key={preset.id}
+                onClick={() => handleAdd(preset.type, { amount: preset.amount, category: preset.category, note: preset.note })} 
+                className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer"
+              >
+                <MaterialIcon name={preset.type === 'pengeluaran' ? 'arrow_downward' : preset.type === 'pendapatan' ? 'arrow_upward' : 'swap_horiz'} className="text-sm" />
+                <span className="font-label-md text-label-md">{preset.label}</span>
+              </button>
+            ))}
             <button 
               onClick={() => handleAdd('pengeluaran')} 
               className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer"
@@ -1099,9 +1165,18 @@ const Transactions: React.FC = () => {
                   ))
                 )}
               </div>
-              <div className="p-4 text-center border-t border-border-light">
-                <button className="text-primary font-label-md text-label-md hover:underline bg-transparent border-none cursor-pointer">Lihat Lebih Banyak</button>
-              </div>
+
+               {hasMore && (
+                 <div className="p-4 text-center border-t border-border-light">
+                   <button 
+                     onClick={() => setVisibleLimit(prev => prev + 15)}
+                     className="text-primary font-label-md text-label-md hover:underline bg-transparent border-none cursor-pointer"
+                   >
+                     Lihat Lebih Banyak
+                   </button>
+                 </div>
+               )}
+
             </div>
           </div>
 
@@ -1128,23 +1203,39 @@ const Transactions: React.FC = () => {
                 </div>
               </div>
 
-              {/* Bulk Parse Redirect Area */}
+              {/* Smart AI Input Area */}
               <div className="space-y-3">
                 <label className="font-label-md text-label-md text-on-surface">Input Sekaligus (Bulk Parse)</label>
                 <textarea 
-                  className="w-full h-24 p-4 rounded-xl border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary text-sm font-body-md resize-none" 
-                  placeholder="Ketik transaksi Anda, atau klik tombol di bawah untuk membuka AI Bulk Parser..." 
+                  className="w-full h-32 p-4 rounded-xl border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary text-sm font-body-md resize-none transition-colors" 
+                  placeholder={"Tulis transaksi di sini...\nContoh: Makan 50rb gopay, Bensin 30k cash"}
                   spellCheck="false"
-                  readOnly
-                  onClick={() => navigate('/bulk-input')}
+                  value={bulkInputText}
+                  onChange={e => setBulkInputText(e.target.value)}
+                  data-testid="smart-ai-input"
                 ></textarea>
-                <button 
-                  onClick={() => navigate('/bulk-input')}
-                  className="w-full py-3 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all cursor-pointer border-none"
-                >
-                  <MaterialIcon name="analytics" className="text-sm" />
-                  Buka AI Parser Cerdas
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleSpeechToText}
+                    className={`flex items-center gap-1.5 px-4 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer border ${
+                      isListening 
+                        ? 'bg-error/10 text-error border-error animate-pulse' 
+                        : 'bg-surface-container-low text-on-surface-variant border-outline-variant hover:bg-surface-container'
+                    }`}
+                    data-testid="smart-mic-btn"
+                  >
+                    <MaterialIcon name={isListening ? 'stop' : 'mic'} className="text-base" />
+                    {isListening ? 'Stop' : 'Mic'}
+                  </button>
+                  <button 
+                    onClick={() => navigate('/bulk-input', { state: { prefillText: bulkInputText } })}
+                    className="flex-1 py-3 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all cursor-pointer border-none"
+                    data-testid="open-ai-parser-btn"
+                  >
+                    <MaterialIcon name="analytics" className="text-sm" />
+                    Buka AI Parser Cerdas
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1185,6 +1276,11 @@ const Transactions: React.FC = () => {
         editingTransaction={editingTransaction}
         isCopyMode={isCopyMode}
         initialType={initialType}
+      />
+
+      <PresetManagerModal
+        isOpen={isPresetManagerOpen}
+        onClose={() => setIsPresetManagerOpen(false)}
       />
 
       <WhatsNewModal

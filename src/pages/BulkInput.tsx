@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/common/Toast';
 import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 import { Card } from '../components/ui/Card';
@@ -14,6 +14,7 @@ import MaterialIcon from '../components/common/MaterialIcon';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { addTransaction, assets, categories, currencySymbol, validateTransactionBudget, zbbMode } = useMoney();
   const { parseData, isParsing, error, setError } = useBulkParseAI();
   const { showToast } = useToast();
@@ -240,6 +241,18 @@ const BulkInput: React.FC = () => {
       loadSharedText();
     }
   }, [showToast, assets, categories, handleParse]);
+
+  // Handle prefilled text from main page (Transactions.tsx Smart AI Input)
+  React.useEffect(() => {
+    const prefill = (location.state as any)?.prefillText;
+    if (prefill && typeof prefill === 'string' && prefill.trim()) {
+      setInputText(prefill);
+      // Clear router state to prevent re-trigger on back/forward
+      window.history.replaceState({}, document.title);
+      // Auto-parse the prefilled text
+      handleParse(prefill);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <PageWrapper>
