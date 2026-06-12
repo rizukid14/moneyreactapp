@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import ChatBot from './chatbot/ChatBot';
@@ -8,12 +8,45 @@ import NotificationModal from './modals/NotificationModal';
 import ProfileMenuModal from './modals/ProfileMenuModal';
 
 const Layout: React.FC = () => {
-  const { theme, toggleTheme, setIsChatOpen } = useMoney();
+  const { theme, toggleTheme, setIsChatOpen, transactions } = useMoney();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
+
+  useEffect(() => {
+    try {
+      const lastViewedTimeStr = localStorage.getItem('notifications-last-viewed-time');
+      const lastViewedTxCountStr = localStorage.getItem('notifications-last-viewed-tx-count');
+      
+      if (!lastViewedTimeStr) {
+        setHasUnreadNotifs(true);
+        return;
+      }
+      if (lastViewedTxCountStr && transactions.length > parseInt(lastViewedTxCountStr, 10)) {
+        setHasUnreadNotifs(true);
+        return;
+      }
+      if (Date.now() - parseInt(lastViewedTimeStr, 10) > 24 * 60 * 60 * 1000) {
+        setHasUnreadNotifs(true);
+        return;
+      }
+      setHasUnreadNotifs(false);
+    } catch (e) {
+      setHasUnreadNotifs(true);
+    }
+  }, [transactions.length]);
+
+  const openNotifications = () => {
+    setIsNotifOpen(true);
+    setHasUnreadNotifs(false);
+    try {
+      localStorage.setItem('notifications-last-viewed-time', Date.now().toString());
+      localStorage.setItem('notifications-last-viewed-tx-count', transactions.length.toString());
+    } catch (e) {}
+  };
 
   const desktopNavItems = [
     { path: '/', icon: 'dashboard', label: 'Dashboard', end: true, testId: 'nav-transactions' },
@@ -59,11 +92,13 @@ const Layout: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => setIsNotifOpen(true)}
+            onClick={openNotifications}
             className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors relative border-none bg-transparent cursor-pointer shrink-0"
           >
             <span className="material-symbols-outlined">notifications</span>
-            <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+            {hasUnreadNotifs && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+            )}
           </button>
           
           <div 

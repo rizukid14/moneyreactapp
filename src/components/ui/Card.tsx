@@ -16,8 +16,8 @@ export const BentoCard = React.forwardRef<HTMLDivElement, CardProps>(
     let bgClass = 'bg-bg-card shadow-bento';
     let borderClass = 'border border-transparent';
     if (resolvedVariant === 'glass') {
-      bgClass = 'bg-surface-container/80 backdrop-blur-md shadow-sm';
-      borderClass = 'border border-outline-variant';
+      bgClass = 'glass shadow-sm';
+      borderClass = '';
     } else if (resolvedVariant === 'surface') {
       bgClass = 'bg-surface-container shadow-none';
       borderClass = 'border border-outline-variant';

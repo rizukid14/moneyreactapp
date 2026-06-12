@@ -11,6 +11,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 
 import { ALL_STATS_VIEWS } from './Settings';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import { BentoCard } from '../components/ui/Card';
+import { IconBlock } from '../components/ui/IconBlock';
+import { StatusBadge } from '../components/ui/StatusBadge';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { ListItem } from '../components/ui/ListItem';
+import { EmptyState } from '../components/ui/EmptyState';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -421,18 +429,18 @@ const Statistics: React.FC = () => {
   }, [startOfMonthDay]);
 
   return (
-    <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 className="title" style={{ margin: 0 }}>Statistik</h1>
-        <button onClick={resetToToday} style={{
-          display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
-          borderRadius: '24px', border: 'none', background: 'var(--primary-glow)',
-          fontSize: '13px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer',
-          boxShadow: '0 2px 10px var(--primary-glow)'
-        }}>
-          <MaterialIcon name="calendar_month" className="text-[16px]" /> Hari Ini
-        </button>
-      </div>
+    <PageWrapper>
+      <PageHeader
+        title="Statistik"
+        action={
+          <button
+            onClick={resetToToday}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+          >
+            <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+          </button>
+        }
+      />
 
       {/* View Carousel Selector */}
       <div style={{
@@ -551,9 +559,7 @@ const Statistics: React.FC = () => {
             transition={{ duration: 0.2 }}
           >
 
-            {/* Outer Wrapper matching Transactions.tsx */}
-            <div className="px-4 lg:px-6 space-y-6 max-w-container-max mx-auto pb-safe pt-6">
-              <div className="max-w-container-max mx-auto px-4 md:px-gutter space-y-8">
+
                 
                 {/* Header with Month Selector matching Transactions.tsx */}
                 <div data-tour="month-nav" className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-light pb-4">
@@ -1561,8 +1567,7 @@ const Statistics: React.FC = () => {
             )}
 
               </section>
-            </div>
-          </div>
+
 
           </motion.div>
         )}
@@ -1587,7 +1592,7 @@ const Statistics: React.FC = () => {
           { targetSelector: '[data-tour="month-nav"]', title: '📅 Navigasi Bulan', description: 'Ubah bulan untuk melihat statistik di bulan spesifik.' }
         ]} 
       />
-    </div>
+    </PageWrapper>
   );
 };
 
@@ -1639,17 +1644,18 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     assets.filter(a => !a.isDeleted).forEach(a => {
       const txSum = transactions.filter(t => t.assetId === a.id || t.fromAssetId === a.id || t.toAssetId === a.id)
         .reduce((s, t) => {
-          if (t.type === 'pendapatan') return s + t.amount;
-          if (t.type === 'pengeluaran') return s - t.amount;
+          const amt = Number(t.amount) || 0;
+          if (t.type === 'pendapatan') return s + amt;
+          if (t.type === 'pengeluaran') return s - amt;
           if (t.type === 'transfer') {
-            if (t.toAssetId === a.id) return s + t.amount;
-            if (t.fromAssetId === a.id) return s - t.amount;
+            if (t.toAssetId === a.id) return s + amt;
+            if (t.fromAssetId === a.id) return s - amt;
           }
           return s;
         }, 0);
-      const val = (a.initialBalance || 0) + txSum;
+      const val = (Number(a.initialBalance) || 0) + txSum;
       totalAssetsValue += val;
-      if (['Cash', 'Bank Account', 'eWallet'].includes(a.type)) {
+      if (['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type)) {
         liquidAssetsValue += val;
       }
     });
@@ -1771,16 +1777,11 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
   }, [stats.totalScore]);
 
   return (
-    <div style={{ paddingBottom: '40px' }}>
+    <div className="space-y-6 pb-10">
       {/* ─── Health Score Meter ────────────────────────────────────────────────── */}
-      <motion.div
-        className="card glass"
-        style={{
-          textAlign: 'center', padding: '32px 20px', overflow: 'hidden',
-          background: `linear-gradient(180deg, ${isDark ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.8)'}, transparent)`
-        }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <BentoCard
+        variant="glass"
+        className="text-center py-8 px-5 flex flex-col items-center"
       >
         <div style={{ position: 'relative', width: '220px', height: '140px', margin: '0 auto' }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -1801,25 +1802,23 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
             position: 'absolute', bottom: '0', left: '50%', transform: 'translateX(-50%)',
             display: 'flex', flexDirection: 'column', alignItems: 'center'
           }}>
-            <span style={{ fontSize: '48px', fontWeight: 800, lineHeight: 1, color: 'var(--text-main)' }}>{stats.totalScore}</span>
+            <span className="text-5xl font-black leading-none text-on-surface">{stats.totalScore}</span>
             <span style={{ fontSize: '16px', fontWeight: 700, color: scoreLabel.color, marginTop: '4px' }}>{scoreLabel.text}</span>
           </div>
         </div>
-        <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '20px', maxWidth: '300px', margin: '20px auto 0' }}>
+        <p className="text-xs text-on-surface-variant mt-5 max-w-[300px] mx-auto">
           Skor Anda didasarkan pada 6 metrik kesehatan finansial utama.
         </p>
-      </motion.div>
+      </BentoCard>
 
       {/* ─── Metric Breakdown ────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '24px' }}>
+      <div className="grid grid-cols-2 gap-3">
         {stats.metrics.map((m, i) => (
-          <motion.div
-            key={i} 
-            className="card clickable-card" 
-            style={{ padding: '16px', margin: 0, border: '1.5px solid var(--border-color)', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
-            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
-            onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
-            onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+          <BentoCard
+            key={i}
+            interactive
+            padding="sm"
+            className="border border-outline-variant/60 hover:shadow-md transition-all flex flex-col justify-between h-full"
             onClick={() => {
               if (!onShowDetail) return;
               
@@ -1874,57 +1873,59 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
               onShowDetail({ isOpen: true, title: m.label, formula, explanation, details });
             }}
           >
-            <div className="flex-between" style={{ marginBottom: '12px' }}>
-              <div style={{ padding: '8px', borderRadius: '12px', background: 'var(--primary-glow)', color: 'var(--primary)' }}>
-                <MaterialIcon name={m.icon as string} className="text-[18px]" />
+            <div>
+              <div className="flex justify-between items-center mb-2.5">
+                <IconBlock icon={m.icon as string} color="primary" size="sm" />
+                <span className="text-xs font-bold text-on-surface-variant">{m.score}/{m.max}</span>
               </div>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>{m.score}/{m.max}</span>
+              <div className="text-[11px] text-on-surface-variant font-bold mb-0.5 flex items-center gap-1.5">
+                {m.label}
+                <div className="w-3.5 h-3.5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-extrabold shrink-0" title="Detail metrik">!</div>
+              </div>
+              <div className="text-base font-extrabold text-on-surface mb-2">{m.value}</div>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {m.label}
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>!</div>
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)' }}>{m.value}</div>
-            <div style={{ height: '4px', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', width: `${(m.score / m.max) * 100}%`,
-                background: m.score / m.max > 0.8 ? '#10b981' : m.score / m.max > 0.5 ? '#3b82f6' : '#f59e0b'
-              }} />
-            </div>
-          </motion.div>
+            <ProgressBar
+              segments={[{
+                percent: (m.score / m.max) * 100,
+                color: (m.score / m.max) > 0.8 ? 'primary-color' : (m.score / m.max) > 0.5 ? 'primary' : 'error'
+              }]}
+              height="xs"
+            />
+          </BentoCard>
         ))}
       </div>
 
       {/* ─── MoM Indicators ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-        <div className="card shadow-soft" style={{ flex: 1, margin: 0, border: 'none', background: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Trend Belanja</div>
-          <div className="flex-gap" style={{ alignItems: 'center' }}>
-            <span style={{ fontSize: '18px', fontWeight: 800 }}>{Math.abs(stats.momSpending).toFixed(0)}%</span>
-            {stats.momSpending > 0 ? <MaterialIcon name="call_made" className="text-[18px] text-[#ef4444]" /> : <MaterialIcon name="call_received" className="text-[18px] text-[#10b981]" />}
+      <div className="flex gap-3">
+        <BentoCard variant="surface" className="flex-1 bg-surface-container-high/50 border border-outline-variant/50">
+          <div className="text-[11px] text-on-surface-variant font-bold mb-1">Trend Belanja</div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg font-extrabold text-on-surface">{Math.abs(stats.momSpending).toFixed(0)}%</span>
+            <MaterialIcon name={stats.momSpending > 0 ? 'call_made' : 'call_received'} className={`text-lg ${stats.momSpending > 0 ? 'text-error' : 'text-primary-color'}`} />
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>vs bulan lalu</div>
-        </div>
-        <div className="card shadow-soft" style={{ flex: 1, margin: 0, border: 'none', background: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Tabungan Bersih</div>
-          <div className="flex-gap" style={{ alignItems: 'center' }}>
-            <span style={{ fontSize: '18px', fontWeight: 800 }}>{Math.abs(stats.momSavings).toFixed(0)}%</span>
-            {stats.momSavings > 0 ? <MaterialIcon name="call_made" className="text-[18px] text-[#10b981]" /> : <MaterialIcon name="call_received" className="text-[18px] text-[#ef4444]" />}
+          <div className="text-[10px] text-on-surface-variant mt-0.5">vs bulan lalu</div>
+        </BentoCard>
+
+        <BentoCard variant="surface" className="flex-1 bg-surface-container-high/50 border border-outline-variant/50">
+          <div className="text-[11px] text-on-surface-variant font-bold mb-1">Tabungan Bersih</div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg font-extrabold text-on-surface">{Math.abs(stats.momSavings).toFixed(0)}%</span>
+            <MaterialIcon name={stats.momSavings > 0 ? 'call_made' : 'call_received'} className={`text-lg ${stats.momSavings > 0 ? 'text-primary-color' : 'text-error'}`} />
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>vs bulan lalu</div>
-        </div>
+          <div className="text-[10px] text-on-surface-variant mt-0.5">vs bulan lalu</div>
+        </BentoCard>
       </div>
 
       {/* ─── Net Worth Chart ─────────────────────────────────────────────────── */}
-      <div className="card glass" style={{ marginBottom: '24px' }}>
-        <div className="flex-between" style={{ marginBottom: '20px' }}>
+      <BentoCard variant="glass" className="border border-outline-variant">
+        <div className="flex justify-between items-start mb-5">
           <div>
-            <h2 className="subtitle" style={{ fontSize: '15px' }}>Kekayaan Bersih</h2>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{fmt(stats.currentNetWorth)}</div>
+            <h2 className="text-sm font-bold text-on-surface-variant">Kekayaan Bersih</h2>
+            <div className="text-xl font-extrabold text-primary mt-0.5">{fmt(stats.currentNetWorth)}</div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>Aset Total: {fmt(stats.totalAssetsValue)}</div>
-            <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700 }}>Hutang: {fmt(stats.totalUnpaidDebt)}</div>
+          <div className="text-right text-[10px] text-on-surface-variant font-semibold space-y-0.5">
+            <div>Aset Total: {fmt(stats.totalAssetsValue)}</div>
+            <div className="text-error">Hutang: {fmt(stats.totalUnpaidDebt)}</div>
           </div>
         </div>
         <div style={{ width: '100%', height: 200 }}>
@@ -1943,7 +1944,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
               />
               <YAxis hide domain={['dataMin - 1000000', 'dataMax + 1000000']} />
               <Tooltip
-                contentStyle={{ borderRadius: '12px', border: 'none', background: isDark ? '#1e293b' : '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
                 formatter={(val: any) => fmt(Number(val))}
                 labelFormatter={(label) => ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][label]}
               />
@@ -1951,7 +1952,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </BentoCard>
     </div>
   );
 };
@@ -1992,94 +1993,101 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
   const fmt = (v: number) => formatCurrency(v, currencySymbol);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="space-y-6 pb-10">
       {/* Global Budget / Zero-Based Hero Card */}
       {budgetMode === 'zero-based' ? (
-        <div className="card shadow-soft" style={{ padding: '24px 20px', border: 'none', background: 'var(--primary-gradient)', color: 'white', borderRadius: '24px', boxShadow: '0 12px 30px var(--primary-glow)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.1 }}>
+        <BentoCard
+          variant="solid"
+          className="text-white shadow-bento-lg p-6 relative overflow-hidden"
+          style={{ background: 'var(--primary-gradient)' }}
+        >
+          <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
             <MaterialIcon name="payments" className="text-[120px]" />
           </div>
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Total Pendapatan</div>
-            <div style={{ fontSize: '32px', fontWeight: 800, marginBottom: '16px' }}>{fmt(monthlyIncome)}</div>
+          <div className="relative z-10 space-y-4">
+            <div>
+              <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Total Pendapatan</div>
+              <div className="text-3xl font-black">{fmt(monthlyIncome)}</div>
+            </div>
 
-            <div style={{ display: 'flex', gap: '20px' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Dialokasikan</div>
-                <div style={{ fontSize: '16px', fontWeight: 800 }}>{fmt(totalBudgeted)}</div>
+            <div className="flex gap-5 pt-3 border-t border-white/10">
+              <div className="flex-1">
+                <div className="text-[10px] font-bold opacity-80 uppercase mb-0.5">Dialokasikan</div>
+                <div className="text-base font-extrabold">{fmt(totalBudgeted)}</div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Sisa</div>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: unassignedMoney === 0 ? 'rgba(255,255,255,0.6)' : '#fff' }}>{fmt(unassignedMoney)}</div>
+              <div className="flex-1">
+                <div className="text-[10px] font-bold opacity-80 uppercase mb-0.5">Sisa</div>
+                <div className="text-base font-extrabold">{fmt(unassignedMoney)}</div>
               </div>
             </div>
           </div>
-        </div>
+        </BentoCard>
       ) : globalBudget ? (
-        <div className="card glass shadow-soft" style={{ padding: '20px', border: 'none', background: 'linear-gradient(135deg, var(--primary), var(--primary-light))', color: 'white' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '8px' }}>Total Anggaran</div>
-          <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>{fmt(globalBudget.limit)}</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-            <div style={{ fontSize: '13px', opacity: 0.9 }}>
-              Terpakai: <strong>{fmt(spendingMap.total)}</strong>
-            </div>
-            <div style={{ fontSize: '13px', fontWeight: 800 }}>
-              {Math.round((spendingMap.total / globalBudget.limit) * 100)}%
-            </div>
+        <BentoCard
+          variant="solid"
+          className="text-white shadow-bento-lg p-6 relative overflow-hidden"
+          style={{ background: 'var(--primary-gradient)' }}
+        >
+          <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Total Anggaran</div>
+          <div className="text-3xl font-black mb-1">{fmt(globalBudget.limit)}</div>
+          <div className="flex justify-between items-center mt-4 text-xs font-bold">
+            <span className="opacity-90">Terpakai: {fmt(spendingMap.total)}</span>
+            <span>{Math.round((spendingMap.total / globalBudget.limit) * 100)}%</span>
           </div>
-          <div style={{ height: '8px', background: 'rgba(255,255,255,0.2)', borderRadius: '4px', overflow: 'hidden', marginTop: '10px' }}>
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min((spendingMap.total / globalBudget.limit) * 100, 100)}%` }}
-              style={{ height: '100%', background: 'white', borderRadius: '4px' }}
+          <div className="mt-2">
+            <ProgressBar
+              segments={[{
+                percent: Math.min((spendingMap.total / globalBudget.limit) * 100, 100),
+                color: 'white'
+              }]}
+              height="sm"
             />
           </div>
           {spendingMap.total > globalBudget.limit && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '12px', padding: '6px 10px', background: 'rgba(255,255,255,0.2)', borderRadius: '8px', fontSize: '11px', fontWeight: 700 }}>
-              <MaterialIcon name="warning" className="text-[14px]" /> Melebihi anggaran sebesar {fmt(spendingMap.total - globalBudget.limit)}
+            <div className="flex items-center gap-1.5 mt-3.5 px-3 py-2 bg-white/20 rounded-xl text-[11px] font-extrabold">
+              <MaterialIcon name="warning" className="text-sm" /> Melebihi anggaran sebesar {fmt(spendingMap.total - globalBudget.limit)}
             </div>
           )}
-        </div>
+        </BentoCard>
       ) : (
-        <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--bg-card)', borderRadius: '20px', border: '1px dashed var(--border-color)' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
-          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>Belum ada anggaran global</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Atur anggaran di menu Pengaturan</div>
-        </div>
+        <BentoCard variant="glass" className="text-center py-10 px-5 border border-dashed border-outline-variant">
+          <div className="text-4xl mb-3">📊</div>
+          <div className="font-bold text-on-surface text-sm">Belum ada anggaran global</div>
+          <div className="text-xs text-on-surface-variant mt-1">Atur anggaran di menu Pengaturan</div>
+        </BentoCard>
       )}
 
       {/* Category Budgets */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>Anggaran Kategori</h3>
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-on-surface pl-1">Anggaran Kategori</h3>
         {categoryBudgets.length > 0 ? categoryBudgets.map(b => {
           const cat = categories.find(c => c.id === b.categoryId);
           const spent = spendingMap[b.categoryId!] || 0;
           const percent = b.limit > 0 ? (spent / b.limit) * 100 : 0;
-          const statusColor = percent > 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
+          const statusColor = percent > 100 ? 'error' : percent >= 75 ? 'secondary' : 'primary';
+          const textDanger = percent > 100 ? 'text-error' : 'text-on-surface';
           return (
-            <div key={b.id} className="card glass" style={{ padding: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: statusColor }}>
-                    <MaterialIcon name="account_balance_wallet" className="text-[16px]" />
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '14px' }}>{cat?.name || 'Kategori'}</div>
+            <BentoCard key={b.id} variant="glass" className="border border-outline-variant/60">
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center gap-3">
+                  <IconBlock icon="account_balance_wallet" color={statusColor as any} size="sm" />
+                  <span className="font-bold text-sm text-on-surface">{cat?.name || 'Kategori'}</span>
                 </div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: percent > 100 ? 'var(--danger)' : 'var(--text-main)' }}>
-                  {fmt(spent)} <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '11px' }}>/ {fmt(b.limit)}</span>
+                <div className="text-right text-xs font-bold">
+                  <span className={textDanger}>{fmt(spent)}</span>
+                  <span className="text-[10px] text-on-surface-variant font-medium"> / {fmt(b.limit)}</span>
                 </div>
               </div>
-              <div style={{ height: '6px', background: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(percent, 100)}%` }}
-                  style={{ height: '100%', background: statusColor, borderRadius: '3px' }}
-                />
-              </div>
-            </div>
+              <ProgressBar
+                segments={[{ percent: Math.min(percent, 100), color: statusColor }]}
+                height="xs"
+              />
+            </BentoCard>
           );
         }) : (
-          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '13px' }}>Tidak ada anggaran kategori</div>
+          <div className="text-center py-6 text-xs text-on-surface-variant bg-surface-container/30 rounded-2xl border border-outline-variant/40">
+            Tidak ada anggaran kategori
+          </div>
         )}
       </div>
     </div>
@@ -2108,56 +2116,60 @@ const GoalStatistics: React.FC = () => {
   const fmt = (v: number) => formatCurrency(v, currencySymbol);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>Target Tabungan</h3>
+    <div className="space-y-4 pb-10">
+      <h3 className="text-sm font-bold text-on-surface pl-1">Target Tabungan</h3>
       {goals.length > 0 ? goals.map(g => {
         const current = goalAllocations[g.id] || 0;
         const percent = (current / g.targetAmount) * 100;
         const isCompleted = percent >= 100;
         return (
-          <div key={g.id} className="card glass" style={{ padding: '16px', borderLeft: isCompleted ? '4px solid var(--success)' : 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: isCompleted ? 'var(--bg-income)' : 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCompleted ? 'var(--success)' : 'var(--primary)' }}>
-                  {isCompleted ? <MaterialIcon name="check_circle" className="text-[20px]" /> : <MaterialIcon name="track_changes" className="text-[20px]" />}
-                </div>
+          <BentoCard
+            key={g.id}
+            variant="glass"
+            className={`border border-outline-variant/60 ${isCompleted ? 'border-l-4 border-l-primary-color' : ''}`}
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex items-center gap-3">
+                <IconBlock
+                  icon={isCompleted ? 'check_circle' : 'track_changes'}
+                  color={isCompleted ? 'income' : 'primary'}
+                  size="md"
+                />
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '15px' }}>{g.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  <div className="font-extrabold text-sm text-on-surface">{g.name}</div>
+                  <div className="text-[10px] text-on-surface-variant mt-0.5">
                     Target: {new Date(g.targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: isCompleted ? 'var(--success)' : 'var(--primary)' }}>{Math.floor(percent)}%</div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>Tercapai</div>
+              <div className="text-right">
+                <div className={`text-base font-extrabold ${isCompleted ? 'text-primary-color' : 'text-primary'}`}>{Math.floor(percent)}%</div>
+                <div className="text-[10px] text-on-surface-variant font-bold">Tercapai</div>
               </div>
             </div>
 
-            <div style={{ height: '8px', background: 'var(--bg-main)', borderRadius: '4px', overflow: 'hidden', marginBottom: '12px' }}>
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(percent, 100)}%` }}
-                style={{ height: '100%', background: isCompleted ? 'var(--success)' : 'var(--primary)', borderRadius: '4px' }}
-              />
-            </div>
+            <ProgressBar
+              segments={[{ percent: Math.min(percent, 100), color: isCompleted ? 'primary-color' : 'primary' }]}
+              height="xs"
+              className="my-3"
+            />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{fmt(current)} / {fmt(g.targetAmount)}</span>
+            <div className="flex justify-between text-xs font-semibold pt-1">
+              <span className="text-on-surface-variant">{fmt(current)} / {fmt(g.targetAmount)}</span>
               {isCompleted ? (
-                <span style={{ color: 'var(--success)', fontWeight: 700 }}>Selesai! ✨</span>
+                <span className="text-primary-color font-bold">Selesai! ✨</span>
               ) : (
-                <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Sisa {fmt(g.targetAmount - current)}</span>
+                <span className="text-primary font-bold">Sisa {fmt(g.targetAmount - current)}</span>
               )}
             </div>
-          </div>
+          </BentoCard>
         );
       }) : (
-        <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--bg-card)', borderRadius: '20px', border: '1px dashed var(--border-color)' }}>
-          <div style={{ opacity: 0.2, marginBottom: '16px' }}><MaterialIcon name="track_changes" className="text-[40px]" /></div>
-          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>Belum ada target tabungan</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Mulai buat rencana untuk impian Anda!</div>
-        </div>
+        <EmptyState
+          icon="track_changes"
+          title="Belum ada target tabungan"
+          description="Mulai buat rencana untuk impian Anda!"
+        />
       )}
     </div>
   );
@@ -2174,35 +2186,41 @@ const SubscriptionStatistics: React.FC = () => {
   const fmt = (v: number) => formatCurrency(v, currencySymbol);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div className="card shadow-soft" style={{ padding: '20px', border: 'none', background: 'linear-gradient(135deg, #6366f1, #818cf8)', color: 'white' }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '8px' }}>Estimasi Biaya Langganan</div>
-        <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>{fmt(totalMonthly)}</div>
-        <div style={{ fontSize: '12px', opacity: 0.9 }}>Per bulan dari {subscriptions.filter(s => s.isActive).length} layanan aktif</div>
-      </div>
+    <div className="space-y-5 pb-10">
+      <BentoCard
+        variant="solid"
+        className="bg-gradient-to-br from-indigo-600 to-violet-500 text-white shadow-bento-lg p-6 relative overflow-hidden"
+      >
+        <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
+          <MaterialIcon name="credit_card" className="text-[120px]" />
+        </div>
+        <div className="relative z-10">
+          <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Estimasi Biaya Langganan</div>
+          <div className="text-3xl font-black mb-1">{fmt(totalMonthly)}</div>
+          <div className="text-xs opacity-90 mt-2">Per bulan dari {subscriptions.filter(s => s.isActive).length} layanan aktif</div>
+        </div>
+      </BentoCard>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>Daftar Layanan</h3>
-        {subscriptions.length > 0 ? subscriptions.map(s => (
-          <div key={s.id} className="card glass" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: s.isActive ? 1 : 0.6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1' }}>
-                <MaterialIcon name="credit_card" className="text-[20px]" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '14px' }}>{s.name}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {s.billingCycle === 'monthly' ? 'Bulanan' : 'Tahunan'} • {fmt(s.amount)}
-                </div>
-              </div>
-            </div>
-            {!s.isActive && (
-              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-main)', borderRadius: '12px' }}>NONAKTIF</div>
-            )}
-          </div>
-        )) : (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>Belum ada data langganan</div>
-        )}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-on-surface pl-1">Daftar Layanan</h3>
+        <div className="space-y-2">
+          {subscriptions.length > 0 ? subscriptions.map(s => (
+            <ListItem
+              key={s.id}
+              left={<IconBlock icon="credit_card" color="primary" size="md" />}
+              title={s.name}
+              subtitle={`${s.billingCycle === 'monthly' ? 'Bulanan' : 'Tahunan'} • ${fmt(s.amount)}`}
+              right={!s.isActive ? <StatusBadge type="neutral" label="NONAKTIF" /> : null}
+              className={s.isActive ? '' : 'opacity-60'}
+            />
+          )) : (
+            <EmptyState
+              icon="credit_card"
+              title="Belum ada data langganan"
+              description="Tambahkan data langganan Anda untuk melacak biaya rutin."
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2223,11 +2241,11 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
 
     // 1. Initial Balance (Hanya aset likuid)
     let currentBalance = assets
-      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type))
+      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type))
       .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
 
     let currentInvestBalance = assets
-      .filter(a => !a.isDeleted && ['Savings', 'Investment'].includes(a.type))
+      .filter(a => !a.isDeleted && ['Investment'].includes(a.type))
       .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
 
     const now = new Date();
@@ -2250,40 +2268,50 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
 
       // Check Recurring Transactions
       recurringTransactions.filter(rt => rt.isActive).forEach(rt => {
-        const startD = new Date(rt.startDate);
-        let isToday = false;
+        let startD: Date;
+        if (rt.startDate && rt.startDate.includes('-')) {
+          const parts = rt.startDate.split('T')[0].split('-');
+          const yr = Number(parts[0]) || now.getFullYear();
+          const mn = Number(parts[1]) || (now.getMonth() + 1);
+          const dy = Number(parts[2]) || now.getDate();
+          startD = new Date(yr, mn - 1, dy);
+        } else {
+          startD = new Date(rt.startDate || now);
+        }
 
+        let isToday = false;
         if (rt.frequency === 'daily') isToday = true;
         else if (rt.frequency === 'weekly' && dayOfWeek === startD.getDay()) isToday = true;
         else if (rt.frequency === 'monthly' && dayOfMonth === startD.getDate()) isToday = true;
         else if (rt.frequency === 'yearly' && dayOfMonth === startD.getDate() && month === startD.getMonth()) isToday = true;
 
         if (isToday) {
-          if (rt.type === 'pendapatan') dailyIncome += rt.amount;
-          else if (rt.type === 'pengeluaran') dailyExpense += rt.amount;
+          const rtAmount = Number(rt.amount) || 0;
+          if (rt.type === 'pendapatan') dailyIncome += rtAmount;
+          else if (rt.type === 'pengeluaran') dailyExpense += rtAmount;
           else if (rt.type === 'transfer') {
              const fromAsset = assets.find(a => a.id === rt.fromAssetId);
              const toAsset = assets.find(a => a.id === rt.toAssetId);
 
-             const isFromLiquid = fromAsset && ['Cash', 'Bank Account', 'eWallet'].includes(fromAsset.type);
-             const isToLiquid = toAsset && ['Cash', 'Bank Account', 'eWallet'].includes(toAsset.type);
-             const isFromInvest = fromAsset && ['Savings', 'Investment'].includes(fromAsset.type);
-             const isToInvest = toAsset && ['Savings', 'Investment'].includes(toAsset.type);
+             const isFromLiquid = fromAsset && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(fromAsset.type);
+             const isToLiquid = toAsset && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(toAsset.type);
+             const isFromInvest = fromAsset && ['Investment'].includes(fromAsset.type);
+             const isToInvest = toAsset && ['Investment'].includes(toAsset.type);
 
              if (isFromLiquid && isToInvest) {
-                dailyExpense += rt.amount;
-                dailyInvestInflow += rt.amount;
+                dailyExpense += rtAmount;
+                dailyInvestInflow += rtAmount;
              } else if (isFromInvest && isToLiquid) {
-                dailyIncome += rt.amount;
-                dailyInvestOutflow += rt.amount;
+                dailyIncome += rtAmount;
+                dailyInvestOutflow += rtAmount;
              } else if (isFromLiquid && !isToLiquid) {
-                dailyExpense += rt.amount;
+                dailyExpense += rtAmount;
              } else if (!isFromLiquid && isToLiquid) {
-                dailyIncome += rt.amount;
+                dailyIncome += rtAmount;
              } else if (isFromInvest && !isToInvest) {
-                dailyInvestOutflow += rt.amount;
+                dailyInvestOutflow += rtAmount;
              } else if (!isFromInvest && isToInvest) {
-                dailyInvestInflow += rt.amount;
+                dailyInvestInflow += rtAmount;
              }
           }
         }
@@ -2291,9 +2319,18 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
 
       // Check Subscriptions
       subscriptions.filter(s => s.isActive).forEach(sub => {
-        const subDate = new Date(sub.nextBillingDate);
-        let isToday = false;
+        let subDate: Date;
+        if (sub.nextBillingDate && sub.nextBillingDate.includes('-')) {
+          const parts = sub.nextBillingDate.split('T')[0].split('-');
+          const yr = Number(parts[0]) || now.getFullYear();
+          const mn = Number(parts[1]) || (now.getMonth() + 1);
+          const dy = Number(parts[2]) || now.getDate();
+          subDate = new Date(yr, mn - 1, dy);
+        } else {
+          subDate = new Date(sub.nextBillingDate || now);
+        }
 
+        let isToday = false;
         if (sub.billingCycle === 'monthly') {
           // Check if day matches
           if (dayOfMonth === subDate.getDate()) isToday = true;
@@ -2303,12 +2340,12 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
         }
 
         if (isToday) {
-          dailyExpense += sub.amount;
+          dailyExpense += Number(sub.amount) || 0;
         }
       });
 
-      currentBalance = currentBalance + dailyIncome - dailyExpense;
-      currentInvestBalance = currentInvestBalance + dailyInvestInflow - dailyInvestOutflow;
+      currentBalance = Number(currentBalance) + Number(dailyIncome) - Number(dailyExpense);
+      currentInvestBalance = Number(currentInvestBalance) + Number(dailyInvestInflow) - Number(dailyInvestOutflow);
 
       data.push({
         date: dateKey,
@@ -2331,7 +2368,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
     const next30Days = forecastData.slice(0, 30);
     const totalBills = next30Days.reduce((sum, d) => sum + d.expense, 0);
     const currentBal = assets
-      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type))
+      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type))
       .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
     return Math.max(0, currentBal - totalBills);
   }, [forecastData, assets, getAssetBalance]);
@@ -2342,29 +2379,26 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
   }, [forecastData]);
 
   const currentInvestBal = useMemo(() => {
-    return assets.filter(a => !a.isDeleted && ['Savings', 'Investment'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+    return assets.filter(a => !a.isDeleted && ['Investment'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
   }, [assets, getAssetBalance]);
 
   const dangerDays = activeData.filter(d => d.isDanger);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
+    <div className="space-y-6 pb-10">
       {/* Hero Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'clamp(6px, 2vw, 12px)' }}>
-        <div 
-          className="card shadow-soft clickable-card" 
-          style={{
-            background: 'var(--primary-gradient)', color: 'white', border: 'none', padding: 'clamp(10px, 3vw, 16px)',
-            boxShadow: '0 10px 25px var(--primary-glow)', position: 'relative', overflow: 'hidden', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s'
-          }}
-          onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
-          onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+      <div className="grid grid-cols-3 gap-3">
+        <BentoCard
+          variant="solid"
+          interactive
+          className="text-white shadow-bento-lg p-4 relative overflow-hidden flex flex-col justify-between h-full"
+          style={{ background: 'var(--primary-gradient)' }}
           onClick={() => {
             if (!onShowDetail) return;
             const next30Days = forecastData.slice(0, 30);
             const totalBills = next30Days.reduce((sum, d) => sum + d.expense, 0);
             const totalIncome = next30Days.reduce((sum, d) => sum + d.income, 0);
-            const currentBal = assets.filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+            const currentBal = assets.filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
             
             onShowDetail({
               isOpen: true,
@@ -2380,23 +2414,21 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
             });
           }}
         >
-          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            Aman Dibelanjakan
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, flexShrink: 0 }}>!</div>
+          <div>
+            <div className="text-[10px] font-black opacity-80 uppercase tracking-wider mb-1 flex items-center gap-1">
+              Aman Belanja
+              <div className="w-3.5 h-3.5 rounded-full bg-white text-primary flex items-center justify-center text-[9px] font-extrabold shrink-0">!</div>
+            </div>
+            <div className="text-base font-black truncate">{fmt(safeToSpend)}</div>
           </div>
-          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(safeToSpend)}</div>
-          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Setelah tagihan 30 hari</div>
-          <div style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }}><MaterialIcon name="bolt" className="text-[40px]" /></div>
-        </div>
+          <div className="text-[9px] opacity-80 mt-1 truncate">Setelah tagihan 30 hari</div>
+          <div className="absolute right-[-10px] bottom-[-10px] opacity-15"><MaterialIcon name="bolt" className="text-[40px]" /></div>
+        </BentoCard>
 
-        <div 
-          className="card shadow-soft clickable-card" 
-          style={{
-            background: 'var(--success-gradient, linear-gradient(135deg, #10b981, #34d399))', color: 'white', border: 'none', padding: 'clamp(10px, 3vw, 16px)',
-            boxShadow: '0 10px 25px rgba(16,185,129,0.2)', position: 'relative', overflow: 'hidden', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s'
-          }}
-          onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
-          onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+        <BentoCard
+          variant="solid"
+          interactive
+          className="bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-bento-lg p-4 relative overflow-hidden flex flex-col justify-between h-full"
           onClick={() => {
             if (!onShowDetail) return;
             const next30Days = forecastData.slice(0, 30);
@@ -2415,43 +2447,43 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
             });
           }}
         >
-          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            Tabungan & Investasi
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, flexShrink: 0 }}>!</div>
+          <div>
+            <div className="text-[10px] font-black opacity-80 uppercase tracking-wider mb-1 flex items-center gap-1">
+              Tabungan & Inv
+              <div className="w-3.5 h-3.5 rounded-full bg-white text-emerald-600 flex items-center justify-center text-[9px] font-extrabold shrink-0">!</div>
+            </div>
+            <div className="text-base font-black truncate">{fmt(projectedInvest)}</div>
           </div>
-          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(projectedInvest)}</div>
-          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Estimasi 30 hari</div>
-          <div style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }}><MaterialIcon name="track_changes" className="text-[40px]" /></div>
-        </div>
+          <div className="text-[9px] opacity-80 mt-1 truncate">Estimasi 30 hari</div>
+          <div className="absolute right-[-10px] bottom-[-10px] opacity-15"><MaterialIcon name="track_changes" className="text-[40px]" /></div>
+        </BentoCard>
 
-        <div className="card shadow-soft" style={{
-          background: dangerDays.length > 0 ? 'var(--secondary-gradient)' : 'var(--bg-card-solid)',
-          color: dangerDays.length > 0 ? 'white' : 'var(--text-main)',
-          border: 'none', padding: 'clamp(10px, 3vw, 16px)',
-          boxShadow: dangerDays.length > 0 ? '0 10px 25px var(--secondary-glow)' : '0 4px 12px rgba(0,0,0,0.03)',
-          position: 'relative', overflow: 'hidden'
-        }}>
-          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Zona Bahaya</div>
-          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800 }}>{dangerDays.length} Hari</div>
-          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Saldo prediksi negatif</div>
-          <div style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }}><MaterialIcon name="warning" className="text-[40px]" /></div>
-        </div>
+        <BentoCard
+          variant="surface"
+          className={`p-4 relative overflow-hidden flex flex-col justify-between h-full border ${
+            dangerDays.length > 0 ? 'bg-error-container/25 border-error/30 text-error' : 'bg-surface-container border-outline-variant/60 text-on-surface'
+          }`}
+        >
+          <div>
+            <div className="text-[10px] font-bold opacity-80 uppercase tracking-wider mb-1">Zona Bahaya</div>
+            <div className={`text-base font-black ${dangerDays.length > 0 ? 'text-error' : 'text-on-surface'}`}>{dangerDays.length} Hari</div>
+          </div>
+          <div className="text-[9px] opacity-80 mt-1 truncate">Saldo prediksi negatif</div>
+          <div className="absolute right-[-10px] bottom-[-10px] opacity-15"><MaterialIcon name="warning" className={`text-[40px] ${dangerDays.length > 0 ? 'text-error' : 'text-on-surface-variant'}`} /></div>
+        </BentoCard>
       </div>
 
       {/* Chart Control */}
-      <div className="flex-between">
-        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Prediksi Saldo</h3>
-        <div style={{ display: 'flex', background: 'var(--bg-main)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+      <div className="flex justify-between items-center pl-1">
+        <h3 className="text-sm font-bold text-on-surface">Prediksi Saldo</h3>
+        <div className="flex bg-surface-container-low p-0.5 rounded-xl border border-outline-variant/60">
           {[30, 60, 90].map(days => (
             <button
               key={days}
               onClick={() => setForecastDays(days as any)}
-              style={{
-                padding: '6px 12px', borderRadius: '8px', border: 'none', fontSize: '11px', fontWeight: 700,
-                background: forecastDays === days ? 'var(--bg-card)' : 'transparent',
-                color: forecastDays === days ? 'var(--primary)' : 'var(--text-muted)',
-                cursor: 'pointer'
-              }}
+              className={`px-3 py-1 rounded-lg border-none text-[10px] font-extrabold cursor-pointer transition-all ${
+                forecastDays === days ? 'bg-primary text-white shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
+              }`}
             >
               {days} HARI
             </button>
@@ -2459,84 +2491,88 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
         </div>
       </div>
 
-      {/* Line Chart */}
-      <div className="card glass" style={{ height: '300px', padding: '20px 10px 10px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={activeData}>
-            <defs>
-              <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="investGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-            <XAxis
-              dataKey="displayDate"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
-              interval={forecastDays === 90 ? 14 : forecastDays === 60 ? 9 : 4}
-            />
-            <YAxis
-              hide
-              domain={['dataMin - 1000000', 'dataMax + 1000000']}
-            />
-            <Tooltip
-              contentStyle={{ borderRadius: '12px', border: 'none', background: isDark ? '#1e293b' : '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-              formatter={(val: any) => fmt(Number(val))}
-              labelStyle={{ fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}
-            />
-            <Area
-              type="monotone"
-              dataKey="balance"
-              name="Kas & Bank"
-              stroke="var(--primary)"
-              strokeWidth={3}
-              fillOpacity={1}
-              fill="url(#forecastGradient)"
-              animationDuration={1000}
-            />
-            <Area
-              type="monotone"
-              dataKey="investBalance"
-              name="Tabungan & Investasi"
-              stroke="#10b981"
-              strokeWidth={3}
-              fillOpacity={1}
-              fill="url(#investGradient)"
-              animationDuration={1000}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <BentoCard variant="glass" className="border border-outline-variant py-4 px-2">
+        <div style={{ width: '100%', height: '280px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={activeData}>
+              <defs>
+                <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="investGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+              <XAxis
+                dataKey="displayDate"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                interval={forecastDays === 90 ? 14 : forecastDays === 60 ? 9 : 4}
+              />
+              <YAxis
+                hide
+                domain={['dataMin - 1000000', 'dataMax + 1000000']}
+              />
+              <Tooltip
+                contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
+                formatter={(val: any) => fmt(Number(val))}
+                labelStyle={{ fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}
+              />
+              <Area
+                type="monotone"
+                dataKey="balance"
+                name="Kas & Bank"
+                stroke="var(--primary)"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#forecastGradient)"
+                animationDuration={1000}
+              />
+              <Area
+                type="monotone"
+                dataKey="investBalance"
+                name="Tabungan & Investasi"
+                stroke="#10b981"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#investGradient)"
+                animationDuration={1000}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </BentoCard>
 
       {/* Upcoming Large Bills */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Tagihan Mendatang</h3>
-        {activeData.filter(d => d.expense > 0).slice(0, 5).map((d, i) => (
-          <div key={i} className="card glass" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
-                <MaterialIcon name="calendar_today" className="text-[20px]" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '14px' }}>{d.displayDate}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Estimasi Tagihan</div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 800, color: 'var(--danger)', fontSize: '14px' }}>-{fmt(d.expense)}</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Saldo: {fmt(d.balance)}</div>
-            </div>
-          </div>
-        ))}
-        {activeData.filter(d => d.expense > 0).length === 0 && (
-          <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '13px' }}>Tidak ada tagihan rutin yang terdeteksi.</div>
-        )}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-on-surface pl-1">Tagihan Mendatang</h3>
+        <div className="space-y-2">
+          {activeData.filter(d => d.expense > 0).slice(0, 5).map((d, i) => (
+            <ListItem
+              key={i}
+              left={<IconBlock icon="calendar_today" color="error" size="md" />}
+              title={d.displayDate}
+              subtitle="Estimasi Tagihan"
+              right={
+                <div className="text-right">
+                  <div className="font-extrabold text-sm text-error">-{fmt(d.expense)}</div>
+                  <div className="text-[10px] text-on-surface-variant font-semibold mt-0.5">Saldo: {fmt(d.balance)}</div>
+                </div>
+              }
+            />
+          ))}
+          {activeData.filter(d => d.expense > 0).length === 0 && (
+            <EmptyState
+              icon="calendar_today"
+              title="Tidak ada tagihan rutin"
+              description="Tidak ada tagihan rutin yang terdeteksi untuk periode ini."
+            />
+          )}
+        </div>
       </div>
     </div>
   );

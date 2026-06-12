@@ -1121,7 +1121,7 @@ const Transactions: React.FC = () => {
                 </div>
               </div>
               
-              <div className="flex flex-col gap-4 p-4 min-h-[300px] bg-bg-main lg:bg-transparent">
+              <div className="flex flex-col gap-4 p-4 min-h-[300px] bg-transparent">
                 {groups.length === 0 ? (
                   <div className="p-12 text-center text-on-surface-variant bg-bg-card rounded-2xl border border-outline-variant">
                     <MaterialIcon name="receipt_long" className="text-4xl opacity-50 mb-2" />
