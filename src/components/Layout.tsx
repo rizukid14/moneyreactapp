@@ -8,7 +8,7 @@ import NotificationModal from './modals/NotificationModal';
 import ProfileMenuModal from './modals/ProfileMenuModal';
 
 const Layout: React.FC = () => {
-  const { theme, toggleTheme, setIsChatOpen, transactions } = useMoney();
+  const { user, theme, toggleTheme, setIsChatOpen, transactions, budgets, debts, subscriptions, pendingSyncCount } = useMoney();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
@@ -16,16 +16,19 @@ const Layout: React.FC = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
 
+  // Compute a hash of notification-relevant state to detect new notifications
+  const notifStateHash = `${transactions.length}-${debts.length}-${budgets.length}-${subscriptions.length}-${pendingSyncCount}`;
+
   useEffect(() => {
     try {
       const lastViewedTimeStr = localStorage.getItem('notifications-last-viewed-time');
-      const lastViewedTxCountStr = localStorage.getItem('notifications-last-viewed-tx-count');
+      const lastViewedHashStr = localStorage.getItem('notifications-last-viewed-hash');
       
       if (!lastViewedTimeStr) {
         setHasUnreadNotifs(true);
         return;
       }
-      if (lastViewedTxCountStr && transactions.length > parseInt(lastViewedTxCountStr, 10)) {
+      if (lastViewedHashStr && lastViewedHashStr !== notifStateHash) {
         setHasUnreadNotifs(true);
         return;
       }
@@ -37,20 +40,22 @@ const Layout: React.FC = () => {
     } catch (e) {
       setHasUnreadNotifs(true);
     }
-  }, [transactions.length]);
+  }, [notifStateHash]);
+
 
   const openNotifications = () => {
     setIsNotifOpen(true);
     setHasUnreadNotifs(false);
     try {
       localStorage.setItem('notifications-last-viewed-time', Date.now().toString());
-      localStorage.setItem('notifications-last-viewed-tx-count', transactions.length.toString());
+      localStorage.setItem('notifications-last-viewed-hash', notifStateHash);
     } catch (e) {}
   };
 
   const desktopNavItems = [
     { path: '/', icon: 'dashboard', label: 'Dashboard', end: true, testId: 'nav-transactions' },
     { path: '/assets', icon: 'account_balance_wallet', label: 'Aset & Rekening', testId: 'nav-assets' },
+    { path: '/budget', icon: 'account_balance', label: 'Budget', testId: 'nav-budget' },
     { path: '/stats', icon: 'analytics', label: 'Laporan & Analitik', testId: 'nav-statistics' },
     { path: '/settings', icon: 'settings', label: 'Pengaturan', testId: 'nav-settings' },
   ];
@@ -60,6 +65,7 @@ const Layout: React.FC = () => {
     { path: '/assets', icon: 'account_balance_wallet', label: 'Aset', testId: 'nav-assets' },
     { path: '#add', icon: 'add', label: 'Tambah', isAddButton: true, testId: 'nav-add' },
     { path: '#chatbot', icon: 'smart_toy', label: 'MoneyBot', isChatbotButton: true, testId: 'nav-chatbot' },
+    { path: '/budget', icon: 'account_balance', label: 'Budget', testId: 'nav-budget' },
     { path: '/stats', icon: 'analytics', label: 'Laporan', testId: 'nav-statistics' },
   ];
 
@@ -71,10 +77,10 @@ const Layout: React.FC = () => {
           className="flex items-center gap-2 lg:cursor-default flex-1 min-w-0 cursor-pointer"
           onClick={() => setIsProfileMenuOpen(true)}
         >
-          <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="Profile" className="w-8 h-8 rounded-full border border-border-light lg:hidden shrink-0" />
+          <img src={user.avatar || "https://i.pravatar.cc/150?u=a042581f4e29026024d"} alt="Profile" className="w-8 h-8 rounded-full border border-border-light lg:hidden shrink-0 object-cover" />
           <div className="lg:hidden min-w-0">
             <p className="text-[10px] text-on-surface-variant truncate">Selamat datang,</p>
-            <h1 className="font-label-md text-label-md text-on-surface truncate">Alex Nova</h1>
+            <h1 className="font-label-md text-label-md text-on-surface truncate">{user.name}</h1>
           </div>
         </div>
 
@@ -106,10 +112,10 @@ const Layout: React.FC = () => {
             onClick={() => setIsProfileMenuOpen(true)}
           >
             <div className="flex flex-col items-end min-w-0">
-              <span className="font-label-md text-label-sm text-on-surface truncate">Alex Nova</span>
+              <span className="font-label-md text-label-sm text-on-surface truncate">{user.name}</span>
               <span className="text-[10px] text-on-surface-variant truncate">Pro Plan</span>
             </div>
-            <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="Profile" className="w-8 h-8 rounded-full border border-border-light shrink-0" />
+            <img src={user.avatar || "https://i.pravatar.cc/150?u=a042581f4e29026024d"} alt="Profile" className="w-8 h-8 rounded-full border border-border-light shrink-0 object-cover" />
           </div>
         </div>
       </header>
@@ -228,17 +234,19 @@ const Layout: React.FC = () => {
                 key={item.path}
                 onClick={() => setIsChatOpen(true)}
                 data-testid={item.testId}
-                className="flex flex-col items-center justify-center w-16 h-12 rounded-xl transition-colors text-on-surface-variant hover:text-on-surface border-none bg-transparent cursor-pointer group"
+                className="flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-colors text-on-surface-variant hover:text-on-surface border-none bg-transparent cursor-pointer group"
               >
-                <div className="w-12 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-surface-container transition-colors">
+                <div className="w-10 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-surface-container transition-colors">
                   <span className="material-symbols-outlined text-xl text-primary">
                     {item.icon}
                   </span>
                 </div>
-                <span className="text-[10px] text-on-surface">{item.label}</span>
+                <span className="text-[9px] text-on-surface">{item.label}</span>
               </button>
             );
           }
+
+
 
           return (
             <NavLink

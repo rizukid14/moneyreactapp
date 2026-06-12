@@ -254,6 +254,16 @@ const BulkInput: React.FC = () => {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Handle pre-parsed Excel draft data from Settings
+  React.useEffect(() => {
+    const excelDraft = (location.state as any)?.excelDraftData;
+    if (excelDraft && Array.isArray(excelDraft)) {
+      setResults(excelDraft);
+      setStage('results');
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   return (
     <PageWrapper>
       <button onClick={() => navigate(-1)} className="btn-icon" style={{ marginBottom: '16px' }}>

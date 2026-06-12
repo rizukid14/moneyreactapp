@@ -270,6 +270,13 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     // Auto-generate shared link in the background to ensure it's accessible later
     try {
       if (!activeSharedId) {
+        const selectedAsset = assets.find(a => a.id === selectedAssetId);
+        const paymentDetails = selectedAsset?.accountNumber ? {
+          bankName: selectedAsset.name,
+          accountName: 'Pemilik Rekening', // Could be dynamic if we had it
+          accountNumber: selectedAsset.accountNumber
+        } : undefined;
+
         await dbSaveSharedSplit({
           type: 'split',
           sourceId: sourceId || `${merchantName}-${date}-${totalAmount}`,
@@ -279,7 +286,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
           currencySymbol,
           splits,
           lineItems: localLineItems,
-          itemAssignments
+          itemAssignments,
+          paymentDetails
         });
       }
     } catch (err) {
@@ -298,6 +306,13 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     if (splits.length === 0) return;
     setIsSharing(true);
     try {
+      const selectedAsset = assets.find(a => a.id === selectedAssetId);
+      const paymentDetails = selectedAsset?.accountNumber ? {
+        bankName: selectedAsset.name,
+        accountName: 'Pemilik Rekening',
+        accountNumber: selectedAsset.accountNumber
+      } : undefined;
+
       const sharedId = await dbSaveSharedSplit({
         type: 'split',
         sourceId: sourceId || `${merchantName}-${date}-${totalAmount}`,
@@ -307,16 +322,21 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         currencySymbol,
         splits,
         lineItems: localLineItems,
-        itemAssignments
+        itemAssignments,
+        paymentDetails
       });
       setActiveSharedId(sharedId);
       
       const shareUrl = `${window.location.origin}/shared-split/${sharedId}`;
+      let text = `Detail split bill untuk ${merchantName} (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`;
+      if (paymentDetails) {
+        text += `\n\nTransfer ke:\n${paymentDetails.bankName} - ${paymentDetails.accountNumber}`;
+      }
       
       if (navigator.share) {
         await navigator.share({
           title: `Split Bill: ${merchantName}`,
-          text: `Detail split bill untuk ${merchantName} (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`,
+          text: text,
           url: shareUrl,
         });
       } else {

@@ -5,8 +5,9 @@ import AssetSelectModal from './AssetSelectModal';
 import { useMoney, type Trip, type TripExpense, type TripExpenseSplit } from '../../contexts/MoneyContext';
 import { useReceiptOCR } from '../../hooks/useReceiptOCR';
 import { generateId, getLocalTime } from '../../lib/utils';
-import CurrencyInput from '../common/CurrencyInput';
 import { useToast } from '../common/Toast';
+import { validateFileSecure } from '../../lib/fileValidation';
+import CurrencyInput from '../common/CurrencyInput';
 import MaterialIcon from '../common/MaterialIcon';
 
 interface AddTripExpenseModalProps {
@@ -104,6 +105,19 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
   const handleOCR = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = await validateFileSecure(file, {
+      maxSizeMB: 5,
+      allowedExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
+      allowedMimeTypes: ['image/*'],
+      checkMagicBytes: 'image'
+    });
+
+    if (!validation.isValid) {
+      showToast(validation.error || 'Format gambar tidak valid', 'error');
+      e.target.value = '';
+      return;
+    }
 
     const result = await scanReceipt(file);
     if (result) {

@@ -682,6 +682,11 @@ export interface SharedSplit {
   members?: any[];        // For trip
   sourceId?: string;      // ID of the original trip or split to prevent duplicates
   createdAt: number;
+  paymentDetails?: {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+  };
 }
 
 export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorId' | 'createdAt'>): Promise<string> => {

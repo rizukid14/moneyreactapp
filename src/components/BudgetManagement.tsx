@@ -642,7 +642,7 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
       <motion.div 
         className="modal-content" 
         onClick={e => e.stopPropagation()}
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
       >
         <div className="modal-header">
           <h2 className="subtitle">Pindahkan Dana</h2>
@@ -747,9 +747,7 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
             <motion.div
               className="modal-content"
               onClick={e => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               style={{ maxHeight: '60vh', overflowY: 'auto', padding: '20px' }}
             >
               <div className="modal-header">
@@ -858,9 +856,7 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
             <motion.div
               className="modal-content"
               onClick={e => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               style={{ maxHeight: '60vh', overflowY: 'auto', padding: '20px' }}
             >
               <div className="modal-header">
@@ -979,5 +975,6 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
     </div>
   );
 };
+
 
 

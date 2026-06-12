@@ -33,6 +33,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
   const [initialBalance, setInitialBalance] = useState('');
   const [adjustedBalance, setAdjustedBalance] = useState('');
   const [isHidden, setIsHidden] = useState(false);
+  const [accountNumber, setAccountNumber] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -42,12 +43,14 @@ const AssetModal: React.FC<AssetModalProps> = ({
       setInitialBalance(editingAsset.initialBalance.toLocaleString('id-ID'));
       setAdjustedBalance(currentBalance !== undefined ? currentBalance.toLocaleString('id-ID') : '');
       setIsHidden(editingAsset.isHidden || false);
+      setAccountNumber(editingAsset.accountNumber || '');
     } else {
       setName('');
       setType('Cash');
       setInitialBalance('');
       setAdjustedBalance('');
       setIsHidden(false);
+      setAccountNumber('');
     }
   }, [editingAsset, isOpen, currentBalance]);
 
@@ -81,6 +84,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
       type,
       initialBalance: parseNumber(initialBalance),
       isHidden,
+      accountNumber: accountNumber.trim() || undefined,
     };
 
     if (editingAsset && updateAsset) {
@@ -169,6 +173,18 @@ const AssetModal: React.FC<AssetModalProps> = ({
                       <div style={{ border: 'solid var(--text-muted)', borderWidth: '0 2px 2px 0', display: 'inline-block', padding: '3px', transform: 'rotate(45deg)' }}></div>
                     </div>
                   </div>
+                  
+                  {(type === 'Bank Account' || type === 'Credit Card' || type === 'eWallet') && (
+                    <div style={{ marginTop: '12px' }}>
+                      <Input
+                        type="text"
+                        placeholder="Nomor Rekening / No. Kartu / No. HP (Opsional)"
+                        value={accountNumber}
+                        onChange={e => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                        style={{ marginBottom: 0 }}
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 <div style={{ marginBottom: '20px' }}>

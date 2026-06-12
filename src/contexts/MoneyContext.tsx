@@ -56,6 +56,7 @@ export interface Asset {
   initialBalance: number;
   isHidden?: boolean;
   isDeleted?: boolean;
+  accountNumber?: string;
 }
 
 export interface Budget {
@@ -388,7 +389,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
         return { uid: 'test-user-uid', email: 'test@example.com' };
       }
-    } catch (e) {}
+    } catch (e) { }
     return null;
   });
   const [authChecked, setAuthChecked] = useState(() => {
@@ -396,7 +397,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
         return true;
       }
-    } catch (e) {}
+    } catch (e) { }
     return !isFirebaseConfigured;
   });
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
@@ -421,7 +422,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (s.pin === null || s.pin === undefined) { setPin(null); }
     if (s.theme) {
       setTheme(s.theme as 'light' | 'dark');
-      try { localStorage.setItem('moneyapp-theme', s.theme); } catch {}
+      try { localStorage.setItem('moneyapp-theme', s.theme); } catch { }
     }
     if (s.isPrivateMode !== undefined) setIsPrivateMode(s.isPrivateMode);
     if (s.defaultAssetId !== undefined) setDefaultAssetIdState(s.defaultAssetId);
@@ -446,7 +447,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setAuthChecked(true);
         return;
       }
-    } catch (e) {}
+    } catch (e) { }
     if (!isFirebaseConfigured) {
       setAuthUser({}); // Mock user if not using firebase
       setAuthChecked(true);
@@ -528,7 +529,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (tx.category === 'Tambah Hutang' || (tx.note && tx.note.includes('Penerimaan dana pinjaman'))) newType = 'hutang_masuk';
             else if (tx.category === 'Pelunasan Piutang') newType = 'piutang_masuk';
           }
-          
+
           if (newType !== tx.type) {
             migratedCount++;
             return { ...tx, type: newType as Transaction['type'] };
@@ -609,25 +610,25 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedShowDebtInTx !== undefined) settingsToApply.showDebtInTransactions = savedShowDebtInTx;
       if (savedCurrency) settingsToApply.currencySymbol = savedCurrency;
       if (savedGrouping) settingsToApply.defaultTransactionGrouping = savedGrouping;
-      
+
       const savedCarousel = await dbGetSetting('assetCarouselCards') as string[] | undefined;
       if (savedCarousel && Array.isArray(savedCarousel) && savedCarousel.length > 0) settingsToApply.assetCarouselCards = savedCarousel;
-      
+
       const savedStatsCarousel = await dbGetSetting('statsCarouselCards') as string[] | undefined;
       if (savedStatsCarousel && Array.isArray(savedStatsCarousel) && savedStatsCarousel.length > 0) settingsToApply.statsCarouselCards = savedStatsCarousel;
-      
+
       const savedDefaultStatsView = await dbGetSetting('defaultStatsView') as string | undefined;
       if (savedDefaultStatsView) settingsToApply.defaultStatsView = savedDefaultStatsView;
-      
+
       const savedChartStyle = await dbGetSetting('chartStyle') as 'area' | 'line' | undefined;
       if (savedChartStyle) settingsToApply.chartStyle = savedChartStyle;
 
       const savedBudgetMode = await dbGetSetting('budgetMode') as BudgetMode | undefined;
       if (savedBudgetMode) settingsToApply.budgetMode = savedBudgetMode;
-      
+
       const savedZbbMode = await dbGetSetting('zbbMode') as 'flexible' | 'strict' | undefined;
       if (savedZbbMode) settingsToApply.zbbMode = savedZbbMode;
-      
+
       const savedMonthlyIncome = await dbGetSetting('monthlyIncome') as number | undefined;
       if (savedMonthlyIncome) settingsToApply.monthlyIncome = savedMonthlyIncome;
 
@@ -673,14 +674,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setPendingSyncCount(count);
   }, []);
 
-  useEffect(() => {
-    if (isReady && isFirebaseConfigured) {
-      refreshSyncCount();
-      // Poll sync count every 10 seconds to catch background retry successes
-      const interval = setInterval(refreshSyncCount, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [isReady, transactions, assets, debts, refreshSyncCount]);
 
   const syncData = useCallback(async () => {
     const results = await dbSyncPendingItems();
@@ -699,6 +692,22 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     await refreshSyncCount();
     return results;
   }, [refreshSyncCount]);
+
+  useEffect(() => {
+    if (isReady && isFirebaseConfigured) {
+      refreshSyncCount();
+      // Poll sync count every 10 seconds and automatically sync if there's pending data
+      const interval = setInterval(async () => {
+        const count = await dbGetPendingSyncCount();
+        if (count > 0) {
+          syncData();
+        } else {
+          setPendingSyncCount(0);
+        }
+      }, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [isReady, transactions, assets, debts, syncData, refreshSyncCount]);
 
   // ─── Assets ──────────────────────────────────────────────────────────────
   const addAsset = useCallback((assetReq: Omit<Asset, 'id'>) => {
@@ -831,7 +840,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           // Delete Trip Expense
           setTripExpenses(prev => prev.filter(e => e.id !== expenseId));
           dbDeleteTripExpense(expenseId);
-          
+
           // Delete Related Debts (including their TX payment history)
           setDebts(prev => {
             const relatedDebts = prev.filter(d => d.relatedId === expenseId);
@@ -1008,7 +1017,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
       return tx;
     }));
-    
+
     setGoals(prev => {
       const goalToDelete = prev.find(g => g.id === id);
       if (goalToDelete?.recurringTransactionId) {
@@ -1601,7 +1610,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const unlockApp = useCallback(async (enteredPin: string) => {
     if (!pin) return true;
-    
+
     // Legacy support: if stored pin is 6 digits, it's likely plain text
     if (pin.length === 6 && /^\d+$/.test(pin)) {
       if (enteredPin === pin) {
@@ -1615,9 +1624,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     const hashedInput = await hashPin(enteredPin);
-    if (hashedInput === pin) { 
-      setIsAppLocked(false); 
-      return true; 
+    if (hashedInput === pin) {
+      setIsAppLocked(false);
+      return true;
     }
     return false;
   }, [pin]);
@@ -1840,7 +1849,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setSubscriptions(dbSubs);
       setTrips(dbTrips as Trip[]);
       setTripExpenses(dbTripEx as TripExpense[]);
-      
+
       // TAMBAHAN: reload settings ke React state
       const { dbGetAllSettings } = await import('../lib/db');
       const freshSettings = await dbGetAllSettings();
@@ -1906,9 +1915,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const validateTransactionBudget = useCallback((tx: Partial<Transaction>) => {
     if (budgetMode !== 'zero-based' || zbbMode !== 'strict') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
     if (tx.type !== 'pengeluaran') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
-    
+
     const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+      categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
     if (!cat) return { isValid: true, deficitCategory: null, deficitAmount: 0 };
 
     const txDate = tx.date ? new Date(tx.date) : new Date();
@@ -1923,7 +1932,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const monthIndex = m - 1;
     const periodStart = new Date(y, monthIndex - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
     const periodEnd = new Date(y, monthIndex + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
-    
+
     let spent = 0;
     transactions.forEach(t => {
       if (t.id !== tx.id && t.type === 'pengeluaran' && t.category === tx.category) {
@@ -1943,10 +1952,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const moveBudgetMoney = useCallback((fromCategoryId: string | null, toCategoryId: string | null, amount: number, month: number, year: number) => {
     setBudgets(prev => {
       const next = [...prev];
-      
+
       const updateLimit = (catId: string | null, delta: number) => {
         if (catId === 'unassigned') return;
-        
+
         const idx = next.findIndex(b => b.categoryId === catId && b.month === month && b.year === year);
         if (idx !== -1) {
           const updated = { ...next[idx], limit: Math.max(0, next[idx].limit + delta) };

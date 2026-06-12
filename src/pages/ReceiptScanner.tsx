@@ -5,6 +5,7 @@ import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceip
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
+import { validateFileSecure } from '../lib/fileValidation';
 import SplitBillModal from '../components/modals/SplitBillModal';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
@@ -411,6 +412,20 @@ const ReceiptScanner: React.FC = () => {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = await validateFileSecure(file, {
+      maxSizeMB: 5,
+      allowedExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
+      allowedMimeTypes: ['image/*'],
+      checkMagicBytes: 'image'
+    });
+
+    if (!validation.isValid) {
+      showToast(validation.error || 'Format gambar tidak valid', 'error');
+      e.target.value = '';
+      return;
+    }
+
     const url = URL.createObjectURL(file);
     setPreviewUrl(url); setImageFile(file); setCropRect(null); setStage('crop');
     e.target.value = '';

@@ -33,7 +33,7 @@ interface TransactionGroup {
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { transactions, assets, categories, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, getAssetBalance } = useMoney();
+  const { transactions, assets, categories, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, getAssetBalance, isPrivateMode, togglePrivateMode } = useMoney();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -815,7 +815,7 @@ const Transactions: React.FC = () => {
             
             <div className="mt-2.5 relative z-10 space-y-3">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold text-on-surface tracking-tight truncate">{formatCurrency(totalLiquidBalance, currencySymbol)}</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-on-surface tracking-tight truncate">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(totalLiquidBalance, currencySymbol)}</h2>
                 <div className="mt-0.5">
                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${liquidChangePct >= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
                     <MaterialIcon name={liquidChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
@@ -850,15 +850,15 @@ const Transactions: React.FC = () => {
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-primary shrink-0"></span>
-                  <span className="text-on-surface-variant">Tunai: <strong className="text-on-surface font-semibold">{formatCurrency(liquidBreakdown.cash, currencySymbol)}</strong></span>
+                  <span className="text-on-surface-variant">Tunai: <strong className="text-on-surface font-semibold">{isPrivateMode ? '••••' : formatCurrency(liquidBreakdown.cash, currencySymbol)}</strong></span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-secondary shrink-0"></span>
-                  <span className="text-on-surface-variant">Rekening: <strong className="text-on-surface font-semibold">{formatCurrency(liquidBreakdown.bank, currencySymbol)}</strong></span>
+                  <span className="text-on-surface-variant">Rekening: <strong className="text-on-surface font-semibold">{isPrivateMode ? '••••' : formatCurrency(liquidBreakdown.bank, currencySymbol)}</strong></span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-outline shrink-0"></span>
-                  <span className="text-on-surface-variant">eWallet: <strong className="text-on-surface font-semibold">{formatCurrency(liquidBreakdown.wallet, currencySymbol)}</strong></span>
+                  <span className="text-on-surface-variant">eWallet: <strong className="text-on-surface font-semibold">{isPrivateMode ? '••••' : formatCurrency(liquidBreakdown.wallet, currencySymbol)}</strong></span>
                 </div>
               </div>
             </div>
@@ -875,7 +875,7 @@ const Transactions: React.FC = () => {
             </div>
             <div className="mt-2.5 relative z-10">
               <div>
-                <h2 className="text-2xl font-bold text-on-surface truncate">{formatCurrency(savingsAndInvestments, currencySymbol)}</h2>
+                <h2 className="text-2xl font-bold text-on-surface truncate">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(savingsAndInvestments, currencySymbol)}</h2>
                 <div className="mt-0.5">
                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${savingsChangePct >= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
                     <MaterialIcon name={savingsChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
@@ -906,14 +906,14 @@ const Transactions: React.FC = () => {
                     <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0"></span>
                     <span>Tabungan ({savingsBreakdown.savingsPct}%)</span>
                   </span>
-                  <span className="font-semibold text-on-surface">{formatCurrency(savingsBreakdown.savings, currencySymbol)}</span>
+                  <span className="font-semibold text-on-surface">{isPrivateMode ? '••••' : formatCurrency(savingsBreakdown.savings, currencySymbol)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-1 font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
                     <span>Investasi ({savingsBreakdown.investmentPct}%)</span>
                   </span>
-                  <span className="font-semibold text-on-surface">{formatCurrency(savingsBreakdown.investment, currencySymbol)}</span>
+                  <span className="font-semibold text-on-surface">{isPrivateMode ? '••••' : formatCurrency(savingsBreakdown.investment, currencySymbol)}</span>
                 </div>
               </div>
             </div>
@@ -923,7 +923,13 @@ const Transactions: React.FC = () => {
           <div className="col-span-1 md:col-span-3 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between group">
              <div className="flex items-center justify-between">
                 <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Top 3 Aset</span>
-                <MaterialIcon name="star" className="text-primary text-sm" />
+                <button
+                  onClick={togglePrivateMode}
+                  className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors border-none cursor-pointer"
+                  title={isPrivateMode ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
+                >
+                  <MaterialIcon name={isPrivateMode ? 'visibility_off' : 'visibility'} className="text-on-surface-variant text-sm" />
+                </button>
              </div>
              <div className="mt-3 flex-1 flex flex-col gap-1.5 justify-center">
                 {topAssets.length === 0 ? (
@@ -935,7 +941,7 @@ const Transactions: React.FC = () => {
                          <div className="w-5 h-5 rounded bg-surface-container flex items-center justify-center text-[9px] font-bold text-on-surface-variant shrink-0">{i+1}</div>
                          <span className="text-xs font-bold text-on-surface truncate">{asset.name}</span>
                        </div>
-                       <span className="text-xs font-bold text-on-surface ml-1.5 shrink-0">{formatCurrency(asset.balance, currencySymbol)}</span>
+                       <span className="text-xs font-bold text-on-surface ml-1.5 shrink-0">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(asset.balance, currencySymbol)}</span>
                     </div>
                   ))
                 )}
@@ -955,7 +961,7 @@ const Transactions: React.FC = () => {
             </div>
             <div className="mt-2.5">
               <div>
-                <h2 className="text-2xl font-bold text-primary-color truncate">{formatCurrency(monthlyIncome, currencySymbol)}</h2>
+                <h2 className="text-2xl font-bold text-primary-color truncate">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(monthlyIncome, currencySymbol)}</h2>
                 <div className="mt-0.5">
                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${incomeChangePct >= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
                     <MaterialIcon name={incomeChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
@@ -992,7 +998,7 @@ const Transactions: React.FC = () => {
             </div>
             <div className="mt-2.5">
               <div>
-                <h2 className="text-2xl font-bold text-error truncate">{formatCurrency(weeklyExpense, currencySymbol)}</h2>
+                <h2 className="text-2xl font-bold text-error truncate">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(weeklyExpense, currencySymbol)}</h2>
                 <div className="mt-0.5">
                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${expenseChangePct <= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Total bulanan vs bulan lalu">
                     <MaterialIcon name={expenseChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />

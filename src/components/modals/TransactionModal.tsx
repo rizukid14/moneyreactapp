@@ -886,7 +886,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         </div>
                       </div>
                     )}
-                  <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-card-solid)', paddingTop: 12, paddingBottom: 4, zIndex: 1 }}>
+                  <div style={{ paddingTop: 12, paddingBottom: 4 }}>
                   {!editingTransaction || isCopyMode ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <Button

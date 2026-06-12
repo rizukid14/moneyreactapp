@@ -265,6 +265,46 @@ const SharedSplitBill: React.FC = () => {
           </div>
         </motion.div>
 
+        {/* Transfer To Section */}
+        {split.paymentDetails && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            style={{
+              background: 'var(--bg-card)',
+              borderRadius: '24px',
+              padding: '24px',
+              marginBottom: '32px',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px' }}>Transfer Ke</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '2px' }}>{split.paymentDetails.bankName}</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'monospace', letterSpacing: '1px' }}>{split.paymentDetails.accountNumber}</div>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(split.paymentDetails!.accountNumber);
+                showToast('Nomor rekening disalin!', 'success');
+              }}
+              style={{
+                width: '48px', height: '48px', borderRadius: '16px', background: 'var(--primary-glow)',
+                border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}
+              title="Salin Nomor Rekening"
+            >
+              <MaterialIcon name="content_copy" className="text-[20px]" />
+            </button>
+          </motion.div>
+        )}
+
         {/* Breakdown List / Settlement */}
         <div style={{ marginBottom: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px 16px 8px' }}>

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../ui/Modal';
 import MaterialIcon from '../common/MaterialIcon';
+import { useMoney } from '../../contexts/MoneyContext';
 
 interface ProfileMenuModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface ProfileMenuModalProps {
 
 export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
+  const { user, logOut } = useMoney();
 
   const handleNavigate = (path: string) => {
     onClose();
@@ -18,20 +20,18 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
 
   const handleLogout = () => {
     onClose();
-    // Simulate logout
-    alert('Sesi telah berakhir. Anda berhasil keluar.');
-    window.location.reload();
+    logOut();
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="360px">
       <div className="flex flex-col items-center pt-2 pb-6">
         <img 
-          src="https://i.pravatar.cc/150?u=a042581f4e29026024d" 
+          src={user.avatar || "https://i.pravatar.cc/150?u=a042581f4e29026024d"} 
           alt="Profile" 
-          className="w-20 h-20 rounded-full border-4 border-surface shadow-md mb-3" 
+          className="w-20 h-20 rounded-full border-4 border-surface shadow-md mb-3 object-cover" 
         />
-        <h3 className="font-headline-md text-headline-md text-on-surface">Alex Nova</h3>
+        <h3 className="font-headline-md text-headline-md text-on-surface">{user.name}</h3>
         <p className="text-sm text-on-surface-variant font-medium">Pro Plan Member</p>
       </div>
 
