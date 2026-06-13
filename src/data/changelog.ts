@@ -18,7 +18,17 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v1.0.18', date: 'Mei 2026', badge: 'Terbaru',
+    version: 'v2.0.0', date: 'Jun 2026', badge: 'Terbaru',
+    entries: [
+      { type: 'new', text: 'Desain UI Lebih Modern: Antarmuka aplikasi dirombak total dengan gaya Bento Grid yang lebih bersih, segar, dan profesional' },
+      { type: 'improve', text: 'Smart Receipt Scanner: Pindai struk kini jauh lebih mudah dengan desain baru, panduan interaktif, dan dukungan tarik-dan-lepas (Drag & Drop)' },
+      { type: 'new', text: 'Rekening Penerima Split Bill: Saat menalangi biaya, Anda kini bisa menentukan rekening khusus (seperti BCA/Mandiri) untuk menerima transfer pengganti dari teman' },
+      { type: 'improve', text: 'Bento Grid Trip Detail: Halaman detail perjalanan kini jauh lebih estetik dengan informasi yang dikelompokkan secara visual untuk keterbacaan maksimal' },
+      { type: 'improve', text: 'Penyempurnaan Statistik: Grafik dan ringkasan keuangan bulanan Anda kini hadir dalam balutan desain yang lebih interaktif dan mudah dipahami' }
+    ],
+  },
+  {
+    version: 'v1.0.18', date: 'Mei 2026',
     entries: [
       { type: 'new', text: 'Sistem Zero-Based Budgeting (ZBB): Ekosistem alokasi anggaran ketat berbasis Envelope System dengan penguncian pendapatan bulanan' },
       { type: 'new', text: 'Strict ZBB Mode: Mekanisme pencegatan/intersepsi transaksi pintar yang menahan pengeluaran jika melebihi batas kategori dan meminta proses realokasi dana seketika' },
