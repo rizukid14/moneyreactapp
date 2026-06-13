@@ -79,9 +79,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   };
 
   const [selectedAssetId, setSelectedAssetId] = useState(initialAssetId || '');
+  const [receiveAssetId, setReceiveAssetId] = useState(initialAssetId || '');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
   const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory || '');
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isReceiveAssetModalOpen, setIsReceiveAssetModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [localLineItems, setLocalLineItems] = useState<LineItem[]>([]);
   const [activeSharedId, setActiveSharedId] = useState<string | null>(null);
@@ -95,6 +97,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       setLocalLineItems(lineItems || []);
       setItemAssignments({});
       setSelectedAssetId(initialAssetId || '');
+      setReceiveAssetId(initialAssetId || '');
       setSelectedCategory(initialCategory || '');
       setSelectedSubCategory(initialSubCategory || '');
       setActiveSharedId(null);
@@ -270,11 +273,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     // Auto-generate shared link in the background to ensure it's accessible later
     try {
       if (!activeSharedId) {
-        const selectedAsset = assets.find(a => a.id === selectedAssetId);
-        const paymentDetails = selectedAsset?.accountNumber ? {
-          bankName: selectedAsset.name,
+        const receiveAsset = assets.find(a => a.id === receiveAssetId);
+        const paymentDetails = receiveAsset?.accountNumber ? {
+          bankName: receiveAsset.name,
           accountName: 'Pemilik Rekening', // Could be dynamic if we had it
-          accountNumber: selectedAsset.accountNumber
+          accountNumber: receiveAsset.accountNumber
         } : undefined;
 
         await dbSaveSharedSplit({
@@ -306,11 +309,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     if (splits.length === 0) return;
     setIsSharing(true);
     try {
-      const selectedAsset = assets.find(a => a.id === selectedAssetId);
-      const paymentDetails = selectedAsset?.accountNumber ? {
-        bankName: selectedAsset.name,
+      const receiveAsset = assets.find(a => a.id === receiveAssetId);
+      const paymentDetails = receiveAsset?.accountNumber ? {
+        bankName: receiveAsset.name,
         accountName: 'Pemilik Rekening',
-        accountNumber: selectedAsset.accountNumber
+        accountNumber: receiveAsset.accountNumber
       } : undefined;
 
       const sharedId = await dbSaveSharedSplit({
@@ -448,7 +451,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         {/* Asset & Category Pickers */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>REKENING</label>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title="DIBAYAR DENGAN">DIBAYAR DENGAN</label>
             <button
               onClick={() => setIsAssetModalOpen(true)}
               style={{
@@ -462,7 +465,21 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
             </button>
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>KATEGORI</label>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title="TERIMA TRANSFER DI">TERIMA TRANSFER DI</label>
+            <button
+              onClick={() => setIsReceiveAssetModalOpen(true)}
+              style={{
+                width: '100%', padding: '10px 8px', background: 'var(--bg-main)', border: '1.5px solid var(--border-color)',
+                borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, color: receiveAssetId ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {receiveAssetId ? assets.find(a => a.id === receiveAssetId)?.name : 'Sama dengan bayar'}
+              </span>
+            </button>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>KATEGORI PENGELUARAN</label>
             <button
               onClick={() => setIsCategoryModalOpen(true)}
               style={{
@@ -936,7 +953,21 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         onClose={() => setIsAssetModalOpen(false)}
         assets={assets}
         selectedAssetId={selectedAssetId}
-        onSelect={setSelectedAssetId}
+        onSelect={(id) => {
+          setSelectedAssetId(id);
+          // If receive asset is not set, or was previously the same as selected, keep them synced
+          if (!receiveAssetId) {
+            setReceiveAssetId(id);
+          }
+        }}
+      />
+
+      <AssetSelectModal
+        isOpen={isReceiveAssetModalOpen}
+        onClose={() => setIsReceiveAssetModalOpen(false)}
+        assets={assets}
+        selectedAssetId={receiveAssetId || selectedAssetId}
+        onSelect={setReceiveAssetId}
       />
 
       <CategorySelectModal

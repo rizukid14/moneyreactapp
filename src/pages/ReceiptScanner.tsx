@@ -12,8 +12,7 @@ import CategorySelectModal from '../components/modals/CategorySelectModal';
 import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 import { useNavigate } from 'react-router-dom';
 import CurrencyInput from '../components/common/CurrencyInput';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+
 import { TabBar } from '../components/ui/TabBar';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
