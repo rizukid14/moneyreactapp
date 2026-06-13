@@ -2106,7 +2106,7 @@ const Settings: React.FC = () => {
                 </div>
               ))}
               <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
-                Money Tracker v1.0.18 · Made with ❤️
+                Money Tracker v2.0.0 · Made with ❤️
               </div>
             </div>
           </>
@@ -2869,7 +2869,7 @@ const Settings: React.FC = () => {
             <div className="font-semibold flex items-center justify-center gap-1 cursor-pointer hover:underline" onClick={() => window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp'}>
               <MaterialIcon name="mail" className="text-sm" /> Hubungi Dukungan (rizqydaffa14@gmail.com)
             </div>
-            <div className="text-[10px] opacity-75">MoneyApp v1.0.18 • Dibuat dengan ❤️ by Dappal</div>
+            <div className="text-[10px] opacity-75">MoneyApp v2.0.0 • Dibuat dengan ❤️ by Dappal</div>
           </div>
 
           <button
