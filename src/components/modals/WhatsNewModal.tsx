@@ -13,39 +13,29 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
 
   const features = [
     {
-      icon: <MaterialIcon name="check_circle"  className="text-primary"  />,
-      title: 'Holiday Trip Ecosystem',
-      description: 'Manajemen biaya perjalanan premium dengan input nominal besar, scroll pembayar horizontal, integrasi aset riil, dan edit OCR manual.'
+      icon: <MaterialIcon name="auto_awesome"  className="text-primary"  />,
+      title: 'Desain UI Lebih Modern',
+      description: 'Antarmuka aplikasi dirombak total dengan gaya Bento Grid yang lebih bersih, segar, dan profesional.'
     },
     {
-      icon: <MaterialIcon name="trending_up"  className="text-emerald-500"  />,
-      title: 'Smart Settle-Up Trip',
-      description: 'Lakukan pelunasan bagi biaya otomatis dengan dukungan tombol "Buka Link" (Open in App) dan identifikasi warna rekening.'
+      icon: <MaterialIcon name="receipt_long"  className="text-emerald-500"  />,
+      title: 'Smart Receipt Scanner',
+      description: 'Pindai struk kini jauh lebih mudah dengan desain baru, panduan interaktif, dan dukungan tarik-dan-lepas (Drag & Drop).'
     },
     {
-      icon: <MaterialIcon name="check_circle"  className="text-primary"  />,
-      title: 'Grouped Settings Menu',
-      description: 'Navigasi pengaturan baru yang terorganisir ke dalam kategori logis (Akun, Keuangan, Sosial, Sistem) untuk akses lebih cepat.'
+      icon: <MaterialIcon name="account_balance_wallet"  className="text-primary"  />,
+      title: 'Rekening Penerima Split Bill',
+      description: 'Saat menalangi biaya, Anda kini bisa menentukan rekening khusus (seperti BCA/Mandiri) untuk menerima transfer pengganti dari teman.'
     },
     {
-      icon: <MaterialIcon name="trending_up"  className="text-emerald-500"  />,
-      title: 'AI Chatbot Knowledge',
-      description: 'MoneyBot asisten pintar sekarang dibekali basis pengetahuan fitur v17, siap membantu menjelaskan cara kerja ekosistem trip dan lainnya.'
+      icon: <MaterialIcon name="flight_takeoff"  className="text-emerald-500"  />,
+      title: 'Bento Grid Trip Detail',
+      description: 'Halaman detail perjalanan kini jauh lebih estetik dengan informasi yang dikelompokkan secara visual untuk keterbacaan maksimal.'
     },
     {
-      icon: <MaterialIcon name="check_circle"  className="text-primary"  />,
-      title: 'Zero-Based Budgeting',
-      description: 'Alokasikan setiap rupiah pendapatan ke kategori pilihan hingga sisa Rp 0 untuk perencanaan keuangan yang lebih disiplin.'
-    },
-    {
-      icon: <MaterialIcon name="trending_up"  className="text-emerald-500"  />,
-      title: 'Target Tabungan (Goals)',
-      description: 'Buat target menabung untuk impianmu dan hubungkan langsung dengan transaksi agar progres tercatat secara otomatis.'
-    },
-    {
-      icon: <MaterialIcon name="check_circle"  className="text-rose-500"  />,
-      title: 'Financial Health Score',
-      description: 'Dapatkan skor kesehatan finansial (0-100) berdasarkan rasio tabungan, ketaatan anggaran, dan konsistensi pengeluaran.'
+      icon: <MaterialIcon name="pie_chart"  className="text-primary"  />,
+      title: 'Penyempurnaan Statistik',
+      description: 'Grafik dan ringkasan keuangan bulanan Anda kini hadir dalam balutan desain yang lebih interaktif dan mudah dipahami.'
     }
   ];
 
@@ -62,9 +52,9 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 800, margin: 0, background: 'var(--primary-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              What's New v1.0.17
+              What's New v2.0.0
             </h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Fitur terbaru untuk pengalaman lebih baik</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Ekosistem desain baru yang revolusioner</p>
           </div>
           <button onClick={onClose} className="btn-icon">
             <MaterialIcon name="close" className="text-[24px]" />
