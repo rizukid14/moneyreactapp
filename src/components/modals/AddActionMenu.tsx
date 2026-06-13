@@ -6,9 +6,10 @@ import MaterialIcon from '../common/MaterialIcon';
 interface AddActionMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenChat?: () => void;
 }
 
-const AddActionMenu: React.FC<AddActionMenuProps> = ({ isOpen, onClose }) => {
+const AddActionMenu: React.FC<AddActionMenuProps> = ({ isOpen, onClose, onOpenChat }) => {
   const navigate = useNavigate();
 
   const handleAction = (action: () => void) => {
@@ -98,6 +99,16 @@ const AddActionMenu: React.FC<AddActionMenuProps> = ({ isOpen, onClose }) => {
                 <span className="font-label-sm text-label-sm font-bold text-center">Bulk Text AI</span>
               </button>
             </div>
+
+            {onOpenChat && (
+              <button 
+                onClick={() => handleAction(onOpenChat)}
+                className="flex items-center justify-center gap-3 p-4 bg-surface-container-low text-primary hover:bg-surface-container rounded-2xl transition-colors border border-outline-variant cursor-pointer group w-full"
+              >
+                <MaterialIcon name="smart_toy" className="text-2xl group-hover:scale-110 transition-transform" />
+                <span className="font-label-md text-label-md font-bold">MoneyBot AI Assistant</span>
+              </button>
+            )}
           </motion.div>
           </div>
         </>

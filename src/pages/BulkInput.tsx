@@ -1,15 +1,11 @@
-import React, { useState } from 'react';
-
+import React, { useState, useRef, useEffect } from 'react';
 import { useMoney } from '../contexts/MoneyContext';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/common/Toast';
 import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { PageWrapper } from '../components/ui/PageWrapper';
-import { PageHeader } from '../components/ui/PageHeader';
 import MaterialIcon from '../components/common/MaterialIcon';
 
 const BulkInput: React.FC = () => {
@@ -26,9 +22,9 @@ const BulkInput: React.FC = () => {
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
   const [pendingAction, setPendingAction] = useState<boolean>(false);
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = React.useRef<any>(null);
-  const speechBaseRef = React.useRef('');
-  const finalTranscriptRef = React.useRef('');
+  const recognitionRef = useRef<any>(null);
+  const speechBaseRef = useRef('');
+  const finalTranscriptRef = useRef('');
 
 
 
@@ -199,8 +195,7 @@ const BulkInput: React.FC = () => {
     }
   }, [inputText, assets, categories, parseData, showToast]);
 
-  // Check for shared text/url from PWA Share Target
-  React.useEffect(() => {
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('shared') === 'true') {
       const loadSharedText = async () => {
@@ -211,7 +206,6 @@ const BulkInput: React.FC = () => {
           if (metaRes) {
             const meta = await metaRes.json();
             
-            // Combine title, text, and URL
             const parts = [];
             if (meta.title) parts.push(meta.title);
             if (meta.text) parts.push(meta.text);
@@ -221,11 +215,9 @@ const BulkInput: React.FC = () => {
             if (combinedText) {
               setInputText(combinedText);
               showToast('Menerima catatan transaksi shared...', 'info');
-              // Parse the received text immediately
               await handleParse(combinedText);
             }
             
-            // Clean up cache
             await cache.delete('/shared-metadata.json');
             await cache.delete('/shared-file.bin');
           }
@@ -233,7 +225,6 @@ const BulkInput: React.FC = () => {
           console.error('Error loading shared text:', err);
           showToast('Gagal memuat teks transaksi yang dibagikan', 'error');
         } finally {
-          // Clear query params without page reload
           const newUrl = window.location.pathname;
           window.history.replaceState({}, document.title, newUrl);
         }
@@ -242,20 +233,16 @@ const BulkInput: React.FC = () => {
     }
   }, [showToast, assets, categories, handleParse]);
 
-  // Handle prefilled text from main page (Transactions.tsx Smart AI Input)
-  React.useEffect(() => {
+  useEffect(() => {
     const prefill = (location.state as any)?.prefillText;
     if (prefill && typeof prefill === 'string' && prefill.trim()) {
       setInputText(prefill);
-      // Clear router state to prevent re-trigger on back/forward
       window.history.replaceState({}, document.title);
-      // Auto-parse the prefilled text
       handleParse(prefill);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Handle pre-parsed Excel draft data from Settings
-  React.useEffect(() => {
+  useEffect(() => {
     const excelDraft = (location.state as any)?.excelDraftData;
     if (excelDraft && Array.isArray(excelDraft)) {
       setResults(excelDraft);
@@ -266,12 +253,12 @@ const BulkInput: React.FC = () => {
 
   return (
     <PageWrapper>
-      <button onClick={() => navigate(-1)} className="btn-icon" style={{ marginBottom: '16px' }}>
-        <MaterialIcon name="chevron_left" className="text-2xl" />
-      </button>
-      <PageHeader 
-        title="Input Sekaligus" 
-      />
+      <div className="flex items-center gap-4 mb-stack-lg">
+        <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors">
+          <MaterialIcon name="chevron_left" className="text-on-surface" />
+        </button>
+        <h1 className="font-headline-lg text-headline-lg text-on-surface">Input Sekaligus</h1>
+      </div>
 
       {error && (
         <div className="card" style={{ backgroundColor: 'hsla(350,85%,60%,0.1)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
@@ -282,63 +269,107 @@ const BulkInput: React.FC = () => {
       )}
 
       {stage === 'input' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-          <Card variant="glass">
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)' }}>
-              Tempel Log Transaksi
-            </label>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
-              Tulis atau paste catatan transaksi di sini. AI akan otomatis memisahkan tanggal, nominal, kategori, dan metode pembayaran.
-            </p>
-            <textarea
-              value={inputText}
-              onChange={e => setInputText(e.target.value)}
-              placeholder={"Contoh:\n- Makan malam 50rb tadi pake gopay\n- 2 Okt beli bensin 30000 cash\n- Gaji 5jt BCA"}
-              data-testid="bulk-input-textarea"
-              style={{
-                width: '100%', minHeight: '200px', padding: '12px', borderRadius: '12px',
-                border: '1px solid var(--border-color)', background: 'var(--bg-main)',
-                color: 'var(--text-main)', fontSize: '14px', resize: 'vertical',
-                boxSizing: 'border-box'
-              }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-              <button
-                type="button"
-                onClick={handleSpeechToText}
-                data-testid="bulk-voice-btn"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  background: isListening ? 'var(--bg-neutral)' : 'var(--bg-income)',
-                  color: isListening ? 'var(--text-muted)' : 'var(--primary)',
-                  border: '1px solid var(--border-color)', borderRadius: '10px',
-                  padding: '8px 10px', cursor: 'pointer', fontWeight: 700, fontSize: '12px'
-                }}
-              >
-                {isListening ? <MaterialIcon name="square" className="text-sm" /> : <MaterialIcon name="mic" className="text-sm" />}
-                {isListening ? 'Mendengar...' : 'Voice Input'}
-              </button>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+          <div className="lg:col-span-8 flex flex-col gap-stack-md">
+            <div className="bg-white rounded-xl p-6 border border-border-light shadow-sm flex flex-col h-full">
+              <div className="mb-4">
+                <label className="font-headline-md text-headline-md block mb-1">Tempel Log Transaksi</label>
+                <p className="font-body-md text-body-md text-on-surface-variant">
+                  Tulis atau paste catatan transaksi di sini. AI akan otomatis memisahkan tanggal, nominal, kategori, dan metode pembayaran.
+                </p>
+              </div>
+              <div className="relative flex-grow min-h-[400px]">
+                <textarea
+                  value={inputText}
+                  onChange={e => setInputText(e.target.value)}
+                  placeholder={"- Makan malam 50rb tadi pake gopay\n- 2 Okt beli bensin 30000 cash\n- Gaji 5jt BCA"}
+                  data-testid="bulk-input-textarea"
+                  className="w-full h-full p-4 rounded-lg border border-outline-variant focus:ring-2 focus:ring-primary focus:border-primary transition-all font-body-md text-body-md resize-none bg-surface-bright"
+                />
+                <button
+                  type="button"
+                  onClick={handleSpeechToText}
+                  data-testid="bulk-voice-btn"
+                  className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 rounded-full font-label-md text-label-md transition-colors shadow-sm active:scale-95 duration-150 ${
+                    isListening 
+                      ? 'bg-green-500 text-white ring-2 ring-green-600 animate-pulse' 
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  }`}
+                >
+                  <MaterialIcon name="mic" className={`text-4xl ${isListening ? 'text-primary' : 'text-on-surface-variant'}`} />
+                  {isListening ? 'Mendengarkan...' : 'Voice Input'}
+                </button>
+              </div>
             </div>
-          </Card>
 
-          <Button
-            variant="primary"
-            onClick={() => handleParse()}
-            disabled={isParsing || !inputText.trim()}
-            data-testid="bulk-parse-btn"
-            fullWidth
-            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
-          >
-            {isParsing ? (
-              <>
-                <MaterialIcon name="autorenew" className="text-[18px] spin" /> Menganalisa...
-              </>
-            ) : (
-              <>
-                <MaterialIcon name="auto_awesome" className="text-lg" /> Mulai Analisa
-              </>
-            )}
-          </Button>
+            <button
+              onClick={() => handleParse()}
+              disabled={isParsing || !inputText.trim()}
+              data-testid="bulk-parse-btn"
+              className={`w-full py-4 bg-primary text-white rounded-xl font-headline-md text-headline-md flex items-center justify-center gap-3 shadow-lg transition-all ${
+                isParsing || !inputText.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110 active:scale-[0.98]'
+              }`}
+            >
+              {isParsing ? (
+                <>
+                  <MaterialIcon name="close" className="text-xl" />
+                  Menganalisa...
+                </>
+              ) : (
+                <>
+                  <MaterialIcon name="auto_awesome" />
+                  Mulai Analisa
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Side Help Panel */}
+          <div className="lg:col-span-4 flex flex-col gap-stack-md">
+            <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant">
+              <div className="flex items-center gap-2 mb-4 text-primary">
+                <MaterialIcon name="lightbulb" />
+                <h2 className="font-headline-md text-headline-md">Tips Input AI</h2>
+              </div>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-primary-container text-on-primary-container text-xs font-bold">1</span>
+                  <p className="font-body-md text-body-md">Sebutkan nominal, nama akun aset, kategori, dan tanggal dalam bahasa sehari-hari.</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-primary-container text-on-primary-container text-xs font-bold">2</span>
+                  <p className="font-body-md text-body-md">Gunakan kata kunci seperti "bayar", "beli", "terima", atau "transfer" untuk memandu AI.</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-primary-container text-on-primary-container text-xs font-bold">3</span>
+                  <p className="font-body-md text-body-md">Anda bisa memasukkan lebih dari satu transaksi sekaligus dengan baris baru.</p>
+                </div>
+              </div>
+              
+              <div className="mt-8 pt-6 border-t border-outline-variant">
+                <h3 className="font-label-md text-label-md font-bold text-on-surface-variant uppercase mb-4">Contoh Format</h3>
+                <div className="bg-white rounded-lg p-3 text-sm font-mono text-on-secondary-container border border-outline-variant/50 mb-3 italic">
+                  "Beli kopi 25rb di Starbucks pake Kartu Kredit sore tadi"
+                </div>
+                <div className="bg-white rounded-lg p-3 text-sm font-mono text-on-secondary-container border border-outline-variant/50 italic">
+                  "Transfer 1jt ke Mama dari BCA untuk bulanan"
+                </div>
+              </div>
+            </div>
+
+            {/* Decorative Illustration Card */}
+            <div className="relative overflow-hidden bg-primary text-white rounded-xl p-6 aspect-video flex flex-col justify-end">
+              <img 
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDffNo_3VQCkGKE8-pbiy12_m0WNimd9p_VhSfGdZjAh11wciBZMEAqF3hRgJc8GuzFrM9ABnlp-0M7rDWa8BwP5ZqoiPSLZDdi3i6tT16I_py6hHhnYai_7JEgZnZn79FjI84khSPO6S6x_cEN5S7PXV5qR0VW8xCpXZUw88rKBXVt9eWxycStckrmkknBGNV5x-A0KjnVxdU-pSptHdN2WxZu_0IPDwphyOf17RdY7TRXsYCg4Wsax6ldxnoVK5xFCazFC1J9SGY" 
+                alt="Financial Data Visualization" 
+                className="absolute inset-0 w-full h-full object-cover opacity-30" 
+              />
+              <div className="relative z-10">
+                <h4 className="font-headline-md text-headline-md">Presisi Finansial</h4>
+                <p className="text-sm opacity-80">AI kami memproses data dengan tingkat akurasi 99.8%.</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

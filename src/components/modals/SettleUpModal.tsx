@@ -449,32 +449,22 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gap: '8px', marginBottom: '32px' }}>
+              <div className="flex flex-col gap-2 mb-8">
                 <button
                   type="button"
                   onClick={() => setIsAssetSelectOpen(true)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '16px',
-                    borderRadius: '16px', background: 'var(--bg-neutral)',
-                    border: `1px solid var(--border-color)`,
-                    width: '100%', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left',
-                    color: 'var(--text-main)'
-                  }}
+                  className="flex items-center gap-3 p-4 rounded-2xl bg-surface-container-low border border-outline-variant w-full cursor-pointer hover:bg-surface-container transition-colors text-left text-on-surface"
                 >
-                  <div style={{ 
-                    width: '40px', height: '40px', borderRadius: '10px', 
-                    background: 'var(--bg-card)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>
+                  <div className="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center">
                     <MaterialIcon name="account_balance_wallet" />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: '14px' }}>{assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  <div className="flex-1">
+                    <div className="font-bold text-sm">{assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</div>
+                    <div className="text-[11px] text-on-surface-variant">
                       Saldo: {currencySymbol}{getAssetBalance(selectedAssetId).toLocaleString('id-ID')}
                     </div>
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>Ganti</div>
+                  <div className="text-[13px] font-bold text-primary">Ganti</div>
                 </button>
 
                 <AssetSelectModal
@@ -486,13 +476,13 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 />
 
               </div>
-              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <div className="flex gap-3 mt-6">
                 <Button variant="outline" onClick={() => setSettlingTx(null)}>Batal</Button>
                 <Button 
                   variant="primary"
                   onClick={() => handleMarkAsPaid(settlingTx, settlingTx.idx, selectedAssetId, parseInt(settleAmount) || 0)} 
                   disabled={isProcessing || !selectedAssetId || (parseInt(settleAmount) || 0) <= 0}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  className="flex-1 flex items-center justify-center gap-2"
                 >
                   {isProcessing ? 'Memproses...' : !selectedAssetId ? 'Pilih Aset Dulu' : (parseInt(settleAmount) || 0) <= 0 ? 'Nominal tidak valid' : 'Konfirmasi Pelunasan'}
                   {!isProcessing && selectedAssetId && (parseInt(settleAmount) || 0) > 0 && <MaterialIcon name="chevron_right" className="text-[18px]" />}
@@ -502,73 +492,55 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
           ) : (
             <>
               {/* Mode Toggle */}
-              <div style={{ 
-                display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'var(--bg-neutral)', 
-                padding: '4px', borderRadius: '16px', marginBottom: '24px',
-                opacity: trip.settlementMode ? 0.6 : 1,
-                pointerEvents: trip.settlementMode ? 'none' : 'auto',
-                position: 'relative'
-              }}>
+              <div className={`grid grid-cols-2 bg-surface-container-low p-1 rounded-2xl mb-6 relative ${trip.settlementMode ? 'opacity-60 pointer-events-none' : ''}`}>
                 <button 
                   onClick={() => setMode('simple')}
-                  style={{ 
-                    padding: '10px', borderRadius: '12px', border: 'none', fontSize: '13px', fontWeight: 700,
-                    background: mode === 'simple' ? 'var(--bg-card)' : 'transparent',
-                    color: mode === 'simple' ? 'var(--primary)' : 'var(--text-muted)',
-                    boxShadow: mode === 'simple' ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
-                    cursor: 'pointer', transition: 'all 0.2s'
-                  }}
+                  className={`p-2.5 rounded-xl border-none text-[13px] font-bold transition-all ${mode === 'simple' ? 'bg-white text-primary shadow-sm' : 'bg-transparent text-on-surface-variant'}`}
                 >
                   Simple
                 </button>
                 <button 
                   onClick={() => setMode('detailed')}
-                  style={{ 
-                    padding: '10px', borderRadius: '12px', border: 'none', fontSize: '13px', fontWeight: 700,
-                    background: mode === 'detailed' ? 'var(--bg-card)' : 'transparent',
-                    color: mode === 'detailed' ? 'var(--primary)' : 'var(--text-muted)',
-                    boxShadow: mode === 'detailed' ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
-                    cursor: 'pointer', transition: 'all 0.2s'
-                  }}
+                  className={`p-2.5 rounded-xl border-none text-[13px] font-bold transition-all ${mode === 'detailed' ? 'bg-white text-primary shadow-sm' : 'bg-transparent text-on-surface-variant'}`}
                 >
                   Detailed
                 </button>
                 {trip.settlementMode && (
-                  <div style={{ position: 'absolute', top: '-18px', right: '0', fontSize: '10px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div className="absolute -top-5 right-0 text-[10px] font-extrabold text-primary flex items-center gap-1">
                     <MaterialIcon name="history" className="text-[10px]" /> MODE TERKUNCI
                   </div>
                 )}
               </div>
 
               {/* Balances Summary */}
-              <div style={{ marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px' }}>Saldo Neto Anggota</h3>
-                <div style={{ display: 'grid', gap: '8px' }}>
+              <div className="mb-6">
+                <h3 className="text-xs font-extrabold text-on-surface-variant uppercase mb-3">Saldo Neto Anggota</h3>
+                <div className="grid gap-2">
                   {trip.members.map(m => {
                     const bal = settlement.balances[m.id] || 0;
                     const cons = settlement.consumed[m.id] || 0;
                     const pd = settlement.paid[m.id] || 0;
                     const roundedBal = Math.round(bal);
                     return (
-                        <Card key={m.id} variant="default" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
-                          <div>
-                            <div style={{ fontWeight: 800, marginBottom: '4px' }}>{m.name}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              <span style={{ color: 'var(--danger)' }}>Pakai: {currencySymbol}{Math.round(cons).toLocaleString('id-ID')}</span>
-                              <span style={{ margin: '0 6px' }}>|</span>
-                              <span style={{ color: 'var(--success)' }}>Nalangin: {currencySymbol}{Math.round(pd).toLocaleString('id-ID')}</span>
+                        <Card key={m.id} variant="default" padding="none">
+                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold mb-1 text-on-surface truncate">{m.name}</div>
+                              <div className="text-[11px] flex flex-wrap gap-x-3 gap-y-1">
+                                <span className="text-error font-medium">Pakai: {currencySymbol}{Math.round(cons).toLocaleString('id-ID')}</span>
+                                <span className="text-success font-medium">Nalangin: {currencySymbol}{Math.round(pd).toLocaleString('id-ID')}</span>
+                              </div>
                             </div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                              {roundedBal > 0 ? 'Menerima' : roundedBal < 0 ? 'Membayar' : 'Lunas'}
+                            <div className="flex sm:block justify-between items-center sm:text-right shrink-0 bg-surface-container-lowest sm:bg-transparent p-3 sm:p-0 rounded-xl border sm:border-none border-outline-variant">
+                              <div className="text-[10px] font-bold uppercase text-on-surface-variant">
+                                {roundedBal > 0 ? 'Menerima' : roundedBal < 0 ? 'Membayar' : 'Lunas'}
+                              </div>
+                              <span className={`font-black text-lg sm:text-base ${
+                                roundedBal > 0 ? 'text-success' : roundedBal < 0 ? 'text-error' : 'text-on-surface-variant'
+                              }`}>
+                                {roundedBal > 0 ? '+' : ''}{currencySymbol}{Math.abs(roundedBal).toLocaleString('id-ID')}
+                              </span>
                             </div>
-                            <span style={{ 
-                              fontWeight: 900, fontSize: '16px',
-                              color: roundedBal > 0 ? 'var(--success)' : roundedBal < 0 ? 'var(--danger)' : 'var(--text-muted)'
-                            }}>
-                              {roundedBal > 0 ? '+' : ''}{currencySymbol}{Math.abs(roundedBal).toLocaleString('id-ID')}
-                            </span>
                           </div>
                         </Card>
                     );
@@ -577,20 +549,20 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
               </div>
 
               {/* Transactions List */}
-              <div style={{ marginBottom: '32px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h3 style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', margin: 0 }}>Rencana Pembayaran</h3>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--primary)', padding: '4px 8px', background: 'var(--primary-glow)', borderRadius: '6px' }}>
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-xs font-extrabold text-on-surface-variant uppercase m-0">Rencana Pembayaran</h3>
+                  <span className="text-[11px] font-semibold text-primary px-2 py-1 bg-primary-fixed rounded-md">
                     {mode === 'simple' ? 'Minimum steps' : 'Detailed split'}
                   </span>
                 </div>
 
                 {settlement.transactions.length === 0 ? (
-                  <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <div className="p-8 text-center text-on-surface-variant font-medium bg-surface-container-low rounded-2xl border border-dashed border-outline-variant">
                     Semua saldo sudah lunas! ✨
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gap: '12px' }}>
+                  <div className="grid gap-3">
                     {settlement.transactions.map((t, idx) => {
                        const from = trip.members.find(m => m.id === t.from);
                        const to = trip.members.find(m => m.id === t.to);
@@ -601,70 +573,75 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                        const isPartiallyPaid = paidSoFar > 0 && remainingAmt > 0.5;
  
                        return (
-                         <Card 
-                           key={idx}
-                           variant="default"
-                           style={{ 
-                             padding: '16px', display: 'flex', alignItems: 'center', gap: '12px',
-                             opacity: isPaid ? 0.6 : 1
-                           }}
-                         >
-                           <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setSelectedSettlement(t)}>
-                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                               <span style={{ fontWeight: 800 }}>{from?.name}</span>
-                               <MaterialIcon name="arrow_forward" className="text-[14px]" />
-                               <span style={{ fontWeight: 800 }}>{to?.name}</span>
-                             </div>
-                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                               <div style={{ fontSize: '18px', fontWeight: 900, color: isPaid ? 'var(--success)' : 'var(--primary)' }}>
-                                 {currencySymbol}{remainingAmt.toLocaleString('id-ID')}
-                               </div>
-                               {t.amount !== remainingAmt && (
-                                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                                   {currencySymbol}{t.amount.toLocaleString('id-ID')}
-                                 </div>
-                               )}
-                             </div>
-                             {isPartiallyPaid && (
-                               <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px' }}>
-                                 Dibayar sebagian: {currencySymbol}{paidSoFar.toLocaleString('id-ID')}
-                               </div>
-                             )}
-                             <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                               Kenapa bayar segini? <MaterialIcon name="info" className="text-[10px]" />
-                             </div>
-                           </div>
-                           {(t.from === 'me' || t.to === 'me') && !isPaid && (
-                             <button 
-                               onClick={() => {
-                                 setSettleAmount(remainingAmt.toString());
-                                 setSettlingTx({ ...t, idx });
-                               }}
-                               className="btn-icon"
-                               style={{ color: 'var(--success)', background: 'var(--success-glow)' }}
-                               title="Tandai sebagai Lunas / Cicil"
-                             >
-                               <MaterialIcon name="check_circle" className="text-[20px]" />
-                             </button>
-                           )}
-                           {isPaid && (
-                             <div style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800 }}>
-                               <MaterialIcon name="check_circle" className="text-[16px]" /> LUNAS
-                             </div>
-                           )}
-                         </Card>
-                       );
+                          <Card 
+                            key={idx}
+                            variant="default"
+                            padding="none"
+                            className={`${isPaid ? 'opacity-60' : ''}`}
+                          >
+                            <div className="p-4 flex items-center gap-3">
+                              <div className="flex-1 cursor-pointer" onClick={() => setSelectedSettlement(t)}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-extrabold text-sm">{from?.name}</span>
+                                <MaterialIcon name="arrow_forward" className="text-[14px] text-on-surface-variant" />
+                                <span className="font-extrabold text-sm">{to?.name}</span>
+                              </div>
+                              <div className="flex items-baseline gap-2">
+                                <div className={`text-lg font-black ${isPaid ? 'text-success' : 'text-primary'}`}>
+                                  {currencySymbol}{remainingAmt.toLocaleString('id-ID')}
+                                </div>
+                                {t.amount !== remainingAmt && (
+                                  <div className="text-xs text-on-surface-variant line-through">
+                                    {currencySymbol}{t.amount.toLocaleString('id-ID')}
+                                  </div>
+                                )}
+                              </div>
+                              {isPartiallyPaid && (
+                                <div className="text-[11px] text-primary font-bold mt-1">
+                                  Dibayar sebagian: {currencySymbol}{paidSoFar.toLocaleString('id-ID')}
+                                </div>
+                              )}
+                              <div className="text-[10px] font-bold text-on-surface-variant mt-1 flex items-center gap-1 hover:text-primary transition-colors">
+                                Kenapa bayar segini? <MaterialIcon name="info" className="text-[10px]" />
+                              </div>
+                            </div>
+                            {(t.from === 'me' || t.to === 'me') && !isPaid && (
+                              <button 
+                                onClick={() => {
+                                  setSettleAmount(remainingAmt.toString());
+                                  setSettlingTx({ ...t, idx });
+                                }}
+                                className="w-12 h-12 rounded-xl flex items-center justify-center text-success bg-green-100 hover:bg-green-200 transition-colors shrink-0"
+                                title="Tandai sebagai Lunas / Cicil"
+                              >
+                                <MaterialIcon name="check_circle" className="text-[24px]" />
+                              </button>
+                            )}
+                            {!(t.from === 'me' || t.to === 'me') && !isPaid && (
+                              <div className="flex flex-col items-center justify-center bg-surface-container-low px-3 py-2 rounded-xl border border-outline-variant shrink-0" title="Hanya pihak yang bersangkutan yang bisa melunasi">
+                                <MaterialIcon name="schedule" className="text-[18px] text-on-surface-variant mb-0.5" />
+                                <span className="text-[9px] font-extrabold text-on-surface-variant uppercase text-center leading-tight">Menunggu<br/>Pelunasan</span>
+                              </div>
+                            )}
+                            {isPaid && (
+                              <div className="text-success flex items-center gap-1 text-[11px] font-extrabold bg-green-50 px-2 py-1 rounded-md shrink-0">
+                                <MaterialIcon name="check_circle" className="text-[14px]" /> LUNAS
+                              </div>
+                            )}
+                            </div>
+                          </Card>
+                        );
                      })}
                   </div>
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: shareId ? '1fr 1fr 1fr' : '1fr 1fr', gap: '12px' }}>
+              <div className={`grid ${shareId ? 'grid-cols-3' : 'grid-cols-2'} gap-3 mt-4`}>
                 <Button 
                   variant="outline"
                   onClick={shareId ? handleCopyLink : handleShareLink}
                   disabled={isSharing}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 8px', fontSize: '12px' }}
+                  className="flex items-center justify-center gap-2 py-3 text-xs"
                 >
                   {isSharing ? '...' : shareId ? <><MaterialIcon name="check_circle" className="text-[16px]" /> Copy</> : <><MaterialIcon name="share" className="text-[16px]" /> Share Link</>}
                 </Button>
@@ -672,7 +649,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                   <Button 
                     variant="outline"
                     onClick={() => window.open(`${window.location.origin}/shared-split/${shareId}`, '_blank')}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 8px', fontSize: '12px', background: 'var(--primary-glow)', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                    className="flex items-center justify-center gap-2 py-3 text-xs bg-primary-fixed text-primary border-primary-fixed"
                   >
                     <MaterialIcon name="open_in_new" className="text-[16px]" /> Buka
                   </Button>
@@ -680,7 +657,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 <Button 
                   variant="primary"
                   onClick={onClose}
-                  style={{ padding: '12px 8px', fontSize: '12px' }}
+                  className="py-3 text-xs font-bold"
                 >
                   Selesai
                 </Button>

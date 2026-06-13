@@ -334,7 +334,7 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ pageKey, steps 
           variant="glass"
           padding="lg"
           key={currentStepIndex} // Force re-render for animation on step change
-          className="onboarding-tooltip-animate-in"
+          className="onboarding-tooltip-animate-in pointer-events-auto"
           style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
         >
           <div className="onboarding-step-indicator">

@@ -2189,7 +2189,7 @@ const SubscriptionStatistics: React.FC = () => {
     <div className="space-y-5 pb-10">
       <BentoCard
         variant="solid"
-        className="bg-gradient-to-br from-indigo-600 to-violet-500 text-white shadow-bento-lg p-6 relative overflow-hidden"
+        className="bg-primary text-white shadow-bento-lg p-6 relative overflow-hidden"
       >
         <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
           <MaterialIcon name="credit_card" className="text-[120px]" />
@@ -2428,7 +2428,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
         <BentoCard
           variant="solid"
           interactive
-          className="bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-bento-lg p-4 relative overflow-hidden flex flex-col justify-between h-full"
+          className="bg-primary-color text-white shadow-bento-lg p-4 relative overflow-hidden flex flex-col justify-between h-full"
           onClick={() => {
             if (!onShowDetail) return;
             const next30Days = forecastData.slice(0, 30);

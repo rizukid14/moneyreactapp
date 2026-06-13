@@ -64,7 +64,6 @@ const Layout: React.FC = () => {
     { path: '/', icon: 'dashboard', label: 'Home', end: true, testId: 'nav-transactions' },
     { path: '/assets', icon: 'account_balance_wallet', label: 'Aset', testId: 'nav-assets' },
     { path: '#add', icon: 'add', label: 'Tambah', isAddButton: true, testId: 'nav-add' },
-    { path: '#chatbot', icon: 'smart_toy', label: 'MoneyBot', isChatbotButton: true, testId: 'nav-chatbot' },
     { path: '/budget', icon: 'account_balance', label: 'Budget', testId: 'nav-budget' },
     { path: '/stats', icon: 'analytics', label: 'Laporan', testId: 'nav-statistics' },
   ];
@@ -228,7 +227,7 @@ const Layout: React.FC = () => {
             );
           }
 
-          if (item.isChatbotButton) {
+          if ((item as any).isChatbotButton) {
             return (
               <button
                 key={item.path}
@@ -283,6 +282,7 @@ const Layout: React.FC = () => {
       <AddActionMenu 
         isOpen={isAddMenuOpen} 
         onClose={() => setIsAddMenuOpen(false)} 
+        onOpenChat={() => setIsChatOpen(true)}
       />
 
       <NotificationModal

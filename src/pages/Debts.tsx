@@ -77,7 +77,7 @@ const DebtCard: React.FC<{
         interactive
         data-testid={`debt-card-${debt.id}`} 
         onClick={onToggleExpand}
-        className={`relative transition-all mb-4 border-2 ${borderClass} ${shadowClass} ${debt.isPaid ? 'opacity-65' : 'opacity-100'}`}
+        className={`relative transition-all h-full border-2 ${borderClass} ${shadowClass} ${debt.isPaid ? 'opacity-65' : 'opacity-100'}`}
       >
         {/* Header row */}
         <div className="flex items-start gap-3 mb-3">
@@ -452,7 +452,7 @@ const Debts: React.FC = () => {
       </div>
 
       {/* Debt list */}
-      <div className="flex flex-col gap-3 pb-24">
+      <div className={filtered.length === 0 ? "pb-24" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-24"}>
         {filtered.length === 0 ? (
           <EmptyState 
             icon="receipt_long" 

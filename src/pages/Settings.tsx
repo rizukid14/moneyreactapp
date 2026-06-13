@@ -1024,7 +1024,7 @@ const Settings: React.FC = () => {
               {/* Summary Card */}
               <div style={{
                 margin: '0 20px 20px', padding: '16px',
-                background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                background: 'var(--primary)',
                 borderRadius: '16px', color: 'white', boxShadow: '0 8px 16px var(--primary-glow)'
               }}>
                 <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: 600 }}>Estimasi Pengeluaran Bulanan</div>
