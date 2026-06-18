@@ -174,7 +174,7 @@ const ChatBot: React.FC = () => {
           budgets,
           goals,
           appKnowledge: {
-            currentVersion: 'v1.0.18',
+            currentVersion: 'v1.8.1',
             latestFeatures: []
           }
         })
@@ -276,7 +276,7 @@ const ChatBot: React.FC = () => {
           budgets,
           goals,
           appKnowledge: {
-            currentVersion: 'v1.0.18',
+            currentVersion: 'v1.8.1',
             latestFeatures: [
               'Zero-Based Budgeting (ZBB): Fitur alokasi pendapatan secara ketat di mana setiap pemasukan harus dialokasikan ke amplop kategori sampai habis bersisa 0.',
               'ZBB Strict Mode: Sistem pemblokiran/pencegatan otomatis pada transaksi (manual, struk OCR, maupun mutasi) jika nominal melebihi sisa limit kategori, mengharuskan pemindahan/realokasi anggaran sebelum lanjut.',

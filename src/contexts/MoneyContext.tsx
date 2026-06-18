@@ -506,8 +506,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         dbGetAllBudgetReallocations(),
       ]);
 
-      const hasMigratedV1_0_18 = localStorage.getItem('migrated_v1_0_18_debts');
-      if (!hasMigratedV1_0_18 && dbTxs.length > 0) {
+      const hasMigratedv1.8.1 = localStorage.getItem('migrated_v1.8.1_debts');
+      if (!hasMigratedv1.8.1 && dbTxs.length > 0) {
         let migratedCount = 0;
         const updatedTxs = dbTxs.map(tx => {
           let newType = tx.type;
@@ -530,9 +530,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           const mDb = await import('../lib/db');
           await Promise.all(updatedTxs.filter((tx, i) => tx.type !== dbTxs[i].type).map(tx => mDb.dbPutTransaction(tx)));
           updatedTxs.forEach((tx, i) => { dbTxs[i] = tx; });
-          console.log(`Migrated ${migratedCount} debt transactions to v1.0.18 types.`);
+          console.log(`Migrated ${migratedCount} debt transactions to v1.8.1 types.`);
         }
-        localStorage.setItem('migrated_v1_0_18_debts', 'true');
+        localStorage.setItem('migrated_v1.8.1_debts', 'true');
       }
 
       // ─── Category ID Migration (Phase 1) ──────────────────────────────────

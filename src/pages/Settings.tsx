@@ -2117,7 +2117,7 @@ const Settings: React.FC = () => {
                 </div>
               ))}
               <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
-                Money Tracker v1.0.18 · Made with ❤️
+                Money Tracker v1.8.1 · Made with ❤️
               </div>
             </div>
           </>
@@ -2310,7 +2310,7 @@ const Settings: React.FC = () => {
           <LogOut size={20} /> Logout dari Akun
         </button>
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-          MoneyApp v1.0.18 • Dibuat dengan ❤️ by Dappal
+          MoneyApp v1.8.1 • Dibuat dengan ❤️ by Dappal
         </p>
       </div>
 
