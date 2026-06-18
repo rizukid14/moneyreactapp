@@ -18,7 +18,15 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v1.0.18', date: 'Mei 2026', badge: 'Terbaru',
+    version: 'v1.8.1', date: 'Juni 2026', badge: 'Terbaru',
+    entries: [
+      { type: 'improve', text: 'Migrasi Total ID Kategori: Semua komponen transaksi (Dashboard, Riwayat, Split Bill, dll) kini menggunakan ID Kategori absolut, menghilangkan bug hilangnya transaksi lama saat nama kategori diedit' },
+      { type: 'improve', text: 'Optimasi AI Chatbot & OCR: Ekosistem AI kini secara otomatis menerjemahkan teks prediksi ke ID Kategori yang tepat secara di balik layar' },
+      { type: 'fix', text: 'Perbaikan Kalkulasi Anggaran: Bar progress ZBB & Budgeting yang tertahan di 0% ketika mengganti nama amplop/kategori kini berfungsi sepenuhnya' }
+    ],
+  },
+  {
+    version: 'v1.0.18', date: 'Mei 2026',
     entries: [
       { type: 'new', text: 'Sistem Zero-Based Budgeting (ZBB): Ekosistem alokasi anggaran ketat berbasis Envelope System dengan penguncian pendapatan bulanan' },
       { type: 'new', text: 'Strict ZBB Mode: Mekanisme pencegatan/intersepsi transaksi pintar yang menahan pengeluaran jika melebihi batas kategori dan meminta proses realokasi dana seketika' },

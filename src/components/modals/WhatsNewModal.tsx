@@ -13,38 +13,23 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
   const features = [
     {
       icon: <CheckCircle2 className="text-primary" size={24} />,
-      title: 'Holiday Trip Ecosystem',
-      description: 'Manajemen biaya perjalanan premium dengan input nominal besar, scroll pembayar horizontal, integrasi aset riil, dan edit OCR manual.'
+      title: 'Arsitektur Kategori Baru',
+      description: 'Manajemen ID Kategori untuk sinkronisasi otomatis nama kategori. Transaksi lama tidak akan hilang lagi saat nama kategori diubah!'
     },
     {
       icon: <TrendingUp className="text-emerald-500" size={24} />,
-      title: 'Smart Settle-Up Trip',
-      description: 'Lakukan pelunasan bagi biaya otomatis dengan dukungan tombol "Buka Link" (Open in App) dan identifikasi warna rekening.'
+      title: 'AI Chatbot & OCR Pintar',
+      description: 'AI kini memahami struktur kategori Anda dan langsung menerjemahkan teks prediksi ke ID Kategori yang tepat secara otomatis.'
     },
     {
       icon: <CheckCircle2 className="text-primary" size={24} />,
-      title: 'Grouped Settings Menu',
-      description: 'Navigasi pengaturan baru yang terorganisir ke dalam kategori logis (Akun, Keuangan, Sosial, Sistem) untuk akses lebih cepat.'
-    },
-    {
-      icon: <TrendingUp className="text-emerald-500" size={24} />,
-      title: 'AI Chatbot Knowledge',
-      description: 'MoneyBot asisten pintar sekarang dibekali basis pengetahuan fitur v17, siap membantu menjelaskan cara kerja ekosistem trip dan lainnya.'
-    },
-    {
-      icon: <CheckCircle2 className="text-primary" size={24} />,
-      title: 'Zero-Based Budgeting',
-      description: 'Alokasikan setiap rupiah pendapatan ke kategori pilihan hingga sisa Rp 0 untuk perencanaan keuangan yang lebih disiplin.'
-    },
-    {
-      icon: <TrendingUp className="text-emerald-500" size={24} />,
-      title: 'Target Tabungan (Goals)',
-      description: 'Buat target menabung untuk impianmu dan hubungkan langsung dengan transaksi agar progres tercatat secara otomatis.'
+      title: 'Kalkulasi Anggaran Super Presisi',
+      description: 'Perbaikan bug pada kalkulasi Budget & ZBB yang sebelumnya tertahan di 0% saat ada perubahan nama kategori.'
     },
     {
       icon: <CheckCircle2 className="text-rose-500" size={24} />,
-      title: 'Financial Health Score',
-      description: 'Dapatkan skor kesehatan finansial (0-100) berdasarkan rasio tabungan, ketaatan anggaran, dan konsistensi pengeluaran.'
+      title: 'Pembersihan Sistem Menyeluruh',
+      description: 'Aplikasi menjadi lebih cepat, aman, dan tanpa celah error berkat migrasi skema data transaksi yang 100% ketat (strict data type).'
     }
   ];
 
@@ -61,7 +46,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 800, margin: 0, background: 'var(--primary-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              What's New v1.0.17
+              What's New v1.8.1
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Fitur terbaru untuk pengalaman lebih baik</p>
           </div>
