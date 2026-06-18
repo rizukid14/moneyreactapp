@@ -506,8 +506,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         dbGetAllBudgetReallocations(),
       ]);
 
-      const hasMigratedv1.8.1 = localStorage.getItem('migrated_v1.8.1_debts');
-      if (!hasMigratedv1.8.1 && dbTxs.length > 0) {
+      const hasMigratedv1_8_1 = localStorage.getItem('migrated_v1.8.1_debts');
+      if (!hasMigratedv1_8_1 && dbTxs.length > 0) {
         let migratedCount = 0;
         const updatedTxs = dbTxs.map(tx => {
           let newType = tx.type;
