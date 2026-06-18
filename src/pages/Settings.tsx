@@ -1776,7 +1776,7 @@ const Settings: React.FC = () => {
             amount: parseFloat(newSubAmount),
             billingCycle: newSubCycle,
             nextBillingDate: newSubDate,
-            category: newSubCat || 'Lainnya',
+            categoryId: categories.find(c => c.name === (newSubCat || 'Lainnya') && c.type === 'pengeluaran')?.id,
             assetId: newSubAsset,
             isActive: true,
           };
@@ -1791,7 +1791,7 @@ const Settings: React.FC = () => {
                 const rt = addRecurringTransaction({
                   type: 'pengeluaran',
                   amount: subData.amount,
-                  category: subData.category,
+                  categoryId: subData.categoryId,
                   note: `Langganan: ${subData.name}`,
                   frequency: subData.billingCycle === 'monthly' ? 'monthly' : 'yearly',
                   startDate: subData.nextBillingDate,
@@ -1979,7 +1979,7 @@ const Settings: React.FC = () => {
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{rt.note || rt.category}</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{rt.note || (rt.categoryId ? categories.find(c => c.id === rt.categoryId)?.name : '')}</div>
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                             {freqLabel} • Mulai {new Date(rt.startDate).toLocaleDateString('id-ID')}
                             {rt.endDate && ` • Sampai ${new Date(rt.endDate).toLocaleDateString('id-ID')}`}

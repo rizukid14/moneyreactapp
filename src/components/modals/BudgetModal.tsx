@@ -201,11 +201,16 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
         categories={categories}
         type="pengeluaran"
         initialCategory={selectedCategory?.name}
-        onSelect={(catName) => {
-          const cat = categories.find(c => c.name === catName && c.type === 'pengeluaran' && !c.isDeleted) ||
-                      categories.find(c => c.name === catName && c.type === 'pengeluaran');
-          if (cat) setCategoryId(cat.id);
+        onSelect={(catName, _subCatName, catId) => {
+          if (catId) {
+            setCategoryId(catId);
+          } else {
+            const cat = categories.find(c => c.name === catName && c.type === 'pengeluaran' && !c.isDeleted) ||
+                        categories.find(c => c.name === catName && c.type === 'pengeluaran');
+            if (cat) setCategoryId(cat.id);
+          }
         }}
+        allowDeleted={!!editingBudget}
       />
     </>
   );

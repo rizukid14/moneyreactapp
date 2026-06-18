@@ -54,13 +54,14 @@ const AssetDetailDrawer: React.FC<{
   balance: number;
   transactions: Transaction[];
   allAssets: Asset[];
+  categories: any[];
   isPrivateMode: boolean;
   currencySymbol: string;
   onClose: () => void;
   onEditAsset: (a: Asset) => void;
   onDeleteAsset: (id: string) => void;
   onEditTx: (tx: Transaction) => void;
-}> = ({ asset, balance, transactions, allAssets, isPrivateMode, currencySymbol, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
+}> = ({ asset, balance, transactions, allAssets, categories, isPrivateMode, currencySymbol, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const Icon = getIconForType(asset.type);
@@ -74,8 +75,10 @@ const AssetDetailDrawer: React.FC<{
 
         if (filterType === 'all') return true;
         
-        const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
-        const isOutgoing = tx.type === 'pengeluaran' || tx.fromAssetId === asset.id;
+        const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
+        const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
+        const isIncoming = isIncomeLike || tx.toAssetId === asset.id;
+        const isOutgoing = isExpenseLike || tx.fromAssetId === asset.id;
 
         if (filterType === 'income') return isIncoming;
         if (filterType === 'expense') return isOutgoing;
@@ -89,8 +92,10 @@ const AssetDetailDrawer: React.FC<{
     let income = 0, expense = 0;
     // Calculate stats based on ALL asset transactions, not just filtered ones
     transactions.forEach(tx => {
-      const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
-      const isOutgoing = tx.type === 'pengeluaran' || tx.fromAssetId === asset.id;
+      const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
+      const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
+      const isIncoming = isIncomeLike || tx.toAssetId === asset.id;
+      const isOutgoing = isExpenseLike || tx.fromAssetId === asset.id;
       
       if (tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id) {
         if (isIncoming && tx.type !== 'transfer') income += tx.amount;
@@ -106,8 +111,10 @@ const AssetDetailDrawer: React.FC<{
     let simpleIncome = 0, simpleExpense = 0;
     const allRelated = transactions.filter(tx => tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id);
     allRelated.forEach(tx => {
-      if (tx.type === 'pendapatan' || tx.toAssetId === asset.id) simpleIncome += tx.amount;
-      if (tx.type === 'pengeluaran' || tx.fromAssetId === asset.id) simpleExpense += tx.amount;
+      const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
+      const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
+      if (isIncomeLike || tx.toAssetId === asset.id) simpleIncome += tx.amount;
+      if (isExpenseLike || tx.fromAssetId === asset.id) simpleExpense += tx.amount;
     });
 
     return { income: simpleIncome, expense: simpleExpense, count: allRelated.length };
@@ -253,10 +260,16 @@ const AssetDetailDrawer: React.FC<{
             ) : (
               <div style={{ padding: '8px 0 24px' }}>
                 {assetTxs.map(tx => {
-                  const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
+                  const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
+                  const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
+                  const isDebtTx = ['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(tx.type);
+                  const isIncoming = isIncomeLike || tx.toAssetId === asset.id;
+
                   const amtColor = tx.type === 'transfer'
                     ? 'var(--text-muted)'
-                    : isIncoming ? 'var(--primary)' : 'var(--danger)';
+                    : isDebtTx
+                      ? (isIncomeLike ? 'var(--info)' : 'var(--warning)')
+                      : isIncoming ? 'var(--primary)' : 'var(--danger)';
                   const prefix = tx.type === 'transfer' ? '↔' : isIncoming ? '+' : '-';
 
                   return (
@@ -274,13 +287,17 @@ const AssetDetailDrawer: React.FC<{
                       {/* Type icon */}
                       <div style={{
                         width: 34, height: 34, borderRadius: 10, flexShrink: 0, marginRight: 12,
-                        background: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
+                        background: isDebtTx
+                          ? (isExpenseLike ? 'hsla(35, 100%, 50%, 0.1)' : 'hsla(210, 100%, 50%, 0.1)')
+                          : isExpenseLike ? 'var(--bg-expense)' : isIncomeLike ? 'var(--bg-income)' : 'var(--bg-neutral)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: tx.type === 'pengeluaran' ? 'var(--danger)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
+                        color: isDebtTx
+                          ? (isExpenseLike ? 'var(--warning)' : 'var(--info)')
+                          : isExpenseLike ? 'var(--danger)' : isIncomeLike ? 'var(--primary)' : 'var(--text-muted)',
                       }}>
-                        {tx.type === 'pengeluaran'
+                        {isExpenseLike
                           ? <ArrowDownRight size={16} />
-                          : tx.type === 'pendapatan'
+                          : isIncomeLike
                           ? <ArrowUpRight size={16} />
                           : <ArrowRightLeft size={16} />}
                       </div>
@@ -290,7 +307,7 @@ const AssetDetailDrawer: React.FC<{
                         <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {tx.type === 'transfer'
                             ? `Transfer → ${getAssetName(tx.toAssetId)}`
-                            : tx.category}
+                            : (tx.categoryId ? (categories.find(c => c.id === tx.categoryId)?.name || (tx as any).category) : (tx as any).category)}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                           {tx.date}
@@ -326,7 +343,7 @@ const AssetDetailDrawer: React.FC<{
 
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
-  const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, deleteTransaction, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol, assetCarouselCards } = useMoney();
+  const { assets, categories, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, deleteTransaction, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol, assetCarouselCards } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -570,6 +587,7 @@ const Assets: React.FC = () => {
           balance={balances[selectedAsset.id] || 0}
           transactions={transactions}
           allAssets={assets}
+          categories={categories}
           isPrivateMode={isPrivateMode}
           currencySymbol={currencySymbol}
           onClose={() => setSelectedAsset(null)}

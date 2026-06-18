@@ -16,7 +16,7 @@ interface AddTripExpenseModalProps {
 }
 
 const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClose, trip, editingExpense }) => {
-  const { currencySymbol, assets, defaultAssetId, addTripExpense, updateTripExpense, addTransaction, addDebt } = useMoney();
+  const { categories, currencySymbol, assets, defaultAssetId, addTripExpense, updateTripExpense, addTransaction, addDebt } = useMoney();
   const { showToast } = useToast();
   const { scanReceipt, isScanning } = useReceiptOCR();
 
@@ -290,8 +290,8 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
           addTransaction({
             type: 'pengeluaran',
             amount: myAmount,
-            category: 'Liburan & Perjalanan',
-            subCategory: 'Biaya Trip',
+            categoryId: categories.find(c => c.name === 'Liburan & Perjalanan' && c.type === 'pengeluaran')?.id,
+            subCategoryId: categories.find(c => c.name === 'Liburan & Perjalanan' && c.type === 'pengeluaran')?.subcategories?.find(s => s.name === 'Biaya Trip')?.id,
             date: expenseData.date,
             time: getLocalTime(),
             note: `[Trip: ${trip.name}] ${description}`,

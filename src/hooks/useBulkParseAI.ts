@@ -8,13 +8,16 @@ export interface ParsedTransaction {
   date: string;
   note: string;
   category: string;
+  categoryId?: string;
   asset: string;
   subCategory?: string;
+  subCategoryId?: string;
   selected: boolean;
   fromAsset?: string;
   toAsset?: string;
   adminFee?: number;
   adminFeeTarget?: 'sender' | 'receiver';
+  counterpartyRole?: 'sender' | 'receiver';
 }
 
 const resizeImage = (blob: Blob, maxWidth: number = 768): Promise<Blob> => {
@@ -133,7 +136,9 @@ export const useBulkParseAI = () => {
           date: item.date || getLocalDate(),
           note: item.note || '',
           category: item.category || '',
+          categoryId: item.categoryId,
           subCategory: item.subCategory || '',
+          subCategoryId: item.subCategoryId,
           asset: item.asset || '',
           fromAsset: item.fromAsset || '',
           toAsset: item.toAsset || '',

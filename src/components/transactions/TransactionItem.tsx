@@ -25,7 +25,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   onCopy,
   showDate = true
 }) => {
-  const { currencySymbol } = useMoney();
+  const { currencySymbol, categories } = useMoney();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
@@ -63,10 +63,10 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
               <span style={{ fontSize: '13px' }}>{fromAssetName} <ArrowRightLeft size={12} style={{ margin: '0 2px' }} /> {toAssetName}</span>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span>{tx.category}</span>
-                {tx.subCategory && (
+                <span>{tx.categoryId ? categories.find(c => c.id === tx.categoryId)?.name : (tx as any).category}</span>
+                {(tx.subCategoryId || (tx as any).subCategory) && (
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '1px' }}>
-                    {tx.subCategory}
+                    {tx.categoryId && tx.subCategoryId ? categories.find(c => c.id === tx.categoryId)?.subcategories?.find(s => s.id === tx.subCategoryId)?.name : (tx as any).subCategory}
                   </span>
                 )}
               </div>
@@ -122,7 +122,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={() => onDelete(tx.id)}
         title="Hapus Transaksi"
-        message={`Apakah Anda yakin ingin menghapus transaksi "${tx.type === 'transfer' ? 'Transfer' : tx.category}" sebesar Rp${tx.amount.toLocaleString('id-ID')}?`}
+        message={`Apakah Anda yakin ingin menghapus transaksi "${tx.type === 'transfer' ? 'Transfer' : (tx.categoryId ? categories.find(c => c.id === tx.categoryId)?.name : (tx as any).category)}" sebesar Rp${tx.amount.toLocaleString('id-ID')}?`}
       />
     </>
   );

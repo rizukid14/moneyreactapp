@@ -35,11 +35,12 @@ const DebtCard: React.FC<{
   onToggleExpand: () => void;
   isExpanded: boolean;
   currencySymbol: string;
+  categories: any[];
   onHistoryClick?: (tx: Transaction) => void;
 }> = ({
   debt, onEdit, onDelete, onPay, onAddPrincipal, onSettle, onUnpay,
   liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded,
-  currencySymbol, onHistoryClick
+  currencySymbol, categories, onHistoryClick
 }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const isHutang = debt.type === 'hutang';
@@ -52,7 +53,8 @@ const DebtCard: React.FC<{
       : null;
 
     const paidAmount = history.reduce((sum, tx) => {
-      if (isPrincipalTx(tx.note, tx.category)) return sum;
+      const catName = tx.categoryId && categories ? (categories.find(c => c.id === tx.categoryId)?.name || (tx as any).category) : (tx as any).category;
+      if (isPrincipalTx(tx.note, catName)) return sum;
       return sum + Number(tx.amount || 0);
     }, 0);
 
@@ -301,7 +303,8 @@ const Debts: React.FC = () => {
       if (d.isPaid) return;
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+        const catName = tx.categoryId ? (categories.find(c => c.id === tx.categoryId)?.name || (tx as any).category) : (tx as any).category;
+        return isPrincipalTx(tx.note, catName) ? sum : sum + Number(tx.amount || 0);
       }, 0);
 
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
@@ -317,7 +320,8 @@ const Debts: React.FC = () => {
       if (d.isPaid) return;
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+        const catName = tx.categoryId ? (categories.find(c => c.id === tx.categoryId)?.name || (tx as any).category) : (tx as any).category;
+        return isPrincipalTx(tx.note, catName) ? sum : sum + Number(tx.amount || 0);
       }, 0);
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
       if (remaining <= 0) return;
@@ -562,6 +566,7 @@ const Debts: React.FC = () => {
               onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
               isExpanded={expandedDebtId === d.id}
               currencySymbol={currencySymbol}
+              categories={categories}
               onHistoryClick={(tx) => setEditingHistoryTx(tx)}
             />
           ))
@@ -587,7 +592,8 @@ const Debts: React.FC = () => {
           assets={assets}
           currencySymbol={currencySymbol}
           paidAmountFromTxs={transactions.filter(t => t.relatedId === payingDebt.id).reduce((sum, tx) => {
-            return isPrincipalTx(tx.note, tx.category) ? sum : sum + tx.amount;
+            const catName = tx.categoryId && categories ? (categories.find(c => c.id === tx.categoryId)?.name || (tx as any).category) : (tx as any).category;
+            return isPrincipalTx(tx.note, catName) ? sum : sum + tx.amount;
           }, 0)}
           onConfirm={(amt, assetId, date, time, note, isFull) => {
             if (isFull) {

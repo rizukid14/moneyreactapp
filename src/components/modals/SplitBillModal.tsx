@@ -29,8 +29,10 @@ interface SplitBillModalProps {
   categories: Category[];
   initialAssetId?: string;
   initialCategory?: string;
+  initialCategoryId?: string;
   initialSubCategory?: string;
-  onSave: (splits: SplitPerson[], data: { assetId: string, category: string, subCategory: string }) => void;
+  initialSubCategoryId?: string;
+  onSave: (splits: SplitPerson[], data: { assetId: string, category: string, categoryId?: string, subCategory: string, subCategoryId?: string }) => void;
   sourceId?: string;
 }
 
@@ -45,7 +47,9 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   categories,
   initialAssetId,
   initialCategory,
+  initialCategoryId,
   initialSubCategory,
+  initialSubCategoryId,
   onSave,
   sourceId,
 }) => {
@@ -77,7 +81,9 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
   const [selectedAssetId, setSelectedAssetId] = useState(initialAssetId || '');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(initialCategoryId || '');
   const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory || '');
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState(initialSubCategoryId || '');
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [localLineItems, setLocalLineItems] = useState<LineItem[]>([]);
@@ -93,12 +99,14 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       setItemAssignments({});
       setSelectedAssetId(initialAssetId || '');
       setSelectedCategory(initialCategory || '');
+      setSelectedCategoryId(initialCategoryId || '');
       setSelectedSubCategory(initialSubCategory || '');
+      setSelectedSubCategoryId(initialSubCategoryId || '');
       setActiveSharedId(null);
       setIsSharing(false);
       setShowCopySuccess(false);
     }
-  }, [isOpen, totalAmount, lineItems, initialAssetId, initialCategory, initialSubCategory]);
+  }, [isOpen, totalAmount, lineItems, initialAssetId, initialCategory, initialCategoryId, initialSubCategory, initialSubCategoryId]);
 
   const addPeople = (names: string[]) => {
     const existingNames = splits.map(s => s.contactName);
@@ -286,7 +294,9 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     onSave(splits, {
       assetId: selectedAssetId,
       category: selectedCategory,
-      subCategory: selectedSubCategory
+      categoryId: selectedCategoryId,
+      subCategory: selectedSubCategory,
+      subCategoryId: selectedSubCategoryId
     });
     onClose();
   };
@@ -971,9 +981,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         type="pengeluaran"
         initialCategory={selectedCategory}
         initialSubCategory={selectedSubCategory}
-        onSelect={(cat, sub) => {
+        onSelect={(cat, sub, catId, subId) => {
           setSelectedCategory(cat);
           setSelectedSubCategory(sub || '');
+          setSelectedCategoryId(catId || '');
+          setSelectedSubCategoryId(subId || '');
         }}
       />
 

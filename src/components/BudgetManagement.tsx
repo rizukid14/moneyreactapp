@@ -234,9 +234,9 @@ export const BudgetManagement: React.FC = () => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         map.total += tx.amount;
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
-        if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
+        if (tx.categoryId) {
+          map[tx.categoryId] = (map[tx.categoryId] || 0) + tx.amount;
+        }
       }
     });
     return map;
@@ -252,8 +252,7 @@ export const BudgetManagement: React.FC = () => {
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
   const categoryBudgets = currentMonthBudgets.filter(b => {
     if (b.categoryId === null) return false;
-    const cat = categories.find(c => c.id === b.categoryId);
-    return cat && !cat.isDeleted;
+    return true; // Tampilkan semua budget kategori agar budget yang "nyangkut" (untuk kategori terhapus) bisa dihapus oleh user
   });
   const globalPercent = globalBudget ? (spendingMap.total / globalBudget.limit) * 100 : 0;
 

@@ -133,6 +133,19 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validasi Aset
+    if (type === 'hutang') {
+      if (hutangMode === 'cash' && !paymentAssetId) {
+        alert('Silakan pilih rekening "Uang masuk ke rekening mana" untuk Pinjaman Tunai.');
+        return;
+      }
+      if (hutangMode === 'credit' && !liabilityAssetId) {
+        alert('Silakan pilih "Kartu Kredit / Paylater" yang digunakan.');
+        return;
+      }
+    }
+
     const calcPrincipal = parseNum(principalAmount);
     const calcInterestAmt = hasInterest 
       ? (interestType === 'fixed' ? parseNum(interestAmount) : Math.round(calcPrincipal * (Number(interestRate) / 100))) 

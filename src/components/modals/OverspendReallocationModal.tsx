@@ -58,9 +58,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
     
     transactions.forEach(tx => {
       if (tx.type === 'pengeluaran' && tx.date >= startStr && tx.date <= endStr) {
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
-        const catId = cat?.id;
+        const catId = tx.categoryId || categories.find(c => c.name === (tx as any).category && c.type === 'pengeluaran')?.id;
         if (catId) {
           map[catId] = (map[catId] || 0) + Number(tx.amount || 0);
         }

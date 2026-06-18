@@ -127,7 +127,7 @@ const SparklingIcon = () => (
 
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, assets, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
+  const { transactions, assets, categories, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, setIsChatOpen, subscriptions } = useMoney();
   const { showToast } = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSubBannerDismissed, setIsSubBannerDismissed] = useState(false);
@@ -211,10 +211,12 @@ const Transactions: React.FC = () => {
       // 1. Search Query logic (Global)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
+        const catName = tx.categoryId ? (categories.find(c => c.id === tx.categoryId)?.name || (tx as any).category) : (tx as any).category;
+        const subCatName = tx.categoryId && tx.subCategoryId ? (categories.find(c => c.id === tx.categoryId)?.subcategories?.find(s => s.id === tx.subCategoryId)?.name || (tx as any).subCategory) : (tx as any).subCategory;
         const matches = (
           tx.note.toLowerCase().includes(q) ||
-          tx.category.toLowerCase().includes(q) ||
-          (tx.subCategory && tx.subCategory.toLowerCase().includes(q)) ||
+          (catName && catName.toLowerCase().includes(q)) ||
+          (subCatName && subCatName.toLowerCase().includes(q)) ||
           tx.amount.toString().includes(q)
         );
         if (!matches) return false;
@@ -273,8 +275,9 @@ const Transactions: React.FC = () => {
         dayName = DAY_NAMES[d.getDay()];
         title = dateStr;
       } else if (groupBy === 'category') {
-        key = tx.category;
-        title = tx.category;
+        const catName = tx.categoryId ? (categories.find(c => c.id === tx.categoryId)?.name || (tx as any).category) : (tx as any).category;
+        key = tx.categoryId || (tx as any).category;
+        title = catName;
       } else if (groupBy === 'asset') {
         key = tx.assetId || tx.fromAssetId || 'unknown';
         title = getAssetName(key);
@@ -295,7 +298,7 @@ const Transactions: React.FC = () => {
     });
 
     return { groups: sortedGroups, monthlyIncome: inc, monthlyExpense: exp };
-  }, [transactions, searchQuery, viewDate, startOfMonthDay, groupBy, showDebtInTransactions, getAssetName]);
+  }, [transactions, searchQuery, viewDate, startOfMonthDay, groupBy, showDebtInTransactions, getAssetName, categories]);
 
   // ─── Spending Pace Logic ──────────────────────────────────────────────────
   const paceData = useMemo(() => {

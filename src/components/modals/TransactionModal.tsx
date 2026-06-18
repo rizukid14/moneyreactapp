@@ -36,6 +36,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [subCategoryId, setSubCategoryId] = useState<string | undefined>(undefined);
   const [date, setDate] = useState(getLocalDate());
   const [time, setTime] = useState(getLocalTime());
   const [note, setNote] = useState('');
@@ -97,8 +99,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     if (editingTransaction) {
       setType(editingTransaction.type);
       setAmount(editingTransaction.amount.toLocaleString('id-ID'));
-      setCategory(editingTransaction.category);
-      setSubCategory(editingTransaction.subCategory || '');
+      setCategory(editingTransaction.categoryId ? categories.find(c => c.id === editingTransaction.categoryId)?.name || '' : (editingTransaction as any).category || '');
+      setSubCategory(editingTransaction.categoryId && editingTransaction.subCategoryId ? categories.find(c => c.id === editingTransaction.categoryId)?.subcategories?.find(s => s.id === editingTransaction.subCategoryId)?.name || '' : (editingTransaction as any).subCategory || '');
+      setCategoryId(editingTransaction.categoryId || '');
+      setSubCategoryId(editingTransaction.subCategoryId);
       setDate(editingTransaction.date);
       setTime(editingTransaction.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
       setNote(editingTransaction.note);
@@ -110,7 +114,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
       // Initialize admin fee state for transfers
       if (editingTransaction.type === 'transfer') {
-        const feeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin');
+        const feeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin' && c.type === 'pengeluaran')?.id);
         if (feeTx) {
           setAdminFee(feeTx.amount.toLocaleString('id-ID'));
           setAdminFeeTarget(feeTx.assetId === editingTransaction.toAssetId ? 'receiver' : 'sender');
@@ -216,14 +220,19 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       return { ...acc, total: acc.total + tx.amount };
     }, { total: 0 } as Record<string, number>);
 
-    // Also track by category
+    const catSpent: Record<string, number> = {};
+    let totalSpent = 0;
+
     transactions.forEach(tx => {
       if (tx.id === editingTransaction?.id) return;
       const d = new Date(tx.date);
       if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return;
-      const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                  categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
-      if (cat) existingSpend[cat.id] = (existingSpend[cat.id] || 0) + tx.amount;
+      
+      totalSpent += tx.amount;
+      const catId = tx.categoryId || categories.find(c => c.name === (tx as any).category && c.type === 'pengeluaran')?.id;
+      if (catId) {
+        catSpent[catId] = (catSpent[catId] || 0) + tx.amount;
+      }
     });
 
     const alerts: { label: string; over: number }[] = [];
@@ -273,8 +282,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const txData = {
       type,
       amount: Number(amount.replace(/\./g, '')),
-      category: type === 'transfer' ? 'Transfer' : category,
-      subCategory: type === 'transfer' ? undefined : (subCategory || undefined),
+      categoryId: type === 'transfer' ? undefined : categoryId,
+      subCategoryId: type === 'transfer' ? undefined : subCategoryId,
       date,
       time,
       note: note.trim(),
@@ -310,7 +319,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       // Handle admin fee for edited transfer
       if (type === 'transfer') {
         const adminFeeAmount = Number(adminFee.replace(/\./g, ''));
-        const existingFeeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin');
+        const existingFeeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin' && c.type === 'pengeluaran')?.id);
         const feeAssetId = adminFeeTarget === 'sender' ? fromAssetId : toAssetId;
         const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
         const feeNote = `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`;
@@ -328,10 +337,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             deleteTransaction(existingFeeTx.id);
           }
         } else if (adminFeeAmount > 0) {
+          const feeCat = categories.find(c => c.name === 'Biaya Admin');
           addTransaction({
             type: 'pengeluaran',
             amount: adminFeeAmount,
-            category: 'Biaya Admin',
+            categoryId: feeCat?.id,
             date,
             time,
             note: feeNote,
@@ -349,10 +359,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       if (type === 'transfer' && adminFeeAmount > 0) {
         const feeAssetId = adminFeeTarget === 'sender' ? fromAssetId : toAssetId;
         const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+        const feeCat = categories.find(c => c.name === 'Biaya Admin');
         addTransaction({
           type: 'pengeluaran',
           amount: adminFeeAmount,
-          category: 'Biaya Admin',
+          categoryId: feeCat?.id,
           date,
           time,
           note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
@@ -373,6 +384,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setAmount('');
       setCategory('');
       setSubCategory('');
+      setCategoryId('');
+      setSubCategoryId(undefined);
       setNote('');
       setIsRecurring(false);
       setGoalId(undefined);
@@ -421,7 +434,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     // If deleting a transfer, also remove linked admin fee transactions.
     if (editingTransaction.type === 'transfer') {
       transactions
-        .filter(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin')
+        .filter(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin' && c.type === 'pengeluaran')?.id)
         .forEach(t => deleteTransaction(t.id));
     }
 
@@ -484,7 +497,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     const map = new Map<string, { count: number; last: Transaction }>();
     txs.forEach(t => {
-      const key = `${t.category || ''}|${t.subCategory || ''}|${t.assetId || ''}|${(t.note || '').trim().toLowerCase()}`;
+      const key = `${t.categoryId || ''}|${t.subCategoryId || ''}|${t.assetId || ''}|${(t.note || '').trim().toLowerCase()}`;
       const prev = map.get(key);
       if (!prev) map.set(key, { count: 1, last: t });
       else {
@@ -496,16 +509,20 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     return Array.from(map.values())
       .sort((a, b) => (b.count - a.count) || (new Date(b.last.date).getTime() - new Date(a.last.date).getTime()))
       .slice(0, 4)
-      .map((item, idx) => ({
-        id: `tx-${idx}-${item.last.id}`,
-        type: type as 'pengeluaran' | 'pendapatan',
-        label: item.last.subCategory ? `${item.last.category} -> ${item.last.subCategory}` : item.last.category,
-        amount: item.last.amount,
-        category: item.last.category,
-        subCategory: item.last.subCategory,
-        assetId: item.last.assetId,
-        note: item.last.note
-      }));
+      .map((item, idx) => {
+        const catName = item.last.categoryId ? categories.find(c => c.id === item.last.categoryId)?.name : (item.last as any).category;
+        const subCatName = item.last.categoryId && item.last.subCategoryId ? categories.find(c => c.id === item.last.categoryId)?.subcategories?.find(s => s.id === item.last.subCategoryId)?.name : (item.last as any).subCategory;
+        return {
+          id: `tx-${idx}-${item.last.id}`,
+          type: type as 'pengeluaran' | 'pendapatan',
+          label: subCatName ? `${catName} -> ${subCatName}` : catName,
+          amount: item.last.amount,
+          categoryId: item.last.categoryId,
+          subCategoryId: item.last.subCategoryId,
+          assetId: item.last.assetId,
+          note: item.last.note
+        };
+      });
   }, [type, transactions, assets]);
 
   const presetKey = (preset: HabitPreset) => JSON.stringify({
@@ -823,7 +840,25 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           );
                         })()}
 
-                        <ArrowRightLeft color="var(--text-muted)" size={18} style={{ flexShrink: 0 }} />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const temp = fromAssetId;
+                            setFromAssetId(toAssetId);
+                            setToAssetId(temp);
+                          }}
+                          style={{
+                            background: 'transparent', border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: '8px', borderRadius: '50%',
+                            transition: 'background 0.2s',
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-main)'}
+                          onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          title="Tukar Rekening"
+                        >
+                          <ArrowRightLeft color="var(--text-muted)" size={18} style={{ flexShrink: 0 }} />
+                        </button>
 
                         {/* To Asset Button */}
                         {(() => {
@@ -1128,10 +1163,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         type={type as 'pengeluaran' | 'pendapatan'}
         initialCategory={category}
         initialSubCategory={subCategory}
-        onSelect={(cat, sub) => {
+        onSelect={(cat, sub, catId, subCatId) => {
           setCategory(cat);
           setSubCategory(sub);
+          setCategoryId(catId || '');
+          setSubCategoryId(subCatId);
         }}
+        allowDeleted={!!editingTransaction && !isCopyMode}
       />
 
       <AssetSelectModal

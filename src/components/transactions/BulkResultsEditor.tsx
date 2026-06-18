@@ -263,15 +263,63 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                   {isMutation ? (
                     <div style={{ gridColumn: '1 / -1' }}>
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Lawan Transaksi (Rekening Lain)</label>
-                      <button style={btnStyle} onClick={() => openModal(item.fromAsset && item.fromAsset !== batchAssetId ? 'fromAsset' : 'toAsset', item.id)}>
+                      <button style={btnStyle} onClick={() => openModal('toAsset', item.id)}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Wallet size={14} color="var(--primary)" />
                           <span style={{ fontSize: '13px', fontWeight: (item.fromAsset && item.fromAsset !== batchAssetId) || (item.toAsset && item.toAsset !== batchAssetId) ? 600 : 400, color: (item.fromAsset && item.fromAsset !== batchAssetId) || (item.toAsset && item.toAsset !== batchAssetId) ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                            {getAssetLabel(item.fromAsset && item.fromAsset !== batchAssetId ? item.fromAsset : item.toAsset, '-- Pilih Rekening Lawan --')}
+                            {getAssetLabel(
+                              (item.toAsset && item.toAsset !== batchAssetId) ? item.toAsset :
+                              (item.fromAsset && item.fromAsset !== batchAssetId) ? item.fromAsset :
+                              '', '-- Pilih Rekening Lawan --'
+                            )}
                           </span>
                         </div>
                         <ChevronRight size={14} color="var(--text-muted)" />
                       </button>
+                      
+                      {/* Arah Transfer Toggle */}
+                      <div style={{ marginTop: '8px' }}>
+                        <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>
+                          Rekening lawan adalah:
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => updateResult(item.id, 'counterpartyRole', 'sender')}
+                            style={{
+                              flex: 1, padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                              border: `1.5px solid ${item.counterpartyRole === 'sender' ? 'var(--primary)' : 'var(--border-color)'}`,
+                              background: item.counterpartyRole === 'sender' ? 'var(--bg-income)' : 'var(--bg-card)',
+                              color: item.counterpartyRole === 'sender' ? 'var(--primary)' : 'var(--text-muted)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Pengirim
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateResult(item.id, 'counterpartyRole', 'receiver')}
+                            style={{
+                              flex: 1, padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                              border: `1.5px solid ${(item.counterpartyRole || 'receiver') === 'receiver' ? 'var(--primary)' : 'var(--border-color)'}`,
+                              background: (item.counterpartyRole || 'receiver') === 'receiver' ? 'var(--bg-income)' : 'var(--bg-card)',
+                              color: (item.counterpartyRole || 'receiver') === 'receiver' ? 'var(--primary)' : 'var(--text-muted)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Penerima
+                          </button>
+                        </div>
+                        {/* Preview arah transfer */}
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic' }}>
+                          {(() => {
+                            const counterpartyId = (item.toAsset && item.toAsset !== batchAssetId) ? item.toAsset : (item.fromAsset && item.fromAsset !== batchAssetId) ? item.fromAsset : '';
+                            return (item.counterpartyRole || 'receiver') === 'receiver'
+                              ? `${getAssetLabel(batchAssetId, 'Sumber')} → ${getAssetLabel(counterpartyId, 'Lawan')}`
+                              : `${getAssetLabel(counterpartyId, 'Lawan')} → ${getAssetLabel(batchAssetId, 'Sumber')}`;
+                          })()}
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -393,7 +441,20 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
               }));
             }
           } else if (modalState.itemId && modalState.type) {
-            updateResult(modalState.itemId, modalState.type as keyof ParsedTransaction, assetId);
+            if (isMutation && modalState.type === 'toAsset') {
+              const item = results.find(r => r.id === modalState.itemId);
+              if (item?.type === 'transfer') {
+                if (item.fromAsset === batchAssetId || !item.fromAsset) {
+                  updateResult(modalState.itemId, 'toAsset', assetId);
+                } else {
+                  updateResult(modalState.itemId, 'fromAsset', assetId);
+                }
+              } else {
+                updateResult(modalState.itemId, modalState.type as keyof ParsedTransaction, assetId);
+              }
+            } else {
+              updateResult(modalState.itemId, modalState.type as keyof ParsedTransaction, assetId);
+            }
             closeModal();
           }
         }}

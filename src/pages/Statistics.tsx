@@ -18,7 +18,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const Statistics: React.FC = () => {
   const {
-    transactions, assets,
+    transactions, assets, categories,
     currencySymbol, startOfMonthDay, theme, chartStyle,
     statsCarouselCards, defaultStatsView
   } = useMoney();
@@ -171,7 +171,11 @@ const Statistics: React.FC = () => {
 
       // 1. Current Period Stats
       if (txDate >= vPeriodStart && txDate < vPeriodEnd) {
-        const subKey = tx.subCategory || tx.category;
+        const catObj = tx.categoryId ? categories.find(c => c.id === tx.categoryId) : undefined;
+        const subCatObj = catObj && tx.subCategoryId ? catObj.subcategories?.find(s => s.id === tx.subCategoryId) : undefined;
+        const catName = catObj?.name || (tx as any).category;
+        const subCatName = subCatObj?.name || (tx as any).subCategory;
+        const subKey = subCatName || catName;
 
         const transferFlow = getTransferFlowForActiveView(tx);
         const isIncomeTx = tx.type === 'pendapatan' || transferFlow === 'income';
@@ -179,17 +183,19 @@ const Statistics: React.FC = () => {
 
         if (isIncomeTx) {
           thisMonthInc += tx.amount;
-          if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === tx.category) {
+          const catId = tx.categoryId || (tx as any).category;
+          if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === catId) {
             incBySubCategory[subKey] = (incBySubCategory[subKey] || 0) + tx.amount;
           }
-          incByCategory[tx.category] = (incByCategory[tx.category] || 0) + tx.amount;
+          incByCategory[catId] = (incByCategory[catId] || 0) + tx.amount;
         }
         if (isExpenseTx) {
           thisMonthExp += tx.amount;
-          if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === tx.category) {
+          const catId = tx.categoryId || (tx as any).category;
+          if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === catId) {
             expBySubCategory[subKey] = (expBySubCategory[subKey] || 0) + tx.amount;
           }
-          expByCategory[tx.category] = (expByCategory[tx.category] || 0) + tx.amount;
+          expByCategory[catId] = (expByCategory[catId] || 0) + tx.amount;
         }
 
         // Insight tracking
@@ -200,7 +206,7 @@ const Statistics: React.FC = () => {
           dailySpending[tx.date] = (dailySpending[tx.date] || 0) + tx.amount;
           // Biggest single expense
           if (!biggestExpenseTx || tx.amount > biggestExpenseTx.amount) {
-            biggestExpenseTx = { note: tx.note || tx.category, amount: tx.amount, category: tx.category };
+            biggestExpenseTx = { note: tx.note || catName, amount: tx.amount, category: catName };
           }
         }
         if (isIncomeTx) {
@@ -224,13 +230,15 @@ const Statistics: React.FC = () => {
       });
     });
 
+    const resolveCatName = (idOrName: string) => categories.find(c => c.id === idOrName)?.name || idOrName;
+
     const expenseData = drillDownCategory?.type === 'pengeluaran'
-      ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })).sort((a, b) => b.value - a.value)
-      : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a, b) => b.value - a.value);
+      ? Object.keys(expBySubCategory).map(key => ({ id: key, name: resolveCatName(key), value: expBySubCategory[key] })).sort((a, b) => b.value - a.value)
+      : Object.keys(expByCategory).map(key => ({ id: key, name: resolveCatName(key), value: expByCategory[key] })).sort((a, b) => b.value - a.value);
 
     const incomeData = drillDownCategory?.type === 'pendapatan'
-      ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] })).sort((a, b) => b.value - a.value)
-      : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a, b) => b.value - a.value);
+      ? Object.keys(incBySubCategory).map(key => ({ id: key, name: resolveCatName(key), value: incBySubCategory[key] })).sort((a, b) => b.value - a.value)
+      : Object.keys(incByCategory).map(key => ({ id: key, name: resolveCatName(key), value: incByCategory[key] })).sort((a, b) => b.value - a.value);
 
     // Prepare the list for the bottom section
     let allCategories: { id: string, category: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
@@ -253,12 +261,12 @@ const Statistics: React.FC = () => {
     } else {
       allCategories = [
         ...expenseData.map((d, i) => ({
-          id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const,
+          id: `exp-${d.id || d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const,
           color: COLORS[i % COLORS.length],
           colorIndex: i % COLORS.length
         })),
         ...incomeData.map((d, i) => ({
-          id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const,
+          id: `inc-${d.id || d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const,
           color: COLORS[(i + 3) % COLORS.length],
           colorIndex: (i + 3) % COLORS.length
         }))
@@ -351,7 +359,7 @@ const Statistics: React.FC = () => {
         cells: mo.cells.map(c => ({ ...c, level: c.amount === 0 ? 0 : Math.ceil((c.amount / maxVal) * 4) }))
       }));
     }
-  }, [transactions, assets, viewDate, drillDownCategory, activeViewId]);
+  }, [transactions, assets, viewDate, drillDownCategory, activeViewId, categories]);
 
   const scaledDailyChart = useMemo(() => {
     if (chartScale === 'log') {
@@ -1665,14 +1673,18 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     else if (debtRatio < 50) debtScore = 5;
 
     const currentMonth = last6Months[last6Months.length - 1];
-    const activeBudgets = budgets.filter(b => b.month === currentMonth.month + 1 && b.year === currentMonth.year);
+    const activeBudgets = budgets.filter(b => {
+      if (b.month !== currentMonth.month + 1 || b.year !== currentMonth.year) return false;
+      // Jangan filter isDeleted agar histori budget tetap dihitung dalam skor kepatuhan
+      return true;
+    });
     let adherenceRate = 100;
     if (activeBudgets.length > 0) {
       const withinBudgetCount = activeBudgets.filter(b => {
         const cat = categories.find(c => c.id === b.categoryId);
         if (!cat) return true;
         const spent = transactions
-          .filter(tx => tx.type === 'pengeluaran' && tx.category === cat.name && new Date(tx.date).getMonth() === currentMonth.month)
+          .filter(tx => tx.type === 'pengeluaran' && (tx.categoryId === cat.id || (!tx.categoryId && (tx as any).category === cat.name)) && new Date(tx.date).getMonth() === currentMonth.month)
           .reduce((sum, tx) => sum + tx.amount, 0);
         return spent <= b.limit;
       }).length;
@@ -1945,8 +1957,11 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         map.total += tx.amount;
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+        let cat = tx.categoryId ? categories.find(c => c.id === tx.categoryId) : undefined;
+        if (!cat && (tx as any).category) {
+          cat = categories.find(c => c.name === (tx as any).category && c.type === 'pengeluaran' && !c.isDeleted) ||
+                categories.find(c => c.name === (tx as any).category && c.type === 'pengeluaran');
+        }
         if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
       }
     });
@@ -1955,7 +1970,10 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
 
   const currentMonthBudgets = budgets.filter(b => b.month === selectedMonth && b.year === selectedYear);
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
-  const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
+  const categoryBudgets = currentMonthBudgets.filter(b => {
+    if (b.categoryId === null) return false;
+    return true; // Jangan filter isDeleted agar histori budget tetap terlihat
+  });
 
   const totalBudgeted = useMemo(() =>
     categoryBudgets.reduce((sum, b) => sum + b.limit, 0),

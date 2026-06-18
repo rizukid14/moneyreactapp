@@ -183,7 +183,7 @@ export async function parseExcelFile(
       const toAsset   = assets.find(a => !a.isDeleted && a.name.toLowerCase() === toName.toLowerCase());
       if (!fromAsset) { errors.push(`Baris ${rowNum}: Aset "${fromName}" tidak ditemukan.`); skipped++; continue; }
       if (!toAsset)   { errors.push(`Baris ${rowNum}: Aset "${toName}" tidak ditemukan.`); skipped++; continue; }
-      rows.push({ type: 'transfer', amount, category: 'Transfer', date: dateStr, note, fromAssetId: fromAsset.id, toAssetId: toAsset.id });
+      rows.push({ type: 'transfer', amount, date: dateStr, note, fromAssetId: fromAsset.id, toAssetId: toAsset.id });
     } else {
       const cat = categories.find(c => c.type === type && c.name.toLowerCase() === catName.toLowerCase() && !c.isDeleted) ||
                   categories.find(c => c.type === type && c.name.toLowerCase() === catName.toLowerCase());
@@ -194,8 +194,8 @@ export async function parseExcelFile(
       rows.push({
         type,
         amount,
-        category: cat.name,
-        subCategory: subCat ? subCat.name : (subName || undefined),
+        categoryId: cat.id,
+        subCategoryId: subCat ? subCat.id : undefined,
         date: dateStr,
         note,
         assetId: asset.id,

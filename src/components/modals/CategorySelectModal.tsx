@@ -11,11 +11,12 @@ interface CategorySelectModalProps {
   type: 'pengeluaran' | 'pendapatan';
   initialCategory?: string;
   initialSubCategory?: string;
-  onSelect: (category: string, subCategory: string) => void;
+  onSelect: (category: string, subCategory: string, categoryId?: string, subCategoryId?: string) => void;
+  allowDeleted?: boolean;
 }
 
 const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
-  isOpen, onClose, categories, type, initialCategory, initialSubCategory, onSelect
+  isOpen, onClose, categories, type, initialCategory, initialSubCategory, onSelect, allowDeleted = false
 }) => {
   const { addCategory, updateCategory, addSubCategory } = useMoney();
   const [activeCategory, setActiveCategory] = useState<string>('');
@@ -25,12 +26,14 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   // Filter and sort main categories alphabetically
   const sortedCategories = useMemo(() => {
     const activeNames = new Set(
-      categories.filter(c => c.type === type && !c.isDeleted).map(c => c.name.toLowerCase())
+      categories.filter(c => c.type === type && !c.isDeleted).map(c => c.name.trim().toLowerCase())
     );
+
+    const initialCatClean = initialCategory?.trim().toLowerCase();
 
     let result = [...categories].filter(c => 
       c.type === type && 
-      (!c.isDeleted || (c.name === initialCategory && !activeNames.has(c.name.toLowerCase())))
+      (!c.isDeleted || (allowDeleted && c.name.trim().toLowerCase() === initialCatClean && !activeNames.has(c.name.trim().toLowerCase())))
     );
     
     if (searchQuery.trim()) {
@@ -42,12 +45,14 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
     }
     
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [categories, type, searchQuery, initialCategory]);
+  }, [categories, type, searchQuery, initialCategory, allowDeleted]);
 
   useEffect(() => {
     if (isOpen) {
-      if (initialCategory && sortedCategories.some(c => c.name === initialCategory)) {
-        setActiveCategory(initialCategory);
+      const initialCatClean = initialCategory?.trim().toLowerCase();
+      const matched = initialCatClean ? sortedCategories.find(c => c.name.trim().toLowerCase() === initialCatClean) : null;
+      if (matched) {
+        setActiveCategory(matched.name);
       } else if (sortedCategories.length > 0) {
         setActiveCategory(sortedCategories[0].name);
       }
@@ -55,7 +60,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   }, [isOpen, initialCategory, sortedCategories]);
 
   const activeCategoryObj = useMemo(() => {
-    return sortedCategories.find(c => c.name === activeCategory);
+    return sortedCategories.find(c => c.name.trim().toLowerCase() === activeCategory.trim().toLowerCase());
   }, [activeCategory, sortedCategories]);
 
   // Sort subcategories alphabetically
@@ -63,11 +68,13 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
     if (!activeCategoryObj || !activeCategoryObj.subcategories) return [];
     
     const activeSubNames = new Set(
-      activeCategoryObj.subcategories.filter(s => !s.isDeleted).map(s => s.name.toLowerCase())
+      activeCategoryObj.subcategories.filter(s => !s.isDeleted).map(s => s.name.trim().toLowerCase())
     );
 
+    const initialSubCatClean = initialSubCategory?.trim().toLowerCase();
+
     let result = [...activeCategoryObj.subcategories].filter(s => 
-      !s.isDeleted || (s.name === initialSubCategory && !activeSubNames.has(s.name.toLowerCase()))
+      !s.isDeleted || (allowDeleted && s.name.trim().toLowerCase() === initialSubCatClean && !activeSubNames.has(s.name.trim().toLowerCase()))
     );
     
     if (searchQuery.trim()) {
@@ -76,19 +83,19 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
     }
     
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeCategoryObj, searchQuery, initialSubCategory]);
+  }, [activeCategoryObj, searchQuery, initialSubCategory, allowDeleted]);
 
   const handleCategoryClick = (catName: string) => {
     setActiveCategory(catName);
   };
 
-  const handleSubCategoryClick = (subName: string) => {
-    onSelect(activeCategory, subName);
+  const handleSubCategoryClick = (sub?: { id: string, name: string }) => {
+    onSelect(activeCategory, sub?.name || '', activeCategoryObj?.id, sub?.id);
     onClose();
   };
 
   const handleConfirmMainCategoryOnly = () => {
-    onSelect(activeCategory, '');
+    onSelect(activeCategory, '', activeCategoryObj?.id);
     onClose();
   };
 
@@ -256,7 +263,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                   ) : (
                     <>
                       <button
-                        onClick={() => handleSubCategoryClick('')}
+                        onClick={() => handleSubCategoryClick(undefined)}
                         style={{
                           width: '100%', padding: '14px 20px', background: 'transparent',
                           border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -274,7 +281,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                         return (
                           <button
                             key={sub.id}
-                            onClick={() => handleSubCategoryClick(sub.name)}
+                            onClick={() => handleSubCategoryClick(sub)}
                             style={{
                               width: '100%', padding: '14px 20px', background: 'transparent',
                               border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between',

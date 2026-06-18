@@ -90,7 +90,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
           addTransaction({
             type: difference > 0 ? 'pendapatan' : 'pengeluaran',
             amount: Math.abs(difference),
-            category: 'Koreksi Saldo',
+            
             date: getLocalDate(),
             note: 'Penyesuaian saldo manual',
             assetId: editingAsset.id

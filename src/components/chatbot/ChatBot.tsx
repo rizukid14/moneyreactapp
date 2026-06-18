@@ -35,7 +35,7 @@ const ChatBot: React.FC = () => {
   // States for custom selection modals
   const [activeSelectCategoryMsgIdx, setActiveSelectCategoryMsgIdx] = useState<number | null>(null);
   const [categoryModalType, setCategoryModalType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
-  const [categorySelectCallback, setCategorySelectCallback] = useState<((categoryName: string, subCategoryName: string) => void) | null>(null);
+  const [categorySelectCallback, setCategorySelectCallback] = useState<((categoryName: string, subCategoryName: string, categoryId: string, subCategoryId: string) => void) | null>(null);
   
   const [activeSelectAssetMsgIdx, setActiveSelectAssetMsgIdx] = useState<number | null>(null);
   const [assetSelectCallback, setAssetSelectCallback] = useState<((assetId: string) => void) | null>(null);
@@ -146,7 +146,7 @@ const ChatBot: React.FC = () => {
             .map(t => ({
               type: t.type,
               amount: t.amount,
-              category: t.category,
+              category: t.categoryId ? categories.find(c => c.id === t.categoryId)?.name : (t as any).category,
               note: t.note,
               date: t.date
             })),
@@ -154,7 +154,7 @@ const ChatBot: React.FC = () => {
           recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
             type: rt.type,
             amount: rt.amount,
-            category: rt.category,
+            category: rt.categoryId ? categories.find(c => c.id === rt.categoryId)?.name : (rt as any).category,
             frequency: rt.frequency,
             startDate: rt.startDate,
             note: rt.note
@@ -248,7 +248,7 @@ const ChatBot: React.FC = () => {
             .map(t => ({
               type: t.type,
               amount: t.amount,
-              category: t.category,
+              category: t.categoryId ? categories.find(c => c.id === t.categoryId)?.name : (t as any).category,
               note: t.note,
               date: t.date
             })),
@@ -256,7 +256,7 @@ const ChatBot: React.FC = () => {
           recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
             type: rt.type,
             amount: rt.amount,
-            category: rt.category,
+            category: rt.categoryId ? categories.find(c => c.id === rt.categoryId)?.name : (rt as any).category,
             frequency: rt.frequency,
             startDate: rt.startDate,
             note: rt.note
@@ -371,7 +371,7 @@ const ChatBot: React.FC = () => {
           amount: Number(toolArgs.amount),
           date: toolArgs.date || getLocalDate(),
           note: toolArgs.note || 'Transfer via AI Chat',
-          category: 'Transfer',
+          categoryId: categories.find(c => c.name === 'Transfer')?.id,
           fromAssetId: fromId,
           toAssetId: toId,
         });
@@ -380,8 +380,8 @@ const ChatBot: React.FC = () => {
           const feeAssetId = toolArgs.adminFeeTarget === 'receiver' ? toId : fromId;
           addTransaction({
             type: 'pengeluaran',
-            amount: Number(toolArgs.adminFee),
-            category: 'Biaya Admin',
+            amount: toolArgs.fee,
+            categoryId: categories.find(c => c.name === 'Biaya Admin' && c.type === 'pengeluaran')?.id,
             date: toolArgs.date || getLocalDate(),
             note: `Biaya admin transfer`,
             assetId: feeAssetId,
@@ -392,8 +392,8 @@ const ChatBot: React.FC = () => {
         addTransaction({
           type: toolArgs.type,
           amount: Number(toolArgs.amount),
-          category: toolArgs.category,
-          subCategory: toolArgs.subCategory || undefined,
+          categoryId: toolArgs.categoryId,
+          subCategoryId: toolArgs.subCategoryId || undefined,
           assetId: toolArgs.assetId,
           note: toolArgs.note || 'Dari AI Chat',
           date: toolArgs.date || getLocalDate(),
@@ -565,7 +565,7 @@ const ChatBot: React.FC = () => {
         amount: Number(toolArgs.amount),
         billingCycle: toolArgs.billingCycle,
         nextBillingDate: toolArgs.nextBillingDate || getLocalDate(),
-        category: toolArgs.category,
+        categoryId: categories.find(c => c.name.toLowerCase() === toolArgs.category.toLowerCase() && c.type === 'pengeluaran')?.id,
         assetId: toolArgs.assetId,
         isActive: true,
         note: toolArgs.note || ''
@@ -598,7 +598,6 @@ const ChatBot: React.FC = () => {
         amount: Number(tf.amount),
         date: getLocalDate(),
         note: tf.reason || `Transfer Rekomendasi AI`,
-        category: 'Transfer',
         fromAssetId: tf.fromAssetId,
         toAssetId: tf.toAssetId,
       });
@@ -630,7 +629,7 @@ const ChatBot: React.FC = () => {
       addRecurringTransaction({
         type: rt.type,
         amount: Number(rt.amount),
-        category: rt.category,
+        categoryId: rt.categoryId,
         note: rt.note,
         frequency: rt.frequency,
         startDate: getLocalDate(),
@@ -793,9 +792,11 @@ const ChatBot: React.FC = () => {
                                   setActiveSelectCategoryMsgIdx(idx);
                                   const flowType = msg.toolCall?.arguments?.type === 'pendapatan' ? 'pendapatan' : 'pengeluaran';
                                   setCategoryModalType(flowType);
-                                  setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
+                                  setCategorySelectCallback(() => (categoryName: string, subCategoryName: string, categoryId: string, subCategoryId: string) => {
                                     handleUpdateDraftField(idx, 'category', categoryName);
                                     handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                    handleUpdateDraftField(idx, 'categoryId', categoryId);
+                                    handleUpdateDraftField(idx, 'subCategoryId', subCategoryId);
                                   });
                                 }}
                                 style={{
@@ -2042,9 +2043,9 @@ const ChatBot: React.FC = () => {
           }}
           categories={categories}
           type={categoryModalType}
-          onSelect={(categoryName, subCategoryName) => {
+          onSelect={(categoryName, subCategoryName, categoryId, subCategoryId) => {
             if (categorySelectCallback) {
-              categorySelectCallback(categoryName, subCategoryName);
+              categorySelectCallback(categoryName, subCategoryName || '', categoryId || '', subCategoryId || '');
             }
           }}
         />
