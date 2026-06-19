@@ -601,8 +601,6 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
         <div
           style={{
-            maxHeight: splitMethod === 'items' ? 200 : 300,
-            overflowY: 'auto',
             marginBottom: 16,
             paddingRight: 8,
             marginRight: -8,
@@ -779,7 +777,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                 <MaterialIcon name="add" /> Tambah Item
               </button>
             </div>
-            <div style={{ maxHeight: 250, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }} className="custom-scrollbar">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} className="custom-scrollbar">
               {localLineItems.length === 0 ? (
                 <div style={{ padding: '20px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: 12, color: 'var(--text-muted)', fontSize: 12 }}>
                   Belum ada item. Klik "Tambah Item" untuk memulai.

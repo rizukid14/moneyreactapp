@@ -448,76 +448,64 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         title={editingTransaction && !isCopyMode ? 'Edit Transaksi' : isCopyMode ? 'Salin Transaksi' : 'Tambah Transaksi'}
         data-testid="transaction-modal"
       >
-
-              {assets.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--danger)' }}>
-                  Anda belum memiliki Rekening/Dompet! Silakan buka tab <strong>Aset</strong> dan tambahkan akun terlebih dahulu.
-                </div>
-              ) : (
-                <form onSubmit={handleSave}>
+        {assets.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--danger)' }}>
+            Anda belum memiliki Rekening/Dompet! Silakan buka tab <strong>Aset</strong> dan tambahkan akun terlebih dahulu.
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="flex flex-col gap-4">
                   {['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(type) ? (
-                    <div style={{ padding: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '16px', textAlign: 'center', fontWeight: 700, color: 'var(--text-main)' }}>
+                    <div style={{ padding: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', borderRadius: '8px', textAlign: 'center', fontWeight: 700, color: 'var(--text-main)' }}>
                       Tipe: {type === 'piutang_keluar' ? 'Memberi Pinjaman' : type === 'piutang_masuk' ? 'Pelunasan Piutang' : type === 'hutang_masuk' ? 'Terima Pinjaman' : 'Bayar Hutang'}
                     </div>
                   ) : (
-                    <div style={{ marginBottom: '16px' }}>
-                      <TabBar
-                        activeTabId={type}
-                        onChange={(id) => setType(id as any)}
-                        tabs={[
-                          { id: 'pengeluaran', label: 'Pengeluaran', 'data-testid': 'tx-type-pengeluaran' },
-                          { id: 'pendapatan', label: 'Pendapatan', 'data-testid': 'tx-type-pendapatan' },
-                          { id: 'transfer', label: 'Transfer', 'data-testid': 'tx-type-transfer' }
-                        ]}
-                      />
-                    </div>
+                    <TabBar
+                      activeTabId={type}
+                      onChange={(id) => setType(id as any)}
+                      tabs={[
+                        { id: 'pengeluaran', label: 'Pengeluaran', 'data-testid': 'tx-type-pengeluaran' },
+                        { id: 'pendapatan', label: 'Pendapatan', 'data-testid': 'tx-type-pendapatan' },
+                        { id: 'transfer', label: 'Transfer', 'data-testid': 'tx-type-transfer' }
+                      ]}
+                    />
                   )}
 
                   {!editingTransaction && mergedPresets.length > 0 && (
-                    <div style={{ marginBottom: '12px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.04em' }}>
-                        Preset Kebiasaan
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="custom-scrollbar">
+                    <details className="group border border-outline-variant/60 rounded-2xl p-3.5 bg-surface-container-low transition-all" open>
+                      <summary className="flex justify-between items-center font-bold text-[11px] text-on-surface-variant uppercase tracking-wider cursor-pointer list-none select-none">
+                        <span>Preset Kebiasaan</span>
+                        <span className="material-symbols-outlined text-sm transition-transform group-open:rotate-180">expand_more</span>
+                      </summary>
+                      <div className="mt-3 flex gap-2 overflow-x-auto pb-1.5 custom-scrollbar">
                         {mergedPresets.map(preset => {
                           const pinned = isPinned(preset);
                           return (
                             <div
                               key={preset.id}
-                              style={{
-                                flexShrink: 0,
-                                border: `1px solid ${pinned ? 'var(--primary)' : 'var(--border-color)'}`,
-                                borderRadius: '10px',
-                                background: pinned ? 'var(--bg-income)' : 'var(--bg-card)',
-                                padding: '8px 10px',
-                                minWidth: '160px'
-                              }}
+                              className={`flex-shrink-0 rounded-xl p-2.5 min-w-[150px] border transition-all ${
+                                pinned 
+                                  ? 'border-primary bg-primary-container/20' 
+                                  : 'border-outline-variant/60 bg-bg-card'
+                              }`}
                             >
                               <button
                                 type="button"
                                 onClick={() => applyHabitPreset(preset)}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', padding: 0 }}
+                                className="bg-transparent border-none cursor-pointer text-left w-full p-0 flex flex-col gap-0.5"
                               >
-                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <div className="text-xs font-bold text-on-surface truncate">
                                   {preset.label}
                                 </div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                <div className="text-[10px] text-on-surface-variant font-medium">
                                   {currencySymbol}{preset.amount.toLocaleString('id-ID')}
                                 </div>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => togglePin(preset)}
-                                style={{
-                                  marginTop: '6px',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: pinned ? 'var(--primary)' : 'var(--text-muted)',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  padding: 0
-                                }}
+                                className={`mt-2 bg-transparent border-none text-[10px] font-bold cursor-pointer p-0 transition-colors ${
+                                  pinned ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
+                                }`}
                               >
                                 {pinned ? 'Unpin' : 'Pin'}
                               </button>
@@ -525,11 +513,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           );
                         })}
                       </div>
-                    </div>
+                    </details>
                   )}
 
-                  <div key={type} style={{ animation: 'fadeIn 0.15s ease-out' }}>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <div key={type} className="flex flex-col gap-4 animate-in fade-in duration-150">
+                    <div className="flex gap-2">
                       <CurrencyInput
                         data-testid="tx-amount-input"
                         ref={amountRef}
@@ -564,7 +552,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
                             border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            marginBottom: '16px', cursor: 'pointer', color: categoryId ? 'var(--text-main)' : 'var(--text-muted)'
+                            cursor: 'pointer', color: categoryId ? 'var(--text-main)' : 'var(--text-muted)'
                           }}
                           data-tour="modal-category"
                         >
@@ -593,14 +581,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               type="button"
                               data-testid="tx-asset-select"
                               onClick={() => {
-                            setAssetSelectingField('assetId');
-                            setIsAssetModalOpen(true);
-                          }}
+                                setAssetSelectingField('assetId');
+                                setIsAssetModalOpen(true);
+                              }}
                               style={{
                                 width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
                                 border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                marginBottom: '16px', cursor: 'pointer', color: selectedAsset ? 'var(--text-main)' : 'var(--text-muted)'
+                                cursor: 'pointer', color: selectedAsset ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
                               data-tour="modal-asset"
                             >
@@ -615,10 +603,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           );
                         })()}
 
-                        {/* Goal Selector (for pendapatan / pengeluaran) */}
+                        {/* Goal Selector */}
                         {goals.length > 0 && (
-                          <div style={{ marginBottom: '16px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block', letterSpacing: '0.04em' }}>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
                               Hubungkan ke Tabungan (Opsional)
                             </label>
                             <button
@@ -644,149 +632,153 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       </>
                     ) : (
                       <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                        {/* From Asset Button */}
-                        {(() => {
-                          const asset = assets.find(a => a.id === fromAssetId);
-                          return (
-                            <button
-                              type="button"
-                              data-testid="tx-from-asset-select"
-                              onClick={() => {
-                                setAssetSelectingField('fromAssetId');
-                                setIsAssetModalOpen(true);
-                              }}
-                              style={{
-                                flex: 1, padding: '12px 14px', background: 'var(--bg-card-solid)',
-                                border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
-                              }}
-                              data-tour="modal-asset"
-                            >
-                              <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {asset ? asset.name : '-- Dari --'}
-                              </span>
-                              <MaterialIcon name="chevron_right" />
-                            </button>
-                          );
-                        })()}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {/* From Asset Button */}
+                          {(() => {
+                            const asset = assets.find(a => a.id === fromAssetId);
+                            return (
+                              <button
+                                type="button"
+                                data-testid="tx-from-asset-select"
+                                onClick={() => {
+                                  setAssetSelectingField('fromAssetId');
+                                  setIsAssetModalOpen(true);
+                                }}
+                                style={{
+                                  flex: 1, padding: '12px 14px', background: 'var(--bg-card-solid)',
+                                  border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                  cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
+                                }}
+                                data-tour="modal-asset"
+                              >
+                                <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {asset ? asset.name : '-- Dari --'}
+                                </span>
+                                <MaterialIcon name="chevron_right" />
+                              </button>
+                            );
+                          })()}
 
-                        <MaterialIcon name="swap_horiz" />
+                          <MaterialIcon name="swap_horiz" />
 
-                        {/* To Asset Button */}
-                        {(() => {
-                          const asset = assets.find(a => a.id === toAssetId);
-                          return (
-                            <button
-                              type="button"
-                              data-testid="tx-to-asset-select"
-                              onClick={() => {
-                                setAssetSelectingField('toAssetId');
-                                setIsAssetModalOpen(true);
-                              }}
-                              style={{
-                                flex: 1, padding: '12px 14px', background: 'var(--bg-card-solid)',
-                                border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
-                              }}
-                              data-tour="modal-asset"
-                            >
-                              <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {asset ? asset.name : '-- Ke --'}
-                              </span>
-                              <MaterialIcon name="chevron_right" />
-                            </button>
-                          );
-                        })()}
-                      </div>
-
-                      {/* Goal Selector (within transfer) */}
-                      {goals.length > 0 && (
-                        <div style={{ marginBottom: '16px' }}>
-                          <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', display: 'block', letterSpacing: '0.04em' }}>
-                            Hubungkan ke Tabungan (Opsional)
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setIsGoalModalOpen(true)}
-                            style={{
-                              width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
-                              border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                              cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <MaterialIcon name="track_changes" className="text-[18px]" />
-                              <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
-                                {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
-                              </span>
-                            </div>
-                            <MaterialIcon name="chevron_right" className="text-[18px]" />
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Admin Fee Section */}
-                      <div style={{
-                        padding: '10px 12px', borderRadius: '10px',
-                        background: adminFee ? 'hsla(35, 90%, 55%, 0.08)' : 'var(--bg-main)',
-                        border: `1px solid ${adminFee ? 'hsla(35, 90%, 55%, 0.3)' : 'var(--border-color)'}`,
-                        marginBottom: '16px', transition: 'all 0.2s'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: adminFee ? '10px' : 0 }}>
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>Biaya Admin</span>
-                          <CurrencyInput
-                            placeholder="0"
-                            value={adminFee}
-                            onChange={setAdminFee}
-                            style={{
-                              width: '100px', fontSize: '13px', fontWeight: 700, textAlign: 'right',
-                              padding: '6px 10px', marginBottom: 0, borderRadius: '8px',
-                              border: '1px solid var(--border-color)', background: 'var(--bg-card-solid)'
-                            }}
-                          />
+                          {/* To Asset Button */}
+                          {(() => {
+                            const asset = assets.find(a => a.id === toAssetId);
+                            return (
+                              <button
+                                type="button"
+                                data-testid="tx-to-asset-select"
+                                onClick={() => {
+                                  setAssetSelectingField('toAssetId');
+                                  setIsAssetModalOpen(true);
+                                }}
+                                style={{
+                                  flex: 1, padding: '12px 14px', background: 'var(--bg-card-solid)',
+                                  border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                  cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
+                                }}
+                                data-tour="modal-asset"
+                              >
+                                <span style={{ fontSize: '13px', fontWeight: asset ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {asset ? asset.name : '-- Ke --'}
+                                </span>
+                                <MaterialIcon name="chevron_right" />
+                              </button>
+                            );
+                          })()}
                         </div>
 
-                        {adminFee && (
-                          <div style={{ display: 'flex', gap: '6px' }}>
+                        {/* Goal Selector (within transfer) */}
+                        {goals.length > 0 && (
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                              Hubungkan ke Tabungan (Opsional)
+                            </label>
                             <button
                               type="button"
-                              onClick={() => setAdminFeeTarget('sender')}
+                              onClick={() => setIsGoalModalOpen(true)}
                               style={{
-                                flex: 1, padding: '7px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
-                                border: `1.5px solid ${adminFeeTarget === 'sender' ? 'var(--secondary)' : 'var(--border-color)'}`,
-                                background: adminFeeTarget === 'sender' ? 'var(--bg-expense)' : 'var(--bg-card)',
-                                color: adminFeeTarget === 'sender' ? 'var(--secondary)' : 'var(--text-muted)',
-                                cursor: 'pointer', transition: 'all 0.15s'
+                                width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
+                                border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
-                            >Pengirim</button>
-                            <button
-                              type="button"
-                              onClick={() => setAdminFeeTarget('receiver')}
-                              style={{
-                                flex: 1, padding: '7px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
-                                border: `1.5px solid ${adminFeeTarget === 'receiver' ? 'var(--secondary)' : 'var(--border-color)'}`,
-                                background: adminFeeTarget === 'receiver' ? 'var(--bg-expense)' : 'var(--bg-card)',
-                                color: adminFeeTarget === 'receiver' ? 'var(--secondary)' : 'var(--text-muted)',
-                                cursor: 'pointer', transition: 'all 0.15s'
-                              }}
-                            >Penerima</button>
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <MaterialIcon name="track_changes" className="text-[18px]" />
+                                <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
+                                  {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
+                                </span>
+                              </div>
+                              <MaterialIcon name="chevron_right" className="text-[18px]" />
+                            </button>
                           </div>
                         )}
-                      </div>
+
+                        {/* Admin Fee Section */}
+                        <div style={{
+                          padding: '10px 12px', borderRadius: '10px',
+                          background: adminFee ? 'hsla(35, 90%, 55%, 0.08)' : 'var(--bg-main)',
+                          border: `1px solid ${adminFee ? 'hsla(35, 90%, 55%, 0.3)' : 'var(--border-color)'}`,
+                          transition: 'all 0.2s'
+                        }} className="flex flex-col gap-2">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: adminFee ? '4px' : 0 }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', flex: 1 }}>Biaya Admin</span>
+                            <CurrencyInput
+                              placeholder="0"
+                              value={adminFee}
+                              onChange={setAdminFee}
+                              style={{
+                                width: '100px', fontSize: '13px', fontWeight: 700, textAlign: 'right',
+                                padding: '6px 10px', marginBottom: 0, borderRadius: '8px',
+                                border: '1px solid var(--border-color)', background: 'var(--bg-card-solid)'
+                              }}
+                            />
+                          </div>
+
+                          {adminFee && (
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={() => setAdminFeeTarget('sender')}
+                                style={{
+                                  flex: 1, padding: '7px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
+                                  border: `1.5px solid ${adminFeeTarget === 'sender' ? 'var(--secondary)' : 'var(--border-color)'}`,
+                                  background: adminFeeTarget === 'sender' ? 'var(--bg-expense)' : 'var(--bg-card)',
+                                  color: adminFeeTarget === 'sender' ? 'var(--secondary)' : 'var(--text-muted)',
+                                  cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                              >Pengirim</button>
+                              <button
+                                type="button"
+                                onClick={() => setAdminFeeTarget('receiver')}
+                                style={{
+                                  flex: 1, padding: '7px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
+                                  border: `1.5px solid ${adminFeeTarget === 'receiver' ? 'var(--secondary)' : 'var(--border-color)'}`,
+                                  background: adminFeeTarget === 'receiver' ? 'var(--bg-expense)' : 'var(--bg-card)',
+                                  color: adminFeeTarget === 'receiver' ? 'var(--secondary)' : 'var(--text-muted)',
+                                  cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                              >Penerima</button>
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', marginBottom: '16px' }}>
-                      <Input data-testid="tx-date-input" type="date" required value={date} onChange={e => setDate(e.target.value)} />
-                      <Input type="time" required value={time} onChange={e => setTime(e.target.value)} />
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input data-testid="tx-date-input" type="date" required value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0 }} />
+                      </div>
+                      <div className="w-[110px]">
+                        <Input type="time" required value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
+                      </div>
                     </div>
-                    <Input data-testid="tx-note-input" type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} data-tour="modal-note" />
+                    <Input data-testid="tx-note-input" type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} data-tour="modal-note" style={{ marginBottom: 0 }} />
                     
-                    <div style={{ marginBottom: '16px' }}>
+                    <div className="flex flex-col gap-1.5">
                       <textarea
                         placeholder="Detail item / Catatan tambahan..."
                         value={description}
@@ -802,18 +794,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           fontSize: '13px',
                           resize: 'vertical',
                           outline: 'none',
-                          marginTop: '4px'
                         }}
                       />
                     </div>
 
                     {!editingTransaction && (
                       <div style={{
-                        margin: '12px 0', padding: '12px', borderRadius: '12px',
+                        padding: '12px', borderRadius: '12px',
                         background: isRecurring ? 'hsla(152,70%,42%,0.08)' : 'var(--bg-main)',
                         border: `1px solid ${isRecurring ? 'var(--primary)' : 'var(--border-color)'}`,
                         transition: 'all 0.2s'
-                      }}>
+                      }} className="flex flex-col gap-2">
                         <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <MaterialIcon name="swap_horiz" />
@@ -828,7 +819,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         </label>
 
                         {isRecurring && (
-                          <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                             <div>
                               <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Frekuensi</label>
                               <div style={{ display: 'flex', background: 'var(--bg-card-solid)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)', minWidth: '130px' }}>
@@ -894,53 +885,54 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         </div>
                       </div>
                     )}
-                  <div style={{ paddingTop: 12, paddingBottom: 4 }}>
-                  {!editingTransaction || isCopyMode ? (
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <Button
-                        type="submit"
-                        variant="outline"
-                        data-testid="tx-submit-continue-btn"
-                        onClick={() => { submitActionRef.current = 'continue'; }}
-                        fullWidth
-                      >
-                        Simpan & Lanjut
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
-                        data-testid="tx-submit-btn"
-                        onClick={() => { submitActionRef.current = 'close'; }}
-                        fullWidth
-                      >
-                        {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {deleteTransaction && (
-                        <Button
-                          type="button"
-                          variant="danger"
-                          data-testid="tx-delete-btn"
-                          onClick={() => setIsDeleteConfirmOpen(true)}
-                          fullWidth
-                        >
-                          Hapus Transaksi
-                        </Button>
+
+                    <div className="pt-2">
+                      {!editingTransaction || isCopyMode ? (
+                        <div className="flex gap-2">
+                          <Button
+                            type="submit"
+                            variant="outline"
+                            data-testid="tx-submit-continue-btn"
+                            onClick={() => { submitActionRef.current = 'continue'; }}
+                            fullWidth
+                          >
+                            Simpan & Lanjut
+                          </Button>
+                          <Button
+                            type="submit"
+                            variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
+                            data-testid="tx-submit-btn"
+                            onClick={() => { submitActionRef.current = 'close'; }}
+                            fullWidth
+                          >
+                            {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          {deleteTransaction && (
+                            <Button
+                              type="button"
+                              variant="danger"
+                              data-testid="tx-delete-btn"
+                              onClick={() => setIsDeleteConfirmOpen(true)}
+                              fullWidth
+                            >
+                              Hapus Transaksi
+                            </Button>
+                          )}
+                          <Button
+                            type="submit"
+                            variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
+                            data-testid="tx-submit-btn"
+                            onClick={() => { submitActionRef.current = 'close'; }}
+                            fullWidth
+                          >
+                            Simpan Perubahan
+                          </Button>
+                        </div>
                       )}
-                      <Button
-                        type="submit"
-                        variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
-                        data-testid="tx-submit-btn"
-                        onClick={() => { submitActionRef.current = 'close'; }}
-                        fullWidth
-                      >
-                        Simpan Perubahan
-                      </Button>
                     </div>
-                  )}
-                  </div>
                   </div>
                 </form>
               )}

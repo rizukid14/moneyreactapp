@@ -91,7 +91,7 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
       >
               <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, margin: '0 0 24px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Manage your active shares</p>
 
-              <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
+              <div style={{ paddingRight: '4px' }}>
                 {loading ? (
                   <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
                     <MaterialIcon name="autorenew"   className="animate-spin" />

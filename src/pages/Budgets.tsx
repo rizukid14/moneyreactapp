@@ -3,6 +3,7 @@ import { useMoney } from '../contexts/MoneyContext';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { formatCurrency } from '../lib/utils';
 import TransactionItem from '../components/transactions/TransactionItem';
+import { useToast } from '../components/common/Toast';
 
 const Budgets: React.FC = () => {
   const { 
@@ -15,6 +16,8 @@ const Budgets: React.FC = () => {
     startOfMonthDay,
     budgetMode,
   } = useMoney();
+
+  const { showToast } = useToast();
 
   // Basic View Date State
   const [viewDate, setViewDate] = useState(new Date());
@@ -165,7 +168,7 @@ const Budgets: React.FC = () => {
           </div>
         </div>
         
-        <div className="md:col-span-4 bg-primary text-on-primary p-6 rounded-xl shadow-lg flex flex-col justify-between items-center text-center transition-transform hover:scale-[1.02] cursor-pointer" onClick={() => alert('Fitur Realokasi Dana Segera Hadir!')}>
+        <div className="md:col-span-4 bg-primary text-on-primary p-6 rounded-xl shadow-lg flex flex-col justify-between items-center text-center transition-transform hover:scale-[1.02] cursor-pointer" onClick={() => showToast('Fitur Realokasi Dana Segera Hadir!', 'info')}>
           <MaterialIcon name="swap_horizontal_circle" className="text-4xl mb-2" />
           <h3 className="font-headline-md text-headline-md">Pindahkan Dana</h3>
           <p className="font-body-md text-body-md opacity-90 mb-4">Realokasi dana antar amplop dengan mudah.</p>
@@ -184,7 +187,7 @@ const Budgets: React.FC = () => {
             <MaterialIcon name="folder_zip" className="text-primary" />
             {budgetMode === 'zero-based' ? 'Amplop Kategori' : 'Kategori Anggaran'}
           </h2>
-          <button className="flex items-center gap-2 text-primary font-bold font-label-md hover:underline" onClick={() => alert('Fitur Tambah Anggaran Segera Hadir!')}>
+          <button className="flex items-center gap-2 text-primary font-bold font-label-md hover:underline" onClick={() => showToast('Fitur Tambah Anggaran Segera Hadir!', 'info')}>
             <MaterialIcon name="add_circle" />
             {budgetMode === 'zero-based' ? 'Tambah Amplop' : 'Tambah Anggaran'}
           </button>
@@ -246,7 +249,7 @@ const Budgets: React.FC = () => {
                     <div className={`h-full rounded-full transition-all duration-500 ${isOverbudget ? 'bg-error' : percentUsed > 80 ? 'bg-warning' : 'bg-emerald-500'}`} style={{ width: `${percentUsed}%` }}></div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <p className="text-[10px] uppercase font-bold text-on-surface-variant">Terpakai</p>
                       <p className="font-label-md font-bold text-on-surface">{fmt(spent)}</p>
@@ -304,8 +307,8 @@ const Budgets: React.FC = () => {
                   assetName={assets.find(a => a.id === tx.assetId)?.name}
                   fromAssetName={assets.find(a => a.id === tx.fromAssetId)?.name}
                   toAssetName={assets.find(a => a.id === tx.toAssetId)?.name}
-                  onDelete={() => alert('Buka menu Transaksi untuk menghapus')}
-                  onEdit={() => alert('Buka menu Transaksi untuk mengedit')}
+                  onDelete={() => showToast('Buka menu Transaksi untuk menghapus', 'warning')}
+                  onEdit={() => showToast('Buka menu Transaksi untuk mengedit', 'warning')}
                   showDate={true}
                 />
               ))

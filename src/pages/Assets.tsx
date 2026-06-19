@@ -5,6 +5,8 @@ import AssetModal from '../components/modals/AssetModal';
 import TransactionModal from '../components/modals/TransactionModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
+import { motion } from 'framer-motion';
+import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
 import type { CardId } from '../components/AssetSummaryCarousel';
 import OnboardingTutorial from '../components/OnboardingTutorial';
@@ -347,15 +349,157 @@ const AssetDetailDrawer: React.FC<{
   );
 };
 
+// ── Asset Card Component with Swipe Gesture ──────────────────────────────────
+const AssetCard: React.FC<{
+  asset: Asset;
+  balance: number;
+  isPrivateMode: boolean;
+  currencySymbol: string;
+  color: IconBlockColor;
+  Icon: string;
+  stats: { lastActive: string; income: number; expense: number; count: number };
+  onEdit: () => void;
+  onDelete: () => void;
+  onSelect: () => void;
+  isHidden?: boolean;
+}> = ({ asset, balance, isPrivateMode, currencySymbol, color, Icon, stats, onEdit, onDelete, onSelect, isHidden }) => {
+  const { dragProps, swipeOffset } = useSwipeGesture({
+    onSwipeLeft: onDelete,
+    onSwipeRight: onEdit,
+  });
+
+  const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
+  const displayBalance = isLiability ? Math.abs(balance) : balance;
+  const isBankLike = asset.type === 'Bank Account' || asset.type === 'Credit Card' || asset.type === 'eWallet';
+
+  return (
+    <div className="relative overflow-hidden rounded-[24px] w-full h-full">
+      {/* Swipe Action Backgrounds */}
+      <div className="absolute inset-0 flex justify-between items-center pointer-events-none rounded-[24px]">
+        <div 
+          className="h-full bg-secondary/15 flex items-center pl-6 text-secondary font-extrabold text-xs transition-opacity duration-150" 
+          style={{ opacity: swipeOffset > 20 ? 1 : 0 }}
+        >
+          <MaterialIcon name="edit" className="mr-1.5 text-base animate-pulse" />
+          Edit
+        </div>
+        <div 
+          className="h-full bg-error/15 flex items-center pr-6 text-error font-extrabold text-xs ml-auto transition-opacity duration-150" 
+          style={{ opacity: swipeOffset < -20 ? 1 : 0 }}
+        >
+          Hapus
+          <MaterialIcon name="delete" className="ml-1.5 text-base animate-pulse" />
+        </div>
+      </div>
+
+      <motion.div {...dragProps} className="relative z-10 h-full w-full">
+        <div
+          data-testid={`asset-card-${asset.id}`}
+          onClick={onSelect}
+          className={`relative overflow-hidden p-5 rounded-[24px] cursor-pointer group hover:-translate-y-1.5 transition-all duration-300 shadow-sm hover:shadow-xl border h-full ${
+            isHidden 
+              ? 'border-dashed border-outline-variant/50 opacity-60 hover:opacity-100' 
+              : 'border-white/40 dark:border-white/5'
+          } ${
+            isLiability 
+              ? isHidden 
+                ? 'bg-gradient-to-br from-error-container/40 to-error-container/10 dark:from-error/10 dark:to-error/5'
+                : 'bg-gradient-to-br from-error-container/80 to-error-container/20 dark:from-error/20 dark:to-error/5'
+              : color === 'primary' 
+                ? isHidden 
+                  ? 'bg-gradient-to-br from-primary-container/40 to-primary-container/10 dark:from-primary/10 dark:to-primary/5'
+                  : 'bg-gradient-to-br from-primary-container/80 to-primary-container/20 dark:from-primary/20 dark:to-primary/5'
+                : color === 'success'
+                  ? 'bg-gradient-to-br from-[#10b981]/10 to-[#10b981]/5 dark:from-[#10b981]/10 dark:to-[#10b981]/5'
+                  : 'bg-gradient-to-br from-surface-container to-surface-container-lowest'
+          }`}
+        >
+          {/* Decorative blur circle */}
+          <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-[24px] opacity-40 transition-opacity duration-500 group-hover:opacity-70 ${
+             isLiability ? 'bg-error' : color === 'primary' ? 'bg-primary' : color === 'success' ? 'bg-[#10b981]' : 'bg-outline-variant'
+          }`}></div>
+
+          {/* Decorative glass overlay */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent dark:from-white/5 pointer-events-none"></div>
+
+          <div className="relative z-10 h-full flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm backdrop-blur-md border border-white/50 dark:border-white/10 transition-transform duration-300 group-hover:scale-110
+                  ${color === 'primary' ? 'bg-white/60 text-primary dark:bg-black/20' : 
+                    color === 'error' ? 'bg-white/60 text-error dark:bg-black/20' : 
+                    color === 'success' ? 'bg-white/60 text-[#10b981] dark:bg-black/20' : 
+                    'bg-white/60 text-on-surface-variant dark:bg-black/20'}`}
+                >
+                  <MaterialIcon name={Icon} className="text-[20px]" />
+                </div>
+              </div>
+
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={e => { e.stopPropagation(); onEdit(); }} 
+                  className="p-1.5 text-on-surface-variant hover:text-primary bg-white/50 hover:bg-white/90 dark:bg-black/30 dark:hover:bg-black/60 backdrop-blur-sm rounded-full transition-colors shadow-sm"
+                >
+                  <MaterialIcon name="edit" className="text-[14px]" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <div className="flex justify-between items-end mb-1">
+                <div>
+                  <div className="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider line-clamp-1 opacity-80">{asset.name}</div>
+                  {/* Masked Account Number */}
+                  {isBankLike && (
+                    <div className="font-mono text-[10px] tracking-widest opacity-60 mt-0.5">
+                      •••• •••• {asset.accountNumber ? asset.accountNumber.slice(-4).padStart(4, '•') : asset.id.replace(/[^0-9]/g, '').padEnd(4, '0').slice(-4)}
+                    </div>
+                  )}
+                </div>
+                {isLiability && <div className="text-[9px] text-error mb-1 font-extrabold bg-error/10 dark:bg-error/20 inline-block px-2 py-0.5 rounded-md tracking-widest shrink-0">HUTANG</div>}
+              </div>
+              
+              <div className="text-xl md:text-2xl font-black tracking-tight truncate">
+                {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
+              </div>
+              
+              {/* Bottom Stats Row */}
+              <div className="mt-3 flex items-center justify-between opacity-60 bg-black/5 dark:bg-white/5 rounded-lg px-2 py-1.5">
+                {/* Last Active */}
+                <div className="flex items-center gap-1.5">
+                  <MaterialIcon name="update" className="text-[11px]" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider">
+                    {stats.count === 0 ? 'Belum Aktif' : `Aktif: ${stats.lastActive}`}
+                  </span>
+                </div>
+                
+                {/* Mini Cashflow */}
+                {stats.count > 0 && (
+                  <div className="flex items-center gap-2 text-[9px] font-bold">
+                    <span className="text-primary flex items-center"><MaterialIcon name="arrow_drop_up" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.income/1000).toFixed(0)}k</span>
+                    <span className="text-error flex items-center"><MaterialIcon name="arrow_drop_down" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.expense/1000).toFixed(0)}k</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 // ── Main Assets Page ────────────────────────────────────────────────────────
 const Assets: React.FC = () => {
   const { assets, transactions, getAssetBalance, addAsset, updateAsset, deleteAsset, deleteTransaction, updateTransaction, isPrivateMode, togglePrivateMode, addTransaction, currencySymbol, assetCarouselCards } = useMoney();
+  const { showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
 
   const { balances, assetGroups } = useMemo(() => {
     const b: Record<string, number> = {};
@@ -467,96 +611,22 @@ const Assets: React.FC = () => {
                       const Icon = getIconForType(asset.type);
                       const color = getColorForType(asset.type);
                       const balance = balances[asset.id] || 0;
-                      const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
-                      const displayBalance = isLiability ? Math.abs(balance) : balance;
                       const stats = getAssetStats(asset.id);
-                      const isBankLike = asset.type === 'Bank Account' || asset.type === 'Credit Card' || asset.type === 'eWallet';
                       
                       return (
-                        <div
+                        <AssetCard
                           key={asset.id}
-                          data-testid={`asset-card-${asset.id}`}
-                          onClick={() => setSelectedAsset(asset)}
-                          className={`relative overflow-hidden p-5 rounded-[24px] cursor-pointer group hover:-translate-y-1.5 transition-all duration-300 shadow-sm hover:shadow-xl border border-white/40 dark:border-white/5 ${
-                            isLiability 
-                              ? 'bg-gradient-to-br from-error-container/80 to-error-container/20 dark:from-error/20 dark:to-error/5' 
-                              : color === 'primary' 
-                                ? 'bg-gradient-to-br from-primary-container/80 to-primary-container/20 dark:from-primary/20 dark:to-primary/5'
-                                : color === 'success'
-                                  ? 'bg-gradient-to-br from-[#10b981]/20 to-[#10b981]/5 dark:from-[#10b981]/20 dark:to-[#10b981]/5'
-                                  : 'bg-gradient-to-br from-surface-container to-surface-container-lowest'
-                          }`}
-                        >
-                          {/* Decorative blur circle */}
-                          <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-[24px] opacity-40 transition-opacity duration-500 group-hover:opacity-70 ${
-                             isLiability ? 'bg-error' : color === 'primary' ? 'bg-primary' : color === 'success' ? 'bg-[#10b981]' : 'bg-outline-variant'
-                          }`}></div>
-
-                          {/* Decorative glass overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent dark:from-white/5 pointer-events-none"></div>
-
-                          <div className="relative z-10 h-full flex flex-col justify-between min-h-[140px]">
-                            <div className="flex justify-between items-start">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm backdrop-blur-md border border-white/50 dark:border-white/10 transition-transform duration-300 group-hover:scale-110
-                                  ${color === 'primary' ? 'bg-white/60 text-primary dark:bg-black/20' : 
-                                    color === 'error' ? 'bg-white/60 text-error dark:bg-black/20' : 
-                                    color === 'success' ? 'bg-white/60 text-[#10b981] dark:bg-black/20' : 
-                                    'bg-white/60 text-on-surface-variant dark:bg-black/20'}`}
-                                >
-                                  <MaterialIcon name={Icon} className="text-[20px]" />
-                                </div>
-                              </div>
-
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={e => { e.stopPropagation(); handleEdit(asset); }} 
-                                  className="p-1.5 text-on-surface-variant hover:text-primary bg-white/50 hover:bg-white/90 dark:bg-black/30 dark:hover:bg-black/60 backdrop-blur-sm rounded-full transition-colors shadow-sm"
-                                >
-                                  <MaterialIcon name="edit" className="text-[14px]" />
-                                </button>
-                              </div>
-                            </div>
-                            
-                            <div className="mt-4">
-                              <div className="flex justify-between items-end mb-1">
-                                <div>
-                                  <div className="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider line-clamp-1 opacity-80">{asset.name}</div>
-                                  {/* Masked Account Number */}
-                                  {isBankLike && (
-                                    <div className="font-mono text-[10px] tracking-widest opacity-60 mt-0.5">
-                                      •••• •••• {asset.accountNumber ? asset.accountNumber.slice(-4).padStart(4, '•') : asset.id.replace(/[^0-9]/g, '').padEnd(4, '0').slice(-4)}
-                                    </div>
-                                  )}
-                                </div>
-                                {isLiability && <div className="text-[9px] text-error mb-1 font-extrabold bg-error/10 dark:bg-error/20 inline-block px-2 py-0.5 rounded-md tracking-widest shrink-0">HUTANG</div>}
-                              </div>
-                              
-                              <div data-testid={`asset-balance-${asset.id}`} className={`text-xl md:text-2xl font-black tracking-tight truncate ${isLiability ? 'text-error' : 'text-on-surface'}`}>
-                                {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
-                              </div>
-                              
-                              {/* Bottom Stats Row */}
-                              <div className="mt-3 flex items-center justify-between opacity-60 bg-black/5 dark:bg-white/5 rounded-lg px-2 py-1.5">
-                                {/* Last Active */}
-                                <div className="flex items-center gap-1.5">
-                                  <MaterialIcon name="update" className="text-[11px]" />
-                                  <span className="text-[9px] font-bold uppercase tracking-wider">
-                                    {stats.count === 0 ? 'Belum Aktif' : `Aktif: ${stats.lastActive}`}
-                                  </span>
-                                </div>
-                                
-                                {/* Mini Cashflow */}
-                                {stats.count > 0 && (
-                                  <div className="flex items-center gap-2 text-[9px] font-bold">
-                                    <span className="text-primary flex items-center"><MaterialIcon name="arrow_drop_up" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.income/1000).toFixed(0)}k</span>
-                                    <span className="text-error flex items-center"><MaterialIcon name="arrow_drop_down" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.expense/1000).toFixed(0)}k</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                          asset={asset}
+                          balance={balance}
+                          isPrivateMode={isPrivateMode}
+                          currencySymbol={currencySymbol}
+                          color={color}
+                          Icon={Icon}
+                          stats={stats}
+                          onEdit={() => handleEdit(asset)}
+                          onDelete={() => setDeletingAssetId(asset.id)}
+                          onSelect={() => setSelectedAsset(asset)}
+                        />
                       );
                     })}
                   </div>
@@ -593,91 +663,23 @@ const Assets: React.FC = () => {
                         const Icon = getIconForType(asset.type);
                         const color = getColorForType(asset.type);
                         const balance = balances[asset.id] || 0;
-                        const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
-                        const displayBalance = isLiability ? Math.abs(balance) : balance;
                         const stats = getAssetStats(asset.id);
-                        const isBankLike = asset.type === 'Bank Account' || asset.type === 'Credit Card' || asset.type === 'eWallet';
                         
                         return (
-                          <div
+                          <AssetCard
                             key={asset.id}
-                            data-testid={`asset-card-${asset.id}`}
-                            onClick={() => setSelectedAsset(asset)}
-                            className={`relative overflow-hidden p-5 rounded-[24px] cursor-pointer group hover:-translate-y-1.5 transition-all duration-300 shadow-sm hover:shadow-xl border border-dashed border-outline-variant/50 opacity-60 hover:opacity-100 ${
-                              isLiability 
-                                ? 'bg-gradient-to-br from-error-container/40 to-error-container/10 dark:from-error/10 dark:to-error/5' 
-                                : color === 'primary' 
-                                  ? 'bg-gradient-to-br from-primary-container/40 to-primary-container/10 dark:from-primary/10 dark:to-primary/5'
-                                  : color === 'success'
-                                    ? 'bg-gradient-to-br from-[#10b981]/10 to-[#10b981]/5 dark:from-[#10b981]/10 dark:to-[#10b981]/5'
-                                    : 'bg-gradient-to-br from-surface-container to-surface-container-lowest'
-                            }`}
-                          >
-                            <div className="relative z-10 h-full flex flex-col justify-between min-h-[140px]">
-                              <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm backdrop-blur-md border border-white/50 dark:border-white/10 transition-transform duration-300 group-hover:scale-110
-                                    ${color === 'primary' ? 'bg-white/60 text-primary dark:bg-black/20' : 
-                                      color === 'error' ? 'bg-white/60 text-error dark:bg-black/20' : 
-                                      color === 'success' ? 'bg-white/60 text-[#10b981] dark:bg-black/20' : 
-                                      'bg-white/60 text-on-surface-variant dark:bg-black/20'}`}
-                                  >
-                                    <MaterialIcon name={Icon} className="text-[20px]" />
-                                  </div>
-                                </div>
-
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button 
-                                    onClick={e => { e.stopPropagation(); handleEdit(asset); }} 
-                                    className="p-1.5 text-on-surface-variant hover:text-primary bg-white/50 hover:bg-white/90 dark:bg-black/30 dark:hover:bg-black/60 backdrop-blur-sm rounded-full transition-colors shadow-sm"
-                                  >
-                                    <MaterialIcon name="edit" className="text-[14px]" />
-                                  </button>
-                                </div>
-                              </div>
-                              
-                              <div className="mt-4">
-                                <div className="flex justify-between items-end mb-1">
-                                  <div>
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                      <span className="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider line-clamp-1 opacity-80">{asset.name}</span>
-                                      <MaterialIcon name="visibility_off" className="text-[12px] text-on-surface-variant opacity-60" />
-                                    </div>
-                                      {/* Masked Account Number */}
-                                      {isBankLike && (
-                                        <div className="font-mono text-[10px] tracking-widest opacity-60 mt-0.5">
-                                          •••• •••• {asset.accountNumber ? asset.accountNumber.slice(-4).padStart(4, '•') : asset.id.replace(/[^0-9]/g, '').padEnd(4, '0').slice(-4)}
-                                        </div>
-                                      )}
-                                  </div>
-                                  {isLiability && <div className="text-[9px] text-error mb-1 font-extrabold bg-error/10 dark:bg-error/20 inline-block px-2 py-0.5 rounded-md tracking-widest shrink-0">HUTANG</div>}
-                                </div>
-                                
-                                <div data-testid={`asset-balance-${asset.id}`} className={`text-xl md:text-2xl font-black tracking-tight truncate ${isLiability ? 'text-error' : 'text-on-surface'}`}>
-                                  {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
-                                </div>
-                                
-                                {/* Bottom Stats Row */}
-                                <div className="mt-3 flex items-center justify-between opacity-60 bg-black/5 dark:bg-white/5 rounded-lg px-2 py-1.5">
-                                  {/* Last Active */}
-                                  <div className="flex items-center gap-1.5">
-                                    <MaterialIcon name="update" className="text-[11px]" />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider">
-                                      {stats.count === 0 ? 'Belum Aktif' : `Aktif: ${stats.lastActive}`}
-                                    </span>
-                                  </div>
-                                  
-                                  {/* Mini Cashflow */}
-                                  {stats.count > 0 && (
-                                    <div className="flex items-center gap-2 text-[9px] font-bold">
-                                      <span className="text-primary flex items-center"><MaterialIcon name="arrow_drop_up" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.income/1000).toFixed(0)}k</span>
-                                      <span className="text-error flex items-center"><MaterialIcon name="arrow_drop_down" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.expense/1000).toFixed(0)}k</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                            asset={asset}
+                            balance={balance}
+                            isPrivateMode={isPrivateMode}
+                            currencySymbol={currencySymbol}
+                            color={color}
+                            Icon={Icon}
+                            stats={stats}
+                            onEdit={() => handleEdit(asset)}
+                            onDelete={() => setDeletingAssetId(asset.id)}
+                            onSelect={() => setSelectedAsset(asset)}
+                            isHidden={true}
+                          />
                         );
                       })}
                     </div>
@@ -740,6 +742,20 @@ const Assets: React.FC = () => {
           { targetSelector: '[data-tour="net-worth"]', title: '💼 Ringkasan Aset', description: 'Lihat total kekayaan bersih dan ringkasan keuangan kamu. Geser kartu ini untuk melihat metrik lainnya!' },
           { targetSelector: '[data-tour="add-asset"]', title: '🏦 Tambah Rekening', description: 'Tap di sini untuk menambahkan rekening bank, dompet digital, atau aset tunai baru.' }
         ]} 
+      />
+
+      <ConfirmDialog
+        isOpen={!!deletingAssetId}
+        onClose={() => setDeletingAssetId(null)}
+        onConfirm={() => {
+          if (deletingAssetId) {
+            deleteAsset(deletingAssetId);
+            setDeletingAssetId(null);
+            showToast('Aset berhasil dihapus', 'success');
+          }
+        }}
+        title="Hapus Aset"
+        message="Hapus aset ini? Sisa saldo akan tetap tercatat di histori, namun aset tidak akan muncul lagi."
       />
     </PageWrapper>
   );

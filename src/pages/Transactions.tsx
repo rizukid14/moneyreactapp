@@ -11,6 +11,8 @@ import OnboardingTutorial from '../components/OnboardingTutorial';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { SearchInput } from '../components/ui/SearchInput';
 import { FilterChip } from '../components/ui/FilterChip';
+import { useToast } from '../components/common/Toast';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 
 import { useTransactionPresets } from '../hooks/useTransactionPresets';
 import { PresetManagerModal } from '../components/modals/PresetManagerModal';
@@ -33,7 +35,19 @@ interface TransactionGroup {
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { transactions, assets, categories, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, getAssetBalance, isPrivateMode, togglePrivateMode } = useMoney();
+  const { transactions, assets, categories, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, getAssetBalance, isPrivateMode, togglePrivateMode, syncData, pullFromCloud } = useMoney();
+  const { showToast } = useToast();
+  
+  const handlePullToRefresh = useCallback(async () => {
+    try {
+      await syncData();
+      await pullFromCloud();
+      showToast('Data berhasil diperbarui dari cloud', 'success');
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || 'Gagal menyelaraskan data', 'error');
+    }
+  }, [syncData, pullFromCloud, showToast]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -734,7 +748,7 @@ const Transactions: React.FC = () => {
 
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
-      alert('Speech-to-text tidak didukung di browser ini.');
+      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
       return;
     }
 
@@ -779,7 +793,8 @@ const Transactions: React.FC = () => {
   }, []);
 
   return (
-    <div className="px-4 lg:px-6 space-y-6 max-w-container-max mx-auto pb-safe pt-6">
+    <PullToRefresh onRefresh={handlePullToRefresh}>
+      <div className="px-4 lg:px-6 space-y-6 max-w-container-max mx-auto pb-safe pt-6">
       <div className="max-w-container-max mx-auto px-4 md:px-gutter space-y-8">
         
         {/* Header with Month Selector */}
@@ -1307,6 +1322,7 @@ const Transactions: React.FC = () => {
         ]} 
       />
     </div>
+    </PullToRefresh>
   );
 };
 

@@ -239,7 +239,7 @@ const Trips: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
                   <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant">
                     <p className="text-[10px] text-on-surface-variant mb-1 font-bold uppercase tracking-wider">Total Anggota</p>
                     <p className="font-headline-md text-xl font-bold text-on-surface">

@@ -18,6 +18,8 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { SegmentedControl } from '../components/ui/TabBar';
 import { MetricCard } from '../components/ui/MetricCard';
 import { EmptyState } from '../components/ui/EmptyState';
+import { motion } from 'framer-motion';
+import { useSwipeGesture } from '../hooks/useSwipeGesture';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -73,13 +75,38 @@ const DebtCard: React.FC<{
 
     let shadowClass = debt.isPaid ? 'shadow-none' : isOverdue ? 'shadow-error-glow' : 'shadow-bento';
     
+    const { dragProps, swipeOffset } = useSwipeGesture({
+      onSwipeLeft: onDelete,
+      onSwipeRight: onEdit,
+    });
+
     return (
-      <Card
-        interactive
-        data-testid={`debt-card-${debt.id}`} 
-        onClick={onToggleExpand}
-        className={`relative transition-all h-full border-2 ${borderClass} ${shadowClass} ${debt.isPaid ? 'opacity-65' : 'opacity-100'}`}
-      >
+      <div className="relative overflow-hidden rounded-3xl w-full h-full">
+        {/* Swipe Action Backgrounds */}
+        <div className="absolute inset-0 flex justify-between items-center pointer-events-none rounded-3xl">
+          <div 
+            className="h-full bg-secondary/15 flex items-center pl-6 text-secondary font-extrabold text-xs transition-opacity duration-150" 
+            style={{ opacity: swipeOffset > 20 ? 1 : 0 }}
+          >
+            <MaterialIcon name="edit" className="mr-1.5 text-base animate-pulse" />
+            Edit
+          </div>
+          <div 
+            className="h-full bg-error/15 flex items-center pr-6 text-error font-extrabold text-xs ml-auto transition-opacity duration-150" 
+            style={{ opacity: swipeOffset < -20 ? 1 : 0 }}
+          >
+            Hapus
+            <MaterialIcon name="delete" className="ml-1.5 text-base animate-pulse" />
+          </div>
+        </div>
+
+        <motion.div {...dragProps} className="relative z-10 h-full w-full">
+          <Card
+            interactive
+            data-testid={`debt-card-${debt.id}`} 
+            onClick={onToggleExpand}
+            className={`relative transition-all h-full border-2 ${borderClass} ${shadowClass} ${debt.isPaid ? 'opacity-65' : 'opacity-100'}`}
+          >
         {/* Header row */}
         <div className="flex items-start gap-3 mb-3">
           {/* Icon */}
@@ -270,6 +297,8 @@ const DebtCard: React.FC<{
           </div>
         )}
       </Card>
+      </motion.div>
+      </div>
     );
   };
 
@@ -380,7 +409,7 @@ const Debts: React.FC = () => {
       />
 
       {/* Summary cards */}
-      <div data-tour="debt-summary" className="grid grid-cols-2 gap-3 mb-5">
+      <div data-tour="debt-summary" className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
         <MetricCard
           label="Total Hutang"
           value={fmt(summary.totalHutang, currencySymbol)}

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Transaction } from '../../contexts/MoneyContext';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -51,68 +53,95 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   }
   const subCategoryName = category?.subcategories?.find(s => s.id === tx.subCategoryId)?.name || tx.subCategoryId;
 
+  const { dragProps, swipeOffset } = useSwipeGesture({
+    onSwipeLeft: () => setIsConfirmOpen(true),
+    onSwipeRight: () => onEdit(tx),
+  });
+
   return (
     <>
-      <ListItem
-        data-testid={`transaction-item-${tx.id}`}
-        onClick={() => onEdit(tx)}
-        left={
-          <IconBlock 
-            icon={isIncomeLike ? 'work' : tx.type === 'transfer' ? 'sync_alt' : 'shopping_bag'} 
-            color={isIncomeLike ? 'income' : isExpenseLike ? 'expense' : 'neutral'}
-            size="md"
+      <div className="relative overflow-hidden rounded-xl w-full">
+        {/* Swipe Action Backgrounds */}
+        <div className="absolute inset-0 flex justify-between items-center pointer-events-none rounded-xl">
+          <div 
+            className="h-full bg-secondary/15 flex items-center pl-4 text-secondary font-extrabold text-xs transition-opacity duration-150" 
+            style={{ opacity: swipeOffset > 20 ? 1 : 0 }}
+          >
+            <MaterialIcon name="edit" className="mr-1.5 text-base animate-pulse" />
+            Edit
+          </div>
+          <div 
+            className="h-full bg-error/15 flex items-center pr-4 text-error font-extrabold text-xs ml-auto transition-opacity duration-150" 
+            style={{ opacity: swipeOffset < -20 ? 1 : 0 }}
+          >
+            Hapus
+            <MaterialIcon name="delete" className="ml-1.5 text-base animate-pulse" />
+          </div>
+        </div>
+
+        <motion.div {...dragProps} className="relative z-10 w-full">
+          <ListItem
+            data-testid={`transaction-item-${tx.id}`}
+            onClick={() => onEdit(tx)}
+            left={
+              <IconBlock 
+                icon={isIncomeLike ? 'work' : tx.type === 'transfer' ? 'sync_alt' : 'shopping_bag'} 
+                color={isIncomeLike ? 'income' : isExpenseLike ? 'expense' : 'neutral'}
+                size="md"
+              />
+            }
+            title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : categoryName}
+            subtitle={
+              <div className="flex flex-col gap-0.5">
+                {tx.type !== 'transfer' && subCategoryName && (
+                  <span className="font-semibold text-[11px]">{subCategoryName}</span>
+                )}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {showDate && <span>{tx.date}</span>}
+                  {tx.time && <span className="font-bold text-primary">{tx.time} WIB</span>}
+                  <span className="opacity-70">•</span>
+                  <span>{tx.type !== 'transfer' ? assetName : 'Transfer'}</span>
+                  {tx.note && <span className="truncate max-w-[100px] opacity-80">• {tx.note}</span>}
+                  {tx.description && <MaterialIcon name="description" className="text-[10px] opacity-60" />}
+                </div>
+              </div>
+            }
+            right={
+              <div className="flex flex-col items-end gap-1">
+                <span className={`font-bold text-sm ${isIncomeLike ? 'text-primary-color' : isExpenseLike ? 'text-error' : 'text-on-surface'}`}>
+                  {isIncomeLike ? '+' : isExpenseLike ? '-' : ''} {formatCurrency(tx.amount, currencySymbol)}
+                </span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+                  {onCopy && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onCopy(tx); }}
+                      title="Salin"
+                      className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-lg transition-colors bg-surface-container"
+                    >
+                      <MaterialIcon name="content_copy" className="text-[14px]" />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(tx); }}
+                    title="Edit"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-lg transition-colors bg-surface-container"
+                  >
+                    <MaterialIcon name="edit" className="text-[14px]" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsConfirmOpen(true); }}
+                    title="Hapus"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container rounded-lg transition-colors bg-surface-container"
+                  >
+                    <MaterialIcon name="delete" className="text-[14px]" />
+                  </button>
+                </div>
+              </div>
+            }
+            className="group"
           />
-        }
-        title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : categoryName}
-        subtitle={
-          <div className="flex flex-col gap-0.5">
-            {tx.type !== 'transfer' && subCategoryName && (
-              <span className="font-semibold text-[11px]">{subCategoryName}</span>
-            )}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {showDate && <span>{tx.date}</span>}
-              {tx.time && <span className="font-bold text-primary">{tx.time} WIB</span>}
-              <span className="opacity-70">•</span>
-              <span>{tx.type !== 'transfer' ? assetName : 'Transfer'}</span>
-              {tx.note && <span className="truncate max-w-[100px] opacity-80">• {tx.note}</span>}
-              {tx.description && <MaterialIcon name="description" className="text-[10px] opacity-60" />}
-            </div>
-          </div>
-        }
-        right={
-          <div className="flex flex-col items-end gap-1">
-            <span className={`font-bold text-sm ${isIncomeLike ? 'text-primary-color' : isExpenseLike ? 'text-error' : 'text-on-surface'}`}>
-              {isIncomeLike ? '+' : isExpenseLike ? '-' : ''} {formatCurrency(tx.amount, currencySymbol)}
-            </span>
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
-              {onCopy && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onCopy(tx); }}
-                  title="Salin"
-                  className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-lg transition-colors bg-surface-container"
-                >
-                  <MaterialIcon name="content_copy" className="text-[14px]" />
-                </button>
-              )}
-              <button
-                onClick={(e) => { e.stopPropagation(); onEdit(tx); }}
-                title="Edit"
-                className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary-container rounded-lg transition-colors bg-surface-container"
-              >
-                <MaterialIcon name="edit" className="text-[14px]" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsConfirmOpen(true); }}
-                title="Hapus"
-                className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container rounded-lg transition-colors bg-surface-container"
-              >
-                <MaterialIcon name="delete" className="text-[14px]" />
-              </button>
-            </div>
-          </div>
-        }
-        className="group"
-      />
+        </motion.div>
+      </div>
 
       <ConfirmDialog
         isOpen={isConfirmOpen}

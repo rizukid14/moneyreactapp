@@ -11,10 +11,8 @@ export interface PageWrapperProps {
  */
 export const PageWrapper: React.FC<PageWrapperProps> = ({ children, className = '' }) => {
   return (
-    <div className={`px-4 lg:px-6 space-y-6 max-w-container-max mx-auto pb-safe pt-6 ${className}`}>
-      <div className="max-w-container-max mx-auto px-4 md:px-gutter space-y-8">
-        {children}
-      </div>
+    <div className={`px-4 sm:px-6 lg:px-12 xl:px-16 space-y-6 max-w-container-max mx-auto pb-safe pt-6 ${className}`}>
+      {children}
     </div>
   );
 };

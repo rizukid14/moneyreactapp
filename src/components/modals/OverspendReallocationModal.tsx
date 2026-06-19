@@ -166,7 +166,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
           Ambil Dari Amplop
         </label>
 
-        <div style={{ display: 'grid', gap: '8px', marginBottom: '20px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+        <div style={{ display: 'grid', gap: '8px', marginBottom: '20px', paddingRight: '4px' }}>
           {/* Unassigned Money Option */}
           <button
             onClick={() => setFromId('unassigned')}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MaterialIcon from '../common/MaterialIcon';
+import { useToast } from '../common/Toast';
 
 export interface ExcelColumnMapping {
   dateCol: string;
@@ -19,6 +20,7 @@ interface ExcelMappingModalProps {
 }
 
 const ExcelMappingModal: React.FC<ExcelMappingModalProps> = ({ isOpen, onClose, headers, onConfirm }) => {
+  const { showToast } = useToast();
   const [mapping, setMapping] = useState<ExcelColumnMapping>({
     dateCol: '',
     typeCol: '',
@@ -42,7 +44,7 @@ const ExcelMappingModal: React.FC<ExcelMappingModalProps> = ({ isOpen, onClose, 
   const handleConfirm = () => {
     // Validate required fields
     if (!mapping.dateCol || !mapping.typeCol || !mapping.amountCol) {
-      alert("Harap isi semua field wajib (Tanggal, Tipe, Nominal)!");
+      showToast("Harap isi semua field wajib (Tanggal, Tipe, Nominal)!", "warning");
       return;
     }
     onConfirm(mapping);

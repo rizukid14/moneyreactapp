@@ -462,7 +462,8 @@ const Statistics: React.FC = () => {
         overflowX: 'auto',
         WebkitOverflowScrolling: 'touch',
         paddingBottom: '4px',
-        margin: '0 -4px' // negative margin to allow shadow/glow to show
+        margin: '0 -4px', // negative margin to allow shadow/glow to show
+        scrollSnapType: 'x mandatory'
       }} className="hide-scrollbar">
         <div style={{
           display: 'flex',
@@ -497,7 +498,8 @@ const Statistics: React.FC = () => {
                   boxShadow: isActive ? '0 10px 25px var(--primary-glow)' : '0 4px 12px rgba(0,0,0,0.03)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   flexShrink: 0,
-                  border: isActive ? 'none' : '1px solid var(--border-color)'
+                  border: isActive ? 'none' : '1px solid var(--border-color)',
+                  scrollSnapAlign: 'start'
                 }}
               >
                 {viewId === 'health' ? <MaterialIcon name="local_fire_department" className={isActive ? 'text-white' : 'text-[var(--secondary)]'} /> :
@@ -621,7 +623,18 @@ const Statistics: React.FC = () => {
                   <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
-                    <YAxis hide domain={[0, 'dataMax + 10000']} />
+                    <YAxis
+                      width={40}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                      tickFormatter={(val) => {
+                        if (val >= 1000000) return `${(val / 1000000).toFixed(1).replace(/\.0$/, '')}jt`;
+                        if (val >= 1000) return `${(val / 1000).toFixed(0)}rb`;
+                        return val;
+                      }}
+                      domain={[0, 'dataMax + 10000']}
+                    />
                     <Tooltip
                       cursor={{ fill: 'var(--bg-main)' }}
                       contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
@@ -858,7 +871,7 @@ const Statistics: React.FC = () => {
                   {/* Scrollable container with modern scrollbar styling */}
                   <div
                     ref={heatmapScrollRef}
-                    className="custom-scrollbar"
+                    className="custom-scrollbar hidden sm:block"
                     style={{
                       overflowX: 'auto',
                       WebkitOverflowScrolling: 'touch',
@@ -968,42 +981,81 @@ const Statistics: React.FC = () => {
                     ];
 
                     return (
-                      <div style={{ marginTop: '18px', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>Skala Akurasi Pengeluaran (Rupiah)</span>
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Maks: {fmt(maxAmount)}</span>
-                        </div>
+                      <>
+                        <div className="hidden sm:block" style={{ marginTop: '18px', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>Skala Akurasi Pengeluaran (Rupiah)</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Maks: {fmt(maxAmount)}</span>
+                          </div>
 
-                        {/* The continuous gradient bar */}
-                        <div style={{ position: 'relative', padding: '0 4px', marginBottom: '6px' }}>
-                          <div style={{
-                            height: '10px',
-                            borderRadius: '5px',
-                            background: `linear-gradient(to right, ${gradientStops})`,
-                            border: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
-                          }} />
+                          {/* The continuous gradient bar */}
+                          <div style={{ position: 'relative', padding: '0 4px', marginBottom: '6px' }}>
+                            <div style={{
+                              height: '10px',
+                              borderRadius: '5px',
+                              background: `linear-gradient(to right, ${gradientStops})`,
+                              border: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                            }} />
 
-                          {/* Ticks and Labels */}
-                          <div style={{ position: 'relative', height: '24px', marginTop: '4px' }}>
-                            {ticks.map((tick, idx) => (
-                              <div key={idx} style={{
-                                position: 'absolute',
-                                left: `${tick.pos}%`,
-                                transform: 'translateX(-50%)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                fontSize: '9px',
-                                fontWeight: 700,
-                                color: 'var(--text-muted)',
-                              }}>
-                                <div style={{ width: '1px', height: '4px', background: 'var(--text-muted)', opacity: 0.5, marginBottom: '2px' }} />
-                                <span style={{ whiteSpace: 'nowrap' }}>{tick.label}</span>
-                              </div>
-                            ))}
+                            {/* Ticks and Labels */}
+                            <div style={{ position: 'relative', height: '24px', marginTop: '4px' }}>
+                              {ticks.map((tick, idx) => (
+                                <div key={idx} style={{
+                                  position: 'absolute',
+                                  left: `${tick.pos}%`,
+                                  transform: 'translateX(-50%)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  fontSize: '9px',
+                                  fontWeight: 700,
+                                  color: 'var(--text-muted)',
+                                }}>
+                                  <div style={{ width: '1px', height: '4px', background: 'var(--text-muted)', opacity: 0.5, marginBottom: '2px' }} />
+                                  <span style={{ whiteSpace: 'nowrap' }}>{tick.label}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
+
+                        {/* Weekly Summary List for Mobile (hidden on sm: and up) */}
+                        <div className="block sm:hidden space-y-3 mt-4 border-t border-border-light pt-4">
+                          <p className="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider mb-2">Ringkasan Mingguan</p>
+                          {heatmapData.map((monthData, idx) => {
+                            // Group monthData.cells into weeks (7 days each)
+                            const weeks: { weekNum: number; total: number }[] = [];
+                            let currentWeekTotal = 0;
+                            monthData.cells.forEach((cell, cellIdx) => {
+                              currentWeekTotal += cell.amount;
+                              if ((cellIdx + 1) % 7 === 0 || cellIdx === monthData.cells.length - 1) {
+                                weeks.push({ weekNum: Math.floor(cellIdx / 7) + 1, total: currentWeekTotal });
+                                currentWeekTotal = 0;
+                              }
+                            });
+
+                            const monthTotal = monthData.cells.reduce((s, c) => s + c.amount, 0);
+                            if (monthTotal === 0) return null;
+
+                            return (
+                              <div key={idx} className="bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant flex flex-col gap-2.5">
+                                <div className="flex justify-between items-center pb-2 border-b border-outline-variant/60">
+                                  <span className="font-extrabold text-xs text-on-surface">{monthData.name} {viewDate.getFullYear()}</span>
+                                  <span className="font-extrabold text-xs text-secondary">{fmt(monthTotal)}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {weeks.map((w, wIdx) => (
+                                    <div key={wIdx} className="bg-bg-card p-2.5 rounded-xl border border-outline-variant/80 flex justify-between items-center text-[10px] gap-1">
+                                      <span className="text-on-surface-variant font-bold">Minggu {w.weekNum}</span>
+                                      <span className="font-extrabold text-on-surface text-right truncate">{fmt(w.total)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
                     );
                   })()}
 
@@ -1826,7 +1878,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
       </BentoCard>
 
       {/* ─── Metric Breakdown ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {stats.metrics.map((m, i) => (
           <BentoCard
             key={i}
@@ -1956,7 +2008,18 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
                 dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
                 tickFormatter={(val) => ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'][val]}
               />
-              <YAxis hide domain={['dataMin - 1000000', 'dataMax + 1000000']} />
+              <YAxis
+                width={40}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                tickFormatter={(val) => {
+                  if (val >= 1000000) return `${(val / 1000000).toFixed(1).replace(/\.0$/, '')}jt`;
+                  if (val >= 1000) return `${(val / 1000).toFixed(0)}rb`;
+                  return val;
+                }}
+                domain={['dataMin - 1000000', 'dataMax + 1000000']}
+              />
               <Tooltip
                 contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
                 formatter={(val: any) => fmt(Number(val))}
@@ -2401,7 +2464,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
   return (
     <div className="space-y-6 pb-10">
       {/* Hero Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <BentoCard
           variant="solid"
           interactive
@@ -2528,7 +2591,15 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
                 interval={forecastDays === 90 ? 14 : forecastDays === 60 ? 9 : 4}
               />
               <YAxis
-                hide
+                width={40}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                tickFormatter={(val) => {
+                  if (val >= 1000000) return `${(val / 1000000).toFixed(1).replace(/\.0$/, '')}jt`;
+                  if (val >= 1000) return `${(val / 1000).toFixed(0)}rb`;
+                  return val;
+                }}
                 domain={['dataMin - 1000000', 'dataMax + 1000000']}
               />
               <Tooltip

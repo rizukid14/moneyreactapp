@@ -41,19 +41,24 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   return (
     <div 
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity duration-200" 
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm transition-opacity duration-200" 
       onClick={handleOverlayClick}
       data-testid={dataTestId || testId}
     >
       <div 
-        className={`bg-bg-card rounded-3xl w-full shadow-bento overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 ${!maxWidth ? 'max-w-lg' : ''}`}
+        className={`bg-bg-card rounded-t-[32px] rounded-b-none sm:rounded-3xl w-full shadow-bento overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[90vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 sm:duration-200 ${!maxWidth ? 'sm:max-w-lg' : ''}`}
         style={maxWidth ? { maxWidth } : undefined}
         ref={contentRef}
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border-light shrink-0">
+        {/* Mobile Pull Handle */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+          <div className="w-12 h-1 rounded-full bg-outline-variant/60"></div>
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-4 sm:py-5 border-b border-border-light shrink-0">
           {title ? (
             typeof title === 'string' ? (
-              <h2 className="m-0 text-xl font-extrabold text-on-surface tracking-tight">
+              <h2 className="m-0 text-lg sm:text-xl font-extrabold text-on-surface tracking-tight">
                 {title}
               </h2>
             ) : (
