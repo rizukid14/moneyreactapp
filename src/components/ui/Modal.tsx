@@ -41,7 +41,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   return (
     <div 
-      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm transition-opacity duration-200" 
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/45 backdrop-blur-sm transition-opacity duration-200" 
       onClick={handleOverlayClick}
       data-testid={dataTestId || testId}
     >

@@ -4,6 +4,7 @@ import MaterialIcon from '../components/common/MaterialIcon';
 import { formatCurrency } from '../lib/utils';
 import TransactionItem from '../components/transactions/TransactionItem';
 import { useToast } from '../components/common/Toast';
+import { PageWrapper } from '../components/ui/PageWrapper';
 
 const Budgets: React.FC = () => {
   const { 
@@ -104,7 +105,7 @@ const Budgets: React.FC = () => {
   const fmt = (val: number) => formatCurrency(val, currencySymbol);
 
   return (
-    <div className="max-w-container-max mx-auto space-y-8 animate-fade-in pb-20 pt-4">
+    <PageWrapper className="animate-fade-in pb-20">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -316,7 +317,7 @@ const Budgets: React.FC = () => {
           </div>
         </section>
       )}
-    </div>
+    </PageWrapper>
   );
 };
 

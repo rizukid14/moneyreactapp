@@ -13,6 +13,7 @@ import { SearchInput } from '../components/ui/SearchInput';
 import { FilterChip } from '../components/ui/FilterChip';
 import { useToast } from '../components/common/Toast';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
+import { PageWrapper } from '../components/ui/PageWrapper';
 
 import { useTransactionPresets } from '../hooks/useTransactionPresets';
 import { PresetManagerModal } from '../components/modals/PresetManagerModal';
@@ -794,7 +795,7 @@ const Transactions: React.FC = () => {
 
   return (
     <PullToRefresh onRefresh={handlePullToRefresh}>
-      <div className="px-4 lg:px-6 space-y-6 max-w-container-max mx-auto pb-safe pt-6">
+      <PageWrapper>
       <div className="max-w-container-max mx-auto px-4 md:px-gutter space-y-8">
         
         {/* Header with Month Selector */}
@@ -1321,7 +1322,7 @@ const Transactions: React.FC = () => {
           { targetSelector: '[data-tour="ai-scanner"]', title: '🤖 Scanner AI Cerdas', description: 'Pindai struk belanja dengan kamera atau ketik banyak transaksi sekaligus dengan bantuan AI.', onBeforeShow: () => handleCloseModal() },
         ]} 
       />
-    </div>
+      </PageWrapper>
     </PullToRefresh>
   );
 };
