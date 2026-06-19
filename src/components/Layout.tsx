@@ -76,7 +76,13 @@ const Layout: React.FC = () => {
           className="flex items-center gap-2 lg:cursor-default flex-1 min-w-0 cursor-pointer"
           onClick={() => setIsProfileMenuOpen(true)}
         >
-          <img src={user.avatar || "https://i.pravatar.cc/150?u=a042581f4e29026024d"} alt="Profile" className="w-8 h-8 rounded-full border border-border-light lg:hidden shrink-0 object-cover" />
+          {user.avatar ? (
+            <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-border-light lg:hidden shrink-0 object-cover" />
+          ) : (
+            <div className="w-8 h-8 rounded-full border border-border-light lg:hidden shrink-0 bg-primary text-on-primary flex items-center justify-center font-bold text-xs uppercase">
+              {user.name ? user.name.charAt(0) : 'U'}
+            </div>
+          )}
           <div className="lg:hidden min-w-0">
             <p className="text-[10px] text-on-surface-variant truncate">Selamat datang,</p>
             <h1 className="font-label-md text-label-md text-on-surface truncate">{user.name}</h1>
@@ -114,7 +120,13 @@ const Layout: React.FC = () => {
               <span className="font-label-md text-label-sm text-on-surface truncate">{user.name}</span>
               <span className="text-[10px] text-on-surface-variant truncate">Pro Plan</span>
             </div>
-            <img src={user.avatar || "https://i.pravatar.cc/150?u=a042581f4e29026024d"} alt="Profile" className="w-8 h-8 rounded-full border border-border-light shrink-0 object-cover" />
+            {user.avatar ? (
+              <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-border-light shrink-0 object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-full border border-border-light shrink-0 bg-primary text-on-primary flex items-center justify-center font-bold text-xs uppercase">
+                {user.name ? user.name.charAt(0) : 'U'}
+              </div>
+            )}
           </div>
         </div>
       </header>

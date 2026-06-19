@@ -449,7 +449,7 @@ const Statistics: React.FC = () => {
         action={
           <button
             onClick={resetToToday}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+            className="flex lg:hidden items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
           >
             <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
           </button>
@@ -574,36 +574,41 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
           >
-
-
-                
                 {/* Header with Month Selector matching Transactions.tsx */}
-                <div data-tour="month-nav" className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-light pb-4">
-                  <div>
+                <div data-tour="month-nav" className="flex flex-col lg:flex-row items-center lg:items-end justify-center lg:justify-between text-center lg:text-left gap-4 border-b border-border-light pb-5">
+                  <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
                     <h2 className="font-headline-md text-headline-md text-on-surface">Analisis Statistik</h2>
                     <p className="text-sm text-on-surface-variant mt-1">Pantau tren dan riwayat finansial Anda</p>
                   </div>
                   
-                  <div 
-                    className="flex items-center bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm self-start sm:self-auto" 
-                    onClick={() => setIsDatePickerOpen(true)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="prev-month-btn">
-                        <MaterialIcon name="chevron_left" className="text-on-surface-variant text-base" />
-                      </button>
-                      
-                      <div className="flex items-center gap-2" data-testid="month-picker-toggle">
-                        <MaterialIcon name="calendar_month" className="text-primary text-base" />
-                        <span className="font-label-md text-label-md text-on-surface font-semibold" data-testid="month-label">
-                          {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
-                        </span>
-                        <MaterialIcon name="expand_more" className="text-base text-on-surface-variant" />
-                      </div>
+                  <div className="flex items-center gap-3 self-center lg:self-auto">
+                    <button
+                      onClick={resetToToday}
+                      className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+                    >
+                      <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+                    </button>
+                    <div 
+                      className="flex items-center bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm" 
+                      onClick={() => setIsDatePickerOpen(true)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="prev-month-btn">
+                          <MaterialIcon name="chevron_left" className="text-on-surface-variant text-base" />
+                        </button>
+                        
+                        <div className="flex items-center gap-2" data-testid="month-picker-toggle">
+                          <MaterialIcon name="calendar_month" className="text-primary text-base" />
+                          <span className="font-label-md text-label-md text-on-surface font-semibold" data-testid="month-label">
+                            {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
+                          </span>
+                          <MaterialIcon name="expand_more" className="text-base text-on-surface-variant" />
+                        </div>
 
-                      <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="next-month-btn">
-                        <MaterialIcon name="chevron_right" className="text-on-surface-variant text-base" />
-                      </button>
+                        <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="next-month-btn">
+                          <MaterialIcon name="chevron_right" className="text-on-surface-variant text-base" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

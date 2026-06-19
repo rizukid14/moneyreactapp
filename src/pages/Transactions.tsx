@@ -14,6 +14,7 @@ import { FilterChip } from '../components/ui/FilterChip';
 import { useToast } from '../components/common/Toast';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
 
 import { useTransactionPresets } from '../hooks/useTransactionPresets';
 import { PresetManagerModal } from '../components/modals/PresetManagerModal';
@@ -293,8 +294,13 @@ const Transactions: React.FC = () => {
 
   // Calculate Liquid Balance
   const totalLiquidBalance = useMemo(() => {
-    return assets.reduce((sum, asset) => sum + getAssetBalance(asset.id), 0);
-  }, [assets]);
+    return assets.reduce((sum, asset) => {
+      if (!asset.isDeleted && !asset.isHidden && (asset.type === 'Cash' || asset.type === 'Bank Account' || asset.type === 'eWallet')) {
+        return sum + getAssetBalance(asset.id);
+      }
+      return sum;
+    }, 0);
+  }, [assets, getAssetBalance]);
 
   // Analytical Calculations for Dashboard Widgets
   const topAssets = useMemo(() => {
@@ -489,6 +495,9 @@ const Transactions: React.FC = () => {
 
   const lastMonthTotalLiquidBalance = useMemo(() => {
     return assets.reduce((sum, asset) => {
+      if (asset.isDeleted || asset.isHidden || !(asset.type === 'Cash' || asset.type === 'Bank Account' || asset.type === 'eWallet')) {
+        return sum;
+      }
       let balance = asset.initialBalance;
       transactions.forEach(tx => {
         if (tx.date <= prevPeriodEndStr) {
@@ -799,25 +808,24 @@ const Transactions: React.FC = () => {
       <div className="max-w-container-max mx-auto px-4 md:px-gutter space-y-8">
         
         {/* Header with Month Selector */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-light pb-4">
-          <div>
-            <h2 className="font-headline-md text-headline-md text-on-surface">Ringkasan Finansial</h2>
-            <p className="text-sm text-on-surface-variant mt-1">Pantau arus kas Anda bulan ini</p>
-          </div>
-          
-          <div 
-            className="flex items-center bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm self-start sm:self-auto" 
-            onClick={() => setIsDatePickerOpen(true)}
-          >
-            <div className="flex items-center gap-2">
-              <MaterialIcon name="calendar_month" className="text-primary text-base" />
-              <span className="font-label-md text-label-md text-on-surface font-semibold" data-testid="month-label">
-                {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
-              </span>
-              <MaterialIcon name="expand_more" className="text-base text-on-surface-variant" />
+        <PageHeader
+          title="Ringkasan Finansial"
+          subtitle="Pantau arus kas Anda bulan ini"
+          action={
+            <div 
+              className="flex items-center bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm" 
+              onClick={() => setIsDatePickerOpen(true)}
+            >
+              <div className="flex items-center gap-2">
+                <MaterialIcon name="calendar_month" className="text-primary text-base" />
+                <span className="font-label-md text-label-md text-on-surface font-semibold" data-testid="month-label">
+                  {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear()}
+                </span>
+                <MaterialIcon name="expand_more" className="text-base text-on-surface-variant" />
+              </div>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         {/* Hero Summary Section - Bento Grid */}
         <section className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">

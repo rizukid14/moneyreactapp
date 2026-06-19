@@ -107,18 +107,18 @@ const Budgets: React.FC = () => {
   return (
     <PageWrapper className="animate-fade-in pb-20">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="font-headline-lg text-headline-lg text-on-background font-bold">
+      <div className="flex flex-col items-center justify-center text-center gap-4 pb-5 border-b border-border-light">
+        <div className="flex flex-col items-center text-center">
+          <h1 className="font-headline-md text-headline-md text-on-surface font-bold">
             {budgetMode === 'zero-based' ? 'Budgeting Envelopes' : 'Anggaran Bulanan'}
           </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">
+          <p className="text-sm text-on-surface-variant mt-1">
             {budgetMode === 'zero-based' ? 'Metode Zero-Based Budgeting untuk kendali penuh keuangan Anda.' : 'Pantau batas pengeluaran bulanan agar keuangan tetap sehat.'}
           </p>
         </div>
         <div className="flex items-center bg-surface-container-high rounded-full px-4 py-2 gap-4">
           <button onClick={handlePrevMonth} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">chevron_left</button>
-          <span className="font-label-md text-label-md font-bold text-on-surface min-w-[100px] text-center">{monthYearLabel}</span>
+          <span className="font-label-md text-label-md text-on-surface font-bold min-w-[100px] text-center">{monthYearLabel}</span>
           <button onClick={handleNextMonth} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">chevron_right</button>
         </div>
       </div>

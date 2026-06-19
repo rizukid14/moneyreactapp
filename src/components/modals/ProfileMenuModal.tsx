@@ -26,11 +26,17 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="360px">
       <div className="flex flex-col items-center pt-2 pb-6">
-        <img 
-          src={user.avatar || "https://i.pravatar.cc/150?u=a042581f4e29026024d"} 
-          alt="Profile" 
-          className="w-20 h-20 rounded-full border-4 border-surface shadow-md mb-3 object-cover" 
-        />
+        {user.avatar ? (
+          <img 
+            src={user.avatar} 
+            alt="Profile" 
+            className="w-20 h-20 rounded-full border-4 border-surface shadow-md mb-3 object-cover" 
+          />
+        ) : (
+          <div className="w-20 h-20 rounded-full border-4 border-surface shadow-md mb-3 bg-primary text-on-primary flex items-center justify-center font-bold text-3xl uppercase">
+            {user.name ? user.name.charAt(0) : 'U'}
+          </div>
+        )}
         <h3 className="font-headline-md text-headline-md text-on-surface">{user.name}</h3>
         <p className="text-sm text-on-surface-variant font-medium">Pro Plan Member</p>
       </div>
