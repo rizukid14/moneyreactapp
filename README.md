@@ -3,7 +3,7 @@
 
 > **A premium, full-featured personal finance manager** — built with React, TypeScript, Firebase, and a focus on beautiful mobile UX.
 
-![Version](https://img.shields.io/badge/version-1.0.15-blue)
+![Version](https://img.shields.io/badge/version-1.8.1-blue)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20TypeScript%20%7C%20Firebase-informational)
 ![Deployment](https://img.shields.io/badge/deploy-Vercel-black)
 ![PWA](https://img.shields.io/badge/PWA-ready-brightgreen)
@@ -60,7 +60,17 @@ MoneyApp is a Progressive Web App (PWA) for personal finance management. It supp
 
 ## Changelog
 
-### v15 — UI/UX Pro Max & Split Bill (OCR) *(LATEST)*
+### v1.8.1 — Total Category ID Migration & AI Optimization *(LATEST)*
+> Branch: `money-v1.8.1`
+
+**Strict Category ID Architecture**
+- **Sistem Sinkronisasi Kategori Cerdas**: Riwayat transaksi masa lalu tidak akan hilang lagi saat nama kategori diubah di halaman Settings. Aplikasi kini memetakan transaksi berdasarkan ID unik, bukan nama statis.
+- **AI & OCR Smart Link**: Ekosistem AI Chatbot dan Receipt Scanner kini secara proaktif mengenali struktur kategori dan memetakannya langsung ke ID unik tanpa jeda.
+- **Zero-Bug Budgeting**: Memperbaiki bug kalkulasi ZBB dan penganggaran bulanan yang seringkali tersendat atau stagnan di 0% ketika kategori diganti namanya.
+
+---
+
+### v15 — UI/UX Pro Max & Split Bill (OCR)
 > Branch: `money-v15`
 
 **UI/UX Pro Max Audit Implementation**
