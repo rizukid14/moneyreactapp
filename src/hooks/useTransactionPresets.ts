@@ -30,7 +30,7 @@ export const presetKey = (preset: HabitPreset) => JSON.stringify({
 });
 
 export const useTransactionPresets = () => {
-  const { transactions, assets } = useMoney();
+  const { transactions, assets, categories } = useMoney();
 
   // Load pinned and custom presets from localStorage
   const [pinnedPresets, setPinnedPresets] = useState<HabitPreset[]>(() => {
@@ -124,7 +124,12 @@ export const useTransactionPresets = () => {
         return {
           id: `auto-tx-${idx}-${t.id}`,
           type: t.type as 'pengeluaran' | 'pendapatan',
-          label: t.subCategoryId ? `${t.categoryId} > ${t.subCategoryId}` : (t.categoryId || 'Unknown'),
+          label: (() => {
+            const cat = categories.find(c => c.id === t.categoryId);
+            const catName = cat?.name || t.categoryId || 'Unknown';
+            const subName = t.subCategoryId ? (cat?.subcategories?.find(s => s.id === t.subCategoryId)?.name || t.subCategoryId) : '';
+            return subName ? `${catName} > ${subName}` : catName;
+          })(),
           amount: t.amount,
           categoryId: t.categoryId,
           subCategoryId: t.subCategoryId,

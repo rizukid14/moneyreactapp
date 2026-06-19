@@ -85,11 +85,14 @@ const AssetDetailDrawer: React.FC<{
 
         if (filterType === 'all') return true;
         
+        const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
+        const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
         
-        const isOutgoing = tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar' || tx.fromAssetId === asset.id;
+        const isOutgoing = isExpenseLike || tx.fromAssetId === asset.id;
+        const isIncoming = isIncomeLike || tx.toAssetId === asset.id;
 
-        if (filterType === 'income') return false;
-        if (filterType === 'expense') return isOutgoing;
+        if (filterType === 'income') return isIncoming && !isOutgoing;
+        if (filterType === 'expense') return isOutgoing && !isIncoming;
         
         return true;
       })
@@ -97,28 +100,14 @@ const AssetDetailDrawer: React.FC<{
   }, [transactions, asset.id, filterType]);
 
   const stats = useMemo(() => {
-    let income = 0, expense = 0;
-    // Calculate stats based on ALL asset transactions, not just filtered ones
-    transactions.forEach(tx => {
-      
-      const isOutgoing = tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar' || tx.fromAssetId === asset.id;
-      
-      if (tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id) {
-        if (false && tx.type !== 'transfer') income += tx.amount;
-        else if (isOutgoing && tx.type !== 'transfer') expense += tx.amount;
-        // Note: For transfers, we usually don't count them in income/expense summary 
-        // but we show them in the filtered list.
-      }
-    });
-    
-    // Recalculate to match how they are displayed in the list if needed
-    // But usually income/expense stats are for pendapatan/pengeluaran types.
-    // Let's stick to the simpler logic for now to match the user's expectation of "Masuk" and "Keluar"
     let simpleIncome = 0, simpleExpense = 0;
     const allRelated = transactions.filter(tx => tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id);
     allRelated.forEach(tx => {
-      if (tx.type === 'pendapatan' || tx.toAssetId === asset.id) simpleIncome += tx.amount;
-      if (tx.type === 'pengeluaran' || tx.fromAssetId === asset.id) simpleExpense += tx.amount;
+      const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
+      const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
+      
+      if (isIncomeLike || (tx.type === 'transfer' && tx.toAssetId === asset.id)) simpleIncome += tx.amount;
+      if (isExpenseLike || (tx.type === 'transfer' && tx.fromAssetId === asset.id)) simpleExpense += tx.amount;
     });
 
     return { income: simpleIncome, expense: simpleExpense, count: allRelated.length };
@@ -285,11 +274,13 @@ const AssetDetailDrawer: React.FC<{
             ) : (
               <div style={{ padding: '8px 0 24px' }}>
                 {assetTxs.map(tx => {
-                  
+                  const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
+                  const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
+
                   const amtColor = tx.type === 'transfer'
                     ? 'var(--text-muted)'
-                    : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--danger)';
-                  const prefix = tx.type === 'transfer' ? '↔' : tx.type === 'pendapatan' ? '+' : '-';
+                    : isIncomeLike ? 'var(--primary)' : 'var(--danger)';
+                  const prefix = tx.type === 'transfer' ? '↔' : isIncomeLike ? '+' : '-';
 
                   return (
                     <div
@@ -306,13 +297,13 @@ const AssetDetailDrawer: React.FC<{
                       {/* Type icon */}
                       <div style={{
                         width: 34, height: 34, borderRadius: 10, flexShrink: 0, marginRight: 12,
-                        background: tx.type === 'pengeluaran' ? 'var(--bg-expense)' : tx.type === 'pendapatan' ? 'var(--bg-income)' : 'var(--bg-neutral)',
+                        background: isExpenseLike ? 'var(--bg-expense)' : isIncomeLike ? 'var(--bg-income)' : 'var(--bg-neutral)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: tx.type === 'pengeluaran' ? 'var(--danger)' : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
+                        color: isExpenseLike ? 'var(--danger)' : isIncomeLike ? 'var(--primary)' : 'var(--text-muted)',
                       }}>
-                        {tx.type === 'pengeluaran'
+                        {isExpenseLike
                           ? <MaterialIcon name="arrow_downward" className="text-base" />
-                          : tx.type === 'pendapatan'
+                          : isIncomeLike
                           ? <MaterialIcon name="arrow_upward" className="text-base" />
                           : <MaterialIcon name="sync_alt" className="text-base" />}
                       </div>

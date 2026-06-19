@@ -488,7 +488,15 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
               }}
             >
               <span style={{ fontSize: 11, fontWeight: 700, color: selectedCategoryId ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {selectedCategoryId ? (selectedSubCategoryId ? `${selectedCategoryId} > ${selectedSubCategoryId}` : selectedCategoryId) : 'Pilih...'}
+                {selectedCategoryId ? (() => {
+                  const cat = categories.find(c => c.id === selectedCategoryId);
+                  const catName = cat?.name || selectedCategoryId;
+                  if (selectedSubCategoryId) {
+                    const subName = cat?.subcategories?.find(s => s.id === selectedSubCategoryId)?.name || selectedSubCategoryId;
+                    return `${catName} > ${subName}`;
+                  }
+                  return catName;
+                })() : 'Pilih...'}
               </span>
             </button>
           </div>

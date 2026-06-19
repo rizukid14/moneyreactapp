@@ -812,10 +812,18 @@ const ChatBot: React.FC = () => {
                                 }}
                               >
                                 {msg.toolCall?.arguments?.categoryId 
-                                  ? (msg.toolCall.arguments.subCategoryId 
-                                      ? `${msg.toolCall.arguments.categoryId} (${msg.toolCall.arguments.subCategoryId})` 
-                                      : msg.toolCall.arguments.categoryId)
-                                  : 'Pilih Kategori...'}
+                                 ? (() => {
+                                     const catId = msg.toolCall?.arguments?.categoryId;
+                                     const subCatId = msg.toolCall?.arguments?.subCategoryId;
+                                     const cat = categories.find(c => c.id === catId);
+                                     const catName = cat?.name || catId;
+                                     if (subCatId) {
+                                       const subName = cat?.subcategories?.find(s => s.id === subCatId)?.name || subCatId;
+                                       return `${catName} (${subName})`;
+                                     }
+                                     return catName;
+                                   })()
+                                 : 'Pilih Kategori...'}
                               </button>
                             </div>
                           )}
@@ -1069,11 +1077,17 @@ const ChatBot: React.FC = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              {msg.toolCall?.arguments?.categoryId 
-                                ? (msg.toolCall.arguments.subCategoryId 
-                                    ? `${msg.toolCall.arguments.categoryId} (${msg.toolCall.arguments.subCategoryId})` 
-                                    : msg.toolCall.arguments.categoryId)
-                                : 'Pilih Kategori...'}
+                              {(() => {
+                                 const catId = msg.toolCall?.arguments?.categoryId;
+                                 const subCatId = msg.toolCall?.arguments?.subCategoryId;
+                                 const cat = categories.find(c => c.id === catId);
+                                 const catName = cat?.name || catId;
+                                 if (subCatId) {
+                                   const subName = cat?.subcategories?.find(s => s.id === subCatId)?.name || subCatId;
+                                   return `${catName} (${subName})`;
+                                 }
+                                 return catName || 'Pilih Kategori...';
+                               })()}
                             </button>
                           </div>
 
@@ -1243,7 +1257,12 @@ const ChatBot: React.FC = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              {msg.toolCall?.arguments?.categoryId || 'Pilih Kategori...'}
+                              {(() => {
+                                 const catId = msg.toolCall?.arguments?.categoryId;
+                                 return catId
+                                   ? (categories.find(c => c.id === catId)?.name || catId)
+                                   : 'Pilih Kategori...';
+                               })()}
                             </button>
                           </div>
 
@@ -1397,7 +1416,7 @@ const ChatBot: React.FC = () => {
                             gap: '6px'
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{rec.categoryIdName}</span>
+                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{categories.find(c => c.id === rec.categoryId)?.name || rec.categoryIdName || rec.categoryId}</span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{currencySymbol}</span>
@@ -1488,8 +1507,8 @@ const ChatBot: React.FC = () => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
                                 setCategorySelectCallback(() => (categoryIdName: string, _subCategoryIdName: string) => {
-                                  const cat = categories.find(c => c.name === categoryIdName && c.type === 'pengeluaran' && !c.isDeleted) ||
-                                              categories.find(c => c.name === categoryIdName && c.type === 'pengeluaran');
+                                  const cat = categories.find(c => c.id === categoryIdName && c.type === 'pengeluaran' && !c.isDeleted) ||
+                                              categories.find(c => c.id === categoryIdName && c.type === 'pengeluaran');
                                   if (cat) {
                                     handleAddDraftBudgetCategory(idx, cat.id);
                                   }
@@ -1644,7 +1663,7 @@ const ChatBot: React.FC = () => {
                               </span>
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              Kategori: {rt.categoryId} | Tipe: {rt.type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}
+                              Kategori: {categories.find(c => c.id === rt.categoryId)?.name || rt.categoryId} | Tipe: {rt.type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}
                             </div>
                             {rt.reason && (
                               <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>

@@ -44,8 +44,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         spendingMap.total += tx.amount;
-        const cat = categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran');
+        const cat = categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
         if (cat) spendingMap[cat.id] = (spendingMap[cat.id] || 0) + tx.amount;
       }
     });
@@ -169,7 +169,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
       // Calculate remaining
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
+        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
       }, 0);
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
 
@@ -201,7 +201,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
     activeDebts.forEach(d => {
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
+        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
       }, 0);
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
       if (remaining <= 0) return;
@@ -243,10 +243,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
     // ── 6. Large Expense Detected ────────────────────────────────────────
     const recentLargeExpense = transactions.find(tx => tx.type === 'pengeluaran' && tx.amount >= 500000);
     if (recentLargeExpense) {
+      const categoryName = categories.find(c => c.id === recentLargeExpense.categoryId)?.name || recentLargeExpense.categoryId;
       notifs.push({
         id: 'large-expense',
         title: 'Pengeluaran Besar Terdeteksi',
-        message: `Kamu mencatat pengeluaran sebesar ${fmt(recentLargeExpense.amount)} untuk kategori ${recentLargeExpense.categoryId}. Jangan lupa tetap berhemat!`,
+        message: `Kamu mencatat pengeluaran sebesar ${fmt(recentLargeExpense.amount)} untuk kategori ${categoryName}. Jangan lupa tetap berhemat!`,
         icon: 'warning',
         color: 'error',
         time: 'Hari ini',

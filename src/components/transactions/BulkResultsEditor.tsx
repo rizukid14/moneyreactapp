@@ -74,8 +74,11 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
   const closeModal = () => setModalState({ type: null, itemId: null });
 
   const getCategoryLabel = (item: ParsedTransaction) => {
-    if (!item.category) return '-- Pilih Kategori --';
-    return item.subCategory ? `${item.category} > ${item.subCategory}` : item.category;
+    if (!item.categoryId) return '-- Pilih Kategori --';
+    const cat = categories.find(c => c.id === item.categoryId);
+    if (!cat) return '-- Pilih Kategori --';
+    const sub = cat.subcategories?.find(s => s.id === item.subCategoryId);
+    return sub ? `${cat.name} > ${sub.name}` : cat.name;
   };
 
   const getAssetLabel = (assetId?: string, fallback = '-- Pilih Rekening --') => {
@@ -423,12 +426,12 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
           onClose={closeModal}
           categories={categories}
           type={activeItem.type as 'pengeluaran' | 'pendapatan'}
-          initialCategoryId={activeItem.category}
-          initialSubCategoryId={activeItem.subCategory || ''}
-          onSelect={(cat, sub) => {
+          initialCategoryId={activeItem.categoryId}
+          initialSubCategoryId={activeItem.subCategoryId || ''}
+          onSelect={(catId, subId) => {
             if (modalState.itemId) {
-              updateResult(modalState.itemId, 'category', cat);
-              updateResult(modalState.itemId, 'subCategory', sub);
+              updateResult(modalState.itemId, 'categoryId', catId);
+              updateResult(modalState.itemId, 'subCategoryId', subId);
             }
           }}
         />

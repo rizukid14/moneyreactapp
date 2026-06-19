@@ -21,19 +21,19 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   isOpen, onClose, categories, type, initialCategoryId, initialSubCategoryId, onSelect
 }) => {
   const { addCategory, updateCategory, addSubCategory } = useMoney();
-  const [activeCategory, setActiveCategory] = useState<string>('');
+  const [activeCategoryId, setActiveCategoryId] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter and sort main categories alphabetically
   const sortedCategories = useMemo(() => {
-    const activeNames = new Set(
-      categories.filter(c => c.type === type && !c.isDeleted).map(c => c.name.toLowerCase())
+    const activeIds = new Set(
+      categories.filter(c => c.type === type && !c.isDeleted).map(c => c.id)
     );
 
     let result = [...categories].filter(c =>
       c.type === type &&
-      (!c.isDeleted || (c.name === initialCategoryId && !activeNames.has(c.name.toLowerCase())))
+      (!c.isDeleted || (c.id === initialCategoryId && !activeIds.has(c.id)))
     );
 
     if (searchQuery.trim()) {
@@ -49,28 +49,28 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      if (initialCategoryId && sortedCategories.some(c => c.name === initialCategoryId)) {
-        setActiveCategory(initialCategoryId);
+      if (initialCategoryId && sortedCategories.some(c => c.id === initialCategoryId)) {
+        setActiveCategoryId(initialCategoryId);
       } else if (sortedCategories.length > 0) {
-        setActiveCategory(sortedCategories[0].name);
+        setActiveCategoryId(sortedCategories[0].id);
       }
     }
   }, [isOpen, initialCategoryId, sortedCategories]);
 
   const activeCategoryObj = useMemo(() => {
-    return sortedCategories.find(c => c.name === activeCategory);
-  }, [activeCategory, sortedCategories]);
+    return sortedCategories.find(c => c.id === activeCategoryId);
+  }, [activeCategoryId, sortedCategories]);
 
   // Sort subcategories alphabetically
   const sortedSubcategories = useMemo(() => {
     if (!activeCategoryObj || !activeCategoryObj.subcategories) return [];
 
-    const activeSubNames = new Set(
-      activeCategoryObj.subcategories.filter(s => !s.isDeleted).map(s => s.name.toLowerCase())
+    const activeSubIds = new Set(
+      activeCategoryObj.subcategories.filter(s => !s.isDeleted).map(s => s.id)
     );
 
     let result = [...activeCategoryObj.subcategories].filter(s =>
-      !s.isDeleted || (s.name === initialSubCategoryId && !activeSubNames.has(s.name.toLowerCase()))
+      !s.isDeleted || (s.id === initialSubCategoryId && !activeSubIds.has(s.id))
     );
 
     if (searchQuery.trim()) {
@@ -81,17 +81,17 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
     return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [activeCategoryObj, searchQuery, initialSubCategoryId]);
 
-  const handleCategoryClick = (catName: string) => {
-    setActiveCategory(catName);
+  const handleCategoryClick = (catId: string) => {
+    setActiveCategoryId(catId);
   };
 
-  const handleSubCategoryClick = (subName: string) => {
-    onSelect(activeCategory, subName);
+  const handleSubCategoryClick = (subId: string) => {
+    onSelect(activeCategoryId, subId);
     onClose();
   };
 
   const handleConfirmMainCategoryOnly = () => {
-    onSelect(activeCategory, '');
+    onSelect(activeCategoryId, '');
     onClose();
   };
 
@@ -187,13 +187,13 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                     </div>
                   ) : (
                     sortedCategories.map(cat => {
-                      const isActive = cat.name === activeCategory;
+                      const isActive = cat.id === activeCategoryId;
                       const hasSub = cat.subcategories && cat.subcategories.length > 0;
 
                       return (
                         <button
                           key={cat.id}
-                          onClick={() => handleCategoryClick(cat.name)}
+                          onClick={() => handleCategoryClick(cat.id)}
                           style={{
                             width: '100%', padding: '14px 16px', background: isActive ? 'var(--bg-card)' : 'transparent',
                             border: 'none', borderLeft: `4px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
@@ -262,11 +262,11 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                       </button>
 
                       {sortedSubcategories.map(sub => {
-                        const isSubActive = sub.name === initialSubCategoryId;
+                        const isSubActive = sub.id === initialSubCategoryId;
                         return (
                           <button
                             key={sub.id}
-                            onClick={() => handleSubCategoryClick(sub.name)}
+                            onClick={() => handleSubCategoryClick(sub.id)}
                             style={{
                               width: '100%', padding: '14px 20px', background: 'transparent',
                               border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between',

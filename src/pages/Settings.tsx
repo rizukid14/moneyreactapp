@@ -2124,8 +2124,6 @@ const Settings: React.FC = () => {
         subtitle="Kelola akun, keamanan, dan preferensi aplikasi Anda."
       />
 
-
-
       <div className="flex flex-col lg:flex-row gap-8 mt-6 items-start w-full">
         {/* Kolom Kiri */}
         <div className="flex-1 flex flex-col gap-8 w-full">

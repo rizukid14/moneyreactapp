@@ -351,6 +351,7 @@ interface MoneyContextType {
   deleteBudgetReallocation: (id: string) => void;
   moveBudgetMoney: (fromCategoryId: string | null, toCategoryId: string | null, amount: number, month: number, year: number) => void;
   validateTransactionBudget: (tx: Partial<Transaction>) => { isValid: boolean; deficitCategory: string | null; deficitAmount: number };
+  recoverUnknownCategories: () => Promise<{ success: boolean; recoveredCount: number; message: string }>;
 }
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
@@ -546,19 +547,21 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       // ─── Category ID Migration (Phase 1) ──────────────────────────────────
-      const hasMigratedCatId = localStorage.getItem('migrated_categoryId_ids_v2');
+      const hasMigratedCatId = localStorage.getItem('migrated_categoryId_ids_v3');
       if (!hasMigratedCatId && (dbTxs.length > 0 || dbRecurring.length > 0 || dbSubs.length > 0)) {
         console.log('Running Category ID migration...');
         let needsMigration = false;
         
         // Helper to find or create categoryId shadow
-        const getCatIds = (tx: { categoryId?: string, subCategoryId?: string, type: string }) => {
-          let cat = dbCats.find(c => c.name.toLowerCase() === tx.categoryId?.toLowerCase() && c.type === tx.type);
-          if (!cat && tx.categoryId) {
+        const getCatIds = (tx: any) => {
+          const categoryName = tx.category || tx.categoryId;
+          const subCategoryName = tx.subCategory || tx.subCategoryId;
+          let cat = dbCats.find(c => c.name.toLowerCase() === categoryName?.toLowerCase() && c.type === tx.type);
+          if (!cat && categoryName) {
             // Create shadow categoryId to prevent orphan transactions
             cat = {
               id: `cat-migrated-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-              name: tx.categoryId,
+              name: categoryName,
               type: tx.type as any,
               subcategories: [],
               isDeleted: true
@@ -567,8 +570,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             import('../lib/db').then(m => m.dbPutCategory(cat!));
           }
           let subCatId = undefined;
-          if (tx.subCategoryId && cat) {
-            const sub = cat.subcategories?.find(s => s.name.toLowerCase() === tx.subCategoryId?.toLowerCase());
+          if (subCategoryName && cat) {
+            const sub = cat.subcategories?.find(s => s.name.toLowerCase() === subCategoryName?.toLowerCase());
             if (sub) subCatId = sub.id;
           }
           return { categoryId: cat?.id || 'unknown', subCategoryId: subCatId };
@@ -603,7 +606,66 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           migratedSubs.forEach((s, i) => { dbSubs[i] = s; });
           console.log('Category ID migration completed.');
         }
-        localStorage.setItem('migrated_categoryId_ids_v2', 'true');
+        localStorage.setItem('migrated_categoryId_ids_v3', 'true');
+      }
+
+      // ─── Recovery of "unknown" categories from Firestore ────────────────
+      const hasRecoveredUnknown = authUser?.uid ? localStorage.getItem(`recovered_unknown_categories_${authUser.uid}_v2`) : null;
+      const hasUnknownTxs = dbTxs.some(tx => tx.categoryId === 'unknown');
+      if (!hasRecoveredUnknown && hasUnknownTxs && isFirebaseConfigured && authUser?.uid) {
+        console.log('Attempting to recover unknown categories from Firestore...');
+        try {
+          const mDb = await import('../lib/db');
+          const snapshot = await getDocs(collection(firestore, 'users', authUser.uid, 'transactions'));
+          const cloudTxsMap = new Map<string, any>();
+          snapshot.docs.forEach(doc => {
+            cloudTxsMap.set(doc.id, doc.data());
+          });
+
+          let recoveredCount = 0;
+          const updatedTxs = dbTxs.map(tx => {
+            if (tx.categoryId === 'unknown') {
+              const cloudTx = cloudTxsMap.get(tx.id);
+              if (cloudTx && (cloudTx.category || (cloudTx.categoryId && cloudTx.categoryId !== 'unknown'))) {
+                const categoryName = cloudTx.category || cloudTx.categoryId;
+                const subCategoryName = cloudTx.subCategory || cloudTx.subCategoryId;
+                
+                let cat = dbCats.find(c => c.name.toLowerCase() === categoryName.toLowerCase() && c.type === tx.type);
+                if (!cat) {
+                  // Create shadow category to prevent orphans
+                  cat = {
+                    id: `cat-migrated-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                    name: categoryName,
+                    type: tx.type as any,
+                    subcategories: [],
+                    isDeleted: true
+                  };
+                  dbCats.push(cat);
+                  mDb.dbPutCategory(cat);
+                }
+                
+                let subCatId = undefined;
+                if (subCategoryName && cat) {
+                  const sub = cat.subcategories?.find(s => s.name.toLowerCase() === subCategoryName.toLowerCase());
+                  if (sub) subCatId = sub.id;
+                }
+                
+                recoveredCount++;
+                return { ...tx, categoryId: cat.id, subCategoryId: subCatId };
+              }
+            }
+            return tx;
+          });
+
+          if (recoveredCount > 0) {
+            await Promise.all(updatedTxs.filter((tx, i) => tx.categoryId !== dbTxs[i].categoryId).map(tx => mDb.dbPutTransaction(tx)));
+            updatedTxs.forEach((tx, i) => { dbTxs[i] = tx; });
+            console.log(`Successfully recovered ${recoveredCount} unknown transactions from Firestore.`);
+          }
+          localStorage.setItem(`recovered_unknown_categories_${authUser.uid}_v2`, 'true');
+        } catch (err) {
+          console.error('Failed to recover unknown categories:', err);
+        }
       }
 
       setGoals(dbGoals);
@@ -630,7 +692,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setBudgets(dbBudgets);
       setDebts(dbDebts as Debt[]);
       setGoals(dbGoals as Goal[]);
-      setTransactions(dbTxs);
+      setTransactions([...dbTxs]);
       setTrips(dbTrips as Trip[]);
       setTripExpenses(dbTripExpenses as TripExpense[]);
       setMonthlyIncomes(dbMonthlyIncomes as MonthlyIncome[]);
@@ -712,6 +774,31 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           } catch (e) { console.error('[Migration] Budgets failed:', e); }
         }
       }
+
+      console.log('--- MONEYAPP DIAGNOSTICS ---');
+      console.log('User UID:', authUser?.uid || 'Not Logged In');
+      console.log('Firebase Configured:', isFirebaseConfigured);
+      console.log('Local Transactions Count:', dbTxs.length);
+      console.log('Local Categories Count:', dbCats.length);
+      
+      const unknownTxs = dbTxs.filter(tx => tx.categoryId === 'unknown');
+      console.log('Unknown categoryId Txs:', unknownTxs.length);
+      if (unknownTxs.length > 0) {
+        console.log('First 5 Unknown Txs:', unknownTxs.slice(0, 5).map(tx => ({ id: tx.id, date: tx.date, note: tx.note, amount: tx.amount, type: tx.type })));
+      }
+      
+      const undefinedCatTxs = dbTxs.filter(tx => !tx.categoryId);
+      console.log('Undefined/empty categoryId Txs:', undefinedCatTxs.length);
+      if (undefinedCatTxs.length > 0) {
+        console.log('First 5 Undefined Cat Txs:', undefinedCatTxs.slice(0, 5).map(tx => ({ id: tx.id, date: tx.date, note: tx.note, amount: tx.amount, type: tx.type })));
+      }
+      
+      const missingCatTxs = dbTxs.filter(tx => tx.categoryId && tx.categoryId !== 'unknown' && !dbCats.some(c => c.id === tx.categoryId));
+      console.log('Txs with categoryId missing from dbCats:', missingCatTxs.length);
+      if (missingCatTxs.length > 0) {
+        console.log('First 5 Missing Cat Txs:', missingCatTxs.slice(0, 5).map(tx => ({ id: tx.id, categoryId: tx.categoryId, date: tx.date, note: tx.note })));
+      }
+      console.log('----------------------------');
 
       setIsReady(true);
     };
@@ -822,14 +909,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!txToDelete) return;
 
     if (txToDelete.relatedId) {
-      const isPrincipal = isPrincipalTx(txToDelete.note, txToDelete.categoryId);
+      const isPrincipal = isPrincipalTx(txToDelete.note, txToDelete.categoryId, categories);
 
       if (isPrincipal) {
         const debtId = txToDelete.relatedId;
         const otherPrincipalTxs = transactions.filter(tx =>
           tx.relatedId === debtId &&
           tx.id !== id &&
-          isPrincipalTx(tx.note, tx.categoryId)
+          isPrincipalTx(tx.note, tx.categoryId, categories)
         );
 
         if (otherPrincipalTxs.length === 0) {
@@ -851,7 +938,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             // Recalculate if it's paid after total decreased
             const history = transactions.filter(t => t.relatedId === debtId && t.id !== id);
             const paidAmt = history.reduce((sum, tx) => {
-              return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
+              return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
             }, 0);
             const isPaid = newTotal > 0 && paidAmt >= newTotal;
 
@@ -868,7 +955,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const remainingPaymentCount = transactions.filter(t =>
           t.id !== id &&
           t.relatedId === txToDelete.relatedId &&
-          !isPrincipalTx(t.note, t.categoryId)
+          !isPrincipalTx(t.note, t.categoryId, categories)
         ).length;
 
         setDebts(prev => prev.map(d => {
@@ -877,7 +964,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           // Recalculate isPaid based on new transaction sum
           const history = transactions.filter(t => t.relatedId === d.id && t.id !== id);
           const paidAmt = history.reduce((sum, tx) => {
-            return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
+            return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
           }, 0);
           const isPaid = Number(d.totalAmount || 0) > 0 && paidAmt >= Number(d.totalAmount || 0);
 
@@ -894,7 +981,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       dbDeleteTransaction(id).then(refreshSyncCount);
 
       // --- Sync with Trip Expense & Related Debts ---
-      if (txToDelete.categoryId === 'Liburan & Perjalanan' && txToDelete.subCategoryId === 'Biaya Trip') {
+      const cat = categories.find(c => c.id === txToDelete.categoryId);
+      const isTripExpense = cat?.name === 'Liburan & Perjalanan' &&
+                            cat.subcategories?.find(s => s.id === txToDelete.subCategoryId)?.name === 'Biaya Trip';
+      if (isTripExpense) {
         const expenseId = txToDelete.relatedId;
         if (expenseId) {
           // Delete Trip Expense
@@ -1156,7 +1246,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact) {
         const principalTx = transactions.find(tx =>
           tx.relatedId === id &&
-          isPrincipalTx(tx.note, tx.categoryId)
+          isPrincipalTx(tx.note, tx.categoryId, categories)
         );
         if (principalTx) {
           const txUpdate: Partial<Transaction> = {};
@@ -1322,7 +1412,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       const history = transactions.filter(t => t.relatedId === debtId);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
+        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
       }, 0);
 
       const remaining = Math.max(0, Number(debt.totalAmount || 0) - paidAmt);
@@ -1426,7 +1516,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const totalPaid = transactions
       .filter(t => t.relatedId === debtId)
-      .reduce((sum, tx) => isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0), 0) + amount;
+      .reduce((sum, tx) => isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0), 0) + amount;
 
     const nextPaid = (debt.paidInstallments || 0) + 1;
     const isPaid = debt.isInstallment && debt.totalInstallments
@@ -1487,7 +1577,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const debtsWithBal = contactDebts.map(d => {
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount);
+        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount);
       }, 0);
       return { ...d, remaining: Math.max(0, d.totalAmount - paidAmt) };
     });
@@ -1893,6 +1983,75 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return result;
   }, [refreshSyncCount, applySettingsToState]);
 
+  const recoverUnknownCategories = useCallback(async () => {
+    if (!isFirebaseConfigured || !authUser?.uid) {
+      return { success: false, recoveredCount: 0, message: 'Firebase tidak dikonfigurasi atau Anda belum masuk.' };
+    }
+    try {
+      const mDb = await import('../lib/db');
+      const { collection, getDocs } = await import('firebase/firestore');
+      const snapshot = await getDocs(collection(firestore, 'users', authUser.uid, 'transactions'));
+      const cloudTxsMap = new Map<string, any>();
+      snapshot.docs.forEach(doc => {
+        cloudTxsMap.set(doc.id, doc.data());
+      });
+
+      let recoveredCount = 0;
+      const dbTxs = await mDb.dbGetAllTransactions();
+      const dbCats = await mDb.dbGetAllCategories();
+
+      const updatedTxs = dbTxs.map(tx => {
+        if (tx.categoryId === 'unknown') {
+          const cloudTx = cloudTxsMap.get(tx.id);
+          if (cloudTx && (cloudTx.category || (cloudTx.categoryId && cloudTx.categoryId !== 'unknown'))) {
+            const categoryName = cloudTx.category || cloudTx.categoryId;
+            const subCategoryName = cloudTx.subCategory || cloudTx.subCategoryId;
+            
+            let cat = dbCats.find(c => c.name.toLowerCase() === categoryName.toLowerCase() && c.type === tx.type);
+            if (!cat) {
+              cat = {
+                id: `cat-migrated-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                name: categoryName,
+                type: tx.type as any,
+                subcategories: [],
+                isDeleted: true
+              };
+              dbCats.push(cat);
+              mDb.dbPutCategory(cat);
+            }
+            
+            let subCatId = undefined;
+            if (subCategoryName && cat) {
+              const sub = cat.subcategories?.find(s => s.name.toLowerCase() === subCategoryName.toLowerCase());
+              if (sub) subCatId = sub.id;
+            }
+            
+            recoveredCount++;
+            return { ...tx, categoryId: cat.id, subCategoryId: subCatId };
+          }
+        }
+        return tx;
+      });
+
+      if (recoveredCount > 0) {
+        await Promise.all(updatedTxs.filter((tx, i) => tx.categoryId !== dbTxs[i].categoryId).map(tx => mDb.dbPutTransaction(tx)));
+        setTransactions(updatedTxs);
+        // Force refresh categories to register any new shadows
+        const freshCats = await mDb.dbGetAllCategories();
+        setCategories(freshCats);
+        
+        // Reset recovery flag for uid so it doesn't prevent future recoveries
+        localStorage.setItem(`recovered_unknown_categories_${authUser.uid}_v2`, 'true');
+
+        return { success: true, recoveredCount, message: `Berhasil memulihkan ${recoveredCount} transaksi!` };
+      }
+      return { success: true, recoveredCount: 0, message: 'Tidak ada transaksi dengan kategori "unknown" yang dapat dipulihkan di server.' };
+    } catch (err: any) {
+      console.error('Manual recovery failed:', err);
+      return { success: false, recoveredCount: 0, message: `Gagal memproses pemulihan: ${err?.message || err}` };
+    }
+  }, [authUser?.uid]);
+
   const setBudgetMode = useCallback((mode: BudgetMode) => {
     setBudgetModeState(mode);
     dbPutSetting('budgetMode', mode);
@@ -2050,7 +2209,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     budgetMode, setBudgetMode, zbbMode, setZbbMode, monthlyIncome, setMonthlyIncome,
     monthlyIncomes, setMonthIncome, deleteMonthIncome,
     budgetReallocations, addBudgetReallocation, deleteBudgetReallocation,
-    moveBudgetMoney, validateTransactionBudget
+    moveBudgetMoney, validateTransactionBudget, recoverUnknownCategories
   }), [
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
@@ -2071,7 +2230,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     budgetMode, setBudgetMode, zbbMode, setZbbMode, monthlyIncome, setMonthlyIncome,
     monthlyIncomes, setMonthIncome, deleteMonthIncome,
     budgetReallocations, addBudgetReallocation, deleteBudgetReallocation,
-    moveBudgetMoney, validateTransactionBudget
+    moveBudgetMoney, validateTransactionBudget, recoverUnknownCategories
   ]);
 
   // Show splash screen while checking auth state or loading data

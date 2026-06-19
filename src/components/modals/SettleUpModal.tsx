@@ -19,7 +19,7 @@ interface SettleUpModalProps {
 }
 
 const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, expenses }) => {
-  const { user, currencySymbol, debts, transactions, assets, addDebtPayment, addTransaction, updateTrip, defaultAssetId, getAssetBalance } = useMoney();
+  const { user, currencySymbol, debts, transactions, assets, addDebtPayment, addTransaction, updateTrip, defaultAssetId, getAssetBalance, categories } = useMoney();
   const { showToast } = useToast();
   const [mode, setMode] = useState<'simple' | 'detailed'>(trip.settlementMode || 'simple');
   const [settlingTx, setSettlingTx] = useState<any | null>(null);
@@ -261,7 +261,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
         const activeDebts = sortedDebts.map(d => {
           const history = transactions.filter(tx => tx.relatedId === d.id);
           const paidAmt = history.reduce((sum, tx) => {
-            if (isPrincipalTx(tx.note, tx.categoryId)) return sum;
+            if (isPrincipalTx(tx.note, tx.categoryId, categories)) return sum;
             return sum + Number(tx.amount || 0);
           }, 0);
           const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);

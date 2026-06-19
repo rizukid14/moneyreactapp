@@ -285,15 +285,26 @@ const ReceiptScanner: React.FC = () => {
           const matchedFromAssetId = mapAsset(tx.fromAsset, fallbackAssetId);
           const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || fallbackAssetId);
 
-          let matchedCategory = '';
-          let matchedSubCategory = '';
+          let matchedCategoryId = '';
+          let matchedSubCategoryId = '';
           if (tx.categoryId && tx.type !== 'transfer') {
-            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.categoryId.toLowerCase() && c.type === tx.type && !c.isDeleted);
+            const matchedCat = categories.find(c => 
+              c.type === tx.type && 
+              !c.isDeleted && 
+              (c.name.toLowerCase() === tx.categoryId.toLowerCase() || 
+               c.name.toLowerCase().includes(tx.categoryId.toLowerCase()) || 
+               tx.categoryId.toLowerCase().includes(c.name.toLowerCase()))
+            );
             if (matchedCat) {
-              matchedCategory = matchedCat.name;
+              matchedCategoryId = matchedCat.id;
               if (tx.subCategoryId && matchedCat.subcategories) {
-                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategoryId!.toLowerCase() && !s.isDeleted);
-                if (matchedSub) matchedSubCategory = matchedSub.name;
+                const matchedSub = matchedCat.subcategories.find(s => 
+                  !s.isDeleted && 
+                  (s.name.toLowerCase() === tx.subCategoryId!.toLowerCase() ||
+                   s.name.toLowerCase().includes(tx.subCategoryId!.toLowerCase()) ||
+                   tx.subCategoryId!.toLowerCase().includes(s.name.toLowerCase()))
+                );
+                if (matchedSub) matchedSubCategoryId = matchedSub.id;
               }
             }
           }
@@ -303,8 +314,8 @@ const ReceiptScanner: React.FC = () => {
             asset: matchedAssetId,
             fromAsset: matchedFromAssetId,
             toAsset: matchedToAssetId,
-            categoryId: matchedCategory || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
-            subCategoryId: matchedSubCategory || ''
+            categoryId: matchedCategoryId || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? categories.find(c => c.name === 'Lainnya' && c.type === 'pengeluaran')?.id || '' : categories.find(c => c.name === 'Lain-lain' && c.type === 'pendapatan')?.id || ''),
+            subCategoryId: matchedSubCategoryId || ''
           };
         });
 
@@ -645,8 +656,20 @@ const ReceiptScanner: React.FC = () => {
     const toSave = mutasiResults.filter(r => r.selected);
     toSave.forEach(tx => {
       if (tx.type === 'transfer') {
-        const finalFrom = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : batchAssetId;
-        const finalTo = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : batchAssetId;
+        let finalFrom = batchAssetId;
+        let finalTo = batchAssetId;
+
+        if (tx.fromAsset && tx.fromAsset !== batchAssetId) {
+          finalFrom = tx.fromAsset;
+          finalTo = batchAssetId;
+        } else if (tx.toAsset && tx.toAsset !== batchAssetId) {
+          finalFrom = batchAssetId;
+          finalTo = tx.toAsset;
+        } else {
+          finalFrom = batchAssetId;
+          finalTo = tx.toAsset || batchAssetId;
+        }
+
         const newTx = addTransaction({
           type: 'transfer',
           amount: tx.amount,

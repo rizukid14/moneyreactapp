@@ -18,6 +18,16 @@ interface TransactionItemProps {
   showDate?: boolean;
 }
 
+const TX_TYPE_LABELS: Record<string, string> = {
+  pengeluaran: 'Pengeluaran',
+  pendapatan: 'Pendapatan',
+  transfer: 'Transfer',
+  piutang_keluar: 'Beri Pinjaman',
+  piutang_masuk: 'Terima Pelunasan',
+  hutang_masuk: 'Terima Pinjaman',
+  hutang_keluar: 'Bayar Hutang',
+};
+
 const TransactionItem: React.FC<TransactionItemProps> = ({
   transaction: tx,
   assetName,
@@ -28,11 +38,18 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   onCopy,
   showDate = true
 }) => {
-  const { currencySymbol } = useMoney();
+  const { currencySymbol, categories } = useMoney();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
   const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
+
+  const category = categories.find(c => c.id === tx.categoryId);
+  let categoryName = category ? category.name : (tx.categoryId || '');
+  if (!categoryName) {
+    categoryName = TX_TYPE_LABELS[tx.type] || 'Transaksi';
+  }
+  const subCategoryName = category?.subcategories?.find(s => s.id === tx.subCategoryId)?.name || tx.subCategoryId;
 
   return (
     <>
@@ -46,11 +63,11 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
             size="md"
           />
         }
-        title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : (tx.categoryId || '')}
+        title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : categoryName}
         subtitle={
           <div className="flex flex-col gap-0.5">
-            {tx.type !== 'transfer' && tx.subCategoryId && (
-              <span className="font-semibold text-[11px]">{tx.subCategoryId}</span>
+            {tx.type !== 'transfer' && subCategoryName && (
+              <span className="font-semibold text-[11px]">{subCategoryName}</span>
             )}
             <div className="flex items-center gap-1.5 flex-wrap">
               {showDate && <span>{tx.date}</span>}
@@ -102,7 +119,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={() => onDelete(tx.id)}
         title="Hapus Transaksi"
-        message={`Apakah Anda yakin ingin menghapus transaksi "${tx.type === 'transfer' ? 'Transfer' : tx.categoryId}" sebesar ${formatCurrency(tx.amount, currencySymbol)}?`}
+        message={`Apakah Anda yakin ingin menghapus transaksi "${tx.type === 'transfer' ? 'Transfer' : categoryName}" sebesar ${formatCurrency(tx.amount, currencySymbol)}?`}
       />
     </>
   );

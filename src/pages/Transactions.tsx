@@ -152,10 +152,13 @@ const Transactions: React.FC = () => {
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
+        const categoryName = categories.find(c => c.id === tx.categoryId)?.name || tx.categoryId || '';
+        const subCategoryName = categories.find(c => c.id === tx.categoryId)?.subcategories?.find(s => s.id === tx.subCategoryId)?.name || tx.subCategoryId || '';
+        
         const matches = (
           (tx.note && tx.note.toLowerCase().includes(q)) ||
-          (tx.categoryId && tx.categoryId.toLowerCase().includes(q)) ||
-          (tx.subCategoryId && tx.subCategoryId.toLowerCase().includes(q)) ||
+          (categoryName.toLowerCase().includes(q)) ||
+          (subCategoryName.toLowerCase().includes(q)) ||
           tx.amount.toString().includes(q)
         );
         if (!matches) return false;
@@ -216,7 +219,7 @@ const Transactions: React.FC = () => {
         title = `${prefix} - ${dateStr}`;
       } else if (groupBy === 'categoryId') {
         key = tx.categoryId || 'transfer';
-        title = tx.categoryId || 'Transfer';
+        title = categories.find(c => c.id === tx.categoryId)?.name || tx.categoryId || 'Transfer';
       } else if (groupBy === 'asset') {
         key = tx.assetId || tx.fromAssetId || 'unknown';
         title = getAssetName(key);
@@ -397,7 +400,7 @@ const Transactions: React.FC = () => {
 
     return {
       count,
-      topCategory,
+      topCategory: categories.find(c => c.id === topCategory)?.name || topCategory,
       topAmount
     };
   }, [transactions, viewDate, startOfMonthDay]);
@@ -435,7 +438,7 @@ const Transactions: React.FC = () => {
     return {
       count,
       dailyAverage,
-      topCategory
+      topCategory: categories.find(c => c.id === topCategory)?.name || topCategory
     };
   }, [transactions, weeklyExpense]);
 
@@ -576,7 +579,7 @@ const Transactions: React.FC = () => {
         const categoryIdName = categoryIdObj.name;
         const catSpent = transactions
           .filter(tx => {
-            if (tx.type !== 'pengeluaran' || tx.categoryId !== categoryIdName) return false;
+            if (tx.type !== 'pengeluaran' || tx.categoryId !== b.categoryId) return false;
             const txD = new Date(tx.date);
             if (startOfMonthDay > 1) {
               const start = new Date(vY, vM - 1, startOfMonthDay);
@@ -637,7 +640,8 @@ const Transactions: React.FC = () => {
       
       if (topCat && topAmt > 0) {
         const pct = Math.round((topAmt / weeklyExpense) * 100);
-        findings.push(`Fokus minggu ini: ${topCat} (${pct}%).`);
+        const topCatName = categories.find(c => c.id === topCat)?.name || topCat;
+        findings.push(`Fokus minggu ini: ${topCatName} (${pct}%).`);
       }
     }
 

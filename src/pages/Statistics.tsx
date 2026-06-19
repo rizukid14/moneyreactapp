@@ -27,7 +27,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const Statistics: React.FC = () => {
   const {
-    transactions, assets,
+    transactions, assets, categories,
     currencySymbol, startOfMonthDay, theme, chartStyle,
     statsCarouselCards, defaultStatsView
   } = useMoney();
@@ -80,9 +80,9 @@ const Statistics: React.FC = () => {
     chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
     currentMonthIncome: number; currentMonthExpense: number;
     prevMonthIncome: number; prevMonthExpense: number;
-    expenseCategoryData: { name: string; value: number }[];
-    incomeCategoryData: { name: string; value: number }[];
-    topCategories: { id: string; categoryId: string; amount: number; type: 'pengeluaran' | 'pendapatan'; color: string; colorIndex: number }[];
+    expenseCategoryData: { name: string; id: string; value: number }[];
+    incomeCategoryData: { name: string; id: string; value: number }[];
+    topCategories: { id: string; categoryId: string; categoryName: string; amount: number; type: 'pengeluaran' | 'pendapatan'; color: string; colorIndex: number }[];
     insights: {
       netSavings: number; savingsRate: number; avgDailySpending: number;
       txCountIncome: number; txCountExpense: number; txCountTransfer: number; txCountTotal: number;
@@ -234,27 +234,41 @@ const Statistics: React.FC = () => {
     });
 
     const expenseData = drillDownCategory?.type === 'pengeluaran'
-      ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })).sort((a, b) => b.value - a.value)
-      : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a, b) => b.value - a.value);
+      ? Object.keys(expBySubCategory).map(key => {
+          const parentCat = categories?.find(c => c.id === drillDownCategory.name);
+          const subCatName = parentCat?.subcategories?.find(s => s.id === key)?.name || parentCat?.name || key;
+          return { name: subCatName, id: key, value: expBySubCategory[key] };
+        }).sort((a, b) => b.value - a.value)
+      : Object.keys(expByCategory).map(key => {
+          const catName = categories?.find(c => c.id === key)?.name || key;
+          return { name: catName, id: key, value: expByCategory[key] };
+        }).sort((a, b) => b.value - a.value);
 
     const incomeData = drillDownCategory?.type === 'pendapatan'
-      ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] })).sort((a, b) => b.value - a.value)
-      : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a, b) => b.value - a.value);
+      ? Object.keys(incBySubCategory).map(key => {
+          const parentCat = categories?.find(c => c.id === drillDownCategory.name);
+          const subCatName = parentCat?.subcategories?.find(s => s.id === key)?.name || parentCat?.name || key;
+          return { name: subCatName, id: key, value: incBySubCategory[key] };
+        }).sort((a, b) => b.value - a.value)
+      : Object.keys(incByCategory).map(key => {
+          const catName = categories?.find(c => c.id === key)?.name || key;
+          return { name: catName, id: key, value: incByCategory[key] };
+        }).sort((a, b) => b.value - a.value);
 
     // Prepare the list for the bottom section
-    let allCategories: { id: string, categoryId: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
+    let allCategories: { id: string, categoryId: string, categoryName: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
 
     if (drillDownCategory) {
       const baseIdx = drillDownCategory.colorIndex;
       if (drillDownCategory.type === 'pengeluaran') {
         allCategories = expenseData.map((d, i) => ({
-          id: `exp-sub-${d.name}`, categoryId: d.name, amount: d.value, type: 'pengeluaran' as const,
+          id: `exp-sub-${d.id}`, categoryId: d.id, categoryName: d.name, amount: d.value, type: 'pengeluaran' as const,
           color: COLORS[(i + baseIdx) % COLORS.length],
           colorIndex: (i + baseIdx) % COLORS.length
         }));
       } else {
         allCategories = incomeData.map((d, i) => ({
-          id: `inc-sub-${d.name}`, categoryId: d.name, amount: d.value, type: 'pendapatan' as const,
+          id: `inc-sub-${d.id}`, categoryId: d.id, categoryName: d.name, amount: d.value, type: 'pendapatan' as const,
           color: COLORS[(i + baseIdx) % COLORS.length],
           colorIndex: (i + baseIdx) % COLORS.length
         }));
@@ -262,12 +276,12 @@ const Statistics: React.FC = () => {
     } else {
       allCategories = [
         ...expenseData.map((d, i) => ({
-          id: `exp-${d.name}`, categoryId: d.name, amount: d.value, type: 'pengeluaran' as const,
+          id: `exp-${d.id}`, categoryId: d.id, categoryName: d.name, amount: d.value, type: 'pengeluaran' as const,
           color: COLORS[i % COLORS.length],
           colorIndex: i % COLORS.length
         })),
         ...incomeData.map((d, i) => ({
-          id: `inc-${d.name}`, categoryId: d.name, amount: d.value, type: 'pendapatan' as const,
+          id: `inc-${d.id}`, categoryId: d.id, categoryName: d.name, amount: d.value, type: 'pendapatan' as const,
           color: COLORS[(i + 3) % COLORS.length],
           colorIndex: (i + 3) % COLORS.length
         }))
@@ -1342,7 +1356,7 @@ const Statistics: React.FC = () => {
               {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
                 <div data-tour="stats-breakdown" className="bg-bg-card p-5 rounded-3xl shadow-bento group flex flex-col relative overflow-hidden">
                   <div className="flex items-center justify-between mb-4 relative z-10">
-                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</span>
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran {drillDownCategory ? `(${categories?.find(c => c.id === drillDownCategory.name)?.name || drillDownCategory.name})` : 'per Kategori'}</span>
                     <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                       <MaterialIcon name="pie_chart" className="text-secondary text-base" />
                     </div>
@@ -1358,7 +1372,7 @@ const Statistics: React.FC = () => {
                           dataKey="value"
                           onClick={(data, index) => {
                             if (!drillDownCategory && !(data as any).__isOthers) {
-                              setDrillDownCategory({ name: data.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                              setDrillDownCategory({ name: (data as any).id ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
                             }
                           }}
                           style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
@@ -1408,7 +1422,7 @@ const Statistics: React.FC = () => {
                           }}
                           onClick={() => {
                             if (!drillDownCategory && !isOthers) {
-                              setDrillDownCategory({ name: item.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                              setDrillDownCategory({ name: item.id ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
                             }
                           }}
                           onMouseEnter={e => { if (!drillDownCategory && !isOthers) e.currentTarget.style.color = 'var(--text-main)'; }}
@@ -1433,7 +1447,7 @@ const Statistics: React.FC = () => {
               {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
                 <div data-tour="stats-breakdown" className="bg-bg-card p-5 rounded-3xl shadow-bento group flex flex-col relative overflow-hidden">
                   <div className="flex items-center justify-between mb-4 relative z-10">
-                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</span>
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pendapatan {drillDownCategory ? `(${categories?.find(c => c.id === drillDownCategory.name)?.name || drillDownCategory.name})` : 'per Kategori'}</span>
                     <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                       <MaterialIcon name="pie_chart" className="text-primary text-base" />
                     </div>
@@ -1449,7 +1463,7 @@ const Statistics: React.FC = () => {
                           dataKey="value"
                           onClick={(data, index) => {
                             if (!drillDownCategory && !(data as any).__isOthers) {
-                              setDrillDownCategory({ name: data.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                              setDrillDownCategory({ name: (data as any).id ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
                             }
                           }}
                           style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
@@ -1499,7 +1513,7 @@ const Statistics: React.FC = () => {
                           }}
                           onClick={() => {
                             if (!drillDownCategory && !isOthers) {
-                              setDrillDownCategory({ name: item.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                              setDrillDownCategory({ name: item.id ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
                             }
                           }}
                           onMouseEnter={e => { if (!drillDownCategory && !isOthers) e.currentTarget.style.color = 'var(--text-main)'; }}
@@ -1526,7 +1540,7 @@ const Statistics: React.FC = () => {
               <div className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative mb-20">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
-                    {drillDownCategory ? `Rincian Sub-kategori: ${drillDownCategory.name}` : 'Total Terbesar per Kategori'}
+                    {drillDownCategory ? `Rincian Sub-kategori: ${categories?.find(c => c.id === drillDownCategory.name)?.name || drillDownCategory.name}` : 'Total Terbesar per Kategori'}
                   </span>
                   <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                     <MaterialIcon name="star" className="text-primary text-base" />
@@ -1551,7 +1565,7 @@ const Statistics: React.FC = () => {
                           {i + 1}
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-on-surface">{cat.categoryId}</div>
+                          <div className="font-bold text-sm text-on-surface">{cat.categoryName}</div>
                           <div className="text-xs text-on-surface-variant">
                             {drillDownCategory ? 'Sub-kategori' : (cat.type === 'pendapatan' ? 'Total Pendapatan' : 'Total Pengeluaran')}
                           </div>
@@ -1704,7 +1718,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
         const cat = categories?.find(c => c.id === b.categoryId);
         if (!cat) return true;
         const spent = transactions
-          .filter(tx => tx.type === 'pengeluaran' && tx.categoryId === cat.name && new Date(tx.date).getMonth() === currentMonth.month)
+          .filter(tx => tx.type === 'pengeluaran' && tx.categoryId === cat.id && new Date(tx.date).getMonth() === currentMonth.month)
           .reduce((sum, tx) => sum + tx.amount, 0);
         return spent <= b.limit;
       }).length;
@@ -1972,8 +1986,8 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         map.total += tx.amount;
-        const cat = categories?.find(c => c.name === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories?.find(c => c.name === tx.categoryId && c.type === 'pengeluaran');
+        const cat = categories?.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories?.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
         if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
       }
     });

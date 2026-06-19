@@ -571,7 +571,15 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <MaterialIcon name="folder" className="text-[18px]" />
                             <span style={{ fontSize: '14px', fontWeight: categoryId ? 700 : 500 }}>
-                              {categoryId ? (subCategoryId ? `${categoryId}  >  ${subCategoryId}` : categoryId) : '-- Pilih Kategori --'}
+                              {categoryId ? (() => {
+                                const cat = categories.find(c => c.id === categoryId);
+                                const catName = cat?.name || categoryId;
+                                if (subCategoryId) {
+                                  const subName = cat?.subcategories?.find(s => s.id === subCategoryId)?.name || subCategoryId;
+                                  return `${catName}  >  ${subName}`;
+                                }
+                                return catName;
+                              })() : '-- Pilih Kategori --'}
                             </span>
                           </div>
                           <MaterialIcon name="chevron_right" className="text-[18px]" />
