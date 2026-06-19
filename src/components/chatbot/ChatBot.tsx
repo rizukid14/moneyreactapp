@@ -34,8 +34,8 @@ const ChatBot: React.FC = () => {
 
   // States for custom selection modals
   const [activeSelectCategoryMsgIdx, setActiveSelectCategoryMsgIdx] = useState<number | null>(null);
-  const [categoryModalType, setCategoryModalType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
-  const [categorySelectCallback, setCategorySelectCallback] = useState<((categoryName: string, subCategoryName: string) => void) | null>(null);
+  const [categoryIdModalType, setCategoryModalType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
+  const [categoryIdSelectCallback, setCategorySelectCallback] = useState<((categoryIdName: string, subCategoryIdName: string) => void) | null>(null);
   
   const [activeSelectAssetMsgIdx, setActiveSelectAssetMsgIdx] = useState<number | null>(null);
   const [assetSelectCallback, setAssetSelectCallback] = useState<((assetId: string) => void) | null>(null);
@@ -146,7 +146,7 @@ const ChatBot: React.FC = () => {
             .map(t => ({
               type: t.type,
               amount: t.amount,
-              category: t.category,
+              categoryId: t.categoryId,
               note: t.note,
               date: t.date
             })),
@@ -154,7 +154,7 @@ const ChatBot: React.FC = () => {
           recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
             type: rt.type,
             amount: rt.amount,
-            category: rt.category,
+            categoryId: rt.categoryId,
             frequency: rt.frequency,
             startDate: rt.startDate,
             note: rt.note
@@ -248,7 +248,7 @@ const ChatBot: React.FC = () => {
             .map(t => ({
               type: t.type,
               amount: t.amount,
-              category: t.category,
+              categoryId: t.categoryId,
               note: t.note,
               date: t.date
             })),
@@ -256,7 +256,7 @@ const ChatBot: React.FC = () => {
           recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
             type: rt.type,
             amount: rt.amount,
-            category: rt.category,
+            categoryId: rt.categoryId,
             frequency: rt.frequency,
             startDate: rt.startDate,
             note: rt.note
@@ -371,7 +371,7 @@ const ChatBot: React.FC = () => {
           amount: Number(toolArgs.amount),
           date: toolArgs.date || getLocalDate(),
           note: toolArgs.note || 'Transfer via AI Chat',
-          category: 'Transfer',
+          categoryId: 'Transfer',
           fromAssetId: fromId,
           toAssetId: toId,
         });
@@ -381,7 +381,7 @@ const ChatBot: React.FC = () => {
           addTransaction({
             type: 'pengeluaran',
             amount: Number(toolArgs.adminFee),
-            category: 'Biaya Admin',
+            categoryId: 'Biaya Admin',
             date: toolArgs.date || getLocalDate(),
             note: `Biaya admin transfer`,
             assetId: feeAssetId,
@@ -392,8 +392,8 @@ const ChatBot: React.FC = () => {
         addTransaction({
           type: toolArgs.type,
           amount: Number(toolArgs.amount),
-          category: toolArgs.category,
-          subCategory: toolArgs.subCategory || undefined,
+          categoryId: toolArgs.categoryId,
+          subCategoryId: toolArgs.subCategoryId || undefined,
           assetId: toolArgs.assetId,
           note: toolArgs.note || 'Dari AI Chat',
           date: toolArgs.date || getLocalDate(),
@@ -425,7 +425,7 @@ const ChatBot: React.FC = () => {
         paidInstallments: 0,
         liabilityAssetId: toolArgs.type === 'hutang' ? toolArgs.assetId : undefined,
         paymentAssetId: toolArgs.type === 'piutang' ? toolArgs.assetId : undefined
-      }, toolArgs.type === 'hutang' ? 'cash' : 'none', toolArgs.category, toolArgs.subCategory);
+      }, toolArgs.type === 'hutang' ? 'cash' : 'none', toolArgs.categoryId, toolArgs.subCategoryId);
 
       setMessages(prev => prev.map((m, i) => 
         i === msgIndex ? { ...m, toolCall: undefined, content: `✅ ${toolArgs.type === 'hutang' ? 'Hutang' : 'Piutang'} berhasil dicatat!` } : m
@@ -541,7 +541,7 @@ const ChatBot: React.FC = () => {
 
         const newRec = {
           categoryId: cat.id,
-          categoryName: cat.name,
+          categoryIdName: cat.name,
           limit: 0,
           reason: 'Ditambahkan manual'
         };
@@ -565,7 +565,7 @@ const ChatBot: React.FC = () => {
         amount: Number(toolArgs.amount),
         billingCycle: toolArgs.billingCycle,
         nextBillingDate: toolArgs.nextBillingDate || getLocalDate(),
-        category: toolArgs.category,
+        categoryId: toolArgs.categoryId,
         assetId: toolArgs.assetId,
         isActive: true,
         note: toolArgs.note || ''
@@ -598,7 +598,7 @@ const ChatBot: React.FC = () => {
         amount: Number(tf.amount),
         date: getLocalDate(),
         note: tf.reason || `Transfer Rekomendasi AI`,
-        category: 'Transfer',
+        categoryId: 'Transfer',
         fromAssetId: tf.fromAssetId,
         toAssetId: tf.toAssetId,
       });
@@ -630,7 +630,7 @@ const ChatBot: React.FC = () => {
       addRecurringTransaction({
         type: rt.type,
         amount: Number(rt.amount),
-        category: rt.category,
+        categoryId: rt.categoryId,
         note: rt.note,
         frequency: rt.frequency,
         startDate: getLocalDate(),
@@ -793,9 +793,9 @@ const ChatBot: React.FC = () => {
                                   setActiveSelectCategoryMsgIdx(idx);
                                   const flowType = msg.toolCall?.arguments?.type === 'pendapatan' ? 'pendapatan' : 'pengeluaran';
                                   setCategoryModalType(flowType);
-                                  setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
-                                    handleUpdateDraftField(idx, 'category', categoryName);
-                                    handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                  setCategorySelectCallback(() => (categoryIdName: string, subCategoryIdName: string) => {
+                                    handleUpdateDraftField(idx, 'categoryId', categoryIdName);
+                                    handleUpdateDraftField(idx, 'subCategoryId', subCategoryIdName);
                                   });
                                 }}
                                 style={{
@@ -811,10 +811,10 @@ const ChatBot: React.FC = () => {
                                   cursor: 'pointer'
                                 }}
                               >
-                                {msg.toolCall?.arguments?.category 
-                                  ? (msg.toolCall.arguments.subCategory 
-                                      ? `${msg.toolCall.arguments.category} (${msg.toolCall.arguments.subCategory})` 
-                                      : msg.toolCall.arguments.category)
+                                {msg.toolCall?.arguments?.categoryId 
+                                  ? (msg.toolCall.arguments.subCategoryId 
+                                      ? `${msg.toolCall.arguments.categoryId} (${msg.toolCall.arguments.subCategoryId})` 
+                                      : msg.toolCall.arguments.categoryId)
                                   : 'Pilih Kategori...'}
                               </button>
                             </div>
@@ -1051,9 +1051,9 @@ const ChatBot: React.FC = () => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 const flowType = msg.toolCall?.arguments?.type === 'hutang' ? 'pengeluaran' : 'pengeluaran';
                                 setCategoryModalType(flowType);
-                                setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
-                                  handleUpdateDraftField(idx, 'category', categoryName);
-                                  handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                setCategorySelectCallback(() => (categoryIdName: string, subCategoryIdName: string) => {
+                                  handleUpdateDraftField(idx, 'categoryId', categoryIdName);
+                                  handleUpdateDraftField(idx, 'subCategoryId', subCategoryIdName);
                                 });
                               }}
                               style={{
@@ -1069,10 +1069,10 @@ const ChatBot: React.FC = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              {msg.toolCall?.arguments?.category 
-                                ? (msg.toolCall.arguments.subCategory 
-                                    ? `${msg.toolCall.arguments.category} (${msg.toolCall.arguments.subCategory})` 
-                                    : msg.toolCall.arguments.category)
+                              {msg.toolCall?.arguments?.categoryId 
+                                ? (msg.toolCall.arguments.subCategoryId 
+                                    ? `${msg.toolCall.arguments.categoryId} (${msg.toolCall.arguments.subCategoryId})` 
+                                    : msg.toolCall.arguments.categoryId)
                                 : 'Pilih Kategori...'}
                             </button>
                           </div>
@@ -1226,8 +1226,8 @@ const ChatBot: React.FC = () => {
                               onClick={() => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
-                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName?: string) => {
-                                  handleUpdateDraftField(idx, 'category', categoryName);
+                                setCategorySelectCallback(() => (categoryIdName: string, _subCategoryIdName?: string) => {
+                                  handleUpdateDraftField(idx, 'categoryId', categoryIdName);
                                 });
                               }}
                               style={{
@@ -1243,7 +1243,7 @@ const ChatBot: React.FC = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              {msg.toolCall?.arguments?.category || 'Pilih Kategori...'}
+                              {msg.toolCall?.arguments?.categoryId || 'Pilih Kategori...'}
                             </button>
                           </div>
 
@@ -1397,7 +1397,7 @@ const ChatBot: React.FC = () => {
                             gap: '6px'
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{rec.categoryName}</span>
+                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{rec.categoryIdName}</span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{currencySymbol}</span>
@@ -1487,9 +1487,9 @@ const ChatBot: React.FC = () => {
                               onClick={() => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
-                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName: string) => {
-                                  const cat = categories.find(c => c.name === categoryName && c.type === 'pengeluaran' && !c.isDeleted) ||
-                                              categories.find(c => c.name === categoryName && c.type === 'pengeluaran');
+                                setCategorySelectCallback(() => (categoryIdName: string, _subCategoryIdName: string) => {
+                                  const cat = categories.find(c => c.name === categoryIdName && c.type === 'pengeluaran' && !c.isDeleted) ||
+                                              categories.find(c => c.name === categoryIdName && c.type === 'pengeluaran');
                                   if (cat) {
                                     handleAddDraftBudgetCategory(idx, cat.id);
                                   }
@@ -1644,7 +1644,7 @@ const ChatBot: React.FC = () => {
                               </span>
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              Kategori: {rt.category} | Tipe: {rt.type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}
+                              Kategori: {rt.categoryId} | Tipe: {rt.type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}
                             </div>
                             {rt.reason && (
                               <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
@@ -2041,10 +2041,10 @@ const ChatBot: React.FC = () => {
             setCategorySelectCallback(null);
           }}
           categories={categories}
-          type={categoryModalType}
-          onSelect={(categoryName, subCategoryName) => {
-            if (categorySelectCallback) {
-              categorySelectCallback(categoryName, subCategoryName);
+          type={categoryIdModalType}
+          onSelect={(categoryIdName, subCategoryIdName) => {
+            if (categoryIdSelectCallback) {
+              categoryIdSelectCallback(categoryIdName, subCategoryIdName);
             }
           }}
         />

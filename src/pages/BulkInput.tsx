@@ -85,7 +85,7 @@ const BulkInput: React.FC = () => {
           amount: tx.amount,
           date: tx.date,
           note: tx.note || 'Transfer',
-          category: 'Transfer',
+          categoryId: 'Transfer',
           fromAssetId: tx.fromAsset,
           toAssetId: tx.toAsset
         });
@@ -96,7 +96,7 @@ const BulkInput: React.FC = () => {
           addTransaction({
             type: 'pengeluaran',
             amount: tx.adminFee,
-            category: 'Biaya Admin',
+            categoryId: 'Biaya Admin',
             date: tx.date,
             note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
             assetId: feeAssetId,
@@ -108,8 +108,8 @@ const BulkInput: React.FC = () => {
           amount: tx.amount,
           date: tx.date,
           note: tx.note,
-          category: tx.category,
-          subCategory: tx.subCategory || undefined,
+          categoryId: tx.categoryId,
+          subCategoryId: tx.subCategoryId || undefined,
           assetId: tx.asset
         });
       }
@@ -154,18 +154,18 @@ const BulkInput: React.FC = () => {
         const matchedFromAssetId = mapAsset(tx.fromAsset, defaultAssetId);
         const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || defaultAssetId);
 
-        let matchedCategory = '';
-        let matchedSubCategory = '';
+        let matchedCategoryId = '';
+        let matchedSubCategoryId = '';
         if (tx.category && tx.type !== 'transfer') {
           const matchedCat = categories.find(c =>
             c.type === tx.type &&
             !c.isDeleted &&
-            (c.name.toLowerCase() === tx.category.toLowerCase() ||
-             c.name.toLowerCase().includes(tx.category.toLowerCase()) ||
-             tx.category.toLowerCase().includes(c.name.toLowerCase()))
+            (c.name.toLowerCase() === tx.category!.toLowerCase() ||
+             c.name.toLowerCase().includes(tx.category!.toLowerCase()) ||
+             tx.category!.toLowerCase().includes(c.name.toLowerCase()))
           );
           if (matchedCat) {
-            matchedCategory = matchedCat.name;
+            matchedCategoryId = matchedCat.id;
             if (tx.subCategory && matchedCat.subcategories) {
               const matchedSub = matchedCat.subcategories.find((s: any) =>
                 !s.isDeleted &&
@@ -173,7 +173,7 @@ const BulkInput: React.FC = () => {
                  s.name.toLowerCase().includes(tx.subCategory!.toLowerCase()) ||
                  tx.subCategory!.toLowerCase().includes(s.name.toLowerCase()))
               );
-              if (matchedSub) matchedSubCategory = matchedSub.name;
+              if (matchedSub) matchedSubCategoryId = matchedSub.id;
             }
           }
         }
@@ -183,8 +183,8 @@ const BulkInput: React.FC = () => {
           asset: matchedAssetId,
           fromAsset: matchedFromAssetId,
           toAsset: matchedToAssetId,
-          category: matchedCategory || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
-          subCategory: matchedSubCategory || ''
+          categoryId: matchedCategoryId || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? categories.find(c=>c.name==='Lainnya' && c.type==='pengeluaran')?.id || '' : categories.find(c=>c.name==='Lain-lain' && c.type==='pendapatan')?.id || ''),
+          subCategoryId: matchedSubCategoryId || ''
         };
       });
 
@@ -383,7 +383,7 @@ const BulkInput: React.FC = () => {
           isMutation={false}
           onSave={() => {
             const toSave = results.filter(r => r.selected);
-            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category || !r.asset))) {
+            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.categoryId || !r.asset))) {
               showToast('Pastikan semua transaksi reguler memiliki Nominal, Kategori, dan Rekening!', 'warning');
               return;
             }
@@ -395,7 +395,7 @@ const BulkInput: React.FC = () => {
             if (zbbMode === 'strict') {
               const expenses = toSave.filter(r => r.type === 'pengeluaran');
               const grouped = expenses.reduce((acc, tx) => {
-                const key = `${tx.category}_${tx.date}`;
+                const key = `${tx.categoryId}_${tx.date}`;
                 acc[key] = (acc[key] || 0) + tx.amount;
                 return acc;
               }, {} as Record<string, number>);
@@ -405,7 +405,7 @@ const BulkInput: React.FC = () => {
                 const validation = validateTransactionBudget({
                   type: 'pengeluaran',
                   amount: grouped[key],
-                  category: cat,
+                  categoryId: cat,
                   date: dt
                 });
                 if (!validation.isValid) {

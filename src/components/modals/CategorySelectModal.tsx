@@ -12,13 +12,13 @@ interface CategorySelectModalProps {
   onClose: () => void;
   categories: Category[];
   type: 'pengeluaran' | 'pendapatan';
-  initialCategory?: string;
-  initialSubCategory?: string;
-  onSelect: (category: string, subCategory: string) => void;
+  initialCategoryId?: string;
+  initialSubCategoryId?: string;
+  onSelect: (categoryId: string, subCategoryId: string) => void;
 }
 
 const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
-  isOpen, onClose, categories, type, initialCategory, initialSubCategory, onSelect
+  isOpen, onClose, categories, type, initialCategoryId, initialSubCategoryId, onSelect
 }) => {
   const { addCategory, updateCategory, addSubCategory } = useMoney();
   const [activeCategory, setActiveCategory] = useState<string>('');
@@ -33,7 +33,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
     let result = [...categories].filter(c =>
       c.type === type &&
-      (!c.isDeleted || (c.name === initialCategory && !activeNames.has(c.name.toLowerCase())))
+      (!c.isDeleted || (c.name === initialCategoryId && !activeNames.has(c.name.toLowerCase())))
     );
 
     if (searchQuery.trim()) {
@@ -45,17 +45,17 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
     }
 
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [categories, type, searchQuery, initialCategory]);
+  }, [categories, type, searchQuery, initialCategoryId]);
 
   useEffect(() => {
     if (isOpen) {
-      if (initialCategory && sortedCategories.some(c => c.name === initialCategory)) {
-        setActiveCategory(initialCategory);
+      if (initialCategoryId && sortedCategories.some(c => c.name === initialCategoryId)) {
+        setActiveCategory(initialCategoryId);
       } else if (sortedCategories.length > 0) {
         setActiveCategory(sortedCategories[0].name);
       }
     }
-  }, [isOpen, initialCategory, sortedCategories]);
+  }, [isOpen, initialCategoryId, sortedCategories]);
 
   const activeCategoryObj = useMemo(() => {
     return sortedCategories.find(c => c.name === activeCategory);
@@ -70,7 +70,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
     );
 
     let result = [...activeCategoryObj.subcategories].filter(s =>
-      !s.isDeleted || (s.name === initialSubCategory && !activeSubNames.has(s.name.toLowerCase()))
+      !s.isDeleted || (s.name === initialSubCategoryId && !activeSubNames.has(s.name.toLowerCase()))
     );
 
     if (searchQuery.trim()) {
@@ -79,7 +79,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
     }
 
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeCategoryObj, searchQuery, initialSubCategory]);
+  }, [activeCategoryObj, searchQuery, initialSubCategoryId]);
 
   const handleCategoryClick = (catName: string) => {
     setActiveCategory(catName);
@@ -255,14 +255,14 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                           cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--border-color)',
                         }}
                       >
-                        <span style={{ fontSize: '14px', fontWeight: !initialSubCategory ? 700 : 500, color: !initialSubCategory ? 'var(--primary)' : 'var(--text-main)', fontStyle: 'italic' }}>
+                        <span style={{ fontSize: '14px', fontWeight: !initialSubCategoryId ? 700 : 500, color: !initialSubCategoryId ? 'var(--primary)' : 'var(--text-main)', fontStyle: 'italic' }}>
                           Tanpa Sub-Kategori
                         </span>
-                        {!initialSubCategory && <MaterialIcon name="check" className="text-[16px]" />}
+                        {!initialSubCategoryId && <MaterialIcon name="check" className="text-[16px]" />}
                       </button>
 
                       {sortedSubcategories.map(sub => {
-                        const isSubActive = sub.name === initialSubCategory;
+                        const isSubActive = sub.name === initialSubCategoryId;
                         return (
                           <button
                             key={sub.id}

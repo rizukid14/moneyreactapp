@@ -73,6 +73,7 @@ const AssetDetailDrawer: React.FC<{
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const { showToast } = useToast();
+  const { categories } = useMoney();
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
 
@@ -84,10 +85,10 @@ const AssetDetailDrawer: React.FC<{
 
         if (filterType === 'all') return true;
         
-        const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
-        const isOutgoing = tx.type === 'pengeluaran' || tx.fromAssetId === asset.id;
+        
+        const isOutgoing = tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar' || tx.fromAssetId === asset.id;
 
-        if (filterType === 'income') return isIncoming;
+        if (filterType === 'income') return false;
         if (filterType === 'expense') return isOutgoing;
         
         return true;
@@ -99,11 +100,11 @@ const AssetDetailDrawer: React.FC<{
     let income = 0, expense = 0;
     // Calculate stats based on ALL asset transactions, not just filtered ones
     transactions.forEach(tx => {
-      const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
-      const isOutgoing = tx.type === 'pengeluaran' || tx.fromAssetId === asset.id;
+      
+      const isOutgoing = tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar' || tx.fromAssetId === asset.id;
       
       if (tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id) {
-        if (isIncoming && tx.type !== 'transfer') income += tx.amount;
+        if (false && tx.type !== 'transfer') income += tx.amount;
         else if (isOutgoing && tx.type !== 'transfer') expense += tx.amount;
         // Note: For transfers, we usually don't count them in income/expense summary 
         // but we show them in the filtered list.
@@ -284,11 +285,11 @@ const AssetDetailDrawer: React.FC<{
             ) : (
               <div style={{ padding: '8px 0 24px' }}>
                 {assetTxs.map(tx => {
-                  const isIncoming = tx.type === 'pendapatan' || tx.toAssetId === asset.id;
+                  
                   const amtColor = tx.type === 'transfer'
                     ? 'var(--text-muted)'
-                    : isIncoming ? 'var(--primary)' : 'var(--danger)';
-                  const prefix = tx.type === 'transfer' ? '↔' : isIncoming ? '+' : '-';
+                    : tx.type === 'pendapatan' ? 'var(--primary)' : 'var(--danger)';
+                  const prefix = tx.type === 'transfer' ? '↔' : tx.type === 'pendapatan' ? '+' : '-';
 
                   return (
                     <div
@@ -321,7 +322,7 @@ const AssetDetailDrawer: React.FC<{
                         <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {tx.type === 'transfer'
                             ? `Transfer → ${getAssetName(tx.toAssetId)}`
-                            : tx.category}
+                            : (categories?.find((c: any) => c.id === tx.categoryId)?.name || 'Kategori Dihapus')}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                           {tx.date}

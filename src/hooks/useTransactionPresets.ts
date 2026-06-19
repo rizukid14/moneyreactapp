@@ -7,8 +7,8 @@ export type HabitPreset = {
   type: 'pengeluaran' | 'pendapatan' | 'transfer';
   label: string;
   amount: number;
-  category?: string;
-  subCategory?: string;
+  categoryId?: string;
+  subCategoryId?: string;
   assetId?: string;
   fromAssetId?: string;
   toAssetId?: string;
@@ -21,8 +21,8 @@ export const presetKey = (preset: HabitPreset) => JSON.stringify({
   type: preset.type,
   label: preset.label,
   amount: preset.amount,
-  category: preset.category || '',
-  subCategory: preset.subCategory || '',
+  categoryId: preset.categoryId || '',
+  subCategoryId: preset.subCategoryId || '',
   assetId: preset.assetId || '',
   fromAssetId: preset.fromAssetId || '',
   toAssetId: preset.toAssetId || '',
@@ -88,7 +88,7 @@ export const useTransactionPresets = () => {
       if (t.type === 'transfer') {
         key = `transfer|${t.fromAssetId || ''}|${t.toAssetId || ''}|${(t.note || '').trim().toLowerCase()}`;
       } else if (t.type === 'pengeluaran' || t.type === 'pendapatan') {
-        key = `${t.type}|${t.category || ''}|${t.subCategory || ''}|${t.assetId || ''}|${(t.note || '').trim().toLowerCase()}`;
+        key = `${t.type}|${t.categoryId || ''}|${t.subCategoryId || ''}|${t.assetId || ''}|${(t.note || '').trim().toLowerCase()}`;
       } else {
         return; // Ignore debts/receivables for now
       }
@@ -124,10 +124,10 @@ export const useTransactionPresets = () => {
         return {
           id: `auto-tx-${idx}-${t.id}`,
           type: t.type as 'pengeluaran' | 'pendapatan',
-          label: t.subCategory ? `${t.category} > ${t.subCategory}` : t.category,
+          label: t.subCategoryId ? `${t.categoryId} > ${t.subCategoryId}` : (t.categoryId || 'Unknown'),
           amount: t.amount,
-          category: t.category,
-          subCategory: t.subCategory,
+          categoryId: t.categoryId,
+          subCategoryId: t.subCategoryId,
           assetId: t.assetId,
           note: t.note,
           isManual: false

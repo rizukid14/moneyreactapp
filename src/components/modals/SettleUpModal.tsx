@@ -261,7 +261,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
         const activeDebts = sortedDebts.map(d => {
           const history = transactions.filter(tx => tx.relatedId === d.id);
           const paidAmt = history.reduce((sum, tx) => {
-            if (isPrincipalTx(tx.note, tx.category)) return sum;
+            if (isPrincipalTx(tx.note, tx.categoryId)) return sum;
             return sum + Number(tx.amount || 0);
           }, 0);
           const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
@@ -296,7 +296,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
               addTransaction({
                 type: 'piutang_masuk',
                 amount: paymentLeft,
-                category: 'Pelunasan Piutang',
+                categoryId: 'Pelunasan Piutang',
                 date: getLocalDate(),
                 time: getLocalTime(),
                 note: `Pelunasan Trip (Surplus): ${trip.name} (${fromName} → ${toName})`,
@@ -306,7 +306,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
               addTransaction({
                 type: 'hutang_keluar',
                 amount: paymentLeft,
-                category: 'Bayar Hutang',
+                categoryId: 'Bayar Hutang',
                 date: getLocalDate(),
                 time: getLocalTime(),
                 note: `Pelunasan Trip (Surplus): ${trip.name} (${fromName} → ${toName})`,
@@ -320,7 +320,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
             addTransaction({
               type: 'piutang_masuk',
               amount: payAmtToRecord,
-              category: 'Pelunasan Piutang',
+              categoryId: 'Pelunasan Piutang',
               date: getLocalDate(),
               time: getLocalTime(),
               note: `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`,
@@ -330,7 +330,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
             addTransaction({
               type: 'hutang_keluar',
               amount: payAmtToRecord,
-              category: 'Bayar Hutang',
+              categoryId: 'Bayar Hutang',
               date: getLocalDate(),
               time: getLocalTime(),
               note: `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`,
@@ -346,7 +346,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
           addTransaction({
             type: 'piutang_masuk',
             amount: payAmtToRecord,
-            category: 'Pelunasan Piutang',
+            categoryId: 'Pelunasan Piutang',
             date: getLocalDate(),
             time: getLocalTime(),
             note: `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`,
@@ -357,7 +357,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
           addTransaction({
             type: 'hutang_keluar',
             amount: payAmtToRecord,
-            category: 'Bayar Hutang',
+            categoryId: 'Bayar Hutang',
             date: getLocalDate(),
             time: getLocalTime(),
             note: `Pelunasan Trip: ${trip.name} (${fromName} → ${toName})`,

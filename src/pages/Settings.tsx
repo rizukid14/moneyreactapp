@@ -399,7 +399,7 @@ const Settings: React.FC = () => {
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [newSubCatName, setNewSubCatName] = useState('');
 
-  // Category & Subcategory Edit State
+  // Category & SubcategoryId Edit State
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
   const [editingSubCatId, setEditingSubCatId] = useState<string | null>(null);
@@ -932,7 +932,7 @@ const Settings: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                    {/* Add Sub-category Input */}
+                    {/* Add Sub-categoryId Input */}
                     <div style={{ padding: '12px', borderTop: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.1)' }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <input
@@ -1765,7 +1765,7 @@ const Settings: React.FC = () => {
             amount: parseFloat(newSubAmount),
             billingCycle: newSubCycle,
             nextBillingDate: newSubDate,
-            category: newSubCat || 'Lainnya',
+            categoryId: newSubCat || 'Lainnya',
             assetId: newSubAsset,
             isActive: true,
           };
@@ -1780,7 +1780,7 @@ const Settings: React.FC = () => {
                 const rt = addRecurringTransaction({
                   type: 'pengeluaran',
                   amount: subData.amount,
-                  category: subData.category,
+                  categoryId: subData.categoryId,
                   note: `Langganan: ${subData.name}`,
                   frequency: subData.billingCycle === 'monthly' ? 'monthly' : 'yearly',
                   startDate: subData.nextBillingDate,
@@ -1968,7 +1968,7 @@ const Settings: React.FC = () => {
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{rt.note || rt.category}</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{rt.note || rt.categoryId}</div>
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                             {freqLabel} • Mulai {new Date(rt.startDate).toLocaleDateString('id-ID')}
                             {rt.endDate && ` • Sampai ${new Date(rt.endDate).toLocaleDateString('id-ID')}`}
@@ -2646,7 +2646,7 @@ const Settings: React.FC = () => {
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-border-light pb-4">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary">category</span>
+              <span className="material-symbols-outlined text-primary">categoryId</span>
               <h3 className="font-headline-md text-headline-md text-on-surface">Manajemen Kategori</h3>
             </div>
             <div className="flex bg-surface-container-low rounded-lg p-1 border border-outline-variant">
@@ -2782,7 +2782,7 @@ const Settings: React.FC = () => {
             ))}
           </div>
 
-          {/* Input to add category */}
+          {/* Input to add categoryId */}
           <form onSubmit={handleAddCat} className="flex gap-2 p-1.5 bg-surface-container-low rounded-xl border border-outline-variant mt-4">
             <input
               type="text"
@@ -3066,7 +3066,7 @@ const Settings: React.FC = () => {
         onClose={() => setIsSubCatSelectOpen(false)}
         categories={categories}
         type="pengeluaran"
-        initialCategory={newSubCat}
+        initialCategoryId={newSubCat}
         onSelect={(cat) => setNewSubCat(cat)}
       />
       <SharedBillsManagerModal

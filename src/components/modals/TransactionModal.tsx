@@ -39,8 +39,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const { showToast } = useToast();
   const [type, setType] = useState<Transaction['type']>('pengeluaran');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
-  const [subCategory, setSubCategory] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [subCategoryId, setSubCategoryId] = useState('');
   const [date, setDate] = useState(getLocalDate());
   const [time, setTime] = useState(getLocalTime());
   const [note, setNote] = useState('');
@@ -75,7 +75,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     return saved ? JSON.parse(saved) : {};
   });
 
-  const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+  const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategoryId: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategoryId: null, deficitAmount: 0, month: 0, year: 0 });
   const [pendingTxData, setPendingTxData] = useState<any>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const { pinnedPresets, habitPresets, togglePin, isPinned } = useTransactionPresets();
@@ -93,8 +93,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     if (editingTransaction) {
       setType(editingTransaction.type);
       setAmount(editingTransaction.amount.toLocaleString('id-ID'));
-      setCategory(editingTransaction.category);
-      setSubCategory(editingTransaction.subCategory || '');
+      setCategoryId(editingTransaction.categoryId || '');
+      setSubCategoryId(editingTransaction.subCategoryId || '');
       setDate(editingTransaction.date);
       setTime(editingTransaction.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
       setNote(editingTransaction.note);
@@ -106,7 +106,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
       // Initialize admin fee state for transfers
       if (editingTransaction.type === 'transfer') {
-        const feeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin');
+        const feeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin')?.id);
         if (feeTx) {
           setAdminFee(feeTx.amount.toLocaleString('id-ID'));
           setAdminFeeTarget(feeTx.assetId === editingTransaction.toAssetId ? 'receiver' : 'sender');
@@ -122,8 +122,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       const draft = allDrafts[targetType];
       if (draft) {
         setAmount(draft.amount || '');
-        setCategory(draft.category || '');
-        setSubCategory(draft.subCategory || '');
+        setCategoryId(draft.category || '');
+        setSubCategoryId(draft.subCategory || '');
         setDate(draft.date || getLocalDate());
         setTime(draft.time || getLocalTime());
         setNote(draft.note || '');
@@ -137,8 +137,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       } else {
         // Reset to defaults for this type
         setAmount('');
-        setCategory('');
-        setSubCategory('');
+        setCategoryId('');
+        setSubCategoryId('');
         setDate(getLocalDate());
         setTime(getLocalTime());
         setNote('');
@@ -161,8 +161,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       const draft = allDrafts[type];
       if (draft) {
         setAmount(draft.amount || '');
-        setCategory(draft.category || '');
-        setSubCategory(draft.subCategory || '');
+        setCategoryId(draft.category || '');
+        setSubCategoryId(draft.subCategory || '');
         setDate(draft.date || getLocalDate());
         setTime(draft.time || getLocalTime());
         setNote(draft.note || '');
@@ -171,8 +171,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setToAssetId(draft.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
       } else {
         setAmount('');
-        setCategory('');
-        setSubCategory('');
+        setCategoryId('');
+        setSubCategoryId('');
         setNote('');
         // We keep date/time consistent when switching types unless there's a draft
       }
@@ -184,7 +184,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   useEffect(() => {
     if (isOpen && !editingTransaction && !isSavingRef.current) {
       const currentDraft = {
-        type, amount, category, subCategory, date, time, note, description,
+        type, amount, categoryId, subCategoryId, date, time, note, description,
         assetId, fromAssetId, toAssetId, goalId, isRecurring, frequency, recurringEndDate
       };
       setAllDrafts(prev => {
@@ -193,7 +193,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         return next;
       });
     }
-  }, [type, amount, category, subCategory, date, time, note, description, assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate, isOpen, editingTransaction]);
+  }, [type, amount, categoryId, subCategoryId, date, time, note, description, assetId, fromAssetId, toAssetId, isRecurring, frequency, recurringEndDate, isOpen, editingTransaction]);
 
   // ── Budget Alert Logic ──────────────────────────────────────
   const budgetAlerts = useMemo(() => {
@@ -217,8 +217,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       if (tx.id === editingTransaction?.id) return;
       const d = new Date(tx.date);
       if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return;
-      const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                  categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+      const cat = categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                  categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
       if (cat) existingSpend[cat.id] = (existingSpend[cat.id] || 0) + tx.amount;
     });
 
@@ -238,8 +238,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
 
     // Category budget check
-    const selCat = categories.find(c => c.name === category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                   categories.find(c => c.name === category && c.type === 'pengeluaran');
+    const selCat = categories.find(c => c.id === categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                   categories.find(c => c.id === categoryId && c.type === 'pengeluaran');
     if (selCat) {
       const catBudget = monthBudgets.find(b => b.categoryId === selCat.id);
       if (catBudget) {
@@ -254,14 +254,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
 
     return alerts;
-  }, [type, amount, date, category, budgets, transactions, categories, editingTransaction]);
+  }, [type, amount, date, categoryId, budgets, transactions, categories, editingTransaction]);
   const handleRawAmountChange = (val: string) => {
     setAmount(val);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (type !== 'transfer' && !category) {
+    if (type !== 'transfer' && !categoryId) {
       showToast('Silakan pilih kategori terlebih dahulu.', 'warning');
       return;
     }
@@ -269,8 +269,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const txData = {
       type,
       amount: Number(amount.replace(/\./g, '')),
-      category: type === 'transfer' ? 'Transfer' : category,
-      subCategory: type === 'transfer' ? undefined : (subCategory || undefined),
+      categoryId: type === 'transfer' ? undefined : categoryId,
+      subCategoryId: type === 'transfer' ? undefined : (subCategoryId || undefined),
       date,
       time,
       note: note.trim(),
@@ -287,7 +287,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setPendingTxData(txData);
         setReallocationModal({
           isOpen: true,
-          deficitCategory: validation.deficitCategory,
+          deficitCategoryId: validation.deficitCategory,
           deficitAmount: validation.deficitAmount,
           month: new Date(date).getMonth(),
           year: new Date(date).getFullYear()
@@ -306,7 +306,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       // Handle admin fee for edited transfer
       if (type === 'transfer') {
         const adminFeeAmount = Number(adminFee.replace(/\./g, ''));
-        const existingFeeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin');
+        const existingFeeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin')?.id);
         const feeAssetId = adminFeeTarget === 'sender' ? fromAssetId : toAssetId;
         const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
         const feeNote = `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`;
@@ -327,7 +327,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           addTransaction({
             type: 'pengeluaran',
             amount: adminFeeAmount,
-            category: 'Biaya Admin',
+            categoryId: categories.find(c => c.name === 'Biaya Admin' && !c.isDeleted)?.id || '',
             date,
             time,
             note: feeNote,
@@ -348,7 +348,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         addTransaction({
           type: 'pengeluaran',
           amount: adminFeeAmount,
-          category: 'Biaya Admin',
+          categoryId: categories.find(c => c.name === 'Biaya Admin' && !c.isDeleted)?.id || '',
           date,
           time,
           note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
@@ -367,8 +367,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
       // Reset local fields immediately so reopening doesn't flash old data
       setAmount('');
-      setCategory('');
-      setSubCategory('');
+      setCategoryId('');
+      setSubCategoryId('');
       setNote('');
       setIsRecurring(false);
       setGoalId(undefined);
@@ -404,7 +404,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const handleReallocationSuccess = () => {
-    setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
+    setReallocationModal({ isOpen: false, deficitCategoryId: null, deficitAmount: 0, month: 0, year: 0 });
     if (pendingTxData) {
       performSave(pendingTxData);
       setPendingTxData(null);
@@ -417,7 +417,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     // If deleting a transfer, also remove linked admin fee transactions.
     if (editingTransaction.type === 'transfer') {
       transactions
-        .filter(t => t.relatedId === editingTransaction.id && t.category === 'Biaya Admin')
+        .filter(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin')?.id)
         .forEach(t => deleteTransaction(t.id));
     }
 
@@ -433,8 +433,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setFromAssetId(preset.fromAssetId || fromAssetId);
       setToAssetId(preset.toAssetId || toAssetId);
     } else {
-      setCategory(preset.category || '');
-      setSubCategory(preset.subCategory || '');
+      setCategoryId(preset.categoryId || '');
+      setSubCategoryId(preset.subCategoryId || '');
       if (preset.assetId) setAssetId(preset.assetId);
     }
     setNote(preset.note || '');
@@ -564,14 +564,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
                             border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            marginBottom: '16px', cursor: 'pointer', color: category ? 'var(--text-main)' : 'var(--text-muted)'
+                            marginBottom: '16px', cursor: 'pointer', color: categoryId ? 'var(--text-main)' : 'var(--text-muted)'
                           }}
                           data-tour="modal-category"
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <MaterialIcon name="folder" className="text-[18px]" />
-                            <span style={{ fontSize: '14px', fontWeight: category ? 700 : 500 }}>
-                              {category ? (subCategory ? `${category}  >  ${subCategory}` : category) : '-- Pilih Kategori --'}
+                            <span style={{ fontSize: '14px', fontWeight: categoryId ? 700 : 500 }}>
+                              {categoryId ? (subCategoryId ? `${categoryId}  >  ${subCategoryId}` : categoryId) : '-- Pilih Kategori --'}
                             </span>
                           </div>
                           <MaterialIcon name="chevron_right" className="text-[18px]" />
@@ -952,11 +952,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
         type={type as 'pengeluaran' | 'pendapatan'}
-        initialCategory={category}
-        initialSubCategory={subCategory}
+        initialCategoryId={categoryId}
+        initialSubCategoryId={subCategoryId}
         onSelect={(cat, sub) => {
-          setCategory(cat);
-          setSubCategory(sub);
+          setCategoryId(cat);
+          setSubCategoryId(sub);
         }}
       />
 
@@ -988,7 +988,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         isOpen={reallocationModal.isOpen}
         onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
         onSuccess={handleReallocationSuccess}
-        deficitCategoryId={reallocationModal.deficitCategory}
+        deficitCategoryId={reallocationModal.deficitCategoryId}
         deficitAmount={reallocationModal.deficitAmount}
         month={reallocationModal.month}
         year={reallocationModal.year}

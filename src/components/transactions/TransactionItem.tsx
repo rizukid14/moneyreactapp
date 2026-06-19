@@ -46,11 +46,11 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
             size="md"
           />
         }
-        title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : tx.category}
+        title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : (tx.categoryId || '')}
         subtitle={
           <div className="flex flex-col gap-0.5">
-            {tx.type !== 'transfer' && tx.subCategory && (
-              <span className="font-semibold text-[11px]">{tx.subCategory}</span>
+            {tx.type !== 'transfer' && tx.subCategoryId && (
+              <span className="font-semibold text-[11px]">{tx.subCategoryId}</span>
             )}
             <div className="flex items-center gap-1.5 flex-wrap">
               {showDate && <span>{tx.date}</span>}
@@ -102,7 +102,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={() => onDelete(tx.id)}
         title="Hapus Transaksi"
-        message={`Apakah Anda yakin ingin menghapus transaksi "${tx.type === 'transfer' ? 'Transfer' : tx.category}" sebesar ${formatCurrency(tx.amount, currencySymbol)}?`}
+        message={`Apakah Anda yakin ingin menghapus transaksi "${tx.type === 'transfer' ? 'Transfer' : tx.categoryId}" sebesar ${formatCurrency(tx.amount, currencySymbol)}?`}
       />
     </>
   );

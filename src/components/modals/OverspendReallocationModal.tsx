@@ -38,7 +38,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
   const monthlyIncomeAmount = currentMonthIncomeObj ? currentMonthIncomeObj.amount : 0;
   const unassignedMoney = monthlyIncomeAmount - totalBudgeted;
 
-  // Calculate actual spending per category for the month
+  // Calculate actual spending per categoryId for the month
   const spendingMap = useMemo(() => {
     const map: Record<string, number> = {};
     
@@ -59,8 +59,8 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
     
     transactions.forEach(tx => {
       if (tx.type === 'pengeluaran' && tx.date >= startStr && tx.date <= endStr) {
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+        const cat = categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran');
         const catId = cat?.id;
         if (catId) {
           map[catId] = (map[catId] || 0) + Number(tx.amount || 0);

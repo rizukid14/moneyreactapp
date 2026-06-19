@@ -18,7 +18,7 @@ import { PresetManagerModal } from '../components/modals/PresetManagerModal';
 const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-type GroupBy = 'date' | 'category' | 'asset' | 'none';
+type GroupBy = 'date' | 'categoryId' | 'asset' | 'none';
 
 interface TransactionGroup {
   id: string;
@@ -77,7 +77,7 @@ const Transactions: React.FC = () => {
   }, [groupBy]);
 
   const handleAdd = useCallback((type: Transaction['type'] = 'pengeluaran', partialData?: Partial<Transaction>) => {
-    setEditingTransaction(partialData ? { ...partialData, id: '', type, amount: 0, date: getLocalDate(), note: partialData.note || '', category: partialData.category || '' } as any : null);
+    setEditingTransaction(partialData ? { ...partialData, id: '', type, amount: 0, date: getLocalDate(), note: partialData.note || '', categoryId: partialData.categoryId || '' } as any : null);
     setIsCopyMode(false);
     setInitialType(type);
     setIsModalOpen(true);
@@ -154,8 +154,8 @@ const Transactions: React.FC = () => {
         const q = searchQuery.toLowerCase();
         const matches = (
           (tx.note && tx.note.toLowerCase().includes(q)) ||
-          tx.category.toLowerCase().includes(q) ||
-          (tx.subCategory && tx.subCategory.toLowerCase().includes(q)) ||
+          (tx.categoryId && tx.categoryId.toLowerCase().includes(q)) ||
+          (tx.subCategoryId && tx.subCategoryId.toLowerCase().includes(q)) ||
           tx.amount.toString().includes(q)
         );
         if (!matches) return false;
@@ -214,9 +214,9 @@ const Transactions: React.FC = () => {
         else if (key === yesterdayStr) prefix = 'Kemarin';
 
         title = `${prefix} - ${dateStr}`;
-      } else if (groupBy === 'category') {
-        key = tx.category;
-        title = tx.category;
+      } else if (groupBy === 'categoryId') {
+        key = tx.categoryId || 'transfer';
+        title = tx.categoryId || 'Transfer';
       } else if (groupBy === 'asset') {
         key = tx.assetId || tx.fromAssetId || 'unknown';
         title = getAssetName(key);
@@ -383,7 +383,7 @@ const Transactions: React.FC = () => {
 
     const catSums: Record<string, number> = {};
     incomeTxs.forEach(tx => {
-      catSums[tx.category] = (catSums[tx.category] || 0) + tx.amount;
+      catSums[tx.categoryId || ''] = (catSums[tx.categoryId || ''] || 0) + tx.amount;
     });
 
     let topCategory = '';
@@ -420,7 +420,7 @@ const Transactions: React.FC = () => {
 
     const catSums: Record<string, number> = {};
     weeklyTxs.forEach(tx => {
-      catSums[tx.category] = (catSums[tx.category] || 0) + tx.amount;
+      catSums[tx.categoryId || ''] = (catSums[tx.categoryId || ''] || 0) + tx.amount;
     });
 
     let topCategory = '';
@@ -571,12 +571,12 @@ const Transactions: React.FC = () => {
     let warningBudgetCount = 0;
     
     activeBudgets.forEach(b => {
-      const categoryObj = categories.find(c => c.id === b.categoryId);
-      if (categoryObj) {
-        const categoryName = categoryObj.name;
+      const categoryIdObj = categories.find(c => c.id === b.categoryId);
+      if (categoryIdObj) {
+        const categoryIdName = categoryIdObj.name;
         const catSpent = transactions
           .filter(tx => {
-            if (tx.type !== 'pengeluaran' || tx.category !== categoryName) return false;
+            if (tx.type !== 'pengeluaran' || tx.categoryId !== categoryIdName) return false;
             const txD = new Date(tx.date);
             if (startOfMonthDay > 1) {
               const start = new Date(vY, vM - 1, startOfMonthDay);
@@ -590,10 +590,10 @@ const Transactions: React.FC = () => {
         if (b.limit > 0) {
           const ratio = catSpent / b.limit;
           if (ratio >= 1.0) {
-            findings.push(`Budget ${categoryName} over ${Math.round((ratio - 1) * 100)}%.`);
+            findings.push(`Budget ${categoryIdName} over ${Math.round((ratio - 1) * 100)}%.`);
             overBudgetCount++;
           } else if (ratio >= 0.8) {
-            findings.push(`Budget ${categoryName} terpakai ${Math.round(ratio * 100)}%.`);
+            findings.push(`Budget ${categoryIdName} terpakai ${Math.round(ratio * 100)}%.`);
             warningBudgetCount++;
           }
         }
@@ -627,7 +627,7 @@ const Transactions: React.FC = () => {
       const weeklyTxs = transactions.filter(tx => tx.type === 'pengeluaran' && new Date(tx.date) >= startOfWeek);
       const catSums: Record<string, number> = {};
       weeklyTxs.forEach(tx => {
-        catSums[tx.category] = (catSums[tx.category] || 0) + tx.amount;
+        catSums[tx.categoryId || ''] = (catSums[tx.categoryId || ''] || 0) + tx.amount;
       });
       let topCat = '';
       let topAmt = 0;
@@ -1075,7 +1075,7 @@ const Transactions: React.FC = () => {
             {displayPresets.map(preset => (
               <button 
                 key={preset.id}
-                onClick={() => handleAdd(preset.type, { amount: preset.amount, category: preset.category, note: preset.note })} 
+                onClick={() => handleAdd(preset.type, { amount: preset.amount, categoryId: preset.categoryId, note: preset.note })} 
                 className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer"
               >
                 <MaterialIcon name={preset.type === 'pengeluaran' ? 'arrow_downward' : preset.type === 'pendapatan' ? 'arrow_upward' : 'swap_horiz'} className="text-sm" />
@@ -1120,7 +1120,7 @@ const Transactions: React.FC = () => {
                     <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider hidden sm:block">Grup:</span>
                     <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
                       <FilterChip label="Tanggal" isActive={groupBy === 'date'} onClick={() => setGroupBy('date')} />
-                      <FilterChip label="Kategori" isActive={groupBy === 'category'} onClick={() => setGroupBy('category')} />
+                      <FilterChip label="Kategori" isActive={groupBy === 'categoryId'} onClick={() => setGroupBy('categoryId')} />
                       <FilterChip label="Aset" isActive={groupBy === 'asset'} onClick={() => setGroupBy('asset')} />
                     </div>
                   </div>

@@ -82,11 +82,11 @@ const Statistics: React.FC = () => {
     prevMonthIncome: number; prevMonthExpense: number;
     expenseCategoryData: { name: string; value: number }[];
     incomeCategoryData: { name: string; value: number }[];
-    topCategories: { id: string; category: string; amount: number; type: 'pengeluaran' | 'pendapatan'; color: string; colorIndex: number }[];
+    topCategories: { id: string; categoryId: string; amount: number; type: 'pengeluaran' | 'pendapatan'; color: string; colorIndex: number }[];
     insights: {
       netSavings: number; savingsRate: number; avgDailySpending: number;
       txCountIncome: number; txCountExpense: number; txCountTransfer: number; txCountTotal: number;
-      biggestExpenseTx: { note: string; amount: number; category: string } | null;
+      biggestExpenseTx: { note: string; amount: number; categoryId: string } | null;
       topSpendingDay: { date: string; amount: number } | null;
     };
     dailyExpenseChart: { day: number; label: string; amount: number; income: number }[];
@@ -167,7 +167,7 @@ const Statistics: React.FC = () => {
     let txCountIncome = 0;
     let txCountExpense = 0;
     let txCountTransfer = 0;
-    let biggestExpenseTx: { note: string; amount: number; category: string } | null = null;
+    let biggestExpenseTx: { note: string; amount: number; categoryId: string } | null = null;
     const dailySpending: Record<string, number> = {}; // 'YYYY-MM-DD' -> total expense
 
     const dailyIncome: Record<string, number> = {};
@@ -180,7 +180,7 @@ const Statistics: React.FC = () => {
 
       // 1. Current Period Stats
       if (txDate >= vPeriodStart && txDate < vPeriodEnd) {
-        const subKey = tx.subCategory || tx.category;
+        const subKey = tx.subCategoryId || tx.categoryId || '';
 
         const transferFlow = getTransferFlowForActiveView(tx);
         const isIncomeTx = tx.type === 'pendapatan' || transferFlow === 'income';
@@ -188,17 +188,17 @@ const Statistics: React.FC = () => {
 
         if (isIncomeTx) {
           thisMonthInc += tx.amount;
-          if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === tx.category) {
+          if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === tx.categoryId) {
             incBySubCategory[subKey] = (incBySubCategory[subKey] || 0) + tx.amount;
           }
-          incByCategory[tx.category] = (incByCategory[tx.category] || 0) + tx.amount;
+          incByCategory[tx.categoryId || ''] = (incByCategory[tx.categoryId || ''] || 0) + tx.amount;
         }
         if (isExpenseTx) {
           thisMonthExp += tx.amount;
-          if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === tx.category) {
+          if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === tx.categoryId) {
             expBySubCategory[subKey] = (expBySubCategory[subKey] || 0) + tx.amount;
           }
-          expByCategory[tx.category] = (expByCategory[tx.category] || 0) + tx.amount;
+          expByCategory[tx.categoryId || ''] = (expByCategory[tx.categoryId || ''] || 0) + tx.amount;
         }
 
         // Insight tracking
@@ -209,7 +209,7 @@ const Statistics: React.FC = () => {
           dailySpending[tx.date] = (dailySpending[tx.date] || 0) + tx.amount;
           // Biggest single expense
           if (!biggestExpenseTx || tx.amount > biggestExpenseTx.amount) {
-            biggestExpenseTx = { note: tx.note || tx.category, amount: tx.amount, category: tx.category };
+            biggestExpenseTx = { note: tx.note || tx.categoryId || '', amount: tx.amount, categoryId: tx.categoryId || '' };
           }
         }
         if (isIncomeTx) {
@@ -242,19 +242,19 @@ const Statistics: React.FC = () => {
       : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a, b) => b.value - a.value);
 
     // Prepare the list for the bottom section
-    let allCategories: { id: string, category: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
+    let allCategories: { id: string, categoryId: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
 
     if (drillDownCategory) {
       const baseIdx = drillDownCategory.colorIndex;
       if (drillDownCategory.type === 'pengeluaran') {
         allCategories = expenseData.map((d, i) => ({
-          id: `exp-sub-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const,
+          id: `exp-sub-${d.name}`, categoryId: d.name, amount: d.value, type: 'pengeluaran' as const,
           color: COLORS[(i + baseIdx) % COLORS.length],
           colorIndex: (i + baseIdx) % COLORS.length
         }));
       } else {
         allCategories = incomeData.map((d, i) => ({
-          id: `inc-sub-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const,
+          id: `inc-sub-${d.name}`, categoryId: d.name, amount: d.value, type: 'pendapatan' as const,
           color: COLORS[(i + baseIdx) % COLORS.length],
           colorIndex: (i + baseIdx) % COLORS.length
         }));
@@ -262,12 +262,12 @@ const Statistics: React.FC = () => {
     } else {
       allCategories = [
         ...expenseData.map((d, i) => ({
-          id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const,
+          id: `exp-${d.name}`, categoryId: d.name, amount: d.value, type: 'pengeluaran' as const,
           color: COLORS[i % COLORS.length],
           colorIndex: i % COLORS.length
         })),
         ...incomeData.map((d, i) => ({
-          id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const,
+          id: `inc-${d.name}`, categoryId: d.name, amount: d.value, type: 'pendapatan' as const,
           color: COLORS[(i + 3) % COLORS.length],
           colorIndex: (i + 3) % COLORS.length
         }))
@@ -1181,7 +1181,7 @@ const Statistics: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider mb-0.5">Pengeluaran Terbesar</div>
                   <div className="text-sm font-bold text-on-surface truncate">
-                    {insights.biggestExpenseTx.note || insights.biggestExpenseTx.category}
+                    {insights.biggestExpenseTx.note || insights.biggestExpenseTx.categoryId}
                   </div>
                 </div>
                 <div className="text-lg font-bold text-error shrink-0">
@@ -1538,7 +1538,7 @@ const Statistics: React.FC = () => {
                       key={cat.id}
                       onClick={() => {
                         if (!drillDownCategory) {
-                          setDrillDownCategory({ name: cat.category, type: cat.type, colorIndex: cat.colorIndex });
+                          setDrillDownCategory({ name: cat.categoryId, type: cat.type, colorIndex: cat.colorIndex });
                         }
                       }}
                       className={`flex justify-between items-center bg-surface-container-lowest p-2 rounded-xl border border-outline-variant transition-colors ${drillDownCategory ? '' : 'hover:bg-surface-container cursor-pointer'}`}
@@ -1551,7 +1551,7 @@ const Statistics: React.FC = () => {
                           {i + 1}
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-on-surface">{cat.category}</div>
+                          <div className="font-bold text-sm text-on-surface">{cat.categoryId}</div>
                           <div className="text-xs text-on-surface-variant">
                             {drillDownCategory ? 'Sub-kategori' : (cat.type === 'pendapatan' ? 'Total Pendapatan' : 'Total Pengeluaran')}
                           </div>
@@ -1701,10 +1701,10 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     let adherenceRate = 100;
     if (activeBudgets.length > 0) {
       const withinBudgetCount = activeBudgets.filter(b => {
-        const cat = categories.find(c => c.id === b.categoryId);
+        const cat = categories?.find(c => c.id === b.categoryId);
         if (!cat) return true;
         const spent = transactions
-          .filter(tx => tx.type === 'pengeluaran' && tx.category === cat.name && new Date(tx.date).getMonth() === currentMonth.month)
+          .filter(tx => tx.type === 'pengeluaran' && tx.categoryId === cat.name && new Date(tx.date).getMonth() === currentMonth.month)
           .reduce((sum, tx) => sum + tx.amount, 0);
         return spent <= b.limit;
       }).length;
@@ -1972,8 +1972,8 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         map.total += tx.amount;
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+        const cat = categories?.find(c => c.name === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories?.find(c => c.name === tx.categoryId && c.type === 'pengeluaran');
         if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
       }
     });
@@ -1982,11 +1982,11 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
 
   const currentMonthBudgets = budgets.filter(b => b.month === selectedMonth && b.year === selectedYear);
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
-  const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
+  const categoryIdBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
 
   const totalBudgeted = useMemo(() =>
-    categoryBudgets.reduce((sum, b) => sum + b.limit, 0),
-    [categoryBudgets]);
+    categoryIdBudgets.reduce((sum, b) => sum + b.limit, 0),
+    [categoryIdBudgets]);
 
   const unassignedMoney = monthlyIncome - totalBudgeted;
 
@@ -2060,8 +2060,8 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
       {/* Category Budgets */}
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-on-surface pl-1">Anggaran Kategori</h3>
-        {categoryBudgets.length > 0 ? categoryBudgets.map(b => {
-          const cat = categories.find(c => c.id === b.categoryId);
+        {categoryIdBudgets.length > 0 ? categoryIdBudgets.map(b => {
+          const cat = categories?.find(c => c.id === b.categoryId);
           const spent = spendingMap[b.categoryId!] || 0;
           const percent = b.limit > 0 ? (spent / b.limit) * 100 : 0;
           const statusColor = percent > 100 ? 'error' : percent >= 75 ? 'secondary' : 'primary';

@@ -512,8 +512,8 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       onClose={() => setCatModalOpen(false)}
       categories={categories}
       type="pengeluaran"
-      initialCategory={creditCatName}
-      initialSubCategory={creditSubCatName}
+      initialCategoryId={creditCatName}
+      initialSubCategoryId={creditSubCatName}
       onSelect={(cat, sub) => { setCreditCatName(cat); setCreditSubCatName(sub); }}
     />
 

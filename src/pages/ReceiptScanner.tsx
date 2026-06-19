@@ -287,12 +287,12 @@ const ReceiptScanner: React.FC = () => {
 
           let matchedCategory = '';
           let matchedSubCategory = '';
-          if (tx.category && tx.type !== 'transfer') {
-            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type && !c.isDeleted);
+          if (tx.categoryId && tx.type !== 'transfer') {
+            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.categoryId.toLowerCase() && c.type === tx.type && !c.isDeleted);
             if (matchedCat) {
               matchedCategory = matchedCat.name;
-              if (tx.subCategory && matchedCat.subcategories) {
-                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategory!.toLowerCase() && !s.isDeleted);
+              if (tx.subCategoryId && matchedCat.subcategories) {
+                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategoryId!.toLowerCase() && !s.isDeleted);
                 if (matchedSub) matchedSubCategory = matchedSub.name;
               }
             }
@@ -303,8 +303,8 @@ const ReceiptScanner: React.FC = () => {
             asset: matchedAssetId,
             fromAsset: matchedFromAssetId,
             toAsset: matchedToAssetId,
-            category: matchedCategory || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
-            subCategory: matchedSubCategory || ''
+            categoryId: matchedCategory || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
+            subCategoryId: matchedSubCategory || ''
           };
         });
 
@@ -467,7 +467,7 @@ const ReceiptScanner: React.FC = () => {
       const validation = validateTransactionBudget({
         type: selectedType,
         amount: finalAmount,
-        category: selectedCategory || 'Belanja (OCR)',
+        categoryId: selectedCategory || 'Belanja (OCR)',
         date: selectedDate
       });
       if (!validation.isValid) {
@@ -502,8 +502,8 @@ const ReceiptScanner: React.FC = () => {
       addTransaction({
         type: selectedType,
         amount: finalAmount,
-        category: selectedCategory || 'Belanja (OCR)',
-        subCategory: selectedSubCategory || undefined,
+        categoryId: selectedCategory || 'Belanja (OCR)',
+        subCategoryId: selectedSubCategory || undefined,
         date: selectedDate,
         time: selectedTime,
         note: finalNote,
@@ -520,7 +520,7 @@ const ReceiptScanner: React.FC = () => {
 
 
 
-  const handleSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
+  const handleSplitSave = (splits: any[], data: { assetId: string, categoryId: string, subCategoryId: string }) => {
     const userSplit = splits.find(s => s.id === 'me');
     const payer = splits.find(s => s.isPayer) || splits[0];
     const isMePayer = payer.id === 'me';
@@ -529,7 +529,7 @@ const ReceiptScanner: React.FC = () => {
       const validation = validateTransactionBudget({
         type: 'pengeluaran',
         amount: userSplit.amount,
-        category: data.category || 'Belanja (OCR)',
+        categoryId: data.categoryId || 'Belanja (OCR)',
         date: selectedDate
       });
       if (!validation.isValid) {
@@ -548,7 +548,7 @@ const ReceiptScanner: React.FC = () => {
     performSplitSave(splits, data);
   };
 
-  const performSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
+  const performSplitSave = (splits: any[], data: { assetId: string, categoryId: string, subCategoryId: string }) => {
     try {
       const userSplit = splits.find(s => s.id === 'me');
       const payer = splits.find(s => s.isPayer) || splits[0];
@@ -561,8 +561,8 @@ const ReceiptScanner: React.FC = () => {
           addTransaction({
             type: 'pengeluaran',
             amount: userSplit.amount,
-            category: data.category || 'Belanja (OCR)',
-            subCategory: data.subCategory || undefined,
+            categoryId: data.categoryId || 'Belanja (OCR)',
+            subCategoryId: data.subCategoryId || undefined,
             date: selectedDate,
             time: selectedTime,
             note: merchantName || 'Split Bill',
@@ -652,7 +652,7 @@ const ReceiptScanner: React.FC = () => {
           amount: tx.amount,
           date: tx.date,
           note: tx.note || 'Transfer',
-          category: 'Transfer',
+          categoryId: 'Transfer',
           fromAssetId: finalFrom,
           toAssetId: finalTo
         });
@@ -662,7 +662,7 @@ const ReceiptScanner: React.FC = () => {
           addTransaction({
             type: 'pengeluaran',
             amount: tx.adminFee,
-            category: 'Biaya Admin',
+            categoryId: 'Biaya Admin',
             date: tx.date,
             note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
             assetId: feeAssetId,
@@ -675,8 +675,8 @@ const ReceiptScanner: React.FC = () => {
           amount: tx.amount,
           date: tx.date,
           note: tx.note,
-          category: tx.category,
-          subCategory: tx.subCategory || undefined,
+          categoryId: tx.categoryId,
+          subCategoryId: tx.subCategoryId || undefined,
           assetId: batchAssetId
         });
       }
@@ -1067,7 +1067,7 @@ const ReceiptScanner: React.FC = () => {
           isMutation={true}
           onSave={(batchAssetId) => {
             const toSave = mutasiResults.filter(r => r.selected);
-            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category))) {
+            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.categoryId))) {
               showToast('Pastikan semua transaksi reguler memiliki Nominal dan Kategori!', 'warning');
               return;
             }
@@ -1079,7 +1079,7 @@ const ReceiptScanner: React.FC = () => {
             if (zbbMode === 'strict') {
               const expenses = toSave.filter(r => r.type === 'pengeluaran');
               const grouped = expenses.reduce((acc, tx) => {
-                const key = `${tx.category}_${tx.date}`;
+                const key = `${tx.categoryId}_${tx.date}`;
                 acc[key] = (acc[key] || 0) + tx.amount;
                 return acc;
               }, {} as Record<string, number>);
@@ -1089,7 +1089,7 @@ const ReceiptScanner: React.FC = () => {
                 const validation = validateTransactionBudget({
                   type: 'pengeluaran',
                   amount: grouped[key],
-                  category: cat,
+                  categoryId: cat,
                   date: dt
                 });
                 if (!validation.isValid) {
@@ -1125,8 +1125,8 @@ const ReceiptScanner: React.FC = () => {
         assets={assets}
         categories={categories}
         initialAssetId={selectedAssetId}
-        initialCategory={selectedCategory}
-        initialSubCategory={selectedSubCategory}
+        initialCategoryId={selectedCategory}
+        initialSubCategoryId={selectedSubCategory}
         onSave={handleSplitSave}
       />
 
@@ -1143,8 +1143,8 @@ const ReceiptScanner: React.FC = () => {
         onClose={() => setIsCatModalOpen(false)}
         categories={categories}
         type={selectedType}
-        initialCategory={selectedCategory}
-        initialSubCategory={selectedSubCategory}
+        initialCategoryId={selectedCategory}
+        initialSubCategoryId={selectedSubCategory}
         onSelect={(cat, sub) => {
           setSelectedCategory(cat);
           setSelectedSubCategory(sub);

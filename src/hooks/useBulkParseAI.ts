@@ -7,8 +7,10 @@ export interface ParsedTransaction {
   amount: number;
   date: string;
   note: string;
-  category: string;
+  categoryId: string;
+  category?: string;
   asset: string;
+  subCategoryId?: string;
   subCategory?: string;
   selected: boolean;
   fromAsset?: string;
@@ -132,7 +134,7 @@ export const useBulkParseAI = () => {
           amount: item.amount || 0,
           date: item.date || getLocalDate(),
           note: item.note || '',
-          category: item.category || '',
+          categoryId: item.category || '',
           subCategory: item.subCategory || '',
           asset: item.asset || '',
           fromAsset: item.fromAsset || '',

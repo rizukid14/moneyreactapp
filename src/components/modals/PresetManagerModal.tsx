@@ -21,7 +21,7 @@ export const PresetManagerModal: React.FC<PresetManagerModalProps> = ({ isOpen, 
   const [type, setType] = useState<'pengeluaran' | 'pendapatan' | 'transfer'>('pengeluaran');
   const [label, setLabel] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [note, setNote] = useState('');
   
   const handleSaveManual = (e: React.FormEvent) => {
@@ -32,7 +32,7 @@ export const PresetManagerModal: React.FC<PresetManagerModalProps> = ({ isOpen, 
       type,
       label: label.trim(),
       amount: Number(amount.replace(/\./g, '')) || 0,
-      category: type !== 'transfer' ? category : undefined,
+      categoryId: type !== 'transfer' ? categoryId : undefined,
       note: note.trim()
     });
     
@@ -187,8 +187,8 @@ export const PresetManagerModal: React.FC<PresetManagerModalProps> = ({ isOpen, 
               <div>
                 <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Kategori (Opsional)</label>
                 <select
-                  value={category}
-                  onChange={e => setCategory(e.target.value)}
+                  value={categoryId}
+                  onChange={e => setCategoryId(e.target.value)}
                   className="w-full p-3 bg-surface-container-low border-2 border-outline-variant rounded-lg text-on-surface outline-none"
                 >
                   <option value="">-- Tanpa Kategori --</option>

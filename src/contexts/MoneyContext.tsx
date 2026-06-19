@@ -174,8 +174,8 @@ export interface Transaction {
   id: string;
   type: 'pengeluaran' | 'pendapatan' | 'transfer' | 'piutang_keluar' | 'piutang_masuk' | 'hutang_masuk' | 'hutang_keluar';
   amount: number;
-  category: string;
-  subCategory?: string;
+  categoryId?: string;
+  subCategoryId?: string;
   date: string; // YYYY-MM-DD
   time?: string; // HH:mm
   note: string;
@@ -198,8 +198,8 @@ export interface RecurringTransaction {
   id: string;
   type: Transaction['type'];
   amount: number;
-  category: string;
-  subCategory?: string;
+  categoryId?: string;
+  subCategoryId?: string;
   assetId?: string;
   fromAssetId?: string;
   toAssetId?: string;
@@ -218,7 +218,7 @@ export interface Subscription {
   amount: number;
   billingCycle: 'monthly' | 'yearly';
   nextBillingDate: string; // YYYY-MM-DD
-  category: string;
+  categoryId?: string;
   icon?: string;
   assetId: string;
   isActive: boolean;
@@ -278,7 +278,7 @@ interface MoneyContextType {
   addBudget: (budget: Omit<Budget, 'id'>) => void;
   updateBudget: (id: string, budget: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string) => void;
+  addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryIdName?: string, subCategoryIdName?: string) => void;
   updateDebt: (id: string, debt: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
   addContact: (contact: Omit<Contact, 'id'>) => void;
@@ -320,8 +320,8 @@ interface MoneyContextType {
   setShowDebtInTransactions: (show: boolean) => void;
   currencySymbol: string;
   setCurrencySymbol: (symbol: string) => void;
-  defaultTransactionGrouping: 'date' | 'category';
-  setDefaultTransactionGrouping: (grouping: 'date' | 'category') => void;
+  defaultTransactionGrouping: 'date' | 'categoryId';
+  setDefaultTransactionGrouping: (grouping: 'date' | 'categoryId') => void;
   assetCarouselCards: string[];
   setAssetCarouselCards: (cards: string[]) => void;
   statsCarouselCards: string[];
@@ -383,7 +383,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [startOfMonthDay, setStartOfMonthDayState] = useState<number>(1);
   const [showDebtInTransactions, setShowDebtInTransactionsState] = useState<boolean>(true);
   const [currencySymbol, setCurrencySymbolState] = useState<string>('Rp');
-  const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'category'>('date');
+  const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'categoryId'>('date');
   const [authUser, setAuthUser] = useState<any>(() => {
     try {
       if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
@@ -523,11 +523,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const updatedTxs = dbTxs.map(tx => {
           let newType = tx.type;
           if (tx.type === 'pengeluaran') {
-            if (tx.category === 'Pinjaman & Piutang' || tx.category === 'Tambah Piutang') newType = 'piutang_keluar';
-            else if (tx.category === 'Bayar Hutang') newType = 'hutang_keluar';
+            if ((tx as any).categoryId === 'Pinjaman & Piutang' || (tx as any).categoryId === 'Tambah Piutang') newType = 'piutang_keluar';
+            else if ((tx as any).categoryId === 'Bayar Hutang') newType = 'hutang_keluar';
           } else if (tx.type === 'pendapatan') {
-            if (tx.category === 'Tambah Hutang' || (tx.note && tx.note.includes('Penerimaan dana pinjaman'))) newType = 'hutang_masuk';
-            else if (tx.category === 'Pelunasan Piutang') newType = 'piutang_masuk';
+            if ((tx as any).categoryId === 'Pelunasan Piutang') newType = 'piutang_masuk';
           }
 
           if (newType !== tx.type) {
@@ -544,6 +543,67 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           console.log(`Migrated ${migratedCount} debt transactions to v1.0.18 types.`);
         }
         localStorage.setItem('migrated_v1_0_18_debts', 'true');
+      }
+
+      // ─── Category ID Migration (Phase 1) ──────────────────────────────────
+      const hasMigratedCatId = localStorage.getItem('migrated_categoryId_ids_v2');
+      if (!hasMigratedCatId && (dbTxs.length > 0 || dbRecurring.length > 0 || dbSubs.length > 0)) {
+        console.log('Running Category ID migration...');
+        let needsMigration = false;
+        
+        // Helper to find or create categoryId shadow
+        const getCatIds = (tx: { categoryId?: string, subCategoryId?: string, type: string }) => {
+          let cat = dbCats.find(c => c.name.toLowerCase() === tx.categoryId?.toLowerCase() && c.type === tx.type);
+          if (!cat && tx.categoryId) {
+            // Create shadow categoryId to prevent orphan transactions
+            cat = {
+              id: `cat-migrated-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              name: tx.categoryId,
+              type: tx.type as any,
+              subcategories: [],
+              isDeleted: true
+            };
+            dbCats.push(cat);
+            import('../lib/db').then(m => m.dbPutCategory(cat!));
+          }
+          let subCatId = undefined;
+          if (tx.subCategoryId && cat) {
+            const sub = cat.subcategories?.find(s => s.name.toLowerCase() === tx.subCategoryId?.toLowerCase());
+            if (sub) subCatId = sub.id;
+          }
+          return { categoryId: cat?.id || 'unknown', subCategoryId: subCatId };
+        };
+
+        const migrateArray = (arr: any[]) => {
+          return arr.map(item => {
+            if (item.category && !item.categoryId) {
+              needsMigration = true;
+              const { categoryId, subCategoryId } = getCatIds(item);
+              // Remove old fields while mapping
+              const { category, subCategory, ...rest } = item;
+              return { ...rest, categoryId, subCategoryId };
+            }
+            return item;
+          });
+        };
+
+        const migratedTxs = migrateArray(dbTxs) as Transaction[];
+        const migratedRec = migrateArray(dbRecurring) as RecurringTransaction[];
+        const migratedSubs = migrateArray(dbSubs) as Subscription[];
+
+        if (needsMigration) {
+          const mDb = await import('../lib/db');
+          await Promise.all([
+            ...migratedTxs.map(tx => mDb.dbPutTransaction(tx)),
+            ...migratedRec.map(r => mDb.dbPutRecurringTransaction(r)),
+            ...migratedSubs.map(s => mDb.dbPutSubscription(s))
+          ]);
+          migratedTxs.forEach((tx, i) => { dbTxs[i] = tx; });
+          migratedRec.forEach((r, i) => { dbRecurring[i] = r; });
+          migratedSubs.forEach((s, i) => { dbSubs[i] = s; });
+          console.log('Category ID migration completed.');
+        }
+        localStorage.setItem('migrated_categoryId_ids_v2', 'true');
       }
 
       setGoals(dbGoals);
@@ -585,7 +645,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const savedStartMonth = await dbGetSetting('startOfMonthDay') as number | undefined;
       const savedShowDebtInTx = await dbGetSetting('showDebtInTransactions') as boolean | undefined;
       const savedCurrency = await dbGetSetting('currencySymbol') as string | undefined;
-      const savedGrouping = await dbGetSetting('defaultTransactionGrouping') as 'date' | 'category' | undefined;
+      const savedGrouping = await dbGetSetting('defaultTransactionGrouping') as 'date' | 'categoryId' | undefined;
 
       // Auto-fill profile from Firebase Auth if empty or default
       if (isFirebaseConfigured && auth.currentUser) {
@@ -762,14 +822,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!txToDelete) return;
 
     if (txToDelete.relatedId) {
-      const isPrincipal = isPrincipalTx(txToDelete.note, txToDelete.category);
+      const isPrincipal = isPrincipalTx(txToDelete.note, txToDelete.categoryId);
 
       if (isPrincipal) {
         const debtId = txToDelete.relatedId;
         const otherPrincipalTxs = transactions.filter(tx =>
           tx.relatedId === debtId &&
           tx.id !== id &&
-          isPrincipalTx(tx.note, tx.category)
+          isPrincipalTx(tx.note, tx.categoryId)
         );
 
         if (otherPrincipalTxs.length === 0) {
@@ -791,7 +851,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             // Recalculate if it's paid after total decreased
             const history = transactions.filter(t => t.relatedId === debtId && t.id !== id);
             const paidAmt = history.reduce((sum, tx) => {
-              return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+              return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
             }, 0);
             const isPaid = newTotal > 0 && paidAmt >= newTotal;
 
@@ -808,7 +868,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const remainingPaymentCount = transactions.filter(t =>
           t.id !== id &&
           t.relatedId === txToDelete.relatedId &&
-          !isPrincipalTx(t.note, t.category)
+          !isPrincipalTx(t.note, t.categoryId)
         ).length;
 
         setDebts(prev => prev.map(d => {
@@ -817,7 +877,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           // Recalculate isPaid based on new transaction sum
           const history = transactions.filter(t => t.relatedId === d.id && t.id !== id);
           const paidAmt = history.reduce((sum, tx) => {
-            return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+            return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
           }, 0);
           const isPaid = Number(d.totalAmount || 0) > 0 && paidAmt >= Number(d.totalAmount || 0);
 
@@ -834,7 +894,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       dbDeleteTransaction(id).then(refreshSyncCount);
 
       // --- Sync with Trip Expense & Related Debts ---
-      if (txToDelete.category === 'Liburan & Perjalanan' && txToDelete.subCategory === 'Biaya Trip') {
+      if (txToDelete.categoryId === 'Liburan & Perjalanan' && txToDelete.subCategoryId === 'Biaya Trip') {
         const expenseId = txToDelete.relatedId;
         if (expenseId) {
           // Delete Trip Expense
@@ -915,53 +975,25 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   const updateCategory = useCallback((id: string, name: string) => {
-    let oldName = '';
     setCategories(prev => prev.map(c => {
       if (c.id !== id) return c;
-      oldName = c.name;
       const updated = { ...c, name };
       dbPutCategory(updated).then(refreshSyncCount);
       return updated;
     }));
-
-    if (oldName && oldName !== name) {
-      setTransactions(prev => prev.map(tx => {
-        if (tx.category === oldName) {
-          const updated = { ...tx, category: name };
-          dbPutTransaction(updated);
-          return updated;
-        }
-        return tx;
-      }));
-    }
   }, [refreshSyncCount]);
 
   const updateSubCategory = useCallback((categoryId: string, subId: string, name: string) => {
-    let oldSubName = '';
-    let catName = '';
     setCategories(prev => prev.map(c => {
       if (c.id !== categoryId) return c;
-      catName = c.name;
       const updatedSubcategories = (c.subcategories || []).map(sub => {
         if (sub.id !== subId) return sub;
-        oldSubName = sub.name;
         return { ...sub, name };
       });
       const updated = { ...c, subcategories: updatedSubcategories };
       dbPutCategory(updated).then(refreshSyncCount);
       return updated;
     }));
-
-    if (oldSubName && oldSubName !== name && catName) {
-      setTransactions(prev => prev.map(tx => {
-        if (tx.category === catName && tx.subCategory === oldSubName) {
-          const updated = { ...tx, subCategory: name };
-          dbPutTransaction(updated);
-          return updated;
-        }
-        return tx;
-      }));
-    }
   }, [refreshSyncCount]);
 
   // ─── Budgets ──────────────────────────────────────────────────────────────
@@ -1030,7 +1062,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   // ─── Debts ──────────────────────────────────────────────────────────────
-  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryName?: string, subCategoryName?: string) => {
+  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryIdName?: string, subCategoryIdName?: string) => {
     // Check if an existing unpaid debt with the same contact and type exists
     const existingDebt = debts.find(d =>
       !d.isPaid &&
@@ -1051,7 +1083,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'piutang_keluar',
           amount: newDebt.totalAmount,
-          category: 'Pinjaman & Piutang',
+          categoryId: 'Pinjaman & Piutang',
           date,
           time,
           note: existingDebt
@@ -1068,7 +1100,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'hutang_masuk',
           amount: newDebt.totalAmount,
-          category: categoryName || 'Lainnya',
+          categoryId: categoryIdName || 'Lainnya',
           date,
           time,
           note: existingDebt
@@ -1082,8 +1114,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'pengeluaran',
           amount: newDebt.totalAmount,
-          category: categoryName || 'Lainnya',
-          subCategory: subCategoryName,
+          categoryId: categoryIdName || 'Lainnya',
+          subCategoryId: subCategoryIdName,
           date,
           time,
           note: existingDebt
@@ -1123,7 +1155,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact) {
         const principalTx = transactions.find(tx =>
           tx.relatedId === id &&
-          isPrincipalTx(tx.note, tx.category)
+          isPrincipalTx(tx.note, tx.categoryId)
         );
         if (principalTx) {
           const txUpdate: Partial<Transaction> = {};
@@ -1250,7 +1282,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           _createTx({
             type: 'transfer',
             amount: amt,
-            category: 'Transfer',
+            categoryId: 'Transfer',
             date: today,
             time,
             note,
@@ -1263,7 +1295,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           _createTx({
             type: 'piutang_masuk',
             amount: amt,
-            category: 'Pelunasan Piutang',
+            categoryId: 'Pelunasan Piutang',
             date: today,
             time,
             note,
@@ -1289,7 +1321,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       const history = transactions.filter(t => t.relatedId === debtId);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+        return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
       }, 0);
 
       const remaining = Math.max(0, Number(debt.totalAmount || 0) - paidAmt);
@@ -1305,7 +1337,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             _createTx({
               type: 'transfer',
               amount: amountToRecord,
-              category: 'Transfer',
+              categoryId: 'Transfer',
               date: today,
               time,
               note,
@@ -1317,7 +1349,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             _createTx({
               type: 'hutang_keluar',
               amount: amountToRecord,
-              category: 'Bayar Hutang',
+              categoryId: 'Bayar Hutang',
               date: today,
               time,
               note,
@@ -1329,7 +1361,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           _createTx({
             type: 'piutang_masuk',
             amount: amountToRecord,
-            category: 'Pelunasan Piutang',
+            categoryId: 'Pelunasan Piutang',
             date: today,
             time,
             note,
@@ -1358,7 +1390,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'transfer',
           amount,
-          category: 'Transfer',
+          categoryId: 'Transfer',
           date,
           time,
           note,
@@ -1370,7 +1402,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'hutang_keluar',
           amount,
-          category: 'Bayar Hutang',
+          categoryId: 'Bayar Hutang',
           date,
           time,
           note,
@@ -1382,7 +1414,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       _createTx({
         type: 'piutang_masuk',
         amount,
-        category: 'Pelunasan Piutang',
+        categoryId: 'Pelunasan Piutang',
         date,
         time,
         note,
@@ -1393,7 +1425,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const totalPaid = transactions
       .filter(t => t.relatedId === debtId)
-      .reduce((sum, tx) => isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0), 0) + amount;
+      .reduce((sum, tx) => isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0), 0) + amount;
 
     const nextPaid = (debt.paidInstallments || 0) + 1;
     const isPaid = debt.isInstallment && debt.totalInstallments
@@ -1418,7 +1450,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       _createTx({
         type: 'pendapatan',
         amount,
-        category: 'Penerimaan dana pinjaman',
+        categoryId: 'Penerimaan dana pinjaman',
         date,
         time,
         note,
@@ -1429,7 +1461,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       _createTx({
         type: 'pengeluaran',
         amount,
-        category: 'Pemberian pinjaman',
+        categoryId: 'Pemberian pinjaman',
         date,
         time,
         note,
@@ -1454,7 +1486,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const debtsWithBal = contactDebts.map(d => {
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount);
+        return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount);
       }, 0);
       return { ...d, remaining: Math.max(0, d.totalAmount - paidAmt) };
     });
@@ -1490,7 +1522,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         id: generateId(),
         type: 'hutang_keluar',
         amount: payAmt,
-        category: 'Bayar Hutang',
+        categoryId: 'Bayar Hutang',
         date,
         time,
         note,
@@ -1520,7 +1552,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         id: generateId(),
         type: 'piutang_masuk',
         amount: payAmt,
-        category: 'Pelunasan Piutang',
+        categoryId: 'Pelunasan Piutang',
         date,
         time,
         note,
@@ -1762,7 +1794,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbPutSetting('currencySymbol', symbol);
   }, []);
 
-  const setDefaultTransactionGrouping = useCallback((grouping: 'date' | 'category') => {
+  const setDefaultTransactionGrouping = useCallback((grouping: 'date' | 'categoryId') => {
     setDefaultTransactionGroupingState(grouping);
     dbPutSetting('defaultTransactionGrouping', grouping);
   }, []);
@@ -1916,8 +1948,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (budgetMode !== 'zero-based' || zbbMode !== 'strict') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
     if (tx.type !== 'pengeluaran') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
 
-    const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-      categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+    const cat = categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+      categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
     if (!cat) return { isValid: true, deficitCategory: null, deficitAmount: 0 };
 
     const txDate = tx.date ? new Date(tx.date) : new Date();
@@ -1935,7 +1967,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     let spent = 0;
     transactions.forEach(t => {
-      if (t.id !== tx.id && t.type === 'pengeluaran' && t.category === tx.category) {
+      if (t.id !== tx.id && t.type === 'pengeluaran' && t.categoryId === tx.categoryId) {
         const d = new Date(t.date);
         if (d >= periodStart && d < periodEnd) spent += t.amount;
       }

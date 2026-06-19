@@ -60,7 +60,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
     
     if (duplicate) {
       if (!editingCategory && addSubCategory && subcategories.length > 0) {
-        // Instead of error, let's add these subcategories to the existing category
+        // Instead of error, let's add these subcategories to the existing categoryId
         let addedCount = 0;
         subcategories.forEach(sub => {
           const exists = duplicate.subcategories?.some(s => s.name.toLowerCase() === sub.name.toLowerCase());

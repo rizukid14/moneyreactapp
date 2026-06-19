@@ -80,7 +80,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
     onClose();
   };
 
-  const selectedCategory = categoryId === 'total' ? null : categories.find(c => c.id === categoryId);
+  const selectedCategoryId = categoryId === 'total' ? null : categories.find(c => c.id === categoryId);
 
   return (
     <>
@@ -133,7 +133,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                         fontWeight: categoryId !== 'total' ? 700 : 500, 
                         color: categoryId !== 'total' ? 'var(--text-main)' : 'var(--text-muted)' 
                       }}>
-                        {categoryId !== 'total' && selectedCategory ? selectedCategory.name : 'Pilih Kategori Spesifik...'}
+                        {categoryId !== 'total' && selectedCategoryId ? selectedCategoryId.name : 'Pilih Kategori Spesifik...'}
                       </span>
                     </div>
                     <MaterialIcon name="chevron_right" className="text-[18px]" />
@@ -183,7 +183,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
         onClose={() => setIsCatModalOpen(false)}
         categories={categories}
         type="pengeluaran"
-        initialCategory={selectedCategory?.name}
+        initialCategoryId={selectedCategoryId?.name}
         onSelect={(catName) => {
           const cat = categories.find(c => c.name === catName && c.type === 'pengeluaran' && !c.isDeleted) ||
                       categories.find(c => c.name === catName && c.type === 'pengeluaran');

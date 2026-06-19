@@ -54,8 +54,8 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
       amount: 0,
       date: getLocalDate(),
       note: '',
-      category: '',
-      subCategory: '',
+      categoryId: '',
+      subCategoryId: '',
       asset: '',
       fromAsset: '',
       toAsset: '',
@@ -271,12 +271,38 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
               ) : (
                 <>
                   {isMutation ? (
-                    <button onClick={() => openModal(item.fromAsset && item.fromAsset !== batchAssetId ? 'fromAsset' : 'toAsset', item.id)} style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Lawan Transaksi</span>
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {getAssetLabel(item.fromAsset && item.fromAsset !== batchAssetId ? item.fromAsset : item.toAsset, 'Pilih Rekening')}
-                      </span>
-                    </button>
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
+                      <button onClick={() => openModal(item.fromAsset && item.fromAsset !== batchAssetId ? 'fromAsset' : 'toAsset', item.id)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Lawan Transaksi</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {getAssetLabel(item.fromAsset && item.fromAsset !== batchAssetId ? item.fromAsset : item.toAsset, 'Pilih Rekening')}
+                        </span>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const currentFrom = item.fromAsset;
+                          const currentTo = item.toAsset;
+                          updateResult(item.id, 'fromAsset', currentTo);
+                          updateResult(item.id, 'toAsset', currentFrom);
+                        }}
+                        style={{ 
+                          padding: '10px', 
+                          background: 'var(--bg-main)', 
+                          border: '1px solid var(--border-color)', 
+                          borderRadius: '12px', 
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: '80px'
+                        }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Arah</span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: item.fromAsset === batchAssetId ? 'var(--danger)' : 'var(--primary)' }}>
+                          {item.fromAsset === batchAssetId ? 'Keluar' : 'Masuk'}
+                        </span>
+                      </button>
+                    </div>
                   ) : (
                     <>
                       <button onClick={() => openModal('fromAsset', item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
@@ -397,8 +423,8 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
           onClose={closeModal}
           categories={categories}
           type={activeItem.type as 'pengeluaran' | 'pendapatan'}
-          initialCategory={activeItem.category}
-          initialSubCategory={activeItem.subCategory || ''}
+          initialCategoryId={activeItem.category}
+          initialSubCategoryId={activeItem.subCategory || ''}
           onSelect={(cat, sub) => {
             if (modalState.itemId) {
               updateResult(modalState.itemId, 'category', cat);

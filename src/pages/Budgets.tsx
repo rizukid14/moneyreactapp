@@ -71,8 +71,8 @@ const Budgets: React.FC = () => {
     transactions.forEach(tx => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+        const cat = categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran');
         if (cat) {
           map[cat.id] = (map[cat.id] || 0) + tx.amount;
         }
@@ -94,7 +94,7 @@ const Budgets: React.FC = () => {
 
     return transactions.filter(tx => {
       const d = new Date(tx.date);
-      return d >= periodStart && d < periodEnd && tx.type === 'pengeluaran' && tx.category === cat.name;
+      return d >= periodStart && d < periodEnd && tx.type === 'pengeluaran' && tx.categoryId === cat.name;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [selectedBudgetId, categoryBudgets, categories, transactions, selectedMonth, selectedYear, startOfMonthDay]);
 

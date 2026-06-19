@@ -59,7 +59,7 @@ const DebtCard: React.FC<{
       : null;
 
     const paidAmount = history.reduce((sum, tx) => {
-      if (isPrincipalTx(tx.note, tx.category)) return sum;
+      if (isPrincipalTx(tx.note, tx.categoryId)) return sum;
       return sum + Number(tx.amount || 0);
     }, 0);
 
@@ -302,7 +302,7 @@ const Debts: React.FC = () => {
       if (d.isPaid) return;
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+        return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
       }, 0);
 
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
@@ -318,7 +318,7 @@ const Debts: React.FC = () => {
       if (d.isPaid) return;
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+        return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + Number(tx.amount || 0);
       }, 0);
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
       if (remaining <= 0) return;
@@ -513,7 +513,7 @@ const Debts: React.FC = () => {
           assets={assets}
           currencySymbol={currencySymbol}
           paidAmountFromTxs={transactions.filter(t => t.relatedId === payingDebt.id).reduce((sum, tx) => {
-            return isPrincipalTx(tx.note, tx.category) ? sum : sum + tx.amount;
+            return isPrincipalTx(tx.note, tx.categoryId) ? sum : sum + tx.amount;
           }, 0)}
           onConfirm={(amt, assetId, date, time, note, isFull) => {
             if (isFull) {

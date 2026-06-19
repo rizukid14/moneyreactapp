@@ -93,7 +93,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
           const rt = addRecurringTransaction({
             type: 'transfer',
             amount: numericAutoAmount,
-            category: 'Transfer',
+            categoryId: 'Transfer',
             note: `Tabungan: ${name.trim()}`,
             frequency: autoFrequency,
             startDate: autoStartDate,

@@ -305,8 +305,8 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
           addTransaction({
             type: 'pengeluaran',
             amount: myAmount,
-            category: 'Liburan & Perjalanan',
-            subCategory: 'Biaya Trip',
+            categoryId: 'Liburan & Perjalanan',
+            subCategoryId: 'Biaya Trip',
             date: expenseData.date,
             time: getLocalTime(),
             note: `[Trip: ${trip.name}] ${description}`,

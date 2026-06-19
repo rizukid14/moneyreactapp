@@ -31,9 +31,9 @@ interface SplitBillModalProps {
   assets: Asset[];
   categories: Category[];
   initialAssetId?: string;
-  initialCategory?: string;
-  initialSubCategory?: string;
-  onSave: (splits: SplitPerson[], data: { assetId: string, category: string, subCategory: string }) => void;
+  initialCategoryId?: string;
+  initialSubCategoryId?: string;
+  onSave: (splits: SplitPerson[], data: { assetId: string, categoryId: string, subCategoryId: string }) => void;
   sourceId?: string;
 }
 
@@ -47,8 +47,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   assets,
   categories,
   initialAssetId,
-  initialCategory,
-  initialSubCategory,
+  initialCategoryId,
+  initialSubCategoryId,
   onSave,
   sourceId,
 }) => {
@@ -80,8 +80,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
   const [selectedAssetId, setSelectedAssetId] = useState(initialAssetId || '');
   const [receiveAssetId, setReceiveAssetId] = useState(initialAssetId || '');
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
-  const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory || '');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(initialCategoryId || '');
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState(initialSubCategoryId || '');
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isReceiveAssetModalOpen, setIsReceiveAssetModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -98,13 +98,13 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       setItemAssignments({});
       setSelectedAssetId(initialAssetId || '');
       setReceiveAssetId(initialAssetId || '');
-      setSelectedCategory(initialCategory || '');
-      setSelectedSubCategory(initialSubCategory || '');
+      setSelectedCategoryId(initialCategoryId || '');
+      setSelectedSubCategoryId(initialSubCategoryId || '');
       setActiveSharedId(null);
       setIsSharing(false);
       setShowCopySuccess(false);
     }
-  }, [isOpen, totalAmount, lineItems, initialAssetId, initialCategory, initialSubCategory]);
+  }, [isOpen, totalAmount, lineItems, initialAssetId, initialCategoryId, initialSubCategoryId]);
 
   const addPeople = (names: string[]) => {
     const existingNames = splits.map(s => s.contactName);
@@ -299,8 +299,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
     onSave(splits, {
       assetId: selectedAssetId,
-      category: selectedCategory,
-      subCategory: selectedSubCategory
+      categoryId: selectedCategoryId,
+      subCategoryId: selectedSubCategoryId
     });
     onClose();
   };
@@ -487,8 +487,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                 borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
               }}
             >
-              <span style={{ fontSize: 11, fontWeight: 700, color: selectedCategory ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {selectedCategory ? (selectedSubCategory ? `${selectedCategory} > ${selectedSubCategory}` : selectedCategory) : 'Pilih...'}
+              <span style={{ fontSize: 11, fontWeight: 700, color: selectedCategoryId ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {selectedCategoryId ? (selectedSubCategoryId ? `${selectedCategoryId} > ${selectedSubCategoryId}` : selectedCategoryId) : 'Pilih...'}
               </span>
             </button>
           </div>
@@ -975,11 +975,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
         type="pengeluaran"
-        initialCategory={selectedCategory}
-        initialSubCategory={selectedSubCategory}
+        initialCategoryId={selectedCategoryId}
+        initialSubCategoryId={selectedSubCategoryId}
         onSelect={(cat, sub) => {
-          setSelectedCategory(cat);
-          setSelectedSubCategory(sub || '');
+          setSelectedCategoryId(cat);
+          setSelectedSubCategoryId(sub || '');
         }}
       />
 
