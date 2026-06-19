@@ -1095,18 +1095,19 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     } else {
       // Hutang (Saya Berhutang)
-      if (initialMode === 'cash' && newDebt.liabilityAssetId) {
+      if (initialMode === 'cash' && newDebt.paymentAssetId) {
         // Receive loan principal: Account balance increases (Income-like but ignored in stats)
         _createTx({
           type: 'hutang_masuk',
           amount: newDebt.totalAmount,
           categoryId: categoryIdName || 'Lainnya',
+          subCategoryId: subCategoryIdName,
           date,
           time,
           note: existingDebt
             ? `Penambahan Hutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
             : `Penerimaan dana pinjaman dari ${newDebt.contact}`,
-          assetId: newDebt.liabilityAssetId,
+          assetId: newDebt.paymentAssetId,
           relatedId: debtId,
         });
       } else if (initialMode === 'credit' && newDebt.liabilityAssetId) {

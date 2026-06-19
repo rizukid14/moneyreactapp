@@ -289,9 +289,9 @@ const Debts: React.FC = () => {
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
-  const handleSave = (data: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string) => {
+  const handleSave = (data: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string) => {
     if (editingDebt) updateDebt(editingDebt.id, data);
-    else addDebt(data, initialMode ?? 'none', categoryName);
+    else addDebt(data, initialMode ?? 'none', categoryName, subCategoryName);
   };
 
   const getAssetName = (id?: string) => assets.find(a => a.id === id)?.name;
