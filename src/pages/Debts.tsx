@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
-import { isPrincipalTx, getLocalDate } from '../lib/utils';
+import { isPrincipalTx } from '../lib/utils';
 import DropdownMenu from '../components/common/DropdownMenu';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
@@ -55,7 +55,7 @@ const DebtCard = React.memo<DebtCardProps>(({
   currencySymbol, onHistoryClick
 }) => {
     const { categories } = useMoney();
-    const [menuOpen, setMenuOpen] = useState(false);
+
     const isHutang = debt.type === 'hutang';
     const daysLeft = getDaysUntilDue(debt.dueDate);
     const isOverdue = daysLeft !== null && daysLeft < 0 && !debt.isPaid;

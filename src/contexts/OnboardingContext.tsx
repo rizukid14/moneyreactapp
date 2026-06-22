@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { dbGetSetting, dbPutSetting, dbDeleteSetting } from '../lib/db';
 
 interface OnboardingState {
@@ -57,30 +57,28 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     loadState();
   }, []);
 
-  const isPageCompleted = (pageKey: string) => {
+  const isPageCompleted = useCallback((pageKey: string) => {
     return !!state.completedPages[pageKey];
-  };
+  }, [state.completedPages]);
 
-  const shouldShowTutorial = (pageKey: string) => {
+  const shouldShowTutorial = useCallback((pageKey: string) => {
     return isLoaded && !isPageCompleted(pageKey) && !state.isActive;
-  };
+  }, [isLoaded, isPageCompleted, state.isActive]);
 
-  const markPageCompleted = async (pageKey: string) => {
+  const markPageCompleted = useCallback(async (pageKey: string) => {
     const newPages = { ...state.completedPages, [pageKey]: true };
     setState(s => ({ ...s, completedPages: newPages, isActive: false, currentPage: null }));
     
-    // Save to local storage for immediate access
     localStorage.setItem('moneyapp_onboarding', JSON.stringify(newPages));
     
-    // Sync to DB
     try {
       await dbPutSetting('onboarding_completed', newPages);
     } catch (e) {
       console.error("Failed to save onboarding state to DB", e);
     }
-  };
+  }, [state.completedPages]);
 
-  const resetAllTutorials = async () => {
+  const resetAllTutorials = useCallback(async () => {
     setState({ completedPages: {}, isActive: false, currentPage: null });
     localStorage.removeItem('moneyapp_onboarding');
     try {
@@ -88,11 +86,11 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch (e) {
       console.error("Failed to reset onboarding state in DB", e);
     }
-  };
+  }, []);
 
-  const setTutorialActive = (isActive: boolean, pageKey: string | null) => {
+  const setTutorialActive = useCallback((isActive: boolean, pageKey: string | null) => {
     setState(s => ({ ...s, isActive, currentPage: pageKey }));
-  };
+  }, []);
 
   return (
     <OnboardingContext.Provider

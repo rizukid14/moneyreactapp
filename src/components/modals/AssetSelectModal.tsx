@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 
 import { type Asset, type AssetType, useMoney } from '../../contexts/MoneyContext';
 import AssetModal from './AssetModal';
-import Modal from '../ui/Modal';
+import { Modal } from '../ui/Modal';
 import MaterialIcon from '../common/MaterialIcon';
 
 interface AssetSelectModalProps {
@@ -245,10 +245,7 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                     })
                   )}
                 </div>
-
               </div>
-              </div>
-            </div>
         </div>
       </Modal>
 

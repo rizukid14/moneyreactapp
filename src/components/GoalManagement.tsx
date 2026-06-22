@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import MaterialIcon from './common/MaterialIcon';
 import { useMoney, type Goal } from '../contexts/MoneyContext';
-import { motion } from 'framer-motion';
+
 import GoalModal from './modals/GoalModal';
 import ConfirmDialog from './common/ConfirmDialog';
 import DropdownMenu from './common/DropdownMenu';

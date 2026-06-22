@@ -52,7 +52,7 @@ interface EnvelopeCardProps {
   id: string;
 }
 
-const EnvelopeCard = React.memo<EnvelopeCardProps>(({ label, spent, limit, onTopUp, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
+const EnvelopeCard = React.memo<EnvelopeCardProps>(({ label, spent, limit, onTopUp, onEdit, onDelete, currencySymbol, id }) => {
   const available = limit - spent;
   const isOver = available < 0;
   
@@ -111,7 +111,7 @@ interface BudgetCardProps {
   id: string;
 }
 
-const BudgetCard = React.memo<BudgetCardProps>(({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
+const BudgetCard = React.memo<BudgetCardProps>(({ label, icon, spent, limit, isOver, onEdit, onDelete, currencySymbol, id }) => {
   const percent = limit > 0 ? (spent / limit) * 100 : 0;
   const remaining = limit - spent;
   const barColor = percent >= 100 ? 'var(--danger)' : percent >= 75 ? 'var(--warning)' : 'var(--primary)';

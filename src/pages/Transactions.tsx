@@ -603,7 +603,7 @@ const Transactions: React.FC = () => {
     let warningBudgetCount = 0;
 
     activeBudgets.forEach(b => {
-      const categoryIdObj = categoryMap.get(b.categoryId);
+      const categoryIdObj = b.categoryId ? categoryMap.get(b.categoryId) : undefined;
       if (categoryIdObj) {
         const categoryIdName = categoryIdObj.name;
         const catSpent = transactions
