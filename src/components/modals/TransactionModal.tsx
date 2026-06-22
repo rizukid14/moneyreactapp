@@ -440,6 +440,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     setNote(preset.note || '');
   };
 
+  const isFormValid = useMemo(() => {
+    const rawAmount = Number(amount.replace(/\./g, ''));
+    if (rawAmount <= 0) return false;
+    if (!date || !time) return false;
+    if (type === 'transfer') {
+      return !!(fromAssetId && toAssetId && fromAssetId !== toAssetId);
+    } else {
+      return !!(categoryId && assetId);
+    }
+  }, [amount, date, time, type, fromAssetId, toAssetId, categoryId, assetId]);
+
   return (
     <>
       <Modal 
@@ -894,15 +905,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             variant="outline"
                             data-testid="tx-submit-continue-btn"
                             onClick={() => { submitActionRef.current = 'continue'; }}
+                            disabled={!isFormValid}
                             fullWidth
                           >
                             Simpan & Lanjut
                           </Button>
                           <Button
                             type="submit"
-                            variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
+                            variant="primary"
                             data-testid="tx-submit-btn"
                             onClick={() => { submitActionRef.current = 'close'; }}
+                            disabled={!isFormValid}
                             fullWidth
                           >
                             {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
@@ -923,9 +936,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           )}
                           <Button
                             type="submit"
-                            variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
+                            variant="primary"
                             data-testid="tx-submit-btn"
                             onClick={() => { submitActionRef.current = 'close'; }}
+                            disabled={!isFormValid}
                             fullWidth
                           >
                             Simpan Perubahan
