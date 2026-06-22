@@ -103,7 +103,7 @@ export const AuthScreen: React.FC = () => {
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block pl-1">Email</label>
               <div className="relative flex items-center">
-                <span className="material-symbols-outlined text-on-surface-variant text-lg absolute left-3.5 pointer-events-none">mail</span>
+                <span className="material-symbols-outlined text-on-surface-variant text-lg absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">mail</span>
                 <input
                   data-testid="auth-email"
                   type="email"
@@ -132,7 +132,7 @@ export const AuthScreen: React.FC = () => {
                   )}
                 </div>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined text-on-surface-variant text-lg absolute left-3.5 pointer-events-none">lock</span>
+                  <span className="material-symbols-outlined text-on-surface-variant text-lg absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">lock</span>
                   <input
                     data-testid="auth-password"
                     type={showPassword ? 'text' : 'password'}
