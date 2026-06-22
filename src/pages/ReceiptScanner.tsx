@@ -834,12 +834,12 @@ const ReceiptScanner: React.FC = () => {
           </div>
           
           <div className="fixed bottom-0 left-0 lg:left-64 right-0 p-4 pb-[max(20px,env(safe-area-inset-bottom,20px))] bg-white/90 backdrop-blur-md border-t border-outline-variant z-50">
-            <div className="max-w-[500px] mx-auto flex gap-3">
-              <button onClick={reset} className="flex-1 py-3 px-4 rounded-xl border border-outline-variant text-on-surface font-label-md font-bold bg-white hover:bg-surface-container transition-colors cursor-pointer">
+            <div className="max-w-[500px] mx-auto flex gap-2 sm:gap-3">
+              <button onClick={reset} className="flex-1 py-3 px-2 sm:px-4 rounded-xl border border-outline-variant text-on-surface font-label-sm sm:font-label-md font-bold bg-white hover:bg-surface-container transition-colors cursor-pointer text-center leading-tight">
                 Batal
               </button>
-              <button onClick={runScan} className="flex-[2] py-3 px-4 rounded-xl border-none bg-primary text-white font-label-md font-bold hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-primary/30">
-                <MaterialIcon name="content_cut" className="text-base" />
+              <button onClick={runScan} className="flex-[2] py-3 px-2 sm:px-4 rounded-xl border-none bg-primary text-white font-label-sm sm:font-label-md font-bold hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-2 shadow-md shadow-primary/30 text-center leading-tight">
+                <MaterialIcon name="content_cut" className="text-sm sm:text-base" />
                 {cropRect && cropRect.w > 50 ? 'Crop & Scan' : 'Scan Gambar Penuh'}
               </button>
             </div>
@@ -1062,11 +1062,11 @@ const ReceiptScanner: React.FC = () => {
                   <MaterialIcon name="info" />
                   <span className="font-label-md">Pastikan rincian item sudah sesuai dengan struk asli.</span>
                 </div>
-                <div className="flex gap-4 w-full sm:w-auto">
-                  <button onClick={handleSaveMain} className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-primary text-primary font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer font-bold">
+                <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+                  <button onClick={handleSaveMain} className="flex-1 sm:flex-none px-3 sm:px-6 py-3 rounded-xl border border-primary text-primary font-label-sm sm:font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer font-bold leading-tight flex items-center justify-center text-center">
                     Simpan Langsung
                   </button>
-                  <button onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-500 text-white font-label-md hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/30 cursor-pointer font-bold border-none">
+                  <button onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 rounded-xl bg-blue-500 text-white font-label-sm sm:font-label-md hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/30 cursor-pointer font-bold border-none leading-tight text-center">
                     <MaterialIcon name="group" />
                     Split Bill
                   </button>

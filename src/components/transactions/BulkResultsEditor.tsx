@@ -359,16 +359,16 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
         ))}
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-end items-center gap-4 mt-6 border-t border-outline-variant pt-6">
+      <div className="flex flex-col sm:flex-row justify-end items-center gap-3 sm:gap-4 mt-6 border-t border-outline-variant pt-6">
         <button
           onClick={addNewRow}
-          className="flex items-center justify-center gap-2 px-8 py-4 bg-transparent border-2 border-dashed border-outline-variant rounded-xl text-primary font-bold text-base hover:bg-surface-container transition-colors w-full sm:w-auto min-w-[200px]"
+          className="flex items-center justify-center gap-1 sm:gap-2 px-4 sm:px-8 py-3 sm:py-4 bg-transparent border-2 border-dashed border-outline-variant rounded-xl text-primary font-bold text-sm sm:text-base hover:bg-surface-container transition-colors w-full sm:w-auto min-w-0 sm:min-w-[200px] leading-tight text-center"
         >
-          <MaterialIcon name="add" className="text-lg" /> Tambah Baris Manual
+          <MaterialIcon name="add" className="text-base sm:text-lg" /> Tambah Baris Manual
         </button>
 
         <button
-          className="btn btn-primary w-full sm:w-auto px-10 py-4 rounded-xl font-bold text-base min-w-[240px]"
+          className="btn btn-primary flex items-center justify-center w-full sm:w-auto px-4 sm:px-10 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base min-w-0 sm:min-w-[240px] leading-tight text-center"
           onClick={() => onSave(batchAssetId)}
           disabled={!results.some(r => r.selected) || (isMutation && !batchAssetId) || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.category))}
           data-testid="bulk-save-btn"
