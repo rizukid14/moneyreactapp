@@ -18,7 +18,15 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v2.0.0', date: 'Jun 2026', badge: 'Terbaru',
+    version: 'v2.0.1', date: 'Jun 2026', badge: 'Terbaru',
+    entries: [
+      { type: 'improve', text: 'Aplikasi Terasa Lebih Cepat: Kami telah memperhalus perpindahan antar halaman dan tampilan agar terasa lebih ringan, responsif, dan bebas hambatan (ngelag)' },
+      { type: 'improve', text: 'Pemuatan Data Super Kilat: Menarik data riwayat kategori dan daftar saldo dari ratusan transaksi kini terasa jauh lebih instan dan instan' },
+      { type: 'fix', text: 'Peningkatan Stabilitas: Gangguan-gangguan sistem tersembunyi telah dihilangkan agar aktivitas catat-mencatat keuangan Anda tetap lancar' },
+    ],
+  },
+  {
+    version: 'v2.0.0', date: 'Jun 2026',
     entries: [
       { type: 'new', text: 'Desain UI Lebih Modern: Antarmuka aplikasi dirombak total dengan gaya Bento Grid yang lebih bersih, segar, dan profesional' },
       { type: 'improve', text: 'Smart Receipt Scanner: Pindai struk kini jauh lebih mudah dengan desain baru, panduan interaktif, dan dukungan tarik-dan-lepas (Drag & Drop)' },

@@ -2580,45 +2580,14 @@ const Settings: React.FC = () => {
           )}
         </section>
 
-        {/* Sosial & Fitur Berbagi Card */}
+        {/* Manajemen Keuangan Card */}
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">groups</span>
-            <h3 className="text-base font-bold text-on-surface">Fitur Sosial &amp; Berbagi</h3>
+            <span className="material-symbols-outlined text-primary">manage_accounts</span>
+            <h3 className="text-base font-bold text-on-surface">Manajemen Keuangan</h3>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
-              onClick={() => handleMenuClick('contacts')}
-              className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="contact_phone" className="text-2xl text-primary" />
-              <div className="font-bold text-xs text-on-surface">Daftar Kontak</div>
-            </button>
-            <button
-              onClick={() => setIsSharedBillsOpen(true)}
-              className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="splitscreen" className="text-2xl text-secondary" />
-              <div className="font-bold text-xs text-on-surface">Split Bills</div>
-            </button>
-            <button
-              onClick={() => navigate('/trips')}
-              className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="flight_takeoff" className="text-2xl text-tertiary" />
-              <div className="font-bold text-xs text-on-surface">Holiday Trip</div>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={() => navigate('/debts')}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="handshake" className="text-sm" />
-              Hutang &amp; Piutang
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={() => handleMenuClick('recurring')}
               className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
@@ -2628,14 +2597,14 @@ const Settings: React.FC = () => {
             </button>
             <button
               onClick={() => handleMenuClick('subscriptions')}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
+              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
               <MaterialIcon name="credit_card" className="text-sm" />
-              Kelola Biaya Langganan ({subscriptions.length})
+              Kelola Langganan ({subscriptions.length})
             </button>
             <button
               onClick={() => handleMenuClick('budgets')}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
+              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors sm:col-span-2"
             >
               <MaterialIcon name="track_changes" className="text-sm" />
               Manajemen Anggaran &amp; Target

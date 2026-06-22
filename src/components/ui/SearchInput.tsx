@@ -24,7 +24,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
 }) => {
   return (
     <div
-      className={`flex items-center gap-2 bg-surface-container-low rounded-lg px-3 py-1.5 border border-outline-variant w-full ${className}`}
+      className={`flex items-center gap-2 bg-surface-container-low rounded-3xl px-3 py-1.5 border border-outline-variant w-full ${className}`}
       style={{ maxWidth }}
     >
       <MaterialIcon name="search" className="text-on-surface-variant text-sm shrink-0" />

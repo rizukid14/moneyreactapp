@@ -19,6 +19,17 @@ import { IconBlock } from '../components/ui/IconBlock';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { ListItem } from '../components/ui/ListItem';
+
+const VIEW_ICONS: Record<string, string> = {
+  all: 'stacked_bar_chart',
+  cash_bank: 'account_balance',
+  investment: 'savings',
+  goals: 'trending_up',
+  subs: 'subscriptions',
+  health: 'local_fire_department',
+  forecast: 'water_drop',
+  detailed_analysis: 'insights',
+};
 import { EmptyState } from '../components/ui/EmptyState';
 
 const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -449,6 +460,7 @@ const Statistics: React.FC = () => {
     <PageWrapper>
       <PageHeader
         title="Statistik"
+        subtitle="Analisis pemasukan, pengeluaran, dan kesehatan finansial"
         action={
           <button
             onClick={resetToToday}
@@ -478,17 +490,19 @@ const Statistics: React.FC = () => {
             const def = ALL_STATS_VIEWS.find(v => v.id === viewId);
             if (!def) return null;
             const isActive = activeViewId === viewId;
+            const iconName = VIEW_ICONS[viewId] || 'dashboard';
             return (
               <motion.button
                 key={viewId}
                 data-testid={`stats-view-${viewId}`}
+                layout
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   setActiveViewId(viewId);
                   setDrillDownCategory(null);
                 }}
                 style={{
-                  padding: '14px 24px',
+                  padding: isActive ? '14px 20px' : '14px',
                   borderRadius: '18px',
                   background: isActive ? 'var(--primary-gradient)' : 'var(--bg-card-solid)',
                   color: isActive ? 'white' : 'var(--text-muted)',
@@ -497,21 +511,36 @@ const Statistics: React.FC = () => {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
+                  justifyContent: 'center',
+                  gap: isActive ? '8px' : '0px',
+                  minWidth: isActive ? undefined : '50px',
                   boxShadow: isActive ? '0 10px 25px var(--primary-glow)' : '0 4px 12px rgba(0,0,0,0.03)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   flexShrink: 0,
                   border: isActive ? 'none' : '1px solid var(--border-color)',
-                  scrollSnapAlign: 'start'
+                  scrollSnapAlign: 'start',
+                  overflow: 'hidden',
                 }}
               >
-                {viewId === 'health' ? <MaterialIcon name="local_fire_department" className={isActive ? 'text-white' : 'text-[var(--secondary)]'} /> :
-                  viewId === 'budget' ? <MaterialIcon name="track_changes" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
-                    viewId === 'goals' ? <MaterialIcon name="trending_up" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
-                      viewId === 'subs' ? <MaterialIcon name="credit_card" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
-                        viewId === 'forecast' ? <MaterialIcon name="bolt" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
-                          <MaterialIcon name="dashboard" className={isActive ? 'text-white' : 'text-[var(--primary)]'} />}
-                {def.label}
+                <MaterialIcon
+                  name={iconName}
+                  className={isActive ? 'text-white text-[20px]' : 'text-[var(--primary)] text-[20px]'}
+                />
+                <motion.span
+                  initial={false}
+                  animate={{
+                    width: isActive ? 'auto' : 0,
+                    opacity: isActive ? 1 : 0,
+                    marginLeft: isActive ? 0 : -8,
+                  }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  style={{
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    lineHeight: 1,
+                  }}
+                >
+                  {def.label}
+                </motion.span>
               </motion.button>
             );
           })}
@@ -666,7 +695,7 @@ const Statistics: React.FC = () => {
                     
                     <div className="flex justify-between items-center relative z-10">
                       <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pendapatan</span>
-                      <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                      <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                         <MaterialIcon name="arrow_downward" className="text-primary text-base" />
                       </div>
                     </div>
@@ -700,7 +729,7 @@ const Statistics: React.FC = () => {
                     <div className="flex justify-between items-center relative z-10">
                       <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran</span>
                       <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                        <MaterialIcon name="arrow_upward" className="text-secondary text-base" />
+                        <MaterialIcon name="arrow_upward" className="text-error text-base" />
                       </div>
                     </div>
                     
@@ -1152,8 +1181,8 @@ const Statistics: React.FC = () => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Sisa Bersih</span>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm ${insights.netSavings >= 0 ? 'bg-primary-container text-primary-color' : 'bg-error-container text-error'}`}>
-                    <MaterialIcon name="trending_up" className="text-base" />
+                  <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="trending_up" className="text-primary text-base" />
                   </div>
                 </div>
                 <div className="mt-1 relative z-10">
@@ -1266,21 +1295,21 @@ const Statistics: React.FC = () => {
               <div className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative overflow-hidden mb-2">
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 relative z-10 gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran &amp; Pendapatan Harian</span>
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran Harian</span>
                     <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                       <MaterialIcon name="show_chart" className="text-primary text-base" />
                     </div>
                   </div>
 
                   <div className="flex bg-surface-container-lowest border border-outline-variant rounded-xl p-1 w-fit shadow-sm">
-                    {(['linear', 'dual', 'log'] as const).map(scale => (
+                    {(['linear', 'log'] as const).map(scale => (
                       <button
                         key={scale}
                         data-testid={`chart-scale-${scale}`}
                         onClick={() => changeChartScale(scale)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartScale === scale ? 'bg-surface-container-highest text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
                       >
-                        {scale === 'linear' ? 'Gabungan' : scale === 'dual' ? 'Mandiri' : 'Log'}
+                        {scale === 'linear' ? 'Normal' : 'Log'}
                       </button>
                     ))}
                   </div>
@@ -1291,39 +1320,15 @@ const Statistics: React.FC = () => {
                       <LineChart data={scaledDailyChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                        {chartScale === 'dual' ? (
-                          <>
-                            <YAxis yAxisId="left" hide domain={[0, 'dataMax + 5000']} />
-                            <YAxis yAxisId="right" hide domain={[0, 'dataMax + 5000']} />
-                          </>
-                        ) : (
-                          <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
-                        )}
+                        <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
                         <Tooltip
                           contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                          formatter={(val: any, name: any, props: any) => {
-                            const item = props?.payload || {};
-                            const realVal = name === 'amount' || name === 'amountScaled' ? (item.amount ?? val) : (item.income ?? val);
-                            const formattedVal = chartScale === 'log' ? fmt(Number(realVal)) : fmt(Number(val));
-                            return [formattedVal, name === 'amount' || name === 'amountScaled' ? 'Pengeluaran' : 'Pendapatan'];
-                          }}
+                          formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
                           labelFormatter={(label: any) => `Tgl ${label}`}
                         />
                         <Line
                           type="monotone"
-                          dataKey={chartScale === 'log' ? 'incomeScaled' : 'income'}
-                          yAxisId={chartScale === 'dual' ? 'left' : undefined}
-                          stroke="var(--primary)"
-                          strokeWidth={2.5}
-                          dot={false}
-                          name="income"
-                          activeDot={{ r: 4 }}
-                          style={{ filter: 'drop-shadow(0px 3px 6px rgba(16, 185, 129, 0.25))' }}
-                        />
-                        <Line
-                          type="monotone"
                           dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
-                          yAxisId={chartScale === 'dual' ? 'right' : undefined}
                           stroke="var(--secondary)"
                           strokeWidth={3}
                           dot={false}
@@ -1339,45 +1344,18 @@ const Statistics: React.FC = () => {
                             <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
                             <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0} />
                           </linearGradient>
-                          <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                          </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                        {chartScale === 'dual' ? (
-                          <>
-                            <YAxis yAxisId="left" hide domain={[0, 'dataMax + 5000']} />
-                            <YAxis yAxisId="right" hide domain={[0, 'dataMax + 5000']} />
-                          </>
-                        ) : (
-                          <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
-                        )}
+                        <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
                         <Tooltip
                           contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                          formatter={(val: any, name: any, props: any) => {
-                            const item = props?.payload || {};
-                            const realVal = name === 'amount' || name === 'amountScaled' ? (item.amount ?? val) : (item.income ?? val);
-                            const formattedVal = chartScale === 'log' ? fmt(Number(realVal)) : fmt(Number(val));
-                            return [formattedVal, name === 'amount' || name === 'amountScaled' ? 'Pengeluaran' : 'Pendapatan'];
-                          }}
+                          formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
                           labelFormatter={(label: any) => `Tgl ${label}`}
                         />
                         <Area
                           type="monotone"
-                          dataKey={chartScale === 'log' ? 'incomeScaled' : 'income'}
-                          yAxisId={chartScale === 'dual' ? 'left' : undefined}
-                          stroke="var(--primary)"
-                          strokeWidth={1.5}
-                          fill="url(#incGrad)"
-                          dot={false}
-                          name="income"
-                        />
-                        <Area
-                          type="monotone"
                           dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
-                          yAxisId={chartScale === 'dual' ? 'right' : undefined}
                           stroke="var(--secondary)"
                           strokeWidth={2}
                           fill="url(#expGrad)"

@@ -103,6 +103,14 @@ const Categories: React.FC = () => {
     <PageWrapper>
       <PageHeader
         title="Manajemen Kategori"
+        leftAction={
+          <button
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white border-none shadow-sm cursor-pointer hover:bg-primary/90 transition-colors"
+          >
+            <MaterialIcon name="chevron_left" className="text-xl" />
+          </button>
+        }
         action={
           <button onClick={() => navigate('/settings')} className="text-primary hover:bg-primary/10 p-2 rounded-full flex items-center justify-center transition-colors">
             <MaterialIcon name="close" />

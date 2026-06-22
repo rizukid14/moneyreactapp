@@ -48,7 +48,13 @@ const Trips: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter max-w-container-max mx-auto w-full h-full">
         {/* Left Panel: List (Always visible on mobile because we navigate away on click) */}
         <div className="lg:col-span-4 flex flex-col gap-stack-md flex">
-          <div className="flex justify-between items-center mb-2 mt-4 lg:mt-0">
+          <div className="flex items-center gap-3 mb-2 mt-4 lg:mt-0">
+            <button
+              onClick={() => navigate(-1)}
+              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white border-none shadow-sm cursor-pointer hover:bg-primary/90 transition-colors shrink-0"
+            >
+              <MaterialIcon name="chevron_left" className="text-xl" />
+            </button>
             <h1 className="font-headline-md text-headline-md text-on-surface">Daftar Perjalanan</h1>
             <div className="relative">
               <button 

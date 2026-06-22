@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
@@ -40,7 +40,7 @@ interface TransactionGroup {
 const Transactions: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { transactions, assets, categories, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, getAssetBalance, isPrivateMode, togglePrivateMode, syncData, pullFromCloud } = useMoney();
+  const { transactions, assets, categories, budgets, addTransaction, addRecurringTransaction, deleteTransaction, updateTransaction, currencySymbol, startOfMonthDay, showDebtInTransactions, defaultTransactionGrouping, getAssetBalance, isPrivateMode, togglePrivateMode, syncData, pullFromCloud, setIsChatOpen } = useMoney();
   const { showToast } = useToast();
 
   const handlePullToRefresh = useCallback(async () => {
@@ -79,6 +79,73 @@ const Transactions: React.FC = () => {
   // Smart AI Input state
   const [bulkInputText, setBulkInputText] = useState('');
   const { isListening, toggleListening } = useSpeechToText('\n');
+
+  const fabsize = 56;
+  const fabmargin = 20;
+  const fabmarginBottom = 88;
+  const [fabPos, setFabPos] = useState(() => ({
+    top: window.innerHeight - fabsize - fabmarginBottom,
+    left: window.innerWidth - fabsize - fabmargin,
+  }));
+  const [isFabDragging, setIsFabDragging] = useState(false);
+  const fabRef = useRef<HTMLDivElement>(null);
+  const dragStart = useRef({ x: 0, y: 0, top: 0, left: 0 });
+  const hasMoved = useRef(false);
+  const preventClick = useRef(false);
+
+  const snapCorner = (top: number, left: number) => {
+    const w = fabsize, m = fabmargin, mb = fabmarginBottom;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const corners = [
+      { top: m, left: m },
+      { top: m, left: vw - w - m },
+      { top: vh - w - mb, left: m },
+      { top: vh - w - mb, left: vw - w - m },
+    ];
+    return corners.reduce((a, b) =>
+      Math.hypot(top - a.top, left - a.left) < Math.hypot(top - b.top, left - b.left) ? a : b
+    );
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const el = fabRef.current;
+    if (!el) return;
+    el.setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, y: e.clientY, top: fabPos.top, left: fabPos.left };
+    hasMoved.current = false;
+    preventClick.current = false;
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    if (!hasMoved.current && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      hasMoved.current = true;
+      setIsFabDragging(true);
+    }
+    if (hasMoved.current) {
+      preventClick.current = true;
+      setFabPos({
+        top: dragStart.current.top + dy,
+        left: dragStart.current.left + dx,
+      });
+    }
+  };
+
+  const onPointerUp = () => {
+    if (hasMoved.current) {
+      setFabPos(snapCorner(fabPos.top, fabPos.left));
+    }
+    setIsFabDragging(false);
+    hasMoved.current = false;
+  };
+
+  const onClickFab = () => {
+    if (!preventClick.current) {
+      setIsChatOpen(true);
+    }
+    preventClick.current = false;
+  };
 
   const displayPresets = useMemo(() => {
     if (pinnedPresets.length > 0) return pinnedPresets;
@@ -766,8 +833,7 @@ const Transactions: React.FC = () => {
 
   return (
     <PullToRefresh onRefresh={handlePullToRefresh}>
-      <PageWrapper>
-        <div className="max-w-container-max mx-auto px-4 md:px-gutter space-y-8">
+      <PageWrapper className="space-y-8">
 
           {/* Header with Month Selector */}
           <PageHeader
@@ -1256,7 +1322,6 @@ const Transactions: React.FC = () => {
               )}
             </div>
           </section>
-        </div>
 
         <DatePickerModal
           isOpen={isDatePickerOpen}
@@ -1304,6 +1369,24 @@ const Transactions: React.FC = () => {
           ]}
         />
       </PageWrapper>
+
+      {/* Draggable MoneyBot FAB */}
+      <div
+        ref={fabRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onClick={onClickFab}
+        className="fixed z-[100] w-14 h-14 rounded-full bg-primary text-on-primary shadow-xl flex items-center justify-center cursor-pointer border-none select-none touch-none"
+        style={{
+          top: fabPos.top,
+          left: fabPos.left,
+          transition: isFabDragging ? 'none' : 'top 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}
+      >
+        <span className="material-symbols-outlined text-2xl text-on-primary">smart_toy</span>
+      </div>
+
     </PullToRefresh>
   );
 };

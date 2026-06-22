@@ -565,7 +565,7 @@ const Assets: React.FC = () => {
 
   return (
     <PageWrapper>
-      <PageHeader title="Aset Saya" />
+      <PageHeader title="Aset Saya" subtitle="Pantau saldo rekening, e-wallet, dan investasi Anda" />
 
       {/* Asset Summary Carousel */}
       <div data-tour="net-worth" data-testid="net-worth-carousel">

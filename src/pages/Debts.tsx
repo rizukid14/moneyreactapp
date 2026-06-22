@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
 import { isPrincipalTx } from '../lib/utils';
 import DropdownMenu from '../components/common/DropdownMenu';
@@ -290,6 +291,7 @@ const DebtCard = React.memo<DebtCardProps>(({
 });
 
 const Debts: React.FC = () => {
+  const navigate = useNavigate();
   const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol, updateTransaction, deleteTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -395,7 +397,15 @@ const Debts: React.FC = () => {
       {/* Header */}
       <PageHeader 
         title="Hutang & Piutang" 
-        subtitle="Kelola semua catatan hutang & piutangmu" 
+        subtitle="Kelola semua catatan hutang & piutangmu"
+        leftAction={
+          <button
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white border-none shadow-sm cursor-pointer hover:bg-primary/90 transition-colors"
+          >
+            <MaterialIcon name="chevron_left" className="text-xl" />
+          </button>
+        }
       />
 
       {/* Summary cards */}

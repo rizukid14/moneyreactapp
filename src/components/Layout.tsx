@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { changelogData } from '../data/changelog';
@@ -78,10 +78,16 @@ const Layout: React.FC = () => {
     } catch (e) {}
   };
 
+  const location = useLocation();
+
+  const isSocialActive = ['/social', '/trips', '/debts'].some(p => 
+    location.pathname === p || location.pathname.startsWith(p + '/')
+  );
+
   const desktopNavItems = [
     { path: '/', icon: 'dashboard', label: 'Dashboard', end: true, testId: 'nav-transactions' },
     { path: '/assets', icon: 'account_balance_wallet', label: 'Aset & Rekening', testId: 'nav-assets' },
-    { path: '/budget', icon: 'account_balance', label: 'Budget', testId: 'nav-budget' },
+    { path: '/social', icon: 'groups', label: 'Sosial & Berbagi', testId: 'nav-social', isSocial: true },
     { path: '/stats', icon: 'analytics', label: 'Laporan & Analitik', testId: 'nav-statistics' },
     { path: '/settings', icon: 'settings', label: 'Pengaturan', testId: 'nav-settings' },
   ];
@@ -90,7 +96,7 @@ const Layout: React.FC = () => {
     { path: '/', icon: 'dashboard', label: 'Home', end: true, testId: 'nav-transactions' },
     { path: '/assets', icon: 'account_balance_wallet', label: 'Aset', testId: 'nav-assets' },
     { path: '#add', icon: 'add', label: 'Tambah', isAddButton: true, testId: 'nav-add' },
-    { path: '/budget', icon: 'account_balance', label: 'Budget', testId: 'nav-budget' },
+    { path: '/social', icon: 'groups', label: 'Sosial', testId: 'nav-social', isSocial: true },
     { path: '/stats', icon: 'analytics', label: 'Laporan', testId: 'nav-statistics' },
   ];
 
@@ -181,31 +187,53 @@ const Layout: React.FC = () => {
 
         <nav className="flex-1 overflow-y-auto py-4 px-4 space-y-2 hide-scrollbar">
           {desktopNavItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.end}
-              data-testid={item.testId}
-              className={({ isActive }) => 
-                `flex items-center gap-3 px-4 py-3 rounded-xl font-label-md text-label-md transition-colors ${
-                  isActive 
-                    ? 'bg-primary-container text-on-primary-container' 
+            item.isSocial ? (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end
+                data-testid={item.testId}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-label-md text-label-md transition-colors ${
+                  isSocialActive
+                    ? 'bg-primary-container text-on-primary-container'
                     : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <span 
-                    className="material-symbols-outlined text-xl" 
-                    style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
-                  >
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </>
-              )}
-            </NavLink>
+                }`}
+              >
+                <span
+                  className="material-symbols-outlined text-xl"
+                  style={{ fontVariationSettings: isSocialActive ? "'FILL' 1" : "'FILL' 0" }}
+                >
+                  {item.icon}
+                </span>
+                {item.label}
+              </NavLink>
+            ) : (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.end}
+                data-testid={item.testId}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl font-label-md text-label-md transition-colors ${
+                    isActive
+                      ? 'bg-primary-container text-on-primary-container'
+                      : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <span
+                      className="material-symbols-outlined text-xl"
+                      style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
+                    >
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </>
+                )}
+              </NavLink>
+            )
           ))}
 
           <div className="h-px bg-border-light my-2"></div>
@@ -293,23 +321,26 @@ const Layout: React.FC = () => {
               data-testid={item.testId}
               className={({ isActive }) => 
                 `flex flex-col items-center justify-center w-16 h-12 rounded-xl transition-colors ${
-                  isActive ? 'text-primary font-medium' : 'text-on-surface-variant hover:text-on-surface'
+                  (isActive || (item.isSocial && isSocialActive)) ? 'text-primary font-medium' : 'text-on-surface-variant hover:text-on-surface'
                 }`
               }
             >
-              {({ isActive }) => (
-                <>
-                  <div className={`w-12 h-8 rounded-full flex items-center justify-center mb-1 ${isActive ? 'bg-primary-container' : ''}`}>
-                    <span 
-                      className={`material-symbols-outlined text-xl ${isActive ? 'text-on-primary-container' : ''}`}
-                      style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
-                    >
-                      {item.icon}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-on-surface">{item.label}</span>
-                </>
-              )}
+              {({ isActive }) => {
+                const active = isActive || (item.isSocial && isSocialActive);
+                return (
+                  <>
+                    <div className={`w-12 h-8 rounded-full flex items-center justify-center mb-1 ${active ? 'bg-primary-container' : ''}`}>
+                      <span 
+                        className={`material-symbols-outlined text-xl ${active ? 'text-on-primary-container' : ''}`}
+                        style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}
+                      >
+                        {item.icon}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-on-surface">{item.label}</span>
+                  </>
+                );
+              }}
             </NavLink>
           );
         })}
