@@ -836,7 +836,7 @@ const Transactions: React.FC = () => {
 
               <div className="flex justify-between items-center relative z-10">
                 <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Total Saldo Likuid</span>
-                <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                   <MaterialIcon name="account_balance_wallet" className="text-primary text-base" />
                 </div>
               </div>
@@ -897,7 +897,7 @@ const Transactions: React.FC = () => {
               <div className="absolute bottom-0 right-0 w-24 h-24 bg-secondary opacity-10 rounded-full blur-2xl translate-y-1/4 translate-x-1/4"></div>
               <div className="flex justify-between items-center relative z-10">
                 <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Tabungan & Invest</span>
-                <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                   <MaterialIcon name="savings" className="text-secondary text-base" />
                 </div>
               </div>
@@ -1162,41 +1162,44 @@ const Transactions: React.FC = () => {
                       <p>Tidak ada transaksi.</p>
                     </div>
                   ) : (
-                    groups.map(group => (
-                      <div key={group.id} className="flex flex-col gap-3">
-                        {group.title && (
-                          <div
-                            className="flex justify-between items-center cursor-pointer pt-2 pb-1"
-                            onClick={() => toggleGroup(group.id)}
-                          >
-                            <div className="flex items-center gap-2 text-on-surface-variant font-bold text-sm uppercase tracking-wider">
-                              <MaterialIcon name={collapsedGroups[group.id] ? "chevron_right" : "expand_more"} className="text-sm" />
-                              <span>{group.title}</span>
+                    groups.map(group => {
+                      const isCollapsed = collapsedGroups[group.id] ?? (groupBy === 'date' && group.id !== getLocalDate());
+                      return (
+                        <div key={group.id} className="flex flex-col gap-3">
+                          {group.title && (
+                            <div
+                              className="flex justify-between items-center cursor-pointer pt-2 pb-1"
+                              onClick={() => toggleGroup(group.id)}
+                            >
+                              <div className="flex items-center gap-2 text-on-surface-variant font-bold text-sm uppercase tracking-wider">
+                                <MaterialIcon name={isCollapsed ? "chevron_right" : "expand_more"} className="text-sm" />
+                                <span>{group.title}</span>
+                              </div>
+                              <span className="font-bold text-on-surface text-xs bg-surface-container px-2 py-1 rounded-lg shadow-sm">
+                                {formatCurrency(group.income - group.expense, currencySymbol)}
+                              </span>
                             </div>
-                            <span className="font-bold text-on-surface text-xs bg-surface-container px-2 py-1 rounded-lg shadow-sm">
-                              {formatCurrency(group.income - group.expense, currencySymbol)}
-                            </span>
-                          </div>
-                        )}
-                        {!collapsedGroups[group.id] && (
-                          <div>
-                            {group.transactions.map(tx => (
-                              <TransactionItem
-                                key={tx.id}
-                                transaction={tx}
-                                assetName={getAssetName(tx.assetId)}
-                                fromAssetName={tx.fromAssetId ? getAssetName(tx.fromAssetId) : undefined}
-                                toAssetName={tx.toAssetId ? getAssetName(tx.toAssetId) : undefined}
-                                onDelete={handleDelete}
-                                onEdit={handleEdit}
-                                onCopy={handleCopy}
-                                showDate={groupBy !== 'date'}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
+                          )}
+                          {!isCollapsed && (
+                            <div>
+                              {group.transactions.map(tx => (
+                                <TransactionItem
+                                  key={tx.id}
+                                  transaction={tx}
+                                  assetName={getAssetName(tx.assetId)}
+                                  fromAssetName={tx.fromAssetId ? getAssetName(tx.fromAssetId) : undefined}
+                                  toAssetName={tx.toAssetId ? getAssetName(tx.toAssetId) : undefined}
+                                  onDelete={handleDelete}
+                                  onEdit={handleEdit}
+                                  onCopy={handleCopy}
+                                  showDate={groupBy !== 'date'}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
 
