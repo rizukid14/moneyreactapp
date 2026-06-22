@@ -1106,7 +1106,7 @@ const Transactions: React.FC = () => {
                   onClick={() => handleAdd(preset.type, { amount: preset.amount, categoryId: preset.categoryId, note: preset.note })}
                   className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer"
                 >
-                  <MaterialIcon name={preset.type === 'pengeluaran' ? 'arrow_downward' : preset.type === 'pendapatan' ? 'arrow_upward' : 'swap_horiz'} className="text-sm" />
+                  <MaterialIcon name={preset.type === 'pengeluaran' ? 'arrow_upward' : preset.type === 'pendapatan' ? 'arrow_downward' : 'swap_horiz'} className="text-sm" />
                   <span className="font-label-md text-label-md">{preset.label}</span>
                 </button>
               ))}
@@ -1135,24 +1135,26 @@ const Transactions: React.FC = () => {
                     maxWidth="100%"
                   />
 
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 min-w-0">
                     {/* Type Filters */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
                       <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider shrink-0">Filter:</span>
-                      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar flex-1 sm:flex-none">
+                      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar flex-1 sm:flex-none min-w-0">
                         <FilterChip label="Semua" isActive={typeFilter === 'all'} onClick={() => setTypeFilter('all')} />
-                        <FilterChip label="Keluar" icon={<MaterialIcon name="arrow_downward" className="text-[12px]" />} isActive={typeFilter === 'pengeluaran'} onClick={() => setTypeFilter('pengeluaran')} className={typeFilter === 'pengeluaran' ? '!bg-error !text-white' : 'hover:!text-error'} />
-                        <FilterChip label="Masuk" icon={<MaterialIcon name="arrow_upward" className="text-[12px]" />} isActive={typeFilter === 'pendapatan'} onClick={() => setTypeFilter('pendapatan')} className={typeFilter === 'pendapatan' ? '!bg-primary-color !text-white' : 'hover:!text-primary-color'} />
+                        <FilterChip label="Keluar" icon={<MaterialIcon name="arrow_upward" className="text-[12px]" />} isActive={typeFilter === 'pengeluaran'} onClick={() => setTypeFilter('pengeluaran')} className={typeFilter === 'pengeluaran' ? '!bg-error !text-white' : 'hover:!text-error'} />
+                        <FilterChip label="Masuk" icon={<MaterialIcon name="arrow_downward" className="text-[12px]" />} isActive={typeFilter === 'pendapatan'} onClick={() => setTypeFilter('pendapatan')} className={typeFilter === 'pendapatan' ? '!bg-primary-color !text-white' : 'hover:!text-primary-color'} />
+                        <div className="w-4 shrink-0 sm:hidden"></div>
                       </div>
                     </div>
 
                     {/* Group By Filter */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
                       <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider shrink-0">Grup:</span>
-                      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar flex-1 sm:flex-none">
+                      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar flex-1 sm:flex-none min-w-0">
                         <FilterChip label="Tanggal" isActive={groupBy === 'date'} onClick={() => setGroupBy('date')} />
                         <FilterChip label="Kategori" isActive={groupBy === 'categoryId'} onClick={() => setGroupBy('categoryId')} />
                         <FilterChip label="Aset" isActive={groupBy === 'asset'} onClick={() => setGroupBy('asset')} />
+                        <div className="w-4 shrink-0 sm:hidden"></div>
                       </div>
                     </div>
                   </div>
