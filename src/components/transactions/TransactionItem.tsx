@@ -111,7 +111,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
                 <span className={`font-bold text-sm ${isIncomeLike ? 'text-primary-color' : isExpenseLike ? 'text-error' : 'text-on-surface'}`}>
                   {isIncomeLike ? '+' : isExpenseLike ? '-' : ''} {formatCurrency(tx.amount, currencySymbol)}
                 </span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+                <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity lg:translate-x-2 lg:group-hover:translate-x-0">
                   {onCopy && (
                     <button
                       onClick={(e) => { e.stopPropagation(); onCopy(tx); }}
