@@ -19,6 +19,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const SharedSplitBill = lazy(() => import('./pages/SharedSplitBill'));
 const Trips = lazy(() => import('./pages/Trips'));
 const TripDetail = lazy(() => import('./pages/TripDetail'));
+const Categories = lazy(() => import('./pages/Categories'));
 
 // SplashScreen is used as fallback for both initial load and lazy page loading
 
@@ -73,6 +74,7 @@ const AppContent: React.FC = () => {
             </Route>
             <Route path="/shared-split/:id" element={<SharedSplitBill />} />
             <Route path="/shared-split-bill/:id" element={<SharedSplitBill />} />
+            <Route path="/categories" element={<Categories />} />
           </Routes>
         </Suspense>
       </BrowserRouter>
