@@ -1181,7 +1181,7 @@ const Transactions: React.FC = () => {
                             </div>
                           )}
                           {!isCollapsed && (
-                            <div>
+                            <div className="flex flex-col gap-2">
                               {group.transactions.map(tx => (
                                 <TransactionItem
                                   key={tx.id}
