@@ -2126,7 +2126,7 @@ const Settings: React.FC = () => {
 
       <div className="flex flex-col lg:flex-row gap-8 mt-6 items-start w-full">
         {/* Kolom Kiri */}
-        <div className="flex-1 flex flex-col gap-8 w-full">
+        <div className="flex-1 flex flex-col gap-8 w-full min-w-0">
 
         {/* Profile Card */}
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
@@ -2215,7 +2215,7 @@ const Settings: React.FC = () => {
                   </button>
                 </div>
                 <div>
-                  <h3 className="font-headline-md text-headline-md text-on-surface font-bold">{user.name}</h3>
+                  <h3 className="text-base font-bold text-on-surface font-bold">{user.name}</h3>
                   <p className="font-body-md text-body-md text-on-surface-variant truncate max-w-[200px]">{user.email}</p>
                 </div>
               </div>
@@ -2259,7 +2259,7 @@ const Settings: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">lock</span>
-              <h3 className="font-headline-md text-headline-md text-on-surface">Keamanan</h3>
+              <h3 className="text-base font-bold text-on-surface">Keamanan</h3>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -2289,7 +2289,7 @@ const Settings: React.FC = () => {
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-5">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary">tune</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Preferensi Finansial</h3>
+            <h3 className="text-base font-bold text-on-surface">Preferensi Finansial</h3>
           </div>
 
           <div className="space-y-4">
@@ -2353,7 +2353,7 @@ const Settings: React.FC = () => {
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary">dashboard_customize</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Tata Letak Dashboard</h3>
+            <h3 className="text-base font-bold text-on-surface">Tata Letak Dashboard</h3>
           </div>
 
           <div className="space-y-4">
@@ -2406,7 +2406,7 @@ const Settings: React.FC = () => {
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary">cloud_sync</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Data &amp; Sinkronisasi</h3>
+            <h3 className="text-base font-bold text-on-surface">Data &amp; Sinkronisasi</h3>
           </div>
 
           <div>
@@ -2445,10 +2445,10 @@ const Settings: React.FC = () => {
             </div>
           )}
 
-          <div>
+          <div className="w-full min-w-0">
             <label className="block font-bold text-xs text-on-surface-variant mb-2">Konfigurasi Kolom Excel</label>
             <select 
-              className="w-full p-3 rounded-lg border border-outline-variant bg-surface-container-low font-body-md focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer text-on-surface"
+              className="w-full max-w-full p-3 rounded-lg border border-outline-variant bg-surface-container-low font-body-md focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer text-on-surface text-ellipsis"
               value={excelMappingPreset}
               onChange={(e) => setExcelMappingPreset(e.target.value as any)}
             >
@@ -2522,13 +2522,13 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Kolom Kanan */}
-        <div className="flex-1 flex flex-col gap-8 w-full">
+        <div className="flex-1 flex flex-col gap-8 w-full min-w-0">
 
         {/* Budgeting Mode Card */}
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary">track_changes</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Mode Budgeting</h3>
+            <h3 className="text-base font-bold text-on-surface">Mode Budgeting</h3>
           </div>
 
           <div className="flex flex-col gap-2 p-1 bg-surface-container-low rounded-xl border border-outline-variant/60">
@@ -2581,7 +2581,7 @@ const Settings: React.FC = () => {
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary">groups</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Fitur Sosial &amp; Berbagi</h3>
+            <h3 className="text-base font-bold text-on-surface">Fitur Sosial &amp; Berbagi</h3>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2645,7 +2645,7 @@ const Settings: React.FC = () => {
           <div className="flex items-center justify-between border-b border-border-light pb-4">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">categoryId</span>
-              <h3 className="font-headline-md text-headline-md text-on-surface">Manajemen Kategori</h3>
+              <h3 className="text-base font-bold text-on-surface">Manajemen Kategori</h3>
             </div>
             <div className="flex bg-surface-container-low rounded-lg p-1 border border-outline-variant">
               <button
@@ -2801,7 +2801,7 @@ const Settings: React.FC = () => {
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary">pie_chart</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Tampilan Statistik</h3>
+            <h3 className="text-base font-bold text-on-surface">Tampilan Statistik</h3>
           </div>
 
           <StatsViewSettings
@@ -2816,7 +2816,7 @@ const Settings: React.FC = () => {
         <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary">settings_applications</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Sistem &amp; Preferensi</h3>
+            <h3 className="text-base font-bold text-on-surface">Sistem &amp; Preferensi</h3>
           </div>
 
           {/* Notif permission */}

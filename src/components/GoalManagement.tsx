@@ -113,7 +113,7 @@ const GoalCard: React.FC<{
           <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Status</span>
           <div style={{ 
             fontSize: '11px', fontWeight: 800, 
-            color: isCompleted ? 'var(--success)' : status === 'behind' ? '#f59e0b' : 'var(--primary)',
+            color: isCompleted ? 'var(--success)' : status === 'behind' ? 'var(--warning)' : 'var(--primary)',
             display: 'flex', alignItems: 'center', gap: 4
           }}>
             {isCompleted ? 'Selesai' : status === 'behind' ? 'Terlambat' : 'On Track'}

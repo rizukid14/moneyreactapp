@@ -1,10 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { useMoney } from '../contexts/MoneyContext';
+import { useMoney, type Budget } from '../contexts/MoneyContext';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { formatCurrency } from '../lib/utils';
 import TransactionItem from '../components/transactions/TransactionItem';
 import { useToast } from '../components/common/Toast';
 import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import BudgetModal from '../components/modals/BudgetModal';
+import DatePickerModal from '../components/modals/DatePickerModal';
+import ConfirmDialog from '../components/common/ConfirmDialog';
+import { MoveMoneyModal } from '../components/BudgetManagement';
 
 const Budgets: React.FC = () => {
   const { 
@@ -16,6 +21,11 @@ const Budgets: React.FC = () => {
     monthlyIncome, 
     startOfMonthDay,
     budgetMode,
+    addBudget,
+    updateBudget,
+    deleteBudget,
+    moveBudgetMoney,
+    budgetReallocations,
   } = useMoney();
 
   const { showToast } = useToast();
@@ -25,28 +35,19 @@ const Budgets: React.FC = () => {
   
   // Selected Budget for History
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
-  
-  const handlePrevMonth = () => {
-    setViewDate(prev => {
-      const d = new Date(prev);
-      d.setMonth(d.getMonth() - 1);
-      return d;
-    });
-  };
 
-  const handleNextMonth = () => {
-    setViewDate(prev => {
-      const d = new Date(prev);
-      d.setMonth(d.getMonth() + 1);
-      return d;
-    });
-  };
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
+  const [isMoveMoneyOpen, setIsMoveMoneyOpen] = useState(false);
+  const [quickTopUpTarget, setQuickTopUpTarget] = useState<string | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const monthNames = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember"
   ];
-  const monthYearLabel = `${monthNames[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
 
   // Process Budgets for the selected month
   const selectedMonth = viewDate.getMonth();
@@ -102,31 +103,49 @@ const Budgets: React.FC = () => {
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [selectedBudgetId, categoryBudgets, categories, transactions, selectedMonth, selectedYear, startOfMonthDay]);
 
+  const monthReallocations = useMemo(() => {
+    if (!budgetReallocations) return [];
+    return budgetReallocations
+      .filter(r => r.month === selectedMonth && r.year === selectedYear)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [budgetReallocations, selectedMonth, selectedYear]);
+
+  const openAdd = () => { setEditingBudget(null); setIsModalOpen(true); };
+  const handleEdit = (b: Budget) => { setEditingBudget(b); setIsModalOpen(true); };
+  const handleDelete = (id: string) => { setDeleteConfirm({ open: true, id }); };
+  const handleTopUp = (categoryId: string) => {
+    setQuickTopUpTarget(categoryId);
+    setIsMoveMoneyOpen(true);
+  };
+
   const fmt = (val: number) => formatCurrency(val, currencySymbol);
 
   return (
     <PageWrapper className="animate-fade-in pb-20">
       {/* Header Section */}
-      <div className="flex flex-col items-center justify-center text-center gap-4 pb-5 border-b border-border-light">
-        <div className="flex flex-col items-center text-center">
-          <h1 className="font-headline-md text-headline-md text-on-surface font-bold">
-            {budgetMode === 'zero-based' ? 'Budgeting Envelopes' : 'Anggaran Bulanan'}
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-1">
-            {budgetMode === 'zero-based' ? 'Metode Zero-Based Budgeting untuk kendali penuh keuangan Anda.' : 'Pantau batas pengeluaran bulanan agar keuangan tetap sehat.'}
-          </p>
-        </div>
-        <div className="flex items-center bg-surface-container-high rounded-full px-4 py-2 gap-4">
-          <button onClick={handlePrevMonth} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">chevron_left</button>
-          <span className="font-label-md text-label-md text-on-surface font-bold min-w-[100px] text-center">{monthYearLabel}</span>
-          <button onClick={handleNextMonth} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">chevron_right</button>
-        </div>
-      </div>
+      <PageHeader
+        title={budgetMode === 'zero-based' ? 'Budgeting Envelopes' : 'Anggaran Bulanan'}
+        subtitle={budgetMode === 'zero-based' ? 'Metode Zero-Based Budgeting untuk kendali penuh keuangan Anda.' : 'Pantau batas pengeluaran bulanan agar keuangan tetap sehat.'}
+        action={
+          <div 
+            className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-2 sm:px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm w-full" 
+            onClick={() => setIsDatePickerOpen(true)}
+          >
+            <div className="flex items-center justify-center gap-0.5 sm:gap-2 overflow-hidden">
+              <MaterialIcon name="calendar_month" className="text-primary text-[14px] sm:text-base shrink-0" />
+              <span className="font-label-sm sm:font-label-md text-[11px] sm:text-sm text-on-surface font-semibold truncate" data-testid="month-label">
+                {monthNames[viewDate.getMonth()].slice(0,3)} {viewDate.getFullYear().toString().slice(2)}
+              </span>
+              <MaterialIcon name="expand_more" className="text-[14px] sm:text-base text-on-surface-variant shrink-0" />
+            </div>
+          </div>
+        }
+      />
 
       {/* ZBB Hero Banner (Only for Zero-Based Mode) */}
       {budgetMode === 'zero-based' && (
         <section className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <div className="md:col-span-8 relative overflow-hidden bg-white dark:bg-surface-container-low p-6 rounded-xl border border-border-light flex flex-col md:flex-row items-center gap-8 shadow-sm">
+          <div className="md:col-span-8 relative overflow-hidden bg-bg-card dark:bg-surface-container-low p-6 rounded-xl border border-border-light flex flex-col md:flex-row items-center gap-8 shadow-sm">
           {/* Background Pattern */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
           
@@ -147,12 +166,12 @@ const Budgets: React.FC = () => {
           <div className={`flex-1 w-full md:w-auto p-6 rounded-xl flex flex-col items-center justify-center text-center space-y-2 relative z-10 border ${unassignedMoney === 0 ? 'bg-surface-container-low border-primary/10' : unassignedMoney > 0 ? 'bg-surface-container border-warning/30' : 'bg-error-container/30 border-error/30'}`}>
             <div className="flex items-center gap-2">
               <span className={`font-headline-md text-headline-md ${unassignedMoney < 0 ? 'text-error' : 'text-on-background'}`}>{fmt(unassignedMoney)}</span>
-              {unassignedMoney === 0 && <MaterialIcon name="check_circle" className="text-emerald-500 font-bold" />}
+              {unassignedMoney === 0 && <MaterialIcon name="check_circle" className="text-success font-bold" />}
               {unassignedMoney < 0 && <MaterialIcon name="warning" className="text-error font-bold" />}
             </div>
             <p className="font-label-md text-label-md text-on-surface-variant">Belum Dialokasikan</p>
             {unassignedMoney === 0 && (
-              <div className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-800">
+              <div className="bg-success-container text-on-success-container px-3 py-1 rounded-full text-xs font-bold border border-success/20">
                 Misi Selesai: Semua uang telah dialokasikan!
               </div>
             )}
@@ -169,11 +188,11 @@ const Budgets: React.FC = () => {
           </div>
         </div>
         
-        <div className="md:col-span-4 bg-primary text-on-primary p-6 rounded-xl shadow-lg flex flex-col justify-between items-center text-center transition-transform hover:scale-[1.02] cursor-pointer" onClick={() => showToast('Fitur Realokasi Dana Segera Hadir!', 'info')}>
+        <div className="md:col-span-4 bg-primary text-on-primary p-6 rounded-xl shadow-lg flex flex-col justify-between items-center text-center transition-transform hover:scale-[1.02] cursor-pointer" onClick={() => setIsMoveMoneyOpen(true)}>
           <MaterialIcon name="swap_horizontal_circle" className="text-4xl mb-2" />
           <h3 className="font-headline-md text-headline-md">Pindahkan Dana</h3>
           <p className="font-body-md text-body-md opacity-90 mb-4">Realokasi dana antar amplop dengan mudah.</p>
-          <button className="w-full bg-white text-primary font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-inner">
+          <button className="w-full bg-bg-card text-primary font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-inner">
             Mulai Pindahkan
             <MaterialIcon name="sync_alt" />
           </button>
@@ -183,14 +202,14 @@ const Budgets: React.FC = () => {
 
       {/* Amplop Kategori Grid */}
       <section className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="font-headline-md text-headline-md flex items-center gap-2">
-            <MaterialIcon name="folder_zip" className="text-primary" />
-            {budgetMode === 'zero-based' ? 'Amplop Kategori' : 'Kategori Anggaran'}
+        <div className="flex flex-row items-center justify-between gap-2">
+          <h2 className="text-lg md:text-headline-md font-extrabold flex items-center gap-1.5 md:gap-2 text-on-surface">
+            <MaterialIcon name="folder_zip" className="text-primary text-xl md:text-2xl" />
+            <span className="truncate">{budgetMode === 'zero-based' ? 'Amplop Kategori' : 'Kategori Anggaran'}</span>
           </h2>
-          <button className="flex items-center gap-2 text-primary font-bold font-label-md hover:underline" onClick={() => showToast('Fitur Tambah Anggaran Segera Hadir!', 'info')}>
-            <MaterialIcon name="add_circle" />
-            {budgetMode === 'zero-based' ? 'Tambah Amplop' : 'Tambah Anggaran'}
+          <button className="flex items-center gap-1 md:gap-2 text-primary font-bold text-xs md:text-sm hover:underline shrink-0" onClick={openAdd}>
+            <MaterialIcon name="add_circle" className="text-sm md:text-base" />
+            <span>{budgetMode === 'zero-based' ? 'Tambah Amplop' : 'Tambah Anggaran'}</span>
           </button>
         </div>
         
@@ -214,7 +233,7 @@ const Budgets: React.FC = () => {
                 <div 
                   key={budget.id} 
                   onClick={() => setSelectedBudgetId(prev => prev === budget.id ? null : budget.id)}
-                  className={`bg-white dark:bg-surface-container-low p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden cursor-pointer ${
+                  className={`bg-bg-card dark:bg-surface-container-low p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden cursor-pointer ${
                     selectedBudgetId === budget.id 
                       ? 'border-2 border-primary ring-4 ring-primary/10' 
                       : isOverbudget 
@@ -231,8 +250,8 @@ const Budgets: React.FC = () => {
                       <MaterialIcon name="folder_zip" />
                     </div>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-surface-container rounded-lg transition-colors" title="Edit"><MaterialIcon name="edit" className="text-on-surface-variant text-lg" /></button>
-                      <button className="p-2 hover:bg-error-container rounded-lg transition-colors" title="Hapus"><MaterialIcon name="delete" className="text-error text-lg" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleEdit(budget); }} className="p-2 hover:bg-surface-container rounded-lg transition-colors" title="Edit"><MaterialIcon name="edit" className="text-on-surface-variant text-lg" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(budget.id); }} className="p-2 hover:bg-error-container rounded-lg transition-colors" title="Hapus"><MaterialIcon name="delete" className="text-error text-lg" /></button>
                     </div>
                   </div>
                   
@@ -242,12 +261,12 @@ const Budgets: React.FC = () => {
                   </div>
                   
                   <div className="flex justify-between text-sm text-on-surface-variant mb-4">
-                    <span>Sisa: <span className={`font-bold ${isOverbudget ? 'text-error' : 'text-emerald-600 dark:text-emerald-400'}`}>{fmt(remaining)}</span></span>
+                    <span>Sisa: <span className={`font-bold ${isOverbudget ? 'text-error' : 'text-success'}`}>{fmt(remaining)}</span></span>
                     <span>Limit: {fmt(budget.limit)}</span>
                   </div>
                   
                   <div className={`w-full h-3 rounded-full overflow-hidden mb-6 ${isOverbudget ? 'bg-error-container' : 'bg-surface-container'}`}>
-                    <div className={`h-full rounded-full transition-all duration-500 ${isOverbudget ? 'bg-error' : percentUsed > 80 ? 'bg-warning' : 'bg-emerald-500'}`} style={{ width: `${percentUsed}%` }}></div>
+                    <div className={`h-full rounded-full transition-all duration-500 ${isOverbudget ? 'bg-error' : percentUsed > 80 ? 'bg-warning' : 'bg-success'}`} style={{ width: `${percentUsed}%` }}></div>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -255,11 +274,13 @@ const Budgets: React.FC = () => {
                       <p className="text-[10px] uppercase font-bold text-on-surface-variant">Terpakai</p>
                       <p className="font-label-md font-bold text-on-surface">{fmt(spent)}</p>
                     </div>
-                    <div className="text-right">
-                      <button className="bg-primary-container text-on-primary-container p-2 rounded-lg hover:opacity-80 transition-opacity">
-                        <MaterialIcon name="folder_zip" />
-                      </button>
-                    </div>
+                    {budgetMode === 'zero-based' && (
+                      <div className="text-right">
+                        <button onClick={(e) => { e.stopPropagation(); handleTopUp(cat.id); }} className="bg-primary-container text-on-primary-container p-2 rounded-lg hover:opacity-80 transition-opacity" title="Top Up">
+                          <MaterialIcon name="add_circle" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -268,19 +289,40 @@ const Budgets: React.FC = () => {
         </div>
       </section>
 
-      {/* Riwayat Realokasi Section */}
-      <section className="space-y-6 hidden">
-        {/* Disembunyikan sementara karena belum ada data history nyata di backend */}
-        <div className="flex items-center gap-2">
-          <MaterialIcon name="history" className="text-primary" />
-          <h2 className="font-headline-md text-headline-md font-bold">Riwayat Realokasi Bulan Ini</h2>
-        </div>
-        <div className="bg-white dark:bg-surface-container-low rounded-xl border border-border-light overflow-hidden shadow-sm">
-          <div className="p-8 text-center text-on-surface-variant">
-            Fitur riwayat realokasi akan segera hadir.
+      {/* Riwayat Realokasi Section (ZBB only, shown when there are reallocations) */}
+      {budgetMode === 'zero-based' && monthReallocations.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <MaterialIcon name="history" className="text-primary" />
+            <h2 className="font-headline-md text-headline-md font-bold">Riwayat Realokasi Bulan Ini</h2>
           </div>
-        </div>
-      </section>
+          <div className="bg-bg-card dark:bg-surface-container-low rounded-xl border border-border-light overflow-hidden shadow-sm divide-y divide-border-light">
+            {monthReallocations.map(r => {
+              const fromName = r.fromCategoryId === 'unassigned' ? 'Belum Dialokasikan' : categories.find(c => c.id === r.fromCategoryId)?.name || 'Kategori';
+              const toName = r.toCategoryId === 'unassigned' ? 'Belum Dialokasikan' : categories.find(c => c.id === r.toCategoryId)?.name || 'Kategori';
+              const time = new Date(r.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+              const date = new Date(r.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+              return (
+                <div key={r.id} className="p-4 flex justify-between items-center">
+                  <div>
+                    <div className="text-sm font-bold text-on-surface flex items-center gap-2">
+                      <span>{fromName}</span>
+                      <MaterialIcon name="swap_horiz" className="text-[10px] text-on-surface-variant" />
+                      <span>{toName}</span>
+                    </div>
+                    <div className="text-[10px] text-on-surface-variant mt-1">
+                      {date} &bull; {time}
+                    </div>
+                  </div>
+                  <div className="text-sm font-bold text-primary">
+                    {fmt(r.amount)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Transaction History for Selected Budget */}
       {selectedBudgetId && (
@@ -317,6 +359,51 @@ const Budgets: React.FC = () => {
           </div>
         </section>
       )}
+
+      <BudgetModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        budgets={budgets}
+        categories={categories}
+        addBudget={addBudget}
+        updateBudget={updateBudget}
+        editingBudget={editingBudget}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        currencySymbol={currencySymbol}
+      />
+
+      <MoveMoneyModal
+        isOpen={isMoveMoneyOpen}
+        onClose={() => { setIsMoveMoneyOpen(false); setQuickTopUpTarget(null); }}
+        budgets={currentMonthBudgets}
+        categories={categories}
+        unassignedMoney={unassignedMoney}
+        spendingMap={spendingMap}
+        onMove={(from, to, amt) => moveBudgetMoney(from, to, amt, selectedMonth, selectedYear)}
+        currencySymbol={currencySymbol}
+        defaultToId={quickTopUpTarget}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, id: '' })}
+        onConfirm={() => deleteBudget(deleteConfirm.id)}
+        title="Hapus Anggaran"
+        message="Yakin ingin menghapus anggaran ini?"
+        type="danger"
+        confirmText="Ya, Hapus"
+      />
+
+      <DatePickerModal
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        viewDate={viewDate}
+        onSelectDate={(date: Date) => {
+          setViewDate(date);
+          setIsDatePickerOpen(false);
+        }}
+      />
     </PageWrapper>
   );
 };

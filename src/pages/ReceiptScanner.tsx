@@ -15,7 +15,6 @@ import CurrencyInput from '../components/common/CurrencyInput';
 
 import { TabBar } from '../components/ui/TabBar';
 import { PageWrapper } from '../components/ui/PageWrapper';
-import { PageHeader } from '../components/ui/PageHeader';
 import MaterialIcon from '../components/common/MaterialIcon';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
@@ -723,12 +722,17 @@ const ReceiptScanner: React.FC = () => {
 
   return (
     <PageWrapper>
-      <button onClick={() => navigate(-1)} className="btn-icon mb-4">
-        <MaterialIcon name="chevron_left" className="text-2xl" />
-      </button>
-      <PageHeader 
-        title={scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'} 
-      />
+      <div className="flex items-center gap-4 mb-6 pb-5 border-b border-border-light">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white border-none shadow-sm cursor-pointer hover:bg-primary/90 transition-colors shrink-0"
+        >
+          <MaterialIcon name="chevron_left" className="text-2xl" />
+        </button>
+        <h2 className="font-headline-md text-headline-md text-on-surface font-extrabold m-0">
+          {scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'}
+        </h2>
+      </div>
       <input type="file" accept="image/*" ref={fileInputRef} data-testid="ocr-file-input" style={{ display: 'none' }} onChange={handleFileSelect} />
 
       {stage === 'upload' && (
@@ -833,7 +837,7 @@ const ReceiptScanner: React.FC = () => {
             <canvas ref={canvasRef} className="w-full block" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
           </div>
           
-          <div className="fixed bottom-0 left-0 lg:left-64 right-0 p-4 pb-[max(20px,env(safe-area-inset-bottom,20px))] bg-white/90 backdrop-blur-md border-t border-outline-variant z-50">
+          <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 p-4 pb-4 lg:pb-[max(20px,env(safe-area-inset-bottom,20px))] bg-white/90 backdrop-blur-md border-t border-outline-variant z-50">
             <div className="max-w-[500px] mx-auto flex gap-2 sm:gap-3">
               <button onClick={reset} className="flex-1 py-3 px-2 sm:px-4 rounded-xl border border-outline-variant text-on-surface font-label-sm sm:font-label-md font-bold bg-white hover:bg-surface-container transition-colors cursor-pointer text-center leading-tight">
                 Batal
@@ -1056,7 +1060,7 @@ const ReceiptScanner: React.FC = () => {
             </div>
             
             {/* Floating Action Footer */}
-            <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-white/90 backdrop-blur-md border-t border-outline-variant px-4 lg:px-8 pt-4 z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.05)]" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
+            <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 bg-white/90 backdrop-blur-md border-t border-outline-variant px-4 lg:px-8 py-4 z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.05)] lg:pb-[calc(24px+env(safe-area-inset-bottom,0px))]">
               <div className="max-w-container-max mx-auto flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <div className="hidden sm:flex items-center gap-3 text-on-surface-variant">
                   <MaterialIcon name="info" />
@@ -1066,7 +1070,7 @@ const ReceiptScanner: React.FC = () => {
                   <button onClick={handleSaveMain} className="flex-1 sm:flex-none px-3 sm:px-6 py-3 rounded-xl border border-primary text-primary font-label-sm sm:font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer font-bold leading-tight flex items-center justify-center text-center">
                     Simpan Langsung
                   </button>
-                  <button onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 rounded-xl bg-blue-500 text-white font-label-sm sm:font-label-md hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/30 cursor-pointer font-bold border-none leading-tight text-center">
+                  <button onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 rounded-xl bg-primary text-on-primary font-label-sm sm:font-label-md hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30 cursor-pointer font-bold border-none leading-tight text-center">
                     <MaterialIcon name="group" />
                     Split Bill
                   </button>

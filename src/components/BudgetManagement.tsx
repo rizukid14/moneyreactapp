@@ -18,7 +18,7 @@ const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   const circ = 2 * Math.PI * r;
   const clamped = Math.min(percent, 100);
   const offset = circ - (clamped / 100) * circ;
-  const color = percent >= 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
+  const color = percent >= 100 ? 'var(--danger)' : percent >= 75 ? 'var(--warning)' : 'var(--primary)';
   return (
     <svg data-testid="budget-progress" width="108" height="108" viewBox="0 0 108 108">
       <circle cx="54" cy="54" r={r} fill="none" stroke="var(--border-color)" strokeWidth="10" />
@@ -126,7 +126,7 @@ const BudgetCard: React.FC<{
 }> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
   const percent = limit > 0 ? (spent / limit) * 100 : 0;
   const remaining = limit - spent;
-  const barColor = percent >= 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
+  const barColor = percent >= 100 ? 'var(--danger)' : percent >= 75 ? 'var(--warning)' : 'var(--primary)';
 
   return (
     <div data-testid={`budget-card-${id}`} className={`bg-bg-card p-4 rounded-2xl shadow-bento border border-outline-variant relative mb-3 group transition-all`}>
@@ -183,7 +183,7 @@ const BudgetCard: React.FC<{
         </span>
         <span style={{
           fontWeight: 700,
-          color: isOver ? 'var(--danger)' : remaining < limit * 0.25 ? '#f59e0b' : 'var(--success)'
+          color: isOver ? 'var(--danger)' : remaining < limit * 0.25 ? 'var(--warning)' : 'var(--success)'
         }}>
           {isOver ? `-${fmt(spent - limit, currencySymbol)}` : `Sisa ${fmt(remaining, currencySymbol)}`}
         </span>
@@ -588,7 +588,7 @@ interface MoveMoneyModalProps {
   defaultToId?: string | null;
 }
 
-const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, spendingMap, onMove, currencySymbol, defaultToId }) => {
+export const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, spendingMap, onMove, currencySymbol, defaultToId }) => {
   const [fromId, setFromId] = useState<string | null | 'unassigned'>('unassigned');
   const [toId, setToId] = useState<string | null | 'unassigned'>('');
   const [amount, setAmount] = useState<string>('');

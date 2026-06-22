@@ -778,13 +778,15 @@ textarea:focus {
   background: hsla(var(--p-h), 35%, 5%, 0.4);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   z-index: 2000;
-  padding: 20px;}
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);}
 
 @media (min-width: 640px) {
   .modal-overlay {
+    align-items: center;
     padding: 28px;
   }
 }
@@ -799,12 +801,33 @@ textarea:focus {
   background: var(--bg-card-solid);
   width: 100%;
   max-width: 512px;
-  border-radius: var(--radius-lg);
+  border-radius: 32px 32px 0 0;
   padding: 28px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
+  animation: modal-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 640px) {
+  .modal-content {
+    border-radius: var(--radius-lg);
+    padding-bottom: 28px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    animation: modal-zoom-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes modal-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes modal-zoom-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .modal-header {
@@ -1147,4 +1170,4 @@ textarea:focus {
 
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 20px);
-}
+}

@@ -96,6 +96,7 @@ export default {
         "gutter": "24px"
       },
       fontFamily: {
+        sans: ["Outfit", "sans-serif"],
         "headline-xl": ["Outfit", "sans-serif"],
         "body-md": ["Outfit", "sans-serif"],
         "label-sm": ["Outfit", "sans-serif"],

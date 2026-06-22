@@ -292,8 +292,8 @@ const BulkInput: React.FC = () => {
                   data-testid="bulk-voice-btn"
                   className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 rounded-full font-label-md text-label-md transition-colors shadow-sm active:scale-95 duration-150 ${
                     isListening 
-                      ? 'bg-green-500 text-white ring-2 ring-green-600 animate-pulse' 
-                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      ? 'bg-success text-on-success ring-2 ring-success/60 animate-pulse' 
+                      : 'bg-success-container text-on-success-container hover:bg-success-container/80'
                   }`}
                 >
                   <MaterialIcon name="mic" className={`text-4xl ${isListening ? 'text-primary' : 'text-on-surface-variant'}`} />

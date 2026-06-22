@@ -13,15 +13,15 @@ export interface PageHeaderProps {
  */
 export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, action, className = '' }) => {
   return (
-    <div className={`flex flex-col lg:flex-row items-center lg:items-end justify-center lg:justify-between text-center lg:text-left gap-4 border-b border-border-light pb-5 ${className}`}>
-      <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
-        <h2 className="font-headline-md text-headline-md text-on-surface font-extrabold">{title}</h2>
+    <div className={`flex flex-row items-center justify-between gap-2 lg:gap-4 border-b border-border-light pb-4 lg:pb-5 ${className}`}>
+      <div className={`flex flex-col items-start text-left ${action ? 'w-[70%] lg:w-auto lg:flex-1 pr-2' : 'w-full'}`}>
+        <h2 className="text-xl lg:text-headline-md text-on-surface font-extrabold w-full leading-tight">{title}</h2>
         {subtitle && (
-          <p className="text-xs sm:text-sm text-on-surface-variant mt-1">{subtitle}</p>
+          <p className="text-xs sm:text-sm text-on-surface-variant mt-1 w-full leading-snug">{subtitle}</p>
         )}
       </div>
       {action && (
-        <div className="flex items-center justify-center self-center lg:self-auto">
+        <div className="flex items-center justify-end w-[30%] lg:w-auto shrink-0">
           {action}
         </div>
       )}

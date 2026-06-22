@@ -1,20 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
+import { useOnboarding } from '../contexts/OnboardingContext';
+import { changelogData } from '../data/changelog';
 import ChatBot from './chatbot/ChatBot';
 import MaterialIcon from './common/MaterialIcon';
 import AddActionMenu from './modals/AddActionMenu';
 import NotificationModal from './modals/NotificationModal';
 import ProfileMenuModal from './modals/ProfileMenuModal';
+import WhatsNewModal from './modals/WhatsNewModal';
 
 const Layout: React.FC = () => {
   const { user, theme, toggleTheme, setIsChatOpen, transactions, budgets, debts, subscriptions, pendingSyncCount } = useMoney();
+  const { setTutorialActive } = useOnboarding();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  // Show WhatsNewModal on version update; block onboarding until dismissed
+  useEffect(() => {
+    const currentVersion = changelogData[0]?.version;
+    if (!currentVersion) return;
+    try {
+      const lastSeenVersion = localStorage.getItem('moneyapp-last-seen-version');
+      if (lastSeenVersion !== currentVersion) {
+        setShowWhatsNew(true);
+        setTutorialActive(true, null);
+      }
+    } catch (e) {}
+  }, [setTutorialActive]);
+
+  const handleCloseWhatsNew = () => {
+    setShowWhatsNew(false);
+    try {
+      localStorage.setItem('moneyapp-last-seen-version', changelogData[0]?.version || '');
+    } catch (e) {}
+    setTutorialActive(false, null);
+  };
 
   // Compute a hash of notification-relevant state to detect new notifications
   const notifStateHash = `${transactions.length}-${debts.length}-${budgets.length}-${subscriptions.length}-${pendingSyncCount}`;
@@ -69,7 +95,7 @@ const Layout: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background font-body-md text-on-surface">
+    <div className="min-h-screen bg-background font-body-md text-on-surface overflow-x-hidden w-full max-w-[100vw]">
       {/* Top App Bar (Mobile & Desktop) */}
       <header className="fixed top-0 inset-x-0 lg:left-64 h-16 bg-surface-container-lowest/80 backdrop-blur-md border-b border-border-light flex items-center justify-between px-4 lg:px-8 z-40 gap-2">
         <div 
@@ -305,6 +331,11 @@ const Layout: React.FC = () => {
       <ProfileMenuModal
         isOpen={isProfileMenuOpen}
         onClose={() => setIsProfileMenuOpen(false)}
+      />
+
+      <WhatsNewModal
+        isOpen={showWhatsNew}
+        onClose={handleCloseWhatsNew}
       />
     </div>
   );

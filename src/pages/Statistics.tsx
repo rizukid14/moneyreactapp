@@ -21,9 +21,8 @@ import { ListItem } from '../components/ui/ListItem';
 import { EmptyState } from '../components/ui/EmptyState';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
-const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
+const COLORS = ['var(--primary)', 'var(--success)', 'var(--warning)', 'var(--danger)', 'var(--secondary)', 'hsl(330, 70%, 55%)', 'hsl(170, 60%, 40%)', 'hsl(350, 75%, 55%)', 'hsl(250, 60%, 55%)'];
 
 const Statistics: React.FC = () => {
   const {
@@ -449,9 +448,9 @@ const Statistics: React.FC = () => {
         action={
           <button
             onClick={resetToToday}
-            className="flex lg:hidden items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+            className="flex lg:hidden items-center justify-center gap-0.5 sm:gap-1.5 px-2 py-2 rounded-xl border-none bg-primary-container/20 text-primary-color font-bold text-[11px] sm:text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity w-full"
           >
-            <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+            <MaterialIcon name="calendar_month" className="text-[14px] sm:text-base shrink-0" /> <span className="truncate">Hari Ini</span>
           </button>
         }
       />
@@ -575,43 +574,40 @@ const Statistics: React.FC = () => {
             transition={{ duration: 0.2 }}
           >
                 {/* Header with Month Selector matching Transactions.tsx */}
-                <div data-tour="month-nav" className="flex flex-col lg:flex-row items-center lg:items-end justify-center lg:justify-between text-center lg:text-left gap-4 border-b border-border-light pb-5">
-                  <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
-                    <h2 className="font-headline-md text-headline-md text-on-surface">Analisis Statistik</h2>
-                    <p className="text-sm text-on-surface-variant mt-1">Pantau tren dan riwayat finansial Anda</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 self-center lg:self-auto">
-                    <button
-                      onClick={resetToToday}
-                      className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
-                    >
-                      <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
-                    </button>
-                    <div 
-                      className="flex items-center bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm" 
-                      onClick={() => setIsDatePickerOpen(true)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="prev-month-btn">
-                          <MaterialIcon name="chevron_left" className="text-on-surface-variant text-base" />
-                        </button>
-                        
-                        <div className="flex items-center gap-2" data-testid="month-picker-toggle">
-                          <MaterialIcon name="calendar_month" className="text-primary text-base" />
-                          <span className="font-label-md text-label-md text-on-surface font-semibold" data-testid="month-label">
-                            {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
-                          </span>
-                          <MaterialIcon name="expand_more" className="text-base text-on-surface-variant" />
+                <PageHeader
+                  className="mt-2"
+                  title="Analisis Statistik"
+                  subtitle="Pantau tren dan riwayat finansial Anda"
+                  action={
+                    <div className="flex items-center gap-1 sm:gap-3 justify-end w-full">
+                      <button
+                        onClick={resetToToday}
+                        className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+                      >
+                        <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+                      </button>
+                      <div 
+                        className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-1 sm:px-2 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm w-full" 
+                        onClick={() => setIsDatePickerOpen(true)}
+                      >
+                        <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
+                          <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="prev-month-btn">
+                            <MaterialIcon name="chevron_left" className="text-on-surface-variant text-[14px] sm:text-base" />
+                          </button>
+                          <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden" data-testid="month-picker-toggle">
+                            <MaterialIcon name="calendar_month" className="text-primary text-[14px] sm:text-base shrink-0 hidden sm:block" />
+                            <span className="font-label-sm sm:font-label-md text-[10px] sm:text-sm text-on-surface font-semibold truncate" data-testid="month-label">
+                              {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear().toString().slice(2)}
+                            </span>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="next-month-btn">
+                            <MaterialIcon name="chevron_right" className="text-on-surface-variant text-[14px] sm:text-base" />
+                          </button>
                         </div>
-
-                        <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="next-month-btn">
-                          <MaterialIcon name="chevron_right" className="text-on-surface-variant text-base" />
-                        </button>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  }
+                />
 
                 {/* Hero Summary Section - Bento Grid */}
                 <section className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
@@ -1669,10 +1665,10 @@ const Statistics: React.FC = () => {
 
 // ─── FinancialHealth Component ────────────────────────────────────────────────
 const SCORE_COLORS = {
-  excellent: '#10b981',
-  good: '#3b82f6',
-  fair: '#f59e0b',
-  poor: '#ef4444'
+  excellent: 'var(--success)',
+  good: 'var(--primary)',
+  fair: 'var(--warning)',
+  poor: 'var(--danger)'
 };
 
 const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ onShowDetail }) => {
