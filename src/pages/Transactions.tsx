@@ -1137,16 +1137,19 @@ const Transactions: React.FC = () => {
 
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     {/* Type Filters */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar w-full sm:w-auto">
-                      <FilterChip label="Semua" isActive={typeFilter === 'all'} onClick={() => setTypeFilter('all')} />
-                      <FilterChip label="Keluar" icon={<MaterialIcon name="arrow_downward" className="text-[12px]" />} isActive={typeFilter === 'pengeluaran'} onClick={() => setTypeFilter('pengeluaran')} className={typeFilter === 'pengeluaran' ? '!bg-error !text-white' : 'hover:!text-error'} />
-                      <FilterChip label="Masuk" icon={<MaterialIcon name="arrow_upward" className="text-[12px]" />} isActive={typeFilter === 'pendapatan'} onClick={() => setTypeFilter('pendapatan')} className={typeFilter === 'pendapatan' ? '!bg-primary-color !text-white' : 'hover:!text-primary-color'} />
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider shrink-0">Filter:</span>
+                      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar flex-1 sm:flex-none">
+                        <FilterChip label="Semua" isActive={typeFilter === 'all'} onClick={() => setTypeFilter('all')} />
+                        <FilterChip label="Keluar" icon={<MaterialIcon name="arrow_downward" className="text-[12px]" />} isActive={typeFilter === 'pengeluaran'} onClick={() => setTypeFilter('pengeluaran')} className={typeFilter === 'pengeluaran' ? '!bg-error !text-white' : 'hover:!text-error'} />
+                        <FilterChip label="Masuk" icon={<MaterialIcon name="arrow_upward" className="text-[12px]" />} isActive={typeFilter === 'pendapatan'} onClick={() => setTypeFilter('pendapatan')} className={typeFilter === 'pendapatan' ? '!bg-primary-color !text-white' : 'hover:!text-primary-color'} />
+                      </div>
                     </div>
 
                     {/* Group By Filter */}
                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                      <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider hidden sm:block">Grup:</span>
-                      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+                      <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider shrink-0">Grup:</span>
+                      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar flex-1 sm:flex-none">
                         <FilterChip label="Tanggal" isActive={groupBy === 'date'} onClick={() => setGroupBy('date')} />
                         <FilterChip label="Kategori" isActive={groupBy === 'categoryId'} onClick={() => setGroupBy('categoryId')} />
                         <FilterChip label="Aset" isActive={groupBy === 'asset'} onClick={() => setGroupBy('asset')} />
