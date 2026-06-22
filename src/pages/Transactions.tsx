@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
 import { formatCurrency, getLocalDate } from '../lib/utils';
 import TransactionItem from '../components/transactions/TransactionItem';
-import TransactionModal from '../components/modals/TransactionModal';
+import { lazy, Suspense } from 'react';
+const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
 import DatePickerModal from '../components/modals/DatePickerModal';
 import WhatsNewModal from '../components/modals/WhatsNewModal';
 import OnboardingTutorial from '../components/OnboardingTutorial';
@@ -12,6 +13,7 @@ import MaterialIcon from '../components/common/MaterialIcon';
 import { SearchInput } from '../components/ui/SearchInput';
 import { FilterChip } from '../components/ui/FilterChip';
 import { useToast } from '../components/common/Toast';
+import { useSpeechToText } from '../hooks/useSpeechToText';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -19,7 +21,8 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { useTransactionPresets } from '../hooks/useTransactionPresets';
 import { PresetManagerModal } from '../components/modals/PresetManagerModal';
 
-const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+import { MONTH_NAMES } from '../lib/constants';
+
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 type GroupBy = 'date' | 'categoryId' | 'asset' | 'none';
@@ -75,10 +78,7 @@ const Transactions: React.FC = () => {
 
   // Smart AI Input state
   const [bulkInputText, setBulkInputText] = useState('');
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const speechBaseRef = useRef('');
-  const finalTranscriptRef = useRef('');
+  const { isListening, toggleListening } = useSpeechToText('\n');
 
   const displayPresets = useMemo(() => {
     if (pinnedPresets.length > 0) return pinnedPresets;
@@ -124,11 +124,15 @@ const Transactions: React.FC = () => {
     localStorage.setItem('whats_new_seen_v1_0_17', 'true');
   };
 
+  // Create Map for O(1) lookups of assets and categories
+  const assetMap = useMemo(() => new Map(assets.map(a => [a.id, a])), [assets]);
+  const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
+
   const getAssetName = useCallback((id?: string) => {
-    const asset = assets.find(a => a.id === id);
+    const asset = id ? assetMap.get(id) : undefined;
     if (!asset) return 'Unknown';
     return asset.isDeleted ? `${asset.name} (Dihapus)` : asset.name;
-  }, [assets]);
+  }, [assetMap]);
 
   const handleDelete = useCallback((id: string) => {
     const tx = transactions.find(t => t.id === id);
@@ -168,8 +172,9 @@ const Transactions: React.FC = () => {
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const categoryName = categories.find(c => c.id === tx.categoryId)?.name || tx.categoryId || '';
-        const subCategoryName = categories.find(c => c.id === tx.categoryId)?.subcategories?.find(s => s.id === tx.subCategoryId)?.name || tx.subCategoryId || '';
+        const cat = tx.categoryId ? categoryMap.get(tx.categoryId) : undefined;
+        const categoryName = cat?.name || tx.categoryId || '';
+        const subCategoryName = cat?.subcategories?.find(s => s.id === tx.subCategoryId)?.name || tx.subCategoryId || '';
 
         const matches = (
           (tx.note && tx.note.toLowerCase().includes(q)) ||
@@ -235,7 +240,7 @@ const Transactions: React.FC = () => {
         title = `${prefix} - ${dateStr}`;
       } else if (groupBy === 'categoryId') {
         key = tx.categoryId || 'transfer';
-        title = categories.find(c => c.id === tx.categoryId)?.name || tx.categoryId || 'Transfer';
+        title = (tx.categoryId ? categoryMap.get(tx.categoryId)?.name : undefined) || tx.categoryId || 'Transfer';
       } else if (groupBy === 'asset') {
         key = tx.assetId || tx.fromAssetId || 'unknown';
         title = getAssetName(key);
@@ -421,7 +426,7 @@ const Transactions: React.FC = () => {
 
     return {
       count,
-      topCategory: categories.find(c => c.id === topCategory)?.name || topCategory,
+      topCategory: categoryMap.get(topCategory)?.name || topCategory,
       topAmount
     };
   }, [transactions, viewDate, startOfMonthDay]);
@@ -459,7 +464,7 @@ const Transactions: React.FC = () => {
     return {
       count,
       dailyAverage,
-      topCategory: categories.find(c => c.id === topCategory)?.name || topCategory
+      topCategory: categoryMap.get(topCategory)?.name || topCategory
     };
   }, [transactions, weeklyExpense]);
 
@@ -598,7 +603,7 @@ const Transactions: React.FC = () => {
     let warningBudgetCount = 0;
 
     activeBudgets.forEach(b => {
-      const categoryIdObj = categories.find(c => c.id === b.categoryId);
+      const categoryIdObj = categoryMap.get(b.categoryId);
       if (categoryIdObj) {
         const categoryIdName = categoryIdObj.name;
         const catSpent = transactions
@@ -664,7 +669,7 @@ const Transactions: React.FC = () => {
 
       if (topCat && topAmt > 0) {
         const pct = Math.round((topAmt / weeklyExpense) * 100);
-        const topCatName = categories.find(c => c.id === topCat)?.name || topCat;
+        const topCatName = categoryMap.get(topCat)?.name || topCat;
         findings.push(`Fokus minggu ini: ${topCatName} (${pct}%).`);
       }
     }
@@ -751,51 +756,8 @@ const Transactions: React.FC = () => {
 
   // Speech-to-Text for Smart AI Input on main page
   const handleSpeechToText = useCallback(() => {
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      return;
-    }
-
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
-      return;
-    }
-
-    const recognition = new SR();
-    recognition.lang = 'id-ID';
-    recognition.interimResults = true;
-    recognition.continuous = false;
-
-    recognitionRef.current = recognition;
-    speechBaseRef.current = bulkInputText.trim();
-    finalTranscriptRef.current = '';
-    setIsListening(true);
-
-    recognition.onresult = (event: any) => {
-      let newFinalText = '';
-      let interimText = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) newFinalText += t;
-        else interimText += t;
-      }
-      if (newFinalText) finalTranscriptRef.current += newFinalText;
-      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current} ${interimText}`.trim();
-      setBulkInputText(combined);
-    };
-    recognition.onerror = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-    recognition.onend = () => {
-      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current}`.trim();
-      if (combined) setBulkInputText(combined);
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-    recognition.start();
-  }, [isListening, bulkInputText]);
+    toggleListening(bulkInputText, setBulkInputText);
+  }, [toggleListening, bulkInputText]);
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
@@ -1306,18 +1268,22 @@ const Transactions: React.FC = () => {
           }}
         />
 
-        <TransactionModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          assets={assets}
-          addTransaction={addTransaction}
-          addRecurringTransaction={addRecurringTransaction}
-          updateTransaction={updateTransaction}
-          deleteTransaction={deleteTransaction}
-          editingTransaction={editingTransaction}
-          isCopyMode={isCopyMode}
-          initialType={initialType}
-        />
+        {isModalOpen && (
+          <Suspense fallback={null}>
+            <TransactionModal
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              assets={assets}
+              addTransaction={addTransaction}
+              addRecurringTransaction={addRecurringTransaction}
+              updateTransaction={updateTransaction}
+              deleteTransaction={deleteTransaction}
+              editingTransaction={editingTransaction}
+              isCopyMode={isCopyMode}
+              initialType={initialType}
+            />
+          </Suspense>
+        )}
 
         <PresetManagerModal
           isOpen={isPresetManagerOpen}

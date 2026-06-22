@@ -8,7 +8,8 @@ import AssetSelectModal from './AssetSelectModal';
 import GoalSelectModal from './GoalSelectModal';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
-import OverspendReallocationModal from './OverspendReallocationModal';
+import { lazy, Suspense } from 'react';
+const OverspendReallocationModal = lazy(() => import('./OverspendReallocationModal'));
 import CurrencyInput from '../common/CurrencyInput';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { useTransactionPresets } from '../../hooks/useTransactionPresets';
@@ -998,15 +999,19 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         onSelect={(id) => setGoalId(id)}
       />
 
-      <OverspendReallocationModal
-        isOpen={reallocationModal.isOpen}
-        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
-        onSuccess={handleReallocationSuccess}
-        deficitCategoryId={reallocationModal.deficitCategoryId}
-        deficitAmount={reallocationModal.deficitAmount}
-        month={reallocationModal.month}
-        year={reallocationModal.year}
-      />
+      {reallocationModal.isOpen && (
+        <Suspense fallback={null}>
+          <OverspendReallocationModal
+            isOpen={reallocationModal.isOpen}
+            onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+            onSuccess={handleReallocationSuccess}
+            deficitCategoryId={reallocationModal.deficitCategoryId}
+            deficitAmount={reallocationModal.deficitAmount}
+            month={reallocationModal.month}
+            year={reallocationModal.year}
+          />
+        </Suspense>
+      )}
 
       <ConfirmDialog
         isOpen={isDeleteConfirmOpen}

@@ -370,7 +370,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
         <button
           className="btn btn-primary flex items-center justify-center w-full sm:w-auto px-4 sm:px-10 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base min-w-0 sm:min-w-[240px] leading-tight text-center"
           onClick={() => onSave(batchAssetId)}
-          disabled={!results.some(r => r.selected) || (isMutation && !batchAssetId) || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.category))}
+          disabled={!results.some(r => r.selected) || (isMutation && !batchAssetId) || results.filter(r => r.selected).some(r => !r.amount || (r.type !== 'transfer' && !r.categoryId))}
           data-testid="bulk-save-btn"
           style={{ boxShadow: '0 6px 20px var(--primary-glow)' }}
         >

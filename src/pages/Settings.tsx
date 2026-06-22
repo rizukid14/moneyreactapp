@@ -6,9 +6,10 @@ import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
 import { validateFileSecure } from '../lib/fileValidation';
 import { downloadSampleExcel, parseExcelFile, extractExcelHeaders, type ImportResult } from '../lib/excelImport';
-import ExcelMappingModal from '../components/modals/ExcelMappingModal';
-import { BudgetManagement } from '../components/BudgetManagement';
-import { GoalManagement } from '../components/GoalManagement';
+import { lazy, Suspense } from 'react';
+const ExcelMappingModal = lazy(() => import('../components/modals/ExcelMappingModal'));
+const BudgetManagement = lazy(() => import('../components/BudgetManagement').then(m => ({ default: m.BudgetManagement })));
+const GoalManagement = lazy(() => import('../components/GoalManagement').then(m => ({ default: m.GoalManagement })));
 
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
@@ -2058,7 +2059,9 @@ const Settings: React.FC = () => {
               </button>
             </div>
 
-            {budgetTab === 'budget' ? <BudgetManagement /> : <GoalManagement />}
+            <Suspense fallback={null}>
+              {budgetTab === 'budget' ? <BudgetManagement /> : <GoalManagement />}
+            </Suspense>
           </>
         );
 
@@ -2784,33 +2787,37 @@ const Settings: React.FC = () => {
           );
         }}
       />
-      <ExcelMappingModal
-        isOpen={mappingModalOpen}
-        onClose={() => {
-          setMappingModalOpen(false);
-          setPendingExcelFile(null);
-          setIsImportingExcel(false);
-          if (excelImportRef.current) excelImportRef.current.value = '';
-        }}
-        headers={excelHeaders}
-        onConfirm={async (mapping) => {
-          setMappingModalOpen(false);
-          if (!pendingExcelFile) return;
-          try {
-            const { rows, result } = await parseExcelFile(pendingExcelFile, categories, assets, mapping);
-            setExcelResult(result);
-            if (rows.length > 0) {
-              navigate('/bulk-input', { state: { excelDraftData: rows } });
-            }
-          } catch (err) {
-            setExcelResult({ imported: 0, skipped: 0, errors: [`Gagal membaca file: ${String(err)}`] });
-          } finally {
-            setIsImportingExcel(false);
-            setPendingExcelFile(null);
-            if (excelImportRef.current) excelImportRef.current.value = '';
-          }
-        }}
-      />
+      {mappingModalOpen && (
+        <Suspense fallback={null}>
+          <ExcelMappingModal
+            isOpen={mappingModalOpen}
+            onClose={() => {
+              setMappingModalOpen(false);
+              setPendingExcelFile(null);
+              setIsImportingExcel(false);
+              if (excelImportRef.current) excelImportRef.current.value = '';
+            }}
+            headers={excelHeaders}
+            onConfirm={async (mapping) => {
+              setMappingModalOpen(false);
+              if (!pendingExcelFile) return;
+              try {
+                const { rows, result } = await parseExcelFile(pendingExcelFile, categories, assets, mapping);
+                setExcelResult(result);
+                if (rows.length > 0) {
+                  navigate('/bulk-input', { state: { excelDraftData: rows } });
+                }
+              } catch (err) {
+                setExcelResult({ imported: 0, skipped: 0, errors: [`Gagal membaca file: ${String(err)}`] });
+              } finally {
+                setIsImportingExcel(false);
+                setPendingExcelFile(null);
+                if (excelImportRef.current) excelImportRef.current.value = '';
+              }
+            }}
+          />
+        </Suspense>
+      )}
 
       <input
         ref={excelImportRef}

@@ -9,7 +9,8 @@ import { validateFileSecure } from '../lib/fileValidation';
 import SplitBillModal from '../components/modals/SplitBillModal';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
-import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
+import { lazy, Suspense } from 'react';
+const OverspendReallocationModal = lazy(() => import('../components/modals/OverspendReallocationModal'));
 import { useNavigate } from 'react-router-dom';
 import CurrencyInput from '../components/common/CurrencyInput';
 
@@ -31,7 +32,7 @@ const ReceiptScanner: React.FC = () => {
   const navigate = useNavigate();
   const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId, validateTransactionBudget, zbbMode } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
-  const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
+  const { parseData: parseMutasi, progress: mutasiProgress, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { showToast } = useToast();
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
@@ -42,7 +43,7 @@ const ReceiptScanner: React.FC = () => {
   const [scanMode, setScanMode] = useState<'struk' | 'mutasi'>('struk');
   const error = scanMode === 'struk' ? strukError : mutasiError;
   const setError = scanMode === 'struk' ? setStrukError : setMutasiError;
-  const progress = scanMode === 'struk' ? strukProgress : (isMutasiParsing ? 50 : 0);
+  const progress = scanMode === 'struk' ? strukProgress : mutasiProgress;
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [croppedImageUrl, setCroppedImageUrl] = useState<string | null>(null);
@@ -1178,15 +1179,19 @@ const ReceiptScanner: React.FC = () => {
         }}
       />
 
-      <OverspendReallocationModal
-        isOpen={reallocationModal.isOpen}
-        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
-        onSuccess={handleReallocationSuccess}
-        deficitCategoryId={reallocationModal.deficitCategory}
-        deficitAmount={reallocationModal.deficitAmount}
-        month={reallocationModal.month}
-        year={reallocationModal.year}
-      />
+      {reallocationModal.isOpen && (
+        <Suspense fallback={null}>
+          <OverspendReallocationModal
+            isOpen={reallocationModal.isOpen}
+            onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+            onSuccess={handleReallocationSuccess}
+            deficitCategoryId={reallocationModal.deficitCategory}
+            deficitAmount={reallocationModal.deficitAmount}
+            month={reallocationModal.month}
+            year={reallocationModal.year}
+          />
+        </Suspense>
+      )}
     </PageWrapper>
   );
 };

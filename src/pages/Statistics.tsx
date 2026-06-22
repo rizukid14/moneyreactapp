@@ -9,6 +9,7 @@ import type { StatDetailItem } from '../components/modals/StatDetailModal';
 import { formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
+import { MONTH_NAMES } from '../lib/constants';
 
 import { ALL_STATS_VIEWS } from './Settings';
 import { PageWrapper } from '../components/ui/PageWrapper';
@@ -20,7 +21,7 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { ListItem } from '../components/ui/ListItem';
 import { EmptyState } from '../components/ui/EmptyState';
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
 const COLORS = ['var(--primary)', 'var(--success)', 'var(--warning)', 'var(--danger)', 'var(--secondary)', 'hsl(330, 70%, 55%)', 'hsl(170, 60%, 40%)', 'hsl(350, 75%, 55%)', 'hsl(250, 60%, 55%)'];
 
@@ -74,6 +75,9 @@ const Statistics: React.FC = () => {
   }, []);
 
   const fmt = useCallback((value: number) => formatCurrency(value, currencySymbol), [currencySymbol]);
+
+  // Create Map for O(1) category lookup
+  const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
 
   const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights, dailyExpenseChart, heatmapData } = useMemo((): {
     chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
@@ -142,7 +146,7 @@ const Statistics: React.FC = () => {
       const pE = new Date(y, m + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
 
       last6Months.push({
-        name: MONTH_NAMES[m],
+        name: SHORT_MONTH_NAMES[m],
         month: m,
         year: y,
         pengeluaran: 0,
@@ -234,23 +238,23 @@ const Statistics: React.FC = () => {
 
     const expenseData = drillDownCategory?.type === 'pengeluaran'
       ? Object.keys(expBySubCategory).map(key => {
-          const parentCat = categories?.find(c => c.id === drillDownCategory.name);
+          const parentCat = drillDownCategory.name ? categoryMap.get(drillDownCategory.name) : undefined;
           const subCatName = parentCat?.subcategories?.find(s => s.id === key)?.name || parentCat?.name || key;
           return { name: subCatName, id: key, value: expBySubCategory[key] };
         }).sort((a, b) => b.value - a.value)
       : Object.keys(expByCategory).map(key => {
-          const catName = categories?.find(c => c.id === key)?.name || key;
+          const catName = categoryMap.get(key)?.name || key;
           return { name: catName, id: key, value: expByCategory[key] };
         }).sort((a, b) => b.value - a.value);
 
     const incomeData = drillDownCategory?.type === 'pendapatan'
       ? Object.keys(incBySubCategory).map(key => {
-          const parentCat = categories?.find(c => c.id === drillDownCategory.name);
+          const parentCat = drillDownCategory.name ? categoryMap.get(drillDownCategory.name) : undefined;
           const subCatName = parentCat?.subcategories?.find(s => s.id === key)?.name || parentCat?.name || key;
           return { name: subCatName, id: key, value: incBySubCategory[key] };
         }).sort((a, b) => b.value - a.value)
       : Object.keys(incByCategory).map(key => {
-          const catName = categories?.find(c => c.id === key)?.name || key;
+          const catName = categoryMap.get(key)?.name || key;
           return { name: catName, id: key, value: incByCategory[key] };
         }).sort((a, b) => b.value - a.value);
 
@@ -2024,7 +2028,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
               <Tooltip
                 contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
                 formatter={(val: any) => fmt(Number(val))}
-                labelFormatter={(label) => ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][label]}
+                labelFormatter={(label) => MONTH_NAMES[label]}
               />
               <Area type="monotone" dataKey="netWorth" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorNetWorth)" />
             </AreaChart>

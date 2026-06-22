@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
+import { useSpeechToText } from '../../hooks/useSpeechToText';
 import CategorySelectModal from '../modals/CategorySelectModal';
 import AssetSelectModal from '../modals/AssetSelectModal';
 
@@ -16,10 +17,7 @@ interface Message {
   };
 }
 
-const MONTH_NAMES = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-];
+import { MONTH_NAMES } from '../../lib/constants';
 
 const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
@@ -27,10 +25,7 @@ const ChatBot: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const speechBaseRef = useRef('');
-  const finalTranscriptRef = useRef('');
+  const { isListening, toggleListening } = useSpeechToText(' ');
 
   // States for custom selection modals
   const [activeSelectCategoryMsgIdx, setActiveSelectCategoryMsgIdx] = useState<number | null>(null);
@@ -308,51 +303,7 @@ const ChatBot: React.FC = () => {
   };
 
   const handleVoiceInput = () => {
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      return;
-    }
-
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
-      return;
-    }
-
-    const recognition = new SR();
-    recognition.lang = 'id-ID';
-    recognition.interimResults = true;
-    recognition.continuous = false;
-
-    recognitionRef.current = recognition;
-    speechBaseRef.current = input.trim();
-    finalTranscriptRef.current = '';
-    setIsListening(true);
-
-    recognition.onresult = (event: any) => {
-      let newFinalText = '';
-      let interimText = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) newFinalText += t;
-        else interimText += t;
-      }
-      if (newFinalText) finalTranscriptRef.current += newFinalText;
-      const combined = `${speechBaseRef.current} ${finalTranscriptRef.current} ${interimText}`.trim();
-      setInput(combined);
-    };
-    recognition.onerror = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
-      showToast('Gagal menangkap suara.', 'warning');
-    };
-    recognition.onend = () => {
-      const combined = `${speechBaseRef.current} ${finalTranscriptRef.current}`.trim();
-      if (combined) setInput(combined);
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-    recognition.start();
+    toggleListening(input, setInput);
   };
 
   const handleConfirmTransaction = (msgIndex: number, toolArgs: any) => {

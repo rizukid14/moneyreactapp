@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { motion } from 'framer-motion';
@@ -6,7 +6,7 @@ import { dbGetSharedSplit, type SharedSplit } from '../lib/db';
 import { useMoney } from '../contexts/MoneyContext';
 import { useToast } from '../components/common/Toast';
 import SharedExpenseDetailModal from '../components/modals/SharedExpenseDetailModal';
-import SettlementExplanationModal from '../components/modals/SettlementExplanationModal';
+const SettlementExplanationModal = lazy(() => import('../components/modals/SettlementExplanationModal'));
 
 const SharedSplitBill: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -506,15 +506,17 @@ const SharedSplitBill: React.FC = () => {
         currencySymbol={split.currencySymbol || 'Rp'}
       />
 
-      <SettlementExplanationModal
-        isOpen={!!selectedSettlement}
-        onClose={() => setSelectedSettlement(null)}
-        settlement={selectedSettlement}
-        mode={mode}
-        trip={{ members: (split as any).members || [] }}
-        expenses={(split as any).tripExpenses || []}
-        currencySymbol={split.currencySymbol || 'Rp'}
-      />
+      <Suspense fallback={null}>
+        <SettlementExplanationModal
+          isOpen={!!selectedSettlement}
+          onClose={() => setSelectedSettlement(null)}
+          settlement={selectedSettlement}
+          mode={mode}
+          trip={{ members: (split as any).members || [] }}
+          expenses={(split as any).tripExpenses || []}
+          currencySymbol={split.currencySymbol || 'Rp'}
+        />
+      </Suspense>
 
       {/* Identity Picker Modal for Trip Settlements */}
       {identityPicker && (

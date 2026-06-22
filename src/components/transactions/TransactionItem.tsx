@@ -60,7 +60,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-xl w-full">
+      <div className="relative overflow-hidden rounded-xl w-full" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 80px' }}>
         {/* Swipe Action Backgrounds */}
         <div className="absolute inset-0 flex justify-between items-center pointer-events-none rounded-xl">
           <div 

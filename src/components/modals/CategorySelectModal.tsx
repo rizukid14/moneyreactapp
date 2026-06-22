@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-import { motion, AnimatePresence } from 'framer-motion';
 import { type Category, useMoney } from '../../contexts/MoneyContext';
 import CategoryModal from './CategoryModal';
+import Modal from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import MaterialIcon from '../common/MaterialIcon';
@@ -97,48 +97,23 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            style={{ zIndex: 3000 }} // Ensure it's above TransactionModal (2000 normally for overlay but TransactionModal is below)
-          >
-            <motion.div
-              className="modal-content"
-              onClick={e => e.stopPropagation()}
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 400, mass: 0.5 }}
-              style={{ padding: 0, height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      <Modal isOpen={isOpen} onClose={onClose} title="Pilih Kategori">
+        <div style={{ display: 'flex', flexDirection: 'column', height: '80vh', overflow: 'hidden' }}>
+          {/* Header Action: Add Category (Title and Close are handled by Modal) */}
+          <div style={{ position: 'absolute', top: '16px', right: '56px', zIndex: 10 }}>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              style={{
+                background: 'var(--primary-gradient)', color: 'white', border: 'none',
+                borderRadius: '10px', width: '32px', height: '32px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
+              }}
+              title="Tambah Kategori Baru"
             >
-              {/* Header */}
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0
-              }}>
-                <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Kategori</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    style={{
-                      background: 'var(--primary-gradient)', color: 'white', border: 'none',
-                      borderRadius: '10px', width: '32px', height: '32px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
-                    }}
-                    title="Tambah Kategori Baru"
-                  >
-                    <MaterialIcon name="add" className="text-[18px]" />
-                  </button>
-                  <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-[20px]" /></button>
-                </div>
-              </div>
+              <MaterialIcon name="add" className="text-[18px]" />
+            </button>
+          </div>
 
               {/* Search Bar */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
@@ -247,6 +222,15 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                     </div>
                   ) : (
                     <>
+                      {/* Custom Confirm Selection Main Category if it has subcategories but user wants main */}
+                      {activeCategoryObj?.subcategories && activeCategoryObj.subcategories.length > 0 && (
+                        <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, background: 'var(--bg-main)' }}>
+                          <Button variant="outline" fullWidth onClick={handleConfirmMainCategoryOnly} style={{ padding: '12px', fontSize: '13px', fontWeight: 700 }}>
+                            Pilih Kategori Utama: {activeCategoryObj.name}
+                          </Button>
+                        </div>
+                      )}
+
                       <button
                         onClick={() => handleSubCategoryClick('')}
                         style={{
@@ -285,11 +269,8 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                 </div>
               </div>
 
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+        </div>
+      </Modal>
       {addCategory && (
         <CategoryModal
           isOpen={isAddModalOpen}

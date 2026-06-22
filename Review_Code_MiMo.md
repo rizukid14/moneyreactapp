@@ -332,10 +332,10 @@ Perbandingan dengan 70 rules dari [Vercel React Best Practices](/skills/vercel-r
 
 | # | Task |
 |---|---|
-| 9 | Unify semua modal selector (CategorySelect, AssetSelect, ContactSelect) untuk pake `ui/Modal` |
-| 10 | Extract `MONTH_NAMES` ke `lib/constants.ts` |
-| 11 | Extract `DropdownMenu` generic component |
-| 12 | Migrasi `ConfirmDialog` dan `Toast` ke Tailwind |
+| 9 | ✅ Unify semua modal selector (CategorySelect, AssetSelect, ContactSelect) untuk pake `ui/Modal` |
+| 10 | ✅ Extract `MONTH_NAMES` ke `lib/constants.ts` |
+| 11 | ✅ Extract `DropdownMenu` generic component |
+| 12 | ✅ Migrasi `ConfirmDialog` dan `Toast` ke Tailwind |
 | 13 | Konsistenkan export convention (named vs default) |
 
 ### Tier 4: LOW — Polish

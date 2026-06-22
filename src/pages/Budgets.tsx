@@ -11,6 +11,8 @@ import DatePickerModal from '../components/modals/DatePickerModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { MoveMoneyModal } from '../components/BudgetManagement';
 
+import { MONTH_NAMES } from '../lib/constants';
+
 const Budgets: React.FC = () => {
   const { 
     budgets, 
@@ -44,10 +46,7 @@ const Budgets: React.FC = () => {
   const [quickTopUpTarget, setQuickTopUpTarget] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
-  const monthNames = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-  ];
+  const monthNames = MONTH_NAMES;
 
   // Process Budgets for the selected month
   const selectedMonth = viewDate.getMonth();
@@ -67,6 +66,21 @@ const Budgets: React.FC = () => {
 
   const unassignedMoney = monthlyIncome - totalBudgeted;
 
+  // Maps for fast category lookups
+  const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
+  const categoryNameMap = useMemo(() => {
+    const map = new Map<string, any>();
+    categories.forEach(c => {
+      if (c.type === 'pengeluaran') {
+        const key = c.name.toLowerCase();
+        if (!c.isDeleted || !map.has(key)) {
+          map.set(key, c);
+        }
+      }
+    });
+    return map;
+  }, [categories]);
+
   // Process Spending per category
   const spendingMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -76,22 +90,21 @@ const Budgets: React.FC = () => {
     transactions.forEach(tx => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
-        const cat = categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran');
+        const cat = tx.categoryId ? categoryNameMap.get(tx.categoryId.toLowerCase()) : undefined;
         if (cat) {
           map[cat.id] = (map[cat.id] || 0) + tx.amount;
         }
       }
     });
     return map;
-  }, [transactions, selectedMonth, selectedYear, categories, startOfMonthDay]);
+  }, [transactions, selectedMonth, selectedYear, categoryNameMap, startOfMonthDay]);
 
   const selectedBudgetTransactions = useMemo(() => {
     if (!selectedBudgetId) return [];
-    const budget = categoryBudgets.find(b => b.id === selectedBudgetId);
+    const budget = currentMonthBudgets.find(b => b.id === selectedBudgetId);
     if (!budget || !budget.categoryId) return [];
     
-    const cat = categories.find(c => c.id === budget.categoryId);
+    const cat = categoryMap.get(budget.categoryId);
     if (!cat) return [];
 
     const periodStart = new Date(selectedYear, selectedMonth - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);

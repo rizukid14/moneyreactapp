@@ -4,12 +4,10 @@ import { useMoney, type Budget } from '../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BudgetModal from './modals/BudgetModal';
 import ConfirmDialog from './common/ConfirmDialog';
+import DropdownMenu from './common/DropdownMenu';
 import CurrencyInput from './common/CurrencyInput';
 
-const MONTH_NAMES = [
-  'Januari','Februari','Maret','April','Mei','Juni',
-  'Juli','Agustus','September','Oktober','November','Desember'
-];
+import { MONTH_NAMES } from '../lib/constants';
 
 const fmt = (val: number, sym: string) => `${sym}${val.toLocaleString('id-ID')}`;
 
@@ -41,7 +39,7 @@ const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   );
 };
 
-const EnvelopeCard: React.FC<{
+interface EnvelopeCardProps {
   label: string;
   spent: number;
   limit: number;
@@ -52,7 +50,9 @@ const EnvelopeCard: React.FC<{
   onMenuToggle: () => void;
   currencySymbol: string;
   id: string;
-}> = ({ label, spent, limit, onTopUp, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
+}
+
+const EnvelopeCard = React.memo<EnvelopeCardProps>(({ label, spent, limit, onTopUp, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
   const available = limit - spent;
   const isOver = available < 0;
   
@@ -65,26 +65,12 @@ const EnvelopeCard: React.FC<{
             Dianggarkan: {fmt(limit, currencySymbol)} &bull; Terpakai: {fmt(spent, currencySymbol)}
           </div>
         </div>
-        <div style={{ position: 'relative' }}>
-          <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
-            <MaterialIcon name="more_vert" className="text-base" />
-          </button>
-          <AnimatePresence>
-            {isMenuOpen && (
-              <motion.div 
-                className="budget-dropdown bg-bg-card shadow-bento rounded-xl overflow-hidden border border-border-light" 
-                style={{ right: 0, top: 28 }}
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                transition={{ duration: 0.1 }}
-              >
-                <button className="budget-dropdown-item flex items-center gap-2" onClick={onEdit}><MaterialIcon name="edit" className="text-[13px]" /> Edit Limit</button>
-                <button className="budget-dropdown-item danger flex items-center gap-2" onClick={onDelete}><MaterialIcon name="delete" className="text-[13px]" /> Hapus</button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <DropdownMenu 
+          items={[
+            { icon: 'edit', label: 'Edit Limit', onClick: onEdit },
+            { icon: 'delete', label: 'Hapus', danger: true, onClick: onDelete }
+          ]}
+        />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12 }}>
@@ -109,9 +95,9 @@ const EnvelopeCard: React.FC<{
       </div>
     </div>
   );
-};
+});
 
-const BudgetCard: React.FC<{
+interface BudgetCardProps {
   label: string;
   icon?: React.ReactNode;
   spent: number;
@@ -123,13 +109,15 @@ const BudgetCard: React.FC<{
   onMenuToggle: () => void;
   currencySymbol: string;
   id: string;
-}> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
+}
+
+const BudgetCard = React.memo<BudgetCardProps>(({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol, id }) => {
   const percent = limit > 0 ? (spent / limit) * 100 : 0;
   const remaining = limit - spent;
   const barColor = percent >= 100 ? 'var(--danger)' : percent >= 75 ? 'var(--warning)' : 'var(--primary)';
 
   return (
-    <div data-testid={`budget-card-${id}`} className={`bg-bg-card p-4 rounded-2xl shadow-bento border border-outline-variant relative mb-3 group transition-all`}>
+    <div data-testid={`budget-card-${id}`} className={`bg-bg-card p-4 rounded-2xl shadow-bento border border-outline-variant relative mb-3 group transition-all`} style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {icon && (
@@ -146,26 +134,12 @@ const BudgetCard: React.FC<{
             )}
           </div>
         </div>
-        <div style={{ position: 'relative' }}>
-          <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
-            <MaterialIcon name="more_vert" className="text-base" />
-          </button>
-          <AnimatePresence>
-            {isMenuOpen && (
-              <motion.div 
-                className="budget-dropdown bg-bg-card shadow-bento rounded-xl overflow-hidden border border-border-light" 
-                style={{ right: 0, top: 28 }}
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                transition={{ duration: 0.1 }}
-              >
-                <button className="budget-dropdown-item flex items-center gap-2" onClick={onEdit}><MaterialIcon name="edit" className="text-[13px]" /> Edit</button>
-                <button className="budget-dropdown-item danger flex items-center gap-2" onClick={onDelete}><MaterialIcon name="delete" className="text-[13px]" /> Hapus</button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <DropdownMenu 
+          items={[
+            { icon: 'edit', label: 'Edit', onClick: onEdit },
+            { icon: 'delete', label: 'Hapus', danger: true, onClick: onDelete }
+          ]}
+        />
       </div>
 
       <div style={{ height: 7, background: 'var(--bg-neutral)', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
@@ -190,7 +164,7 @@ const BudgetCard: React.FC<{
       </div>
     </div>
   );
-};
+});
 
 export const BudgetManagement: React.FC = () => {
   const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol, startOfMonthDay, budgetMode, monthlyIncomes, setMonthIncome, moveBudgetMoney, budgetReallocations } = useMoney();
@@ -413,26 +387,14 @@ export const BudgetManagement: React.FC = () => {
             <div style={{ transform: 'scale(0.8)', marginLeft: -10 }}>
               <CircleProgress percent={globalPercent} />
             </div>
-          </div>
-          <div style={{ position: 'absolute', top: 10, right: 10 }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setActiveMenu(activeMenu === globalBudget.id ? null : globalBudget.id)} className="btn-icon" style={{ padding: 4 }}>
-              <MaterialIcon name="more_vert" className="text-base" />
-            </button>
-            <AnimatePresence>
-              {activeMenu === globalBudget.id && (
-                <motion.div 
-                  className="budget-dropdown" 
-                  style={{ right: 0, top: 28 }}
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <button className="budget-dropdown-item flex items-center gap-2" onClick={() => handleEdit(globalBudget)}><MaterialIcon name="edit" className="text-[13px]" /> Edit</button>
-                  <button className="budget-dropdown-item danger flex items-center gap-2" onClick={() => handleDelete(globalBudget.id)}><MaterialIcon name="delete" className="text-[13px]" /> Hapus</button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div style={{ position: 'absolute', top: 10, right: 10 }}>
+              <DropdownMenu 
+                items={[
+                  { icon: 'edit', label: 'Edit', onClick: () => { setActiveMenu(null); handleEdit(globalBudget); } },
+                  { icon: 'delete', label: 'Hapus', danger: true, onClick: () => { setActiveMenu(null); handleDelete(globalBudget.id); } }
+                ]}
+              />
+            </div>
           </div>
         </div>
       ) : (

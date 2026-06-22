@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
-import { isPrincipalTx } from '../lib/utils';
+import { isPrincipalTx, getLocalDate } from '../lib/utils';
+import DropdownMenu from '../components/common/DropdownMenu';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
 import DebtOffsetModal from '../components/modals/DebtOffsetModal';
-import TransactionModal from '../components/modals/TransactionModal';
+import { lazy, Suspense } from 'react';
+const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import OnboardingTutorial from '../components/OnboardingTutorial';
@@ -29,7 +31,7 @@ const getDaysUntilDue = (dueDate?: string) => {
   return diff;
 };
 
-const DebtCard: React.FC<{
+interface DebtCardProps {
   debt: Debt;
   onEdit: () => void;
   onDelete: () => void;
@@ -45,7 +47,9 @@ const DebtCard: React.FC<{
   isExpanded: boolean;
   currencySymbol: string;
   onHistoryClick?: (tx: Transaction) => void;
-}> = ({
+}
+
+const DebtCard = React.memo<DebtCardProps>(({
   debt, onEdit, onDelete, onPay, onAddPrincipal, onSettle, onUnpay,
   liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded,
   currencySymbol, onHistoryClick
@@ -134,33 +138,16 @@ const DebtCard: React.FC<{
           </div>
 
           {/* Menu */}
-          <div className="relative shrink-0" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setMenuOpen(p => !p)} className="p-1 rounded-full text-on-surface-variant hover:bg-surface-subtle transition-colors">
-              <MaterialIcon name="more_vert" className="text-base" />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-8 bg-surface-container rounded-xl shadow-bento py-1 z-10 w-48 border border-outline-variant">
-                <button className="w-full text-left px-4 py-2 text-xs font-bold text-on-surface hover:bg-surface-subtle flex items-center gap-2" onClick={() => { onEdit(); setMenuOpen(false); }}>
-                  <MaterialIcon name="edit" className="text-[13px]" /> Edit Catatan
-                </button>
-                <button className="w-full text-left px-4 py-2 text-xs font-bold text-on-surface hover:bg-surface-subtle flex items-center gap-2" onClick={() => { onAddPrincipal(); setMenuOpen(false); }}>
-                  <MaterialIcon name="add" className="text-[13px]" /> Tambah Nominal
-                </button>
-                {!debt.isPaid ? (
-                  <button className="w-full text-left px-4 py-2 text-xs font-bold text-on-surface hover:bg-surface-subtle flex items-center gap-2" onClick={() => { onSettle(); setMenuOpen(false); }}>
-                    <MaterialIcon name="check_circle" className="text-[13px]" /> Tandai Lunas
-                  </button>
-                ) : (
-                  <button className="w-full text-left px-4 py-2 text-xs font-bold text-on-surface hover:bg-surface-subtle flex items-center gap-2" onClick={() => { onUnpay(); setMenuOpen(false); }}>
-                    <MaterialIcon name="check_circle" className="text-[13px]" /> Tandai Belum Lunas
-                  </button>
-                )}
-                <button className="w-full text-left px-4 py-2 text-xs font-bold text-error hover:bg-error-container/20 flex items-center gap-2" onClick={() => { onDelete(); setMenuOpen(false); }}>
-                  <MaterialIcon name="delete" className="text-[13px]" /> Hapus
-                </button>
-              </div>
-            )}
-          </div>
+          <DropdownMenu 
+            items={[
+              { icon: 'edit', label: 'Edit Catatan', onClick: onEdit },
+              { icon: 'add', label: 'Tambah Nominal', onClick: onAddPrincipal },
+              !debt.isPaid 
+                ? { icon: 'check_circle', label: 'Tandai Lunas', onClick: onSettle }
+                : { icon: 'check_circle', label: 'Tandai Belum Lunas', onClick: onUnpay },
+              { icon: 'delete', label: 'Hapus', danger: true, onClick: onDelete }
+            ]}
+          />
         </div>
 
         {/* Amount */}
@@ -300,7 +287,7 @@ const DebtCard: React.FC<{
       </motion.div>
       </div>
     );
-  };
+});
 
 const Debts: React.FC = () => {
   const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol, updateTransaction, deleteTransaction } = useMoney();
@@ -324,7 +311,10 @@ const Debts: React.FC = () => {
     else addDebt(data, initialMode ?? 'none', categoryName, subCategoryName);
   };
 
-  const getAssetName = (id?: string) => assets.find(a => a.id === id)?.name;
+  // Create Map for fast asset lookup
+  const assetMap = useMemo(() => new Map(assets.map(a => [a.id, a])), [assets]);
+
+  const getAssetName = (id?: string) => id ? assetMap.get(id)?.name : undefined;
 
   const summary = useMemo(() => {
     let totalHutang = 0, totalPiutang = 0;
@@ -601,15 +591,17 @@ const Debts: React.FC = () => {
       )}
 
       {editingHistoryTx && (
-        <TransactionModal
-          isOpen={!!editingHistoryTx}
-          onClose={() => setEditingHistoryTx(null)}
-          assets={assets}
-          addTransaction={() => ({} as any)} // Not used when editing
-          updateTransaction={updateTransaction}
-          deleteTransaction={deleteTransaction}
-          editingTransaction={editingHistoryTx}
-        />
+        <Suspense fallback={null}>
+          <TransactionModal
+            isOpen={!!editingHistoryTx}
+            onClose={() => setEditingHistoryTx(null)}
+            assets={assets}
+            addTransaction={() => ({} as any)} // Not used when editing
+            updateTransaction={updateTransaction}
+            deleteTransaction={deleteTransaction}
+            editingTransaction={editingHistoryTx}
+          />
+        </Suspense>
       )}
 
       {/* Floating Action Button (FAB) matching Transactions page (Dynamic Theme & Visibility) */}

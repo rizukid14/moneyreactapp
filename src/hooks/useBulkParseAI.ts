@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { getLocalDate } from '../lib/utils';
+import { resizeImage, blobToBase64 } from '../lib/imageUtils';
 
 export interface ParsedTransaction {
   id: string; // temporary id for frontend listing
@@ -19,51 +20,11 @@ export interface ParsedTransaction {
   adminFeeTarget?: 'sender' | 'receiver';
 }
 
-const resizeImage = (blob: Blob, maxWidth: number = 768): Promise<Blob> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = URL.createObjectURL(blob);
-    img.onload = () => {
-      URL.revokeObjectURL(img.src);
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
 
-      if (width > height) {
-        if (width > maxWidth) {
-          height *= maxWidth / width;
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxWidth) {
-          width *= maxWidth / height;
-          height = maxWidth;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.6);
-    };
-  });
-};
-
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = (reader.result as string).split(',')[1];
-      resolve(base64String);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
 
 export const useBulkParseAI = () => {
   const [isParsing, setIsParsing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const parseData = useCallback(async ({
@@ -81,41 +42,58 @@ export const useBulkParseAI = () => {
   }): Promise<ParsedTransaction[] | null> => {
     setIsParsing(true);
     setError(null);
+    setProgress(0);
 
     try {
       let imageBase64;
       if (imageBlob) {
+        setProgress(20);
         const resized = await resizeImage(imageBlob);
         imageBase64 = await blobToBase64(resized);
       }
 
-      const response = await fetch('/api/bulk-parse', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: text || '',
-          image: imageBase64,
-          categories: categories
-            ?.filter(c => !c.isDeleted)
-            .map(c => ({ 
-              name: c.name, 
-              subcategories: c.subcategories
-                ?.filter((s: any) => !s.isDeleted)
-                .map((s: any) => ({ name: s.name })) 
-            })),
-          assets: assets?.map(a => ({ name: a.name, id: a.id })),
-          defaultAssetId,
-          currentDate: getLocalDate()
-        }),
-      });
+      setProgress(40);
+      
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev < 80) return prev + 5;
+          return prev;
+        });
+      }, 500);
+
+      let response;
+      try {
+        response = await fetch('/api/bulk-parse', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: text || '',
+            image: imageBase64,
+            categories: categories
+              ?.filter(c => !c.isDeleted)
+              .map(c => ({ 
+                name: c.name, 
+                subcategories: c.subcategories
+                  ?.filter((s: any) => !s.isDeleted)
+                  .map((s: any) => ({ name: s.name })) 
+              })),
+            assets: assets?.map(a => ({ name: a.name, id: a.id })),
+            defaultAssetId,
+            currentDate: getLocalDate()
+          }),
+        });
+      } finally {
+        clearInterval(progressInterval);
+      }
 
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.message || 'Gagal menghubungi server AI.');
       }
 
+      setProgress(90);
       const result = await response.json();
 
       if (!result.transactions || !Array.isArray(result.transactions)) {
@@ -145,6 +123,7 @@ export const useBulkParseAI = () => {
         };
       });
 
+      setProgress(100);
       return mappedTransactions;
 
     } catch (err: any) {
@@ -158,6 +137,7 @@ export const useBulkParseAI = () => {
   return {
     parseData,
     isParsing,
+    progress,
     error,
     setError
   };
