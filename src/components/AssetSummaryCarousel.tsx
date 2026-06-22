@@ -394,38 +394,29 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
           </div>
 
           {/* Next tier hint & Tier badge */}
-          {!isPrivateMode ? (
-            nextTier ? (
-              <div className="flex flex-col gap-1.5">
-                <div className="h-1 rounded-sm bg-white/20 overflow-hidden">
-                  <div 
-                    className="h-full rounded-sm bg-white/75 transition-all duration-1000 ease-out"
-                    style={{ width: `${Math.round(fillPercent * 100)}%` }} 
-                  />
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="text-[10px] opacity-75 font-semibold">
-                    {currencySymbol}{amountToNext.toLocaleString('id-ID')} lagi ke {nextTier.emoji} {nextTier.rank}
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm shrink-0">
-                    <span>{tier.emoji}</span>
-                    <span>{tier.rank}</span>
-                  </div>
-                </div>
+          {nextTier ? (
+            <div className="flex flex-col gap-1.5">
+              <div className="h-1 rounded-sm bg-white/20 overflow-hidden">
+                <div 
+                  className="h-full rounded-sm bg-white/75 transition-all duration-1000 ease-out"
+                  style={{ width: `${Math.round(fillPercent * 100)}%` }} 
+                />
               </div>
-            ) : (
-              <div className="flex justify-between items-center mt-1">
-                <div className="text-[10px] opacity-75 font-bold">
-                  🏆 Kamu sudah di puncak! Sultan sejati!
+              <div className="flex justify-between items-center">
+                <div className="text-[10px] opacity-75 font-semibold">
+                  {isPrivateMode ? '••••••••' : `${currencySymbol}${amountToNext.toLocaleString('id-ID')}`} lagi ke {nextTier.emoji} {nextTier.rank}
                 </div>
                 <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm shrink-0">
                   <span>{tier.emoji}</span>
                   <span>{tier.rank}</span>
                 </div>
               </div>
-            )
+            </div>
           ) : (
-            <div className="flex justify-end mt-1">
+            <div className="flex justify-between items-center mt-1">
+              <div className="text-[10px] opacity-75 font-bold">
+                🏆 Kamu sudah di puncak! Sultan sejati!
+              </div>
               <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm shrink-0">
                 <span>{tier.emoji}</span>
                 <span>{tier.rank}</span>
