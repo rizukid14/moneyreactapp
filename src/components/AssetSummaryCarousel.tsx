@@ -224,15 +224,9 @@ export function calcCardValue(
 
 // ─── Liquid Wave Animation CSS (injected once) ────────────────────────────────
 const WAVE_CSS = `
-@keyframes _liquid_wave {
-  0%   { transform: translateX(0) translateY(0); }
-  50%  { transform: translateX(-25%) translateY(-4px); }
-  100% { transform: translateX(-50%) translateY(0); }
-}
-@keyframes _liquid_wave2 {
-  0%   { transform: translateX(0) translateY(0); }
-  50%  { transform: translateX(-25%) translateY(4px); }
-  100% { transform: translateX(-50%) translateY(0); }
+@keyframes _liquid_spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 `;
 let waveStyleInjected = false;
@@ -266,32 +260,32 @@ const LiquidFill: React.FC<{ fillPercent: number; color: string }> = ({ fillPerc
         bottom: 0, left: 0, right: 0,
         height: `${rendered * 100}%`,
         transition: 'height 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflow: 'hidden',
       }}>
-        {/* Wave 1 */}
-        <div style={{
-          position: 'absolute', top: -20, left: 0,
-          width: '200%', height: '40px',
-          background: color,
-          borderRadius: '40%',
-          animation: '_liquid_wave 3.5s linear infinite',
-          opacity: 0.8,
-        }} />
-        {/* Wave 2 (offset phase) */}
-        <div style={{
-          position: 'absolute', top: -14, left: 0,
-          width: '200%', height: '36px',
-          background: color,
-          borderRadius: '38%',
-          animation: '_liquid_wave2 4.5s linear infinite',
-          opacity: 0.5,
-        }} />
-        {/* Fill body below waves */}
+        {/* Wave 1 (Back) */}
         <div style={{
           position: 'absolute',
-          top: 20, bottom: 0, left: 0, right: 0,
+          top: '25px',
+          left: '50%',
+          width: '1200px',
+          height: '1200px',
+          marginLeft: '-600px',
           background: color,
-          opacity: 0.65,
+          borderRadius: '40%',
+          animation: '_liquid_spin 12s linear infinite',
+          opacity: 0.5,
+        }} />
+        {/* Wave 2 (Front) */}
+        <div style={{
+          position: 'absolute',
+          top: '15px',
+          left: '50%',
+          width: '1250px',
+          height: '1250px',
+          marginLeft: '-625px',
+          background: color,
+          borderRadius: '43%',
+          animation: '_liquid_spin 18s linear infinite reverse',
+          opacity: 0.8,
         }} />
       </div>
       {/* Dark vignette at bottom */}
@@ -394,36 +388,49 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
             {formatted}
           </div>
 
-          {/* Tier badge */}
-          <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur-sm mb-1.5">
-            <span>{tier.emoji}</span>
-            <span>{tier.rank}</span>
-          </div>
-
           {/* Rotating motivational message */}
           <div key={message} className="text-[11px] opacity-90 leading-snug italic font-medium animate-fadeIn mb-2">
             {message}
           </div>
 
-          {/* Next tier hint */}
-          {!isPrivateMode && (
+          {/* Next tier hint & Tier badge */}
+          {!isPrivateMode ? (
             nextTier ? (
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <div className="h-1 rounded-sm bg-white/20 overflow-hidden">
                   <div 
                     className="h-full rounded-sm bg-white/75 transition-all duration-1000 ease-out"
                     style={{ width: `${Math.round(fillPercent * 100)}%` }} 
                   />
                 </div>
-                <div className="text-[10px] opacity-75 font-semibold">
-                  {currencySymbol}{amountToNext.toLocaleString('id-ID')} lagi ke {nextTier.emoji} {nextTier.rank}
+                <div className="flex justify-between items-center">
+                  <div className="text-[10px] opacity-75 font-semibold">
+                    {currencySymbol}{amountToNext.toLocaleString('id-ID')} lagi ke {nextTier.emoji} {nextTier.rank}
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm shrink-0">
+                    <span>{tier.emoji}</span>
+                    <span>{tier.rank}</span>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="text-[10px] opacity-75 font-bold">
-                🏆 Kamu sudah di puncak! Sultan sejati!
+              <div className="flex justify-between items-center mt-1">
+                <div className="text-[10px] opacity-75 font-bold">
+                  🏆 Kamu sudah di puncak! Sultan sejati!
+                </div>
+                <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm shrink-0">
+                  <span>{tier.emoji}</span>
+                  <span>{tier.rank}</span>
+                </div>
               </div>
             )
+          ) : (
+            <div className="flex justify-end mt-1">
+              <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm shrink-0">
+                <span>{tier.emoji}</span>
+                <span>{tier.rank}</span>
+              </div>
+            </div>
           )}
         </div>
       </div>
