@@ -22,9 +22,18 @@ export interface MetricCardProps {
   colSpan?: number;
   glowColor?: string; // 'primary' | 'secondary' | 'error'
   valueColor?: string; // Tailwind text color class
+  /** When true, flips positive↔negative — use for expense-type metrics where "up" is bad */
+  trendInverted?: boolean;
   onClick?: () => void;
   className?: string;
   children?: React.ReactNode;
+}
+
+/** Flip badge type for inverted-trend cards (e.g. expense increase = bad) */
+function flipBadgeType(type: StatusBadgeType): StatusBadgeType {
+  if (type === 'positive') return 'negative';
+  if (type === 'negative') return 'positive';
+  return type;
 }
 
 /**
@@ -42,14 +51,19 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   colSpan,
   glowColor,
   valueColor = 'text-on-surface',
+  trendInverted = false,
   onClick,
   className = '',
   children,
 }) => {
   const colSpanClass = colSpan ? `col-span-1 md:col-span-${colSpan}` : 'col-span-1';
-  
+
+  const resolvedBadge = badge && trendInverted
+    ? { ...badge, type: flipBadgeType(badge.type) }
+    : badge;
+
   return (
-    <div 
+    <div
       className={`${colSpanClass} bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group ${onClick ? 'cursor-pointer hover:-translate-y-1' : ''} transition-all ${className}`}
       onClick={onClick}
     >
@@ -71,9 +85,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         {/* Value + Badge */}
         <div>
           <h2 className={`text-2xl font-bold ${valueColor} truncate`}>{value}</h2>
-          {badge && (
+          {resolvedBadge && (
             <div className="mt-0.5">
-              <StatusBadge type={badge.type} label={badge.label} />
+              <StatusBadge type={resolvedBadge.type} label={resolvedBadge.label} />
             </div>
           )}
         </div>

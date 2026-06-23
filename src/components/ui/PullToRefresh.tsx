@@ -8,15 +8,26 @@ interface PullToRefreshProps {
   children: React.ReactNode;
 }
 
+const supportsTouch = (): boolean => {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
+
 export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, children }) => {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshState, setRefreshState] = useState<'idle' | 'pulling' | 'ready' | 'refreshing'>('idle');
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const startY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const PULL_THRESHOLD = 70; // Distance required to trigger refresh
 
   useEffect(() => {
+    setIsTouchDevice(supportsTouch());
+  }, []);
+
+  useEffect(() => {
+    if (!isTouchDevice) return;
+
     const el = containerRef.current;
     if (!el) return;
 
@@ -30,17 +41,17 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
 
     const handleTouchMove = (e: TouchEvent) => {
       if (refreshState !== 'pulling' && refreshState !== 'ready') return;
-      
+
       const currentY = e.touches[0].clientY;
       const distance = currentY - startY.current;
-      
+
       if (distance > 0) {
         if (e.cancelable) e.preventDefault();
-        
+
         // Apply log-like resistance to pull
         const cappedDistance = Math.min(distance * 0.4, 120);
         setPullDistance(cappedDistance);
-        
+
         if (cappedDistance >= PULL_THRESHOLD) {
           if (refreshState !== 'ready') {
             setRefreshState('ready');
@@ -80,7 +91,12 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
       el.removeEventListener('touchmove', handleTouchMove);
       el.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [refreshState, onRefresh]);
+  }, [refreshState, onRefresh, isTouchDevice]);
+
+  // Desktop: just render children without pull-to-refresh
+  if (!isTouchDevice) {
+    return <>{children}</>;
+  }
 
   return (
     <div ref={containerRef} className="relative w-full min-h-screen">

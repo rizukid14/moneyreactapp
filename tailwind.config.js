@@ -66,6 +66,7 @@ export default {
         "bg-expense": "var(--bg-expense)",
         "bg-income": "var(--bg-income)",
         "bg-neutral": "var(--bg-neutral)",
+        "warning": "#f59e0b",
         "obsidian": {
           900: '#0F1115',
           800: '#14171C',
