@@ -189,10 +189,13 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
             }
         }
 
-        // 3. Send out reminders to everyone else who didn't get a transaction update
+        // 3. Process settings across all users (FCM tokens & Premium expiry)
         const settingsDocs = await db.collectionGroup('settings').get();
         const pingedTokens = new Set(messagesToSend.map(m => m.token));
         
+        let expiredCount = 0;
+        const expireBatch = db.batch();
+
         settingsDocs.forEach(docSnap => {
             if (docSnap.id === 'fcmToken') {
                 const token = docSnap.data()?.value;
@@ -205,8 +208,44 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
                         }
                     });
                 }
+            } else if (docSnap.id === 'premium') {
+                const data = docSnap.data()?.value;
+                if (data && data.isPremium && data.expiresAt) {
+                    const expiresAt = new Date(data.expiresAt);
+                    if (expiresAt < today) {
+                        expireBatch.update(docSnap.ref, { 
+                            'value.isPremium': false, 
+                            'value.plan': null,
+                            'value.expiresAt': null
+                        });
+                        expiredCount++;
+                        
+                        const uid = docSnap.ref.parent.parent?.id;
+                        if (uid) {
+                            // Find their token if we already fetched it or can fetch it
+                            const tokenDoc = settingsDocs.docs.find(d => d.ref.parent.parent?.id === uid && d.id === 'fcmToken');
+                            const userToken = tokenDoc?.data()?.value;
+                            if (userToken && !pingedTokens.has(userToken)) {
+                                messagesToSend.push({
+                                    token: userToken,
+                                    notification: {
+                                        title: 'Akses Premium Berakhir 🔔',
+                                        body: 'Masa aktif Premium Anda telah habis. Perpanjang sekarang untuk terus menikmati fitur eksklusif!'
+                                    }
+                                });
+                                pingedTokens.add(userToken);
+                            }
+                        }
+                    }
+                }
             }
         });
+
+        if (expiredCount > 0) {
+            await expireBatch.commit();
+            console.log(`[Cron] Expired ${expiredCount} premium subscriptions.`);
+        }
+        
 
         console.log(`[Cron] Generated ${totalGenerated} transactions. Sending ${messagesToSend.length} notifications.`);
 

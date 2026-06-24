@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 
 import { ALL_STATS_VIEWS } from './Settings';
+import { PremiumGate } from '../components/common/PremiumGate';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
 import { BentoCard } from '../components/ui/Card';
@@ -524,7 +525,9 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <FinancialHealth onShowDetail={setDetailModalProps} />
+            <PremiumGate mode="hard" showOverlay>
+              <FinancialHealth onShowDetail={setDetailModalProps} />
+            </PremiumGate>
           </motion.div>
         ) : activeViewId === 'budget' ? (
           <motion.div
@@ -544,7 +547,9 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <GoalStatistics />
+            <PremiumGate mode="hard" showOverlay>
+              <GoalStatistics />
+            </PremiumGate>
           </motion.div>
         ) : activeViewId === 'subs' ? (
           <motion.div
@@ -554,7 +559,9 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <SubscriptionStatistics />
+            <PremiumGate mode="hard" showOverlay>
+              <SubscriptionStatistics />
+            </PremiumGate>
           </motion.div>
         ) : activeViewId === 'forecast' ? (
           <motion.div
@@ -564,7 +571,9 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <CashFlowForecast onShowDetail={setDetailModalProps} />
+            <PremiumGate mode="hard" showOverlay>
+              <CashFlowForecast onShowDetail={setDetailModalProps} />
+            </PremiumGate>
           </motion.div>
         ) : (
           <motion.div
@@ -721,13 +730,14 @@ const Statistics: React.FC = () => {
             </div>
 
             {/* ── 3-Month Spending Heatmap ─────────────────────────── */}
-            {(() => {
-              const allCells = heatmapData.flatMap(m => m.cells);
-              const activeDays = allCells.filter(c => c.amount >= 1000).length;
-              const maxAmount = Math.max(...allCells.map(c => c.amount), 1);
-              if (activeDays === 0) return null;
+            <PremiumGate mode="hard" showOverlay>
+              {(() => {
+                const allCells = heatmapData.flatMap(m => m.cells);
+                const activeDays = allCells.filter(c => c.amount >= 1000).length;
+                const maxAmount = Math.max(...allCells.map(c => c.amount), 1);
+                if (activeDays === 0) return null;
 
-              const CELL = 13;
+                const CELL = 13;
               const GAP = 4;
 
               // Build ONE continuous flat grid
@@ -1131,7 +1141,7 @@ const Statistics: React.FC = () => {
                 </div>
               );
             })()}
-
+            </PremiumGate>
 
             {/* ── Insights Section ────────────────────────────────── */}
             <div className="col-span-1 md:col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6 mb-2">

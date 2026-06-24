@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useMoney } from '../contexts/MoneyContext';
+import { usePremium } from '../contexts/PremiumContext';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -7,12 +8,14 @@ import { useToast } from '../components/common/Toast';
 import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import MaterialIcon from '../components/common/MaterialIcon';
+import { PremiumBadge } from '../components/common/PremiumBadge';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { addTransaction, assets, categories, currencySymbol, validateTransactionBudget, zbbMode } = useMoney();
   const { parseData, isParsing, error, setError } = useBulkParseAI();
+  const { checkQuota, incrementQuota, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
 
   const [stage, setStage] = useState<'input' | 'results'>('input');
@@ -135,9 +138,17 @@ const BulkInput: React.FC = () => {
       showToast('Masukkan teks transaksi terlebih dahulu.', 'warning');
       return;
     }
+
+    const { allowed } = checkQuota('bulk');
+    if (!allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     const activeAssets = assets.filter(a => !a.isDeleted);
     const parsed = await parseData({ text, categories, assets: activeAssets });
     if (parsed && parsed.length > 0) {
+      await incrementQuota('bulk');
       const augmented = parsed.map(tx => {
         const mapAsset = (assetName: string | undefined, defaultId = '') => {
           if (!assetName) return defaultId;
@@ -258,6 +269,7 @@ const BulkInput: React.FC = () => {
           <MaterialIcon name="chevron_left" className="text-on-surface" />
         </button>
         <h1 className="font-headline-lg text-headline-lg text-on-surface">Input Sekaligus</h1>
+        <PremiumBadge feature="bulk" />
       </div>
 
       {error && (

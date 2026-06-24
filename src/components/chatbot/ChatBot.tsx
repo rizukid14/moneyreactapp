@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import MaterialIcon from '../common/MaterialIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
+import { usePremium } from '../../contexts/PremiumContext';
+import { PremiumBadge } from '../common/PremiumBadge';
 import { useToast } from '../common/Toast';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import CategorySelectModal from '../modals/CategorySelectModal';
@@ -47,6 +49,7 @@ const ChatBot: React.FC = () => {
     startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription,
     addRecurringTransaction
   } = useMoney();
+  const { checkQuota, incrementQuota, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -122,6 +125,9 @@ const ChatBot: React.FC = () => {
   };
 
   const triggerEOMReview = async () => {
+    const { allowed } = checkQuota('chat');
+    if (!allowed) return;
+
     setIsLoading(true);
     const { dateStr } = getDaysToEOM();
     const { startDateStr, endDateStr } = getCurrentFinancialMonthDates();
@@ -191,6 +197,7 @@ const ChatBot: React.FC = () => {
         { role: 'assistant', content: `Halo! Karena hari ini mendekati akhir bulan finansialmu (${dateStr}), saya telah menganalisis keuangan bulananmu secara otomatis:` },
         { role: 'assistant', content: data.content }
       ]);
+      await incrementQuota('chat');
 
     } catch (error) {
       console.error(error);
@@ -218,6 +225,12 @@ const ChatBot: React.FC = () => {
   const handleSend = async (overrideText?: string) => {
     const textToSend = overrideText || input;
     if (!textToSend.trim()) return;
+
+    const { allowed } = checkQuota('chat');
+    if (!allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
 
     const userMsg: Message = { role: 'user', content: textToSend };
     const newMessages = [...messages, userMsg];
@@ -298,6 +311,7 @@ const ChatBot: React.FC = () => {
         content: data.content,
         toolCall: data.toolCall
       }]);
+      await incrementQuota('chat');
 
     } catch (error) {
       console.error(error);
@@ -701,6 +715,7 @@ const ChatBot: React.FC = () => {
                 <MaterialIcon name="forum" className="text-[18px]" />
               </div>
               <span style={{ fontWeight: 700, fontSize: '16px' }}>MoneyBot AI</span>
+              <PremiumBadge feature="chat" />
             </div>
             <button onClick={() => setIsChatOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '4px' }}>
               <MaterialIcon name="close" className="text-[20px]" />

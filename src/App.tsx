@@ -2,6 +2,8 @@ import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MoneyProvider, useMoney } from './contexts/MoneyContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
+import { PremiumProvider } from './contexts/PremiumContext';
+import { SubscriptionModal } from './components/modals/SubscriptionModal';
 import Layout from './components/Layout';
 import LockScreen from './components/LockScreen';
 import SplashScreen from './components/SplashScreen';
@@ -84,9 +86,12 @@ function App() {
   return (
     <ToastProvider>
       <MoneyProvider>
-        <OnboardingProvider>
-          <AppContent />
-        </OnboardingProvider>
+        <PremiumProvider>
+          <OnboardingProvider>
+            <AppContent />
+            <SubscriptionModal />
+          </OnboardingProvider>
+        </PremiumProvider>
       </MoneyProvider>
     </ToastProvider>
   );

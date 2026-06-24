@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 import { useMoney } from '../contexts/MoneyContext';
+import { usePremium } from '../contexts/PremiumContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
@@ -17,6 +18,7 @@ import { TabBar } from '../components/ui/TabBar';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
 import MaterialIcon from '../components/common/MaterialIcon';
+import { PremiumBadge } from '../components/common/PremiumBadge';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
@@ -33,6 +35,7 @@ const ReceiptScanner: React.FC = () => {
   const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId, validateTransactionBudget, zbbMode } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
+  const { checkQuota, incrementQuota, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
@@ -248,6 +251,13 @@ const ReceiptScanner: React.FC = () => {
     const img = imgRef.current;
     if (!canvas || !img) return;
 
+    const featureName = scanMode === 'mutasi' ? 'bulk' : 'scan';
+    const { allowed } = checkQuota(featureName);
+    if (!allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setStage('scanning');
 
     let blob: Blob | File | null = null;
@@ -273,6 +283,7 @@ const ReceiptScanner: React.FC = () => {
     if (scanMode === 'mutasi') {
       const parsed = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets, defaultAssetId: contextDefaultAssetId || undefined });
       if (parsed && parsed.length > 0) {
+        await incrementQuota('bulk');
         const augmented = parsed.map(tx => {
           const mapAsset = (assetName: string | undefined, defaultId = '') => {
             if (!assetName) return defaultId;
@@ -331,6 +342,7 @@ const ReceiptScanner: React.FC = () => {
     const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets, contextDefaultAssetId || undefined);
 
     if (ocrResult) {
+      await incrementQuota('scan');
       if (ocrResult.amount === 0) {
         if (ocrResult.rawText.trim().length === 0) {
           setError('AI tidak berhasil membaca teks apapun. Pastikan foto cukup terang.');
@@ -726,9 +738,12 @@ const ReceiptScanner: React.FC = () => {
       <button onClick={() => navigate(-1)} className="btn-icon mb-4">
         <MaterialIcon name="chevron_left" className="text-2xl" />
       </button>
-      <PageHeader 
-        title={scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'} 
-      />
+      <div className="flex items-center gap-2 mb-4">
+        <PageHeader 
+          title={scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'} 
+        />
+        <PremiumBadge feature={scanMode === 'struk' ? 'scan' : 'bulk'} />
+      </div>
       <input type="file" accept="image/*" ref={fileInputRef} data-testid="ocr-file-input" style={{ display: 'none' }} onChange={handleFileSelect} />
 
       {stage === 'upload' && (

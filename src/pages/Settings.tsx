@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
+import { usePremium } from '../contexts/PremiumContext';
+import { PremiumGate } from '../components/common/PremiumGate';
 import { setupPushNotifications } from '../lib/notifications';
 import { validateFileSecure } from '../lib/fileValidation';
 import { downloadSampleExcel, parseExcelFile, extractExcelHeaders, type ImportResult } from '../lib/excelImport';
@@ -329,6 +331,7 @@ const Settings: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
+  const { premium, setShowUpgradeModal } = usePremium();
   const { user, updateUser, pin, setAppPin, lockApp, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
   const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -350,7 +353,7 @@ const Settings: React.FC = () => {
   const [mappingModalOpen, setMappingModalOpen] = useState(false);
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
   const [pendingExcelFile, setPendingExcelFile] = useState<File | null>(null);
-  
+
   const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -2128,755 +2131,760 @@ const Settings: React.FC = () => {
         {/* Kolom Kiri */}
         <div className="flex-1 flex flex-col gap-8 w-full">
 
-        {/* Profile Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
-          {isEditingProfile ? (
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-shrink-0">
-                  <div className="w-16 h-16 rounded-full bg-primary-container text-primary flex items-center justify-center text-xl font-bold border-2 border-outline overflow-hidden">
-                    {tempAvatar ? (
-                      <img src={tempAvatar} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      tempName ? tempName.charAt(0).toUpperCase() : 'U'
-                    )}
+          {/* Profile Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+            {isEditingProfile ? (
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-16 h-16 rounded-full bg-primary-container text-primary flex items-center justify-center text-xl font-bold border-2 border-outline overflow-hidden">
+                      {tempAvatar ? (
+                        <img src={tempAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        tempName ? tempName.charAt(0).toUpperCase() : 'U'
+                      )}
+                    </div>
+                    <label className="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full border border-white cursor-pointer hover:scale-105 transition-transform flex items-center justify-center">
+                      <MaterialIcon name="camera_alt" className="text-xs" />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    </label>
                   </div>
-                  <label className="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full border border-white cursor-pointer hover:scale-105 transition-transform flex items-center justify-center">
-                    <MaterialIcon name="camera_alt" className="text-xs" />
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                  </label>
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Ubah Foto Profil</h4>
-                  <p className="text-[10px] text-on-surface-variant">Klik ikon kamera untuk mengunggah foto baru</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Nama Lengkap</label>
-                  <input
-                    type="text"
-                    value={tempName}
-                    onChange={e => setTempName(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={tempEmail}
-                    onChange={e => setTempEmail(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-primary text-white rounded-lg font-bold text-xs border-none cursor-pointer hover:opacity-90 transition-opacity"
-                >
-                  Simpan
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTempName(user.name);
-                    setTempEmail(user.email);
-                    setTempAvatar(user.avatar || '');
-                    setIsEditingProfile(false);
-                  }}
-                  className="flex-1 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-lg font-bold text-xs cursor-pointer hover:bg-surface-container transition-colors"
-                >
-                  Batal
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-full object-cover border-2 border-primary-fixed overflow-hidden flex items-center justify-center font-bold text-3xl bg-primary text-white">
-                    {user.avatar ? (
-                      <img alt="Avatar" className="w-full h-full object-cover" src={user.avatar} />
-                    ) : (
-                      user.name ? user.name.charAt(0).toUpperCase() : 'U'
-                    )}
+                  <div className="flex-1">
+                    <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Ubah Foto Profil</h4>
+                    <p className="text-[10px] text-on-surface-variant">Klik ikon kamera untuk mengunggah foto baru</p>
                   </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Nama Lengkap</label>
+                    <input
+                      type="text"
+                      value={tempName}
+                      onChange={e => setTempName(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={tempEmail}
+                      onChange={e => setTempEmail(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
                   <button
-                    onClick={() => setIsEditingProfile(true)}
-                    className="absolute bottom-0 right-0 bg-primary text-white p-1.5 rounded-full border-2 border-white cursor-pointer hover:scale-105 transition-transform flex items-center justify-center"
+                    type="submit"
+                    className="flex-1 py-2 bg-primary text-white rounded-lg font-bold text-xs border-none cursor-pointer hover:opacity-90 transition-opacity"
                   >
-                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                    Simpan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempName(user.name);
+                      setTempEmail(user.email);
+                      setTempAvatar(user.avatar || '');
+                      setIsEditingProfile(false);
+                    }}
+                    className="flex-1 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-lg font-bold text-xs cursor-pointer hover:bg-surface-container transition-colors"
+                  >
+                    Batal
                   </button>
                 </div>
-                <div>
-                  <h3 className="font-headline-md text-headline-md text-on-surface font-bold">{user.name}</h3>
-                  <p className="font-body-md text-body-md text-on-surface-variant truncate max-w-[200px]">{user.email}</p>
-                </div>
-              </div>
-
-              {/* Premium Member Pass Card */}
-              <div
-                className="p-5 rounded-2xl text-white relative overflow-hidden shadow-md flex flex-col gap-4 border border-white/10"
-                style={{ background: profileStats.tierColor, boxShadow: `0 8px 24px ${profileStats.shadowColor}` }}
-              >
-                <div className="absolute top-[-30px] right-[-30px] w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
-
-                <div className="flex justify-between items-start z-10">
+              </form>
+            ) : (
+              <>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-full object-cover border-2 border-primary-fixed overflow-hidden flex items-center justify-center font-bold text-3xl bg-primary text-white">
+                      {user.avatar ? (
+                        <img alt="Avatar" className="w-full h-full object-cover" src={user.avatar} />
+                      ) : (
+                        user.name ? user.name.charAt(0).toUpperCase() : 'U'
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setIsEditingProfile(true)}
+                      className="absolute bottom-0 right-0 bg-primary text-white p-1.5 rounded-full border-2 border-white cursor-pointer hover:scale-105 transition-transform flex items-center justify-center"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">edit</span>
+                    </button>
+                  </div>
                   <div>
-                    <div className="text-[9px] opacity-75 font-bold uppercase tracking-wider">Level Finansial</div>
-                    <div className="text-sm font-black mt-0.5">{profileStats.tierLabel}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[9px] opacity-75 font-bold uppercase tracking-wider">Saldo Bersih</div>
-                    <div className="text-sm font-black mt-0.5">{currencySymbol}{profileStats.netWorth.toLocaleString('id-ID')}</div>
+                    <h3 className="font-headline-md text-headline-md text-on-surface font-bold">{user.name}</h3>
+                    <p className="font-body-md text-body-md text-on-surface-variant truncate max-w-[200px]">{user.email}</p>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center bg-black/15 px-3 py-2 rounded-lg text-[10px] font-bold border border-white/5 z-10">
-                  <span>Aktivitas Bulan Ini:</span>
-                  <span>{profileStats.txCount} Transaksi</span>
+                {/* Premium Member Pass Card */}
+                <div
+                  className="p-5 rounded-2xl text-white relative overflow-hidden shadow-md flex flex-col gap-4 border border-white/10"
+                  style={{ background: profileStats.tierColor, boxShadow: `0 8px 24px ${profileStats.shadowColor}` }}
+                >
+                  <div className="absolute top-[-30px] right-[-30px] w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+                  <div className="flex justify-between items-start z-10">
+                    <div>
+                      <div className="text-[9px] opacity-75 font-bold uppercase tracking-wider">Level Finansial</div>
+                      <div className="text-sm font-black mt-0.5">{profileStats.tierLabel}</div>
+                    </div>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <div className="text-[9px] opacity-75 font-bold uppercase tracking-wider">Status Akun</div>
+                      {premium.isPremium ? (
+                        <button onClick={() => setShowUpgradeModal(true)} className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-primary cursor-pointer hover:opacity-90 transition-opacity border-none">PRO (Lihat)</button>
+                      ) : (
+                        <button onClick={() => setShowUpgradeModal(true)} className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white border-none cursor-pointer transition-colors">FREE (Upgrade)</button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-black/15 px-3 py-2 rounded-lg text-[10px] font-bold border border-white/5 z-10">
+                    <span>Aktivitas Bulan Ini:</span>
+                    <span>{profileStats.txCount} Transaksi</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsEditingProfile(true)}
+                  className="w-full py-2.5 rounded-lg border border-primary text-primary font-label-md hover:bg-primary-fixed transition-colors cursor-pointer"
+                >
+                  Ubah Profil
+                </button>
+              </>
+            )}
+          </section>
+
+          {/* Security Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary">lock</span>
+                <h3 className="font-headline-md text-headline-md text-on-surface">Keamanan</h3>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!pin}
+                  onChange={() => {
+                    if (pin) handleDisablePin();
+                    else setActiveModal('security');
+                  }}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                <span className="ms-3 font-label-md text-on-surface">PIN Lock</span>
+              </label>
+            </div>
+
+            <button
+              onClick={() => setActiveModal('security')}
+              className="w-full py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-md border border-outline-variant hover:bg-surface-container-high transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">password</span>
+              {pin ? 'Ubah PIN Keamanan' : 'Setel PIN Baru'}
+            </button>
+          </section>
+
+          {/* Preferensi Finansial & Mata Uang Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-5">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">tune</span>
+              <h3 className="font-headline-md text-headline-md text-on-surface">Preferensi Finansial</h3>
+            </div>
+
+            <div className="space-y-4">
+              {/* Dompet Utama */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Dompet Utama</label>
+                <button
+                  type="button"
+                  onClick={() => setIsAssetSelectOpen(true)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <MaterialIcon name="account_balance_wallet" className="text-primary text-base" />
+                    <span className="font-bold text-sm text-on-surface">
+                      {assets.find(a => a.id === defaultAssetId)?.name || 'Pilih Dompet Utama...'}
+                    </span>
+                  </div>
+                  <MaterialIcon name="chevron_right" className="text-base text-on-surface-variant" />
+                </button>
+              </div>
+
+              {/* Siklus Finansial */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Awal Siklus Bulanan (Gajian)</label>
+                <select
+                  value={startOfMonthDay}
+                  onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
+                  className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <option key={day} value={day}>Tanggal {day}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Simbol Mata Uang */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Simbol Mata Uang</label>
+                <input
+                  type="text"
+                  value={currencySymbol}
+                  onChange={(e) => setCurrencySymbol(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
+                  placeholder="Simbol Mata Uang..."
+                />
+              </div>
+
+            </div>
+          </section>
+
+
+
+
+
+
+
+
+
+
+          {/* Tata Letak Dashboard Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">dashboard_customize</span>
+              <h3 className="font-headline-md text-headline-md text-on-surface">Tata Letak Dashboard</h3>
+            </div>
+
+            <div className="space-y-4">
+              {/* Gaya Grafik */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Gaya Grafik Harian</label>
+                <div className="flex bg-surface-container-low rounded-xl p-1 border border-outline-variant">
+                  <button
+                    type="button"
+                    onClick={() => setChartStyle('area')}
+                    className={`flex-1 py-2 rounded-lg border-none font-bold text-xs cursor-pointer transition-all ${chartStyle === 'area' ? 'bg-bg-card text-on-surface shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
+                      }`}
+                  >
+                    Area Chart
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartStyle('line')}
+                    className={`flex-1 py-2 rounded-lg border-none font-bold text-xs cursor-pointer transition-all ${chartStyle === 'line' ? 'bg-bg-card text-on-surface shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
+                      }`}
+                  >
+                    Line Chart
+                  </button>
                 </div>
               </div>
 
-              <button
-                onClick={() => setIsEditingProfile(true)}
-                className="w-full py-2.5 rounded-lg border border-primary text-primary font-label-md hover:bg-primary-fixed transition-colors cursor-pointer"
-              >
-                Ubah Profil
-              </button>
-            </>
-          )}
-        </section>
-
-        {/* Security Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary">lock</span>
-              <h3 className="font-headline-md text-headline-md text-on-surface">Keamanan</h3>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!pin}
-                onChange={() => {
-                  if (pin) handleDisablePin();
-                  else setActiveModal('security');
-                }}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-              <span className="ms-3 font-label-md text-on-surface">PIN Lock</span>
-            </label>
-          </div>
-
-          <button
-            onClick={() => setActiveModal('security')}
-            className="w-full py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-md border border-outline-variant hover:bg-surface-container-high transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[20px]">password</span>
-            {pin ? 'Ubah PIN Keamanan' : 'Setel PIN Baru'}
-          </button>
-        </section>
-
-        {/* Preferensi Finansial & Mata Uang Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-5">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">tune</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Preferensi Finansial</h3>
-          </div>
-
-          <div className="space-y-4">
-            {/* Dompet Utama */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Dompet Utama</label>
-              <button
-                type="button"
-                onClick={() => setIsAssetSelectOpen(true)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors text-left"
-              >
-                <div className="flex items-center gap-2">
-                  <MaterialIcon name="account_balance_wallet" className="text-primary text-base" />
-                  <span className="font-bold text-sm text-on-surface">
-                    {assets.find(a => a.id === defaultAssetId)?.name || 'Pilih Dompet Utama...'}
-                  </span>
+              {/* Tampilkan Hutang */}
+              <label className="flex items-center justify-between p-3.5 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors">
+                <div className="flex flex-col">
+                  <span className="font-bold text-xs text-on-surface">Transaksi Hutang/Piutang</span>
+                  <span className="text-[10px] text-on-surface-variant mt-0.5">Tampilkan di halaman utama</span>
                 </div>
-                <MaterialIcon name="chevron_right" className="text-base text-on-surface-variant" />
+                <input
+                  type="checkbox"
+                  checked={showDebtInTransactions}
+                  onChange={(e) => setShowDebtInTransactions(e.target.checked)}
+                  className="w-5 h-5 accent-primary cursor-pointer"
+                />
+              </label>
+            </div>
+
+            <CarouselCardSettings
+              activeCards={assetCarouselCards}
+              onChange={setAssetCarouselCards}
+            />
+          </section>
+
+
+          {/* Excel Import & Cloud Backup Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">cloud_sync</span>
+              <h3 className="font-headline-md text-headline-md text-on-surface">Data &amp; Sinkronisasi</h3>
+            </div>
+
+            <div>
+              <button
+                onClick={downloadSampleExcel}
+                className="text-primary font-label-md flex items-center gap-2 hover:underline border-none bg-transparent cursor-pointer pl-0"
+              >
+                <span className="material-symbols-outlined">download_for_offline</span>
+                Unduh Template Excel
               </button>
             </div>
 
-            {/* Siklus Finansial */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Awal Siklus Bulanan (Gajian)</label>
-              <select
-                value={startOfMonthDay}
-                onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
-                className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
-              >
-                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                  <option key={day} value={day}>Tanggal {day}</option>
+            <div
+              onClick={() => excelImportRef.current?.click()}
+              className="border-2 border-dashed border-outline-variant rounded-xl p-8 flex flex-col items-center justify-center gap-4 bg-surface-container-lowest hover:bg-surface-container-low transition-colors group cursor-pointer"
+            >
+              <div className="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined text-[32px]">upload_file</span>
+              </div>
+              <div className="text-center">
+                <p className="font-body-lg font-bold text-on-surface">Import Data Excel</p>
+                <p className="font-body-md text-on-surface-variant mt-0.5">(.xlsx, .xls, .csv)</p>
+              </div>
+            </div>
+
+            {excelResult && (
+              <div className={`p-4 rounded-xl border text-xs leading-relaxed ${excelResult.errors.length > 0 ? 'bg-error-container/10 border-error/20 text-error' : 'bg-primary-container/10 border-primary/20 text-primary'
+                }`}>
+                <div className="font-bold flex items-center gap-1 mb-1.5">
+                  <MaterialIcon name={excelResult.imported > 0 ? 'check_circle' : 'error'} className="text-sm" />
+                  {excelResult.imported > 0 ? `${excelResult.imported} transaksi berhasil diimpor` : 'Proses import gagal'}
+                </div>
+                {excelResult.errors.slice(0, 3).map((e, idx) => (
+                  <div key={idx} className="pl-5 text-[10px]">• {e}</div>
                 ))}
+              </div>
+            )}
+
+            <div>
+              <label className="block font-bold text-xs text-on-surface-variant mb-2">Konfigurasi Kolom Excel</label>
+              <select
+                className="w-full p-3 rounded-lg border border-outline-variant bg-surface-container-low font-body-md focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer text-on-surface"
+                value={excelMappingPreset}
+                onChange={(e) => setExcelMappingPreset(e.target.value as any)}
+              >
+                <option value="default">Default Template (Tanggal, Tipe, Kategori, Nominal)</option>
+                <option value="custom">Custom Mapping (Pilih Kolom Sendiri)</option>
+                <option value="bca">Mutasi e-Statement Bank BCA (CSV)</option>
+                <option value="mandiri">Mutasi Bank Mandiri (Excel)</option>
               </select>
             </div>
 
-            {/* Simbol Mata Uang */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Simbol Mata Uang</label>
-              <input
-                type="text"
-                value={currencySymbol}
-                onChange={(e) => setCurrencySymbol(e.target.value)}
-                className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
-                placeholder="Simbol Mata Uang..."
-              />
+            {/* Cloud sync section */}
+            <div className="pt-6 border-t border-border-light space-y-4">
+              <PremiumGate mode="hard" showOverlay>
+                <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+                  <span>Cloud Sync Manual & Ekspor JSON</span>
+                  <span className="flex items-center gap-1 normal-case text-[11px] font-semibold text-on-surface-variant">
+                    <MaterialIcon name="history" className="text-xs" /> Terakhir: 5m lalu
+                  </span>
+                </div>
+
+                {pullResult && (
+                  <div className={`p-3 rounded-xl border text-xs font-semibold ${pullResult.total > 0 ? 'bg-primary-container/15 border-primary text-primary-color' : 'bg-surface-container border-outline-variant text-on-surface-variant'
+                    }`}>
+                    {pullResult.total > 0 ? `✓ ${pullResult.total} data baru dari cloud` : 'Tidak ada data baru dari cloud'}
+                  </div>
+                )}
+
+                {pushResult && (
+                  <div className={`p-3 rounded-xl border text-xs font-semibold ${pushResult.success > 0 ? 'bg-success-container/15 border-success text-success' : 'bg-error-container/15 border-error text-error'
+                    }`}>
+                    {pushResult.error ? `Sync Gagal: ${pushResult.error}` : pushResult.success > 0 ? `✓ ${pushResult.success} data berhasil diunggah` : 'Tidak ada data yang perlu diunggah'}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <button
+                    onClick={async () => { setIsPushing(true); setPushResult(null); const r = await syncData(); setPushResult(r); setIsPushing(false); }}
+                    disabled={isPushing || pendingSyncCount === 0}
+                    className="py-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    <MaterialIcon name="cloud_upload" className={`text-sm ${isPushing ? "animate-spin" : ""}`} />
+                    {isPushing ? 'Menyinkron...' : `Push Data (${pendingSyncCount})`}
+                  </button>
+                  <button
+                    onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); }}
+                    disabled={isPulling}
+                    className="py-3 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
+                  >
+                    <MaterialIcon name="cloud_download" className={`text-primary text-sm ${isPulling ? "animate-spin" : ""}`} />
+                    {isPulling ? 'Menarik...' : 'Tarik Cloud'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={exportData}
+                    className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <MaterialIcon name="download" className="text-sm" /> Ekspor JSON
+                  </button>
+                  <button
+                    onClick={() => importInputRef.current?.click()}
+                    disabled={isImporting}
+                    className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <MaterialIcon name="upload" className="text-sm" /> {isImporting ? 'Memproses...' : 'Restore JSON'}
+                  </button>
+                </div>
+              </PremiumGate>
             </div>
-
-          </div>
-        </section>
-
-
-
-
-
-
-
-
-
-
-        {/* Tata Letak Dashboard Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">dashboard_customize</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Tata Letak Dashboard</h3>
-          </div>
-
-          <div className="space-y-4">
-            {/* Gaya Grafik */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Gaya Grafik Harian</label>
-              <div className="flex bg-surface-container-low rounded-xl p-1 border border-outline-variant">
-                <button
-                  type="button"
-                  onClick={() => setChartStyle('area')}
-                  className={`flex-1 py-2 rounded-lg border-none font-bold text-xs cursor-pointer transition-all ${chartStyle === 'area' ? 'bg-bg-card text-on-surface shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
-                    }`}
-                >
-                  Area Chart
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChartStyle('line')}
-                  className={`flex-1 py-2 rounded-lg border-none font-bold text-xs cursor-pointer transition-all ${chartStyle === 'line' ? 'bg-bg-card text-on-surface shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
-                    }`}
-                >
-                  Line Chart
-                </button>
-              </div>
-            </div>
-
-            {/* Tampilkan Hutang */}
-            <label className="flex items-center justify-between p-3.5 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors">
-              <div className="flex flex-col">
-                <span className="font-bold text-xs text-on-surface">Transaksi Hutang/Piutang</span>
-                <span className="text-[10px] text-on-surface-variant mt-0.5">Tampilkan di halaman utama</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={showDebtInTransactions}
-                onChange={(e) => setShowDebtInTransactions(e.target.checked)}
-                className="w-5 h-5 accent-primary cursor-pointer"
-              />
-            </label>
-          </div>
-
-          <CarouselCardSettings
-            activeCards={assetCarouselCards}
-            onChange={setAssetCarouselCards}
-          />
-        </section>
-
-
-        {/* Excel Import & Cloud Backup Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">cloud_sync</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Data &amp; Sinkronisasi</h3>
-          </div>
-
-          <div>
-            <button
-              onClick={downloadSampleExcel}
-              className="text-primary font-label-md flex items-center gap-2 hover:underline border-none bg-transparent cursor-pointer pl-0"
-            >
-              <span className="material-symbols-outlined">download_for_offline</span>
-              Unduh Template Excel
-            </button>
-          </div>
-
-          <div
-            onClick={() => excelImportRef.current?.click()}
-            className="border-2 border-dashed border-outline-variant rounded-xl p-8 flex flex-col items-center justify-center gap-4 bg-surface-container-lowest hover:bg-surface-container-low transition-colors group cursor-pointer"
-          >
-            <div className="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[32px]">upload_file</span>
-            </div>
-            <div className="text-center">
-              <p className="font-body-lg font-bold text-on-surface">Import Data Excel</p>
-              <p className="font-body-md text-on-surface-variant mt-0.5">(.xlsx, .xls, .csv)</p>
-            </div>
-          </div>
-
-          {excelResult && (
-            <div className={`p-4 rounded-xl border text-xs leading-relaxed ${excelResult.errors.length > 0 ? 'bg-error-container/10 border-error/20 text-error' : 'bg-primary-container/10 border-primary/20 text-primary'
-              }`}>
-              <div className="font-bold flex items-center gap-1 mb-1.5">
-                <MaterialIcon name={excelResult.imported > 0 ? 'check_circle' : 'error'} className="text-sm" />
-                {excelResult.imported > 0 ? `${excelResult.imported} transaksi berhasil diimpor` : 'Proses import gagal'}
-              </div>
-              {excelResult.errors.slice(0, 3).map((e, idx) => (
-                <div key={idx} className="pl-5 text-[10px]">• {e}</div>
-              ))}
-            </div>
-          )}
-
-          <div>
-            <label className="block font-bold text-xs text-on-surface-variant mb-2">Konfigurasi Kolom Excel</label>
-            <select 
-              className="w-full p-3 rounded-lg border border-outline-variant bg-surface-container-low font-body-md focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer text-on-surface"
-              value={excelMappingPreset}
-              onChange={(e) => setExcelMappingPreset(e.target.value as any)}
-            >
-              <option value="default">Default Template (Tanggal, Tipe, Kategori, Nominal)</option>
-              <option value="custom">Custom Mapping (Pilih Kolom Sendiri)</option>
-              <option value="bca">Mutasi e-Statement Bank BCA (CSV)</option>
-              <option value="mandiri">Mutasi Bank Mandiri (Excel)</option>
-            </select>
-          </div>
-
-          {/* Cloud sync section */}
-          <div className="pt-6 border-t border-border-light space-y-4">
-            <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
-              <span>Cloud Sync Manual</span>
-              <span className="flex items-center gap-1 normal-case text-[11px] font-semibold text-on-surface-variant">
-                <MaterialIcon name="history" className="text-xs" /> Terakhir: 5m lalu
-              </span>
-            </div>
-
-            {pullResult && (
-              <div className={`p-3 rounded-xl border text-xs font-semibold ${pullResult.total > 0 ? 'bg-primary-container/15 border-primary text-primary-color' : 'bg-surface-container border-outline-variant text-on-surface-variant'
-                }`}>
-                {pullResult.total > 0 ? `✓ ${pullResult.total} data baru dari cloud` : 'Tidak ada data baru dari cloud'}
-              </div>
-            )}
-
-            {pushResult && (
-              <div className={`p-3 rounded-xl border text-xs font-semibold ${
-                pushResult.success > 0 ? 'bg-success-container/15 border-success text-success' : 'bg-error-container/15 border-error text-error'
-              }`}>
-                {pushResult.error ? `Sync Gagal: ${pushResult.error}` : pushResult.success > 0 ? `✓ ${pushResult.success} data berhasil diunggah` : 'Tidak ada data yang perlu diunggah'}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                onClick={async () => { setIsPushing(true); setPushResult(null); const r = await syncData(); setPushResult(r); setIsPushing(false); }}
-                disabled={isPushing || pendingSyncCount === 0}
-                className="py-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm disabled:opacity-50"
-              >
-                <MaterialIcon name="cloud_upload" className={`text-sm ${isPushing ? "animate-spin" : ""}`} />
-                {isPushing ? 'Menyinkron...' : `Push Data (${pendingSyncCount})`}
-              </button>
-              <button
-                onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); }}
-                disabled={isPulling}
-                className="py-3 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
-              >
-                <MaterialIcon name="cloud_download" className={`text-primary text-sm ${isPulling ? "animate-spin" : ""}`} />
-                {isPulling ? 'Menarik...' : 'Tarik Cloud'}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                onClick={exportData}
-                className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                <MaterialIcon name="download" className="text-sm" /> Ekspor JSON
-              </button>
-              <button
-                onClick={() => importInputRef.current?.click()}
-                disabled={isImporting}
-                className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                <MaterialIcon name="upload" className="text-sm" /> {isImporting ? 'Memproses...' : 'Restore JSON'}
-              </button>
-            </div>
-          </div>
-        </section>
+          </section>
         </div>
 
         {/* Kolom Kanan */}
         <div className="flex-1 flex flex-col gap-8 w-full">
 
-        {/* Budgeting Mode Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">track_changes</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Mode Budgeting</h3>
-          </div>
-
-          <div className="flex flex-col gap-2 p-1 bg-surface-container-low rounded-xl border border-outline-variant/60">
-            <button
-              type="button"
-              onClick={() => setBudgetMode('regular')}
-              className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'regular'
-                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-                }`}
-            >
-              <span>Batas Pengeluaran Bulanan</span>
-              {budgetMode === 'regular' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => setBudgetMode('zero-based')}
-              className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'zero-based'
-                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-                }`}
-            >
-              <span>Zero-Based Budgeting (ZBB)</span>
-              {budgetMode === 'zero-based' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
-            </button>
-          </div>
-
-          {budgetMode === 'zero-based' && (
-            <div className="mt-3 p-4 rounded-xl bg-bg-card border border-outline-variant/80 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-xs text-on-surface">Disiplin ZBB (Strict Mode)</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={zbbMode === 'strict'}
-                    onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                </label>
-              </div>
-              <p className="text-[10px] text-on-surface-variant leading-relaxed">
-                Jika aktif, setiap transaksi wajib dialokasikan. Jika kategori defisit, Anda dipaksa memindahkan saldo anggaran dari kategori lain.
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* Sosial & Fitur Berbagi Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">groups</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Fitur Sosial &amp; Berbagi</h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
-              onClick={() => handleMenuClick('contacts')}
-              className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="contact_phone" className="text-2xl text-primary" />
-              <div className="font-bold text-xs text-on-surface">Daftar Kontak</div>
-            </button>
-            <button
-              onClick={() => setIsSharedBillsOpen(true)}
-              className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="splitscreen" className="text-2xl text-secondary" />
-              <div className="font-bold text-xs text-on-surface">Split Bills</div>
-            </button>
-            <button
-              onClick={() => navigate('/trips')}
-              className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="flight_takeoff" className="text-2xl text-tertiary" />
-              <div className="font-bold text-xs text-on-surface">Holiday Trip</div>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={() => navigate('/debts')}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="handshake" className="text-sm" />
-              Hutang &amp; Piutang
-            </button>
-            <button
-              onClick={() => handleMenuClick('recurring')}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="autorenew" className="text-sm" />
-              Jadwal Transaksi Rutin
-            </button>
-            <button
-              onClick={() => handleMenuClick('subscriptions')}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
-            >
-              <MaterialIcon name="credit_card" className="text-sm" />
-              Kelola Biaya Langganan ({subscriptions.length})
-            </button>
-            <button
-              onClick={() => handleMenuClick('budgets')}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
-            >
-              <MaterialIcon name="track_changes" className="text-sm" />
-              Manajemen Anggaran &amp; Target
-            </button>
-          </div>
-        </section>
-
-        {/* Category Management Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-border-light pb-4">
+          {/* Budgeting Mode Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary">categoryId</span>
-              <h3 className="font-headline-md text-headline-md text-on-surface">Manajemen Kategori</h3>
+              <span className="material-symbols-outlined text-primary">track_changes</span>
+              <h3 className="font-headline-md text-headline-md text-on-surface">Mode Budgeting</h3>
             </div>
-            <div className="flex bg-surface-container-low rounded-lg p-1 border border-outline-variant">
-              <button
-                type="button"
-                onClick={() => setCatTab('pengeluaran')}
-                className={`px-3 py-1.5 rounded-md border-none font-bold text-xs cursor-pointer transition-all ${catTab === 'pengeluaran' ? 'bg-bg-card text-error shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
-                  }`}
-              >
-                Pengeluaran
-              </button>
-              <button
-                type="button"
-                onClick={() => setCatTab('pendapatan')}
-                className={`px-3 py-1.5 rounded-md border-none font-bold text-xs cursor-pointer transition-all ${catTab === 'pendapatan' ? 'bg-bg-card text-primary shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
-                  }`}
-              >
-                Pendapatan
-              </button>
-            </div>
-          </div>
 
-          <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-            {categories.filter(c => !c.isDeleted && c.type === catTab).map(c => (
-              <div key={c.id} className="border border-outline-variant rounded-xl overflow-hidden shadow-sm">
-                <div className="flex items-center justify-between bg-surface-container-low p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-primary text-xl">
-                      {c.type === 'pengeluaran' ? 'restaurant' : 'payments'}
-                    </span>
-                    {editingCatId === c.id ? (
-                      <input
-                        type="text"
-                        value={editingCatName}
-                        onChange={e => setEditingCatName(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleUpdateCat(c.id, editingCatName);
-                          else if (e.key === 'Escape') setEditingCatId(null);
-                        }}
-                        className="px-2 py-1 text-xs border border-primary rounded bg-bg-card text-on-surface font-bold focus:outline-none"
-                        autoFocus
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span className="font-label-md font-bold text-on-surface">{c.name}</span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    {editingCatId === c.id ? (
-                      <button onClick={() => handleUpdateCat(c.id, editingCatName)} className="p-1.5 bg-primary/10 text-primary rounded border-none cursor-pointer">
-                        <MaterialIcon name="check" className="text-sm" />
-                      </button>
-                    ) : (
-                      <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} className="p-1.5 bg-transparent text-on-surface-variant hover:text-primary rounded border-none cursor-pointer">
-                        <MaterialIcon name="edit" className="text-sm" />
-                      </button>
-                    )}
-                    <button onClick={() => showConfirm('Hapus Kategori', `Yakin ingin menghapus kategori "${c.name}"?`, () => deleteCategory(c.id))} className="p-1.5 bg-transparent text-error hover:bg-error/10 rounded border-none cursor-pointer">
-                      <MaterialIcon name="delete" className="text-sm" />
-                    </button>
-                  </div>
+            <div className="flex flex-col gap-2 p-1 bg-surface-container-low rounded-xl border border-outline-variant/60">
+              <button
+                type="button"
+                onClick={() => setBudgetMode('regular')}
+                className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'regular'
+                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+              >
+                <span>Batas Pengeluaran Bulanan</span>
+                {budgetMode === 'regular' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBudgetMode('zero-based')}
+                className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'zero-based'
+                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+              >
+                <span>Zero-Based Budgeting (ZBB)</span>
+                {budgetMode === 'zero-based' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
+              </button>
+            </div>
+
+            {budgetMode === 'zero-based' && (
+              <div className="mt-3 p-4 rounded-xl bg-bg-card border border-outline-variant/80 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-xs text-on-surface">Disiplin ZBB (Strict Mode)</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={zbbMode === 'strict'}
+                      onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
                 </div>
+                <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                  Jika aktif, setiap transaksi wajib dialokasikan. Jika kategori defisit, Anda dipaksa memindahkan saldo anggaran dari kategori lain.
+                </p>
+              </div>
+            )}
+          </section>
 
-                <div className="p-4 bg-bg-card space-y-3">
-                  {c.subcategories?.filter(s => !s.isDeleted).map(sub => (
-                    <div key={sub.id} className="flex justify-between items-center px-2 py-1 hover:bg-surface-container-low rounded-lg transition-colors group">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>
-                        {editingSubCatId === sub.id ? (
-                          <input
-                            type="text"
-                            value={editingSubCatName}
-                            onChange={e => setEditingSubCatName(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') handleUpdateSubCat(c.id, sub.id, editingSubCatName);
-                              else if (e.key === 'Escape') setEditingSubCatId(null);
-                            }}
-                            className="px-2 py-0.5 text-xs border border-primary rounded bg-bg-card text-on-surface font-bold focus:outline-none"
-                            autoFocus
-                            onClick={e => e.stopPropagation()}
-                          />
-                        ) : (
-                          <span className="text-xs font-semibold text-on-surface-variant group-hover:text-on-surface transition-colors">{sub.name}</span>
-                        )}
+          {/* Sosial & Fitur Berbagi Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">groups</span>
+              <h3 className="font-headline-md text-headline-md text-on-surface">Fitur Sosial &amp; Berbagi</h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => handleMenuClick('contacts')}
+                className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="contact_phone" className="text-2xl text-primary" />
+                <div className="font-bold text-xs text-on-surface">Daftar Kontak</div>
+              </button>
+              <button
+                onClick={() => setIsSharedBillsOpen(true)}
+                className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="splitscreen" className="text-2xl text-secondary" />
+                <div className="font-bold text-xs text-on-surface">Split Bills</div>
+              </button>
+              <button
+                onClick={() => navigate('/trips')}
+                className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="flight_takeoff" className="text-2xl text-tertiary" />
+                <div className="font-bold text-xs text-on-surface">Holiday Trip</div>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <button
+                onClick={() => navigate('/debts')}
+                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="handshake" className="text-sm" />
+                Hutang &amp; Piutang
+              </button>
+              <button
+                onClick={() => handleMenuClick('recurring')}
+                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="autorenew" className="text-sm" />
+                Jadwal Transaksi Rutin
+              </button>
+              <button
+                onClick={() => handleMenuClick('subscriptions')}
+                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
+              >
+                <MaterialIcon name="credit_card" className="text-sm" />
+                Kelola Biaya Langganan ({subscriptions.length})
+              </button>
+              <button
+                onClick={() => handleMenuClick('budgets')}
+                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
+              >
+                <MaterialIcon name="track_changes" className="text-sm" />
+                Manajemen Anggaran &amp; Target
+              </button>
+            </div>
+          </section>
+
+          {/* Category Management Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-border-light pb-4">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary">category</span>
+                <h3 className="font-headline-md text-headline-md text-on-surface">Manajemen Kategori</h3>
+              </div>
+              <div className="flex bg-surface-container-low rounded-lg p-1 border border-outline-variant">
+                <button
+                  type="button"
+                  onClick={() => setCatTab('pengeluaran')}
+                  className={`px-3 py-1.5 rounded-md border-none font-bold text-xs cursor-pointer transition-all ${catTab === 'pengeluaran' ? 'bg-bg-card text-error shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
+                >
+                  Pengeluaran
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCatTab('pendapatan')}
+                  className={`px-3 py-1.5 rounded-md border-none font-bold text-xs cursor-pointer transition-all ${catTab === 'pendapatan' ? 'bg-bg-card text-primary shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
+                >
+                  Pendapatan
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+              {categories.filter(c => !c.isDeleted && c.type === catTab).map(c => (
+                <div key={c.id} className="border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between bg-surface-container-low p-4">
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary text-xl">
+                        {c.type === 'pengeluaran' ? 'restaurant' : 'payments'}
+                      </span>
+                      {editingCatId === c.id ? (
+                        <input
+                          type="text"
+                          value={editingCatName}
+                          onChange={e => setEditingCatName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleUpdateCat(c.id, editingCatName);
+                            else if (e.key === 'Escape') setEditingCatId(null);
+                          }}
+                          className="px-2 py-1 text-xs border border-primary rounded bg-bg-card text-on-surface font-bold focus:outline-none"
+                          autoFocus
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="font-label-md font-bold text-on-surface">{c.name}</span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {editingCatId === c.id ? (
+                        <button onClick={() => handleUpdateCat(c.id, editingCatName)} className="p-1.5 bg-primary/10 text-primary rounded border-none cursor-pointer">
+                          <MaterialIcon name="check" className="text-sm" />
+                        </button>
+                      ) : (
+                        <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} className="p-1.5 bg-transparent text-on-surface-variant hover:text-primary rounded border-none cursor-pointer">
+                          <MaterialIcon name="edit" className="text-sm" />
+                        </button>
+                      )}
+                      <button onClick={() => showConfirm('Hapus Kategori', `Yakin ingin menghapus kategori "${c.name}"?`, () => deleteCategory(c.id))} className="p-1.5 bg-transparent text-error hover:bg-error/10 rounded border-none cursor-pointer">
+                        <MaterialIcon name="delete" className="text-sm" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-bg-card space-y-3">
+                    {c.subcategories?.filter(s => !s.isDeleted).map(sub => (
+                      <div key={sub.id} className="flex justify-between items-center px-2 py-1 hover:bg-surface-container-low rounded-lg transition-colors group">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>
+                          {editingSubCatId === sub.id ? (
+                            <input
+                              type="text"
+                              value={editingSubCatName}
+                              onChange={e => setEditingSubCatName(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleUpdateSubCat(c.id, sub.id, editingSubCatName);
+                                else if (e.key === 'Escape') setEditingSubCatId(null);
+                              }}
+                              className="px-2 py-0.5 text-xs border border-primary rounded bg-bg-card text-on-surface font-bold focus:outline-none"
+                              autoFocus
+                              onClick={e => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span className="text-xs font-semibold text-on-surface-variant group-hover:text-on-surface transition-colors">{sub.name}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {editingSubCatId === sub.id ? (
+                            <button onClick={() => handleUpdateSubCat(c.id, sub.id, editingSubCatName)} className="p-1 text-primary hover:bg-primary/10 rounded border-none cursor-pointer">
+                              <MaterialIcon name="check" className="text-xs" />
+                            </button>
+                          ) : (
+                            <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} className="p-1 text-on-surface-variant hover:text-primary rounded border-none cursor-pointer">
+                              <MaterialIcon name="edit" className="text-xs" />
+                            </button>
+                          )}
+                          <button onClick={() => showConfirm('Hapus Sub-kategori', `Yakin ingin menghapus sub-kategori "${sub.name}"?`, () => deleteSubCategory(c.id, sub.id))} className="p-1 text-on-surface-variant hover:text-error rounded border-none cursor-pointer">
+                            <MaterialIcon name="delete" className="text-xs" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {editingSubCatId === sub.id ? (
-                          <button onClick={() => handleUpdateSubCat(c.id, sub.id, editingSubCatName)} className="p-1 text-primary hover:bg-primary/10 rounded border-none cursor-pointer">
-                            <MaterialIcon name="check" className="text-xs" />
-                          </button>
-                        ) : (
-                          <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} className="p-1 text-on-surface-variant hover:text-primary rounded border-none cursor-pointer">
-                            <MaterialIcon name="edit" className="text-xs" />
-                          </button>
-                        )}
-                        <button onClick={() => showConfirm('Hapus Sub-kategori', `Yakin ingin menghapus sub-kategori "${sub.name}"?`, () => deleteSubCategory(c.id, sub.id))} className="p-1 text-on-surface-variant hover:text-error rounded border-none cursor-pointer">
-                          <MaterialIcon name="delete" className="text-xs" />
+                    ))}
+
+                    <div className="pt-2 mt-2 border-t border-outline-variant border-dashed">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Subkategori baru..."
+                          className="flex-1 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && e.currentTarget.value) {
+                              handleAddSubCat(c.id, e.currentTarget.value);
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={e => {
+                            const input = e.currentTarget.previousSibling as HTMLInputElement;
+                            if (input && input.value) {
+                              handleAddSubCat(c.id, input.value);
+                              input.value = '';
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg border-none cursor-pointer hover:opacity-90 transition-opacity"
+                        >
+                          Tambah
                         </button>
                       </div>
                     </div>
-                  ))}
-
-                  <div className="pt-2 mt-2 border-t border-outline-variant border-dashed">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Subkategori baru..."
-                        className="flex-1 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs focus:ring-1 focus:ring-primary focus:outline-none"
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && e.currentTarget.value) {
-                            handleAddSubCat(c.id, e.currentTarget.value);
-                            e.currentTarget.value = '';
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={e => {
-                          const input = e.currentTarget.previousSibling as HTMLInputElement;
-                          if (input && input.value) {
-                            handleAddSubCat(c.id, input.value);
-                            input.value = '';
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg border-none cursor-pointer hover:opacity-90 transition-opacity"
-                      >
-                        Tambah
-                      </button>
-                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Input to add categoryId */}
-          <form onSubmit={handleAddCat} className="flex gap-2 p-1.5 bg-surface-container-low rounded-xl border border-outline-variant mt-4">
-            <input
-              type="text"
-              value={newCatName}
-              onChange={e => setNewCatName(e.target.value)}
-              placeholder="Buat kategori baru..."
-              className="flex-1 px-4 py-2 bg-bg-card border border-outline-variant rounded-lg text-xs focus:ring-1 focus:ring-primary focus:outline-none"
-              required
-            />
-            <button type="submit" className="px-4 bg-primary text-white rounded-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
-              <MaterialIcon name="add" className="text-lg" />
-            </button>
-          </form>
-        </section>
-
-
-        {/* Tampilan Statistik Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">pie_chart</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Tampilan Statistik</h3>
-          </div>
-
-          <StatsViewSettings
-            activeViews={statsCarouselCards}
-            onChange={setStatsCarouselCards}
-            defaultView={defaultStatsView}
-            onDefaultChange={setDefaultStatsView}
-          />
-        </section>
-
-        {/* Sistem & Preferensi Card */}
-        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary">settings_applications</span>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Sistem &amp; Preferensi</h3>
-          </div>
-
-          {/* Notif permission */}
-          <div className="p-4 bg-surface-container-low border border-outline-variant rounded-xl flex flex-col gap-3">
-            <div className="flex justify-between items-center">
-              <span className="font-bold text-xs text-on-surface">Notifikasi Otomatis</span>
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${notifPermission === 'granted' ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'
-                }`}>
-                {notifPermission === 'granted' ? 'AKTIF' : 'NONAKTIF'}
-              </span>
+              ))}
             </div>
-            <p className="text-[11px] text-on-surface-variant leading-relaxed">
-              Pengingat harian dan laporan mingguan dikirimkan otomatis ke perangkat ini.
-            </p>
-            {notifPermission !== 'granted' && (
-              <button
-                onClick={async () => {
-                  const res = await Notification.requestPermission();
-                  setNotifPermission(res);
-                  if (res === 'granted') setupPushNotifications();
-                }}
-                className="py-2.5 bg-primary text-white rounded-lg font-bold text-xs border-none cursor-pointer hover:opacity-90"
-              >
-                Izinkan Notifikasi
+
+            {/* Input to add categoryId */}
+            <form onSubmit={handleAddCat} className="flex gap-2 p-1.5 bg-surface-container-low rounded-xl border border-outline-variant mt-4">
+              <input
+                type="text"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="Buat kategori baru..."
+                className="flex-1 px-4 py-2 bg-bg-card border border-outline-variant rounded-lg text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                required
+              />
+              <button type="submit" className="px-4 bg-primary text-white rounded-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
+                <MaterialIcon name="add" className="text-lg" />
               </button>
-            )}
-          </div>
+            </form>
+          </section>
 
-          {/* System buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              onClick={resetAllTutorials}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="restart_alt" className="text-sm" />
-              Ulangi Semua Tutorial
-            </button>
-            <button
-              onClick={() => handleMenuClick('whats_new')}
-              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="new_releases" className="text-sm" />
-              Apa yang Baru ✨
-            </button>
-          </div>
 
-          <div className="flex flex-col gap-2 pt-2 text-center text-xs text-on-surface-variant">
-            <div className="font-semibold flex items-center justify-center gap-1 cursor-pointer hover:underline" onClick={() => window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp'}>
-              <MaterialIcon name="mail" className="text-sm" /> Hubungi Dukungan (rizqydaffa14@gmail.com)
+          {/* Tampilan Statistik Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">pie_chart</span>
+              <h3 className="font-headline-md text-headline-md text-on-surface">Tampilan Statistik</h3>
             </div>
-            <div className="text-[10px] opacity-75">MoneyApp v2.0.0 • Dibuat dengan ❤️ by Dappal</div>
-          </div>
 
-          <button
-            onClick={() => showConfirm('Keluar Akun', 'Apakah Anda yakin ingin keluar dari akun ini?', () => logOut(), 'warning', 'Ya, Keluar')}
-            className="w-full py-3 bg-error/10 hover:bg-error/20 border border-error/20 text-error font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-          >
-            <MaterialIcon name="logout" className="text-sm" /> Logout
-          </button>
-        </section>
+            <StatsViewSettings
+              activeViews={statsCarouselCards}
+              onChange={setStatsCarouselCards}
+              defaultView={defaultStatsView}
+              onDefaultChange={setDefaultStatsView}
+            />
+          </section>
+
+          {/* Sistem & Preferensi Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">settings_applications</span>
+              <h3 className="font-headline-md text-headline-md text-on-surface">Sistem &amp; Preferensi</h3>
+            </div>
+
+            {/* Notif permission */}
+            <div className="p-4 bg-surface-container-low border border-outline-variant rounded-xl flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-xs text-on-surface">Notifikasi Otomatis</span>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${notifPermission === 'granted' ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'
+                  }`}>
+                  {notifPermission === 'granted' ? 'AKTIF' : 'NONAKTIF'}
+                </span>
+              </div>
+              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                Pengingat harian dan laporan mingguan dikirimkan otomatis ke perangkat ini.
+              </p>
+              {notifPermission !== 'granted' && (
+                <button
+                  onClick={async () => {
+                    const res = await Notification.requestPermission();
+                    setNotifPermission(res);
+                    if (res === 'granted') setupPushNotifications();
+                  }}
+                  className="py-2.5 bg-primary text-white rounded-lg font-bold text-xs border-none cursor-pointer hover:opacity-90"
+                >
+                  Izinkan Notifikasi
+                </button>
+              )}
+            </div>
+
+            {/* System buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={resetAllTutorials}
+                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="restart_alt" className="text-sm" />
+                Ulangi Semua Tutorial
+              </button>
+              <button
+                onClick={() => handleMenuClick('whats_new')}
+                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="new_releases" className="text-sm" />
+                Apa yang Baru ✨
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2 text-center text-xs text-on-surface-variant">
+              <div className="font-semibold flex items-center justify-center gap-1 cursor-pointer hover:underline" onClick={() => window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp'}>
+                <MaterialIcon name="mail" className="text-sm" /> Hubungi Dukungan (rizqydaffa14@gmail.com)
+              </div>
+              <div className="text-[10px] opacity-75">MoneyApp v2.0.0 • Dibuat dengan ❤️ by Dappal</div>
+            </div>
+
+            <button
+              onClick={() => showConfirm('Keluar Akun', 'Apakah Anda yakin ingin keluar dari akun ini?', () => logOut(), 'warning', 'Ya, Keluar')}
+              className="w-full py-3 bg-error/10 hover:bg-error/20 border border-error/20 text-error font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            >
+              <MaterialIcon name="logout" className="text-sm" /> Logout
+            </button>
+          </section>
         </div>
       </div>
 
@@ -2977,7 +2985,7 @@ const Settings: React.FC = () => {
 
           setExcelResult(null);
           setIsImportingExcel(true);
-          
+
           if (excelMappingPreset === 'custom') {
             try {
               const headers = await extractExcelHeaders(file);
