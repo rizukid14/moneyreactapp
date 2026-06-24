@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Check, Wallet, CreditCard, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Plus, Search } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import { type Asset, type AssetType, useMoney } from '../../contexts/MoneyContext';
 import AssetModal from './AssetModal';
+import { Modal } from '../ui/Modal';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface AssetSelectModalProps {
   isOpen: boolean;
@@ -13,13 +14,13 @@ interface AssetSelectModalProps {
 }
 
 const ASSET_TYPE_META: Record<AssetType, { label: string; icon: React.ReactNode }> = {
-  'Cash':         { label: 'Tunai',        icon: <Wallet size={18} /> },
-  'Bank Account': { label: 'Bank',         icon: <Landmark size={18} /> },
-  'Credit Card':  { label: 'Kartu Kredit', icon: <CreditCard size={18} /> },
-  'eWallet':      { label: 'E-Wallet',     icon: <Smartphone size={18} /> },
-  'Savings':      { label: 'Tabungan',     icon: <PiggyBank size={18} /> },
-  'Investment':   { label: 'Investasi',    icon: <TrendingUp size={18} /> },
-  'Loan':         { label: 'Pinjaman',     icon: <HandCoins size={18} /> },
+  'Cash': { label: 'Tunai', icon: <MaterialIcon name="account_balance_wallet" className="text-[18px]" /> },
+  'Bank Account': { label: 'Bank', icon: <MaterialIcon name="account_balance" className="text-[18px]" /> },
+  'Credit Card': { label: 'Kartu Kredit', icon: <MaterialIcon name="credit_card" className="text-[18px]" /> },
+  'eWallet': { label: 'E-Wallet', icon: <MaterialIcon name="smartphone" className="text-[18px]" /> },
+  'Savings': { label: 'Tabungan', icon: <MaterialIcon name="savings" className="text-[18px]" /> },
+  'Investment': { label: 'Investasi', icon: <MaterialIcon name="trending_up" className="text-[18px]" /> },
+  'Loan': { label: 'Pinjaman', icon: <MaterialIcon name="payments" className="text-[18px]" /> },
 };
 
 const ALL_TYPES: AssetType[] = ['Cash', 'Bank Account', 'Credit Card', 'eWallet', 'Savings', 'Investment', 'Loan'];
@@ -56,14 +57,14 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
   // Assets of the active type, sorted alphabetically
   const filteredAssets = useMemo(() => {
     let result = assets.filter(a => !a.isDeleted || a.id === selectedAssetId);
-    
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(a => a.name.toLowerCase().includes(query));
     } else {
       result = result.filter(a => a.type === activeType);
     }
-    
+
     return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [assets, activeType, searchQuery, selectedAssetId]);
 
@@ -74,53 +75,28 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            style={{ zIndex: 3000 }}
-          >
-            <motion.div
-              className="modal-content"
-              onClick={e => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.5 }}
-              style={{ padding: 0, height: '75vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      <Modal isOpen={isOpen} onClose={onClose} title="Pilih Rekening">
+        <div style={{ display: 'flex', flexDirection: 'column', height: '75vh', overflow: 'hidden' }}>
+          {/* Header Action: Add Asset */}
+          <div style={{ position: 'absolute', top: '16px', right: '56px', zIndex: 10 }}>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              style={{
+                background: 'var(--primary-gradient)', color: 'white', border: 'none',
+                borderRadius: '10px', width: '32px', height: '32px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
+              }}
+              title="Tambah Rekening Baru"
             >
-              {/* Header */}
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0,
-              }}>
-                <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Rekening</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button 
-                    onClick={() => setIsAddModalOpen(true)}
-                    style={{ 
-                      background: 'var(--primary-gradient)', color: 'white', border: 'none', 
-                      borderRadius: '10px', width: '32px', height: '32px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                      cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
-                    }}
-                    title="Tambah Rekening Baru"
-                  >
-                    <Plus size={18} />
-                  </button>
-                  <button className="close-btn" onClick={onClose}><X size={20} /></button>
-                </div>
-              </div>
+              <MaterialIcon name="add" className="text-[18px]" />
+            </button>
+          </div>
 
               {/* Search Bar */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
                 <div style={{ position: 'relative' }}>
-                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <MaterialIcon name="search" />
                   <input
                     type="text"
                     placeholder="Cari rekening..."
@@ -138,11 +114,11 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                     }}
                   />
                   {searchQuery && (
-                    <button 
+                    <button
                       onClick={() => setSearchQuery('')}
                       style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
                     >
-                      <X size={14} />
+                      <MaterialIcon name="close" className="text-[14px]" />
                     </button>
                   )}
                 </div>
@@ -185,9 +161,9 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                             {meta.icon}
                           </div>
                           {count > 0 && (
-                             <span style={{ fontSize: '10px', background: isActive ? 'var(--primary)' : 'var(--border-color)', color: isActive ? 'white' : 'var(--text-muted)', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>
-                               {count}
-                             </span>
+                            <span style={{ fontSize: '10px', background: isActive ? 'var(--primary)' : 'var(--border-color)', color: isActive ? 'white' : 'var(--text-muted)', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                              {count}
+                            </span>
                           )}
                         </div>
                         <span style={{
@@ -216,7 +192,7 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                         Belum ada akun {ASSET_TYPE_META[activeType].label}.
                       </div>
-                      <button 
+                      <button
                         onClick={() => setIsAddModalOpen(true)}
                         className="btn btn-primary"
                         style={{ fontSize: '12px', padding: '8px 16px', height: 'auto', margin: '0 auto' }}
@@ -241,18 +217,18 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             {(() => {
-                              let Icon = Wallet;
-                              let color = isSelected ? 'var(--primary)' : 'var(--text-muted)';
+                              let iconName = 'account_balance_wallet';
+                              let colorClass = isSelected ? 'text-primary' : 'text-on-surface-variant';
                               switch (asset.type) {
-                                case 'Cash': Icon = Wallet; if (!isSelected) color = 'var(--secondary)'; break;
-                                case 'Bank Account': Icon = Landmark; if (!isSelected) color = 'var(--primary)'; break;
-                                case 'Credit Card': Icon = CreditCard; if (!isSelected) color = 'var(--danger)'; break;
-                                case 'eWallet': Icon = Smartphone; if (!isSelected) color = 'var(--success)'; break;
-                                case 'Savings': Icon = PiggyBank; if (!isSelected) color = '#3b82f6'; break;
-                                case 'Investment': Icon = TrendingUp; if (!isSelected) color = '#10b981'; break;
-                                case 'Loan': Icon = HandCoins; if (!isSelected) color = 'var(--danger)'; break;
+                                case 'Cash': iconName = 'account_balance_wallet'; if (!isSelected) colorClass = 'text-secondary'; break;
+                                case 'Bank Account': iconName = 'account_balance'; if (!isSelected) colorClass = 'text-primary'; break;
+                                case 'Credit Card': iconName = 'credit_card'; if (!isSelected) colorClass = 'text-error'; break;
+                                case 'eWallet': iconName = 'smartphone'; if (!isSelected) colorClass = 'text-success'; break;
+                                case 'Savings': iconName = 'savings'; if (!isSelected) colorClass = 'text-blue-500'; break;
+                                case 'Investment': iconName = 'trending_up'; if (!isSelected) colorClass = 'text-emerald-500'; break;
+                                case 'Loan': iconName = 'payments'; if (!isSelected) colorClass = 'text-error'; break;
                               }
-                              return <Icon size={16} color={color} />;
+                              return <MaterialIcon name={iconName} className={`text-[16px] ${colorClass}`} />;
                             })()}
                             <div>
                               <div style={{ fontSize: '14px', fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--primary)' : 'var(--text-main)' }}>
@@ -263,18 +239,15 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                               )}
                             </div>
                           </div>
-                          {isSelected && <Check size={18} color="var(--primary)" />}
+                          {isSelected && <MaterialIcon name="check" className="text-[18px]" />}
                         </button>
                       );
                     })
                   )}
                 </div>
-
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      </Modal>
 
       <AssetModal
         isOpen={isAddModalOpen}

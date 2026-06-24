@@ -15,9 +15,11 @@ const BulkInput = lazy(() => import('./pages/BulkInput'));
 const Assets = lazy(() => import('./pages/Assets'));
 const Debts = lazy(() => import('./pages/Debts'));
 const Settings = lazy(() => import('./pages/Settings'));
+const SocialHub = lazy(() => import('./pages/SocialHub'));
 const SharedSplitBill = lazy(() => import('./pages/SharedSplitBill'));
 const Trips = lazy(() => import('./pages/Trips'));
 const TripDetail = lazy(() => import('./pages/TripDetail'));
+const Categories = lazy(() => import('./pages/Categories'));
 
 // SplashScreen is used as fallback for both initial load and lazy page loading
 
@@ -65,12 +67,14 @@ const AppContent: React.FC = () => {
               <Route path="bulk-input" element={<BulkInput />} />
               <Route path="assets" element={<Assets />} />
               <Route path="debts" element={<Debts />} />
+              <Route path="social" element={<SocialHub />} />
               <Route path="settings" element={<Settings />} />
               <Route path="trips" element={<Trips />} />
               <Route path="trips/:id" element={<TripDetail />} />
             </Route>
             <Route path="/shared-split/:id" element={<SharedSplitBill />} />
             <Route path="/shared-split-bill/:id" element={<SharedSplitBill />} />
+            <Route path="/categories" element={<Categories />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

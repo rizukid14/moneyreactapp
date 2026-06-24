@@ -1,16 +1,28 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Plus, CheckCircle2, ChevronRight, Edit2, Trash2, PlayCircle, MoreVertical, TrendingDown, TrendingUp, ArrowRightLeft, Clock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
 import { isPrincipalTx } from '../lib/utils';
+import DropdownMenu from '../components/common/DropdownMenu';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
 import DebtOffsetModal from '../components/modals/DebtOffsetModal';
-import TransactionModal from '../components/modals/TransactionModal';
+import { lazy, Suspense } from 'react';
+const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import OnboardingTutorial from '../components/OnboardingTutorial';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import MaterialIcon from '../components/common/MaterialIcon';
+import { IconBlock } from '../components/ui/IconBlock';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import { SegmentedControl } from '../components/ui/TabBar';
+import { MetricCard } from '../components/ui/MetricCard';
+import { EmptyState } from '../components/ui/EmptyState';
+import { motion } from 'framer-motion';
+import { useSwipeGesture } from '../hooks/useSwipeGesture';
 
 const fmt = (n: number, sym: string = 'Rp') => `${sym}${Math.abs(n).toLocaleString('id-ID')}`;
 
@@ -20,7 +32,7 @@ const getDaysUntilDue = (dueDate?: string) => {
   return diff;
 };
 
-const DebtCard: React.FC<{
+interface DebtCardProps {
   debt: Debt;
   onEdit: () => void;
   onDelete: () => void;
@@ -36,12 +48,15 @@ const DebtCard: React.FC<{
   isExpanded: boolean;
   currencySymbol: string;
   onHistoryClick?: (tx: Transaction) => void;
-}> = ({
+}
+
+const DebtCard = React.memo<DebtCardProps>(({
   debt, onEdit, onDelete, onPay, onAddPrincipal, onSettle, onUnpay,
   liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded,
   currencySymbol, onHistoryClick
 }) => {
-    const [menuOpen, setMenuOpen] = useState(false);
+    const { categories } = useMoney();
+
     const isHutang = debt.type === 'hutang';
     const daysLeft = getDaysUntilDue(debt.dueDate);
     const isOverdue = daysLeft !== null && daysLeft < 0 && !debt.isPaid;
@@ -52,93 +67,106 @@ const DebtCard: React.FC<{
       : null;
 
     const paidAmount = history.reduce((sum, tx) => {
-      if (isPrincipalTx(tx.note, tx.category)) return sum;
+      if (isPrincipalTx(tx.note, tx.categoryId, categories)) return sum;
       return sum + Number(tx.amount || 0);
     }, 0);
 
     const remainingAmount = Number(debt.totalAmount || 0) - paidAmount;
 
-    const borderColor = debt.isPaid ? 'var(--success)' : isOverdue ? 'var(--danger)' : isDueSoon ? 'var(--secondary)' : 'var(--border-color)';
+    let borderClass = 'border-outline-variant';
+    if (debt.isPaid) borderClass = 'border-success';
+    else if (isOverdue) borderClass = 'border-error';
+    else if (isDueSoon) borderClass = 'border-secondary';
+
+    let shadowClass = debt.isPaid ? 'shadow-none' : isOverdue ? 'shadow-error-glow' : 'shadow-bento';
+    
+    const { dragProps, swipeOffset } = useSwipeGesture({
+      onSwipeLeft: onDelete,
+      onSwipeRight: onEdit,
+    });
 
     return (
-      <div style={{
-        background: 'var(--bg-card)', borderRadius: 18, padding: '16px 20px',
-        border: `1.5px solid ${borderColor}`,
-        boxShadow: debt.isPaid ? 'none' : isOverdue ? '0 4px 16px var(--danger-glow)' : '0 4px 20px rgba(0,0,0,0.02)',
-        opacity: debt.isPaid ? 0.65 : 1,
-        position: 'relative',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease'
-      }} onClick={onToggleExpand}>
-        {/* Header row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-          {/* Icon */}
-          <div style={{
-            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-            background: isHutang ? 'var(--bg-expense)' : 'var(--success-glow)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: isHutang ? 'var(--danger)' : 'var(--success)',
-          }}>
-            {isHutang ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
+      <div className="relative overflow-hidden rounded-3xl w-full h-full">
+        {/* Swipe Action Backgrounds */}
+        <div className="absolute inset-0 flex justify-between items-center pointer-events-none rounded-3xl">
+          <div 
+            className="h-full bg-secondary/15 flex items-center pl-6 text-secondary font-extrabold text-xs transition-opacity duration-150" 
+            style={{ opacity: swipeOffset > 20 ? 1 : 0 }}
+          >
+            <MaterialIcon name="edit" className="mr-1.5 text-base animate-pulse" />
+            Edit
           </div>
-
-          {/* Info */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-              <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>{debt.contact}</span>
-              {debt.isPaid && (
-                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--success)', background: 'var(--success-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>LUNAS</span>
-              )}
-              {isOverdue && (
-                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--danger)', background: 'var(--danger-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>JATUH TEMPO</span>
-              )}
-              {isDueSoon && (
-                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--secondary)', background: 'var(--secondary-glow)', padding: '2px 8px', borderRadius: 20, letterSpacing: '0.05em' }}>SEGERA</span>
-              )}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{debt.description || (isHutang ? 'Hutang' : 'Piutang')}</div>
-          </div>
-
-          {/* Menu */}
-          <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setMenuOpen(p => !p)} className="btn-icon" style={{ padding: 4 }}>
-              <MoreVertical size={16} />
-            </button>
-            {menuOpen && (
-              <div className="budget-dropdown" style={{ right: 0, top: 32 }}>
-                <button className="budget-dropdown-item" onClick={() => { onEdit(); setMenuOpen(false); }}><Edit2 size={13} /> Edit Catatan</button>
-                <button className="budget-dropdown-item" onClick={() => { onAddPrincipal(); setMenuOpen(false); }}><Plus size={13} /> Tambah Nominal</button>
-                {!debt.isPaid ? (
-                  <button className="budget-dropdown-item" onClick={() => { onSettle(); setMenuOpen(false); }}>
-                    <CheckCircle2 size={13} /> Tandai Lunas
-                  </button>
-                ) : (
-                  <button className="budget-dropdown-item" onClick={() => { onUnpay(); setMenuOpen(false); }}>
-                    <CheckCircle2 size={13} /> Tandai Belum Lunas
-                  </button>
-                )}
-                <button className="budget-dropdown-item danger" onClick={() => { onDelete(); setMenuOpen(false); }}><Trash2 size={13} /> Hapus</button>
-              </div>
-            )}
+          <div 
+            className="h-full bg-error/15 flex items-center pr-6 text-error font-extrabold text-xs ml-auto transition-opacity duration-150" 
+            style={{ opacity: swipeOffset < -20 ? 1 : 0 }}
+          >
+            Hapus
+            <MaterialIcon name="delete" className="ml-1.5 text-base animate-pulse" />
           </div>
         </div>
 
+        <motion.div {...dragProps} className="relative z-10 h-full w-full">
+          <Card
+            interactive
+            data-testid={`debt-card-${debt.id}`} 
+            onClick={onToggleExpand}
+            className={`relative transition-all h-full border-2 ${borderClass} ${shadowClass} ${debt.isPaid ? 'opacity-65' : 'opacity-100'}`}
+          >
+        {/* Header row */}
+        <div className="flex items-start gap-3 mb-3">
+          {/* Icon */}
+          <IconBlock 
+            icon={isHutang ? 'trending_down' : 'trending_up'} 
+            color={isHutang ? 'error' : 'success'} 
+            size="md" 
+          />
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="font-bold text-sm text-on-surface">{debt.contact}</span>
+              {debt.isPaid && (
+                <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full tracking-wider">LUNAS</span>
+              )}
+              {isOverdue && (
+                <span className="text-[10px] font-bold text-error bg-error/10 px-2 py-0.5 rounded-full tracking-wider">JATUH TEMPO</span>
+              )}
+              {isDueSoon && (
+                <span className="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-full tracking-wider">SEGERA</span>
+              )}
+            </div>
+            <div className="text-xs text-on-surface-variant truncate">{debt.description || (isHutang ? 'Hutang' : 'Piutang')}</div>
+          </div>
+
+          {/* Menu */}
+          <DropdownMenu 
+            items={[
+              { icon: 'edit', label: 'Edit Catatan', onClick: onEdit },
+              { icon: 'add', label: 'Tambah Nominal', onClick: onAddPrincipal },
+              !debt.isPaid 
+                ? { icon: 'check_circle', label: 'Tandai Lunas', onClick: onSettle }
+                : { icon: 'check_circle', label: 'Tandai Belum Lunas', onClick: onUnpay },
+              { icon: 'delete', label: 'Hapus', danger: true, onClick: onDelete }
+            ]}
+          />
+        </div>
+
         {/* Amount */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: (debt.isInstallment || paidAmount > 0) ? 12 : 0 }}>
+        <div className={`flex justify-between items-end ${(debt.isInstallment || paidAmount > 0) ? 'mb-3' : 'mb-0'}`}>
           <div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>
+            <div className="text-[11px] text-on-surface-variant font-semibold mb-0.5">
               {isHutang ? 'Total Hutang' : 'Total Piutang'}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--success)', letterSpacing: '-0.5px' }}>
+            <div className={`text-xl font-extrabold tracking-tight ${isHutang ? 'text-error' : 'text-success'}`}>
               {fmt(debt.totalAmount, currencySymbol)}
             </div>
           </div>
           {paidAmount > 0 && (
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>
+            <div className="text-right shrink-0">
+              <div className="text-[11px] text-on-surface-variant font-semibold mb-0.5">
                 {remainingAmount <= 0 ? 'Status' : (isHutang ? 'Sisa Hutang' : 'Sisa Piutang')}
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: remainingAmount <= 0 ? 'var(--success)' : (isHutang ? 'var(--danger)' : 'var(--success)'), letterSpacing: '-0.5px' }}>
+              <div className={`text-xl font-extrabold tracking-tight ${remainingAmount <= 0 ? 'text-success' : (isHutang ? 'text-error' : 'text-success')}`}>
                 {remainingAmount > 0 ? fmt(remainingAmount, currencySymbol) : (remainingAmount < 0 ? `Surplus ${fmt(remainingAmount, currencySymbol)}` : 'LUNAS')}
               </div>
             </div>
@@ -147,16 +175,13 @@ const DebtCard: React.FC<{
 
         {/* Installment progress */}
         {debt.isInstallment && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ height: 6, background: 'var(--bg-neutral)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
-              <div style={{
-                height: '100%', borderRadius: 3,
-                width: `${progressPct ?? 0}%`,
-                background: debt.isPaid ? 'var(--success)' : (isHutang ? 'var(--danger)' : 'var(--success)'),
-                transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
-              }} />
+          <div className="mb-3">
+            <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden mb-1.5">
+              <div className={`h-full rounded-full transition-all duration-500 ease-out ${debt.isPaid ? 'bg-success' : (isHutang ? 'bg-error' : 'bg-success')}`}
+                style={{ width: `${progressPct ?? 0}%` }}
+              />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+            <div className="flex justify-between text-[11px] text-on-surface-variant font-semibold">
               <span>{debt.paidInstallments} / {debt.totalInstallments || '?'} cicilan</span>
               <span>{fmt(debt.installmentAmount || 0, currencySymbol)} / bulan</span>
             </div>
@@ -164,13 +189,13 @@ const DebtCard: React.FC<{
         )}
 
         {/* Footer */}
-        <div style={{ marginTop: 10 }}>
+        <div className="mt-2.5">
           {/* Info row — wraps on mobile */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
+          <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-on-surface-variant mb-2.5">
             {debt.dueDate && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Clock size={11} />
-                <span style={{ color: isOverdue ? 'var(--danger)' : isDueSoon ? 'var(--secondary)' : 'inherit' }}>
+              <div className="flex items-center gap-1">
+                <MaterialIcon name="schedule" className="text-[11px]" />
+                <span className={isOverdue ? 'text-error font-bold' : isDueSoon ? 'text-secondary font-bold' : ''}>
                   {isOverdue
                     ? `Telat ${Math.abs(daysLeft!)} hari`
                     : daysLeft === 0 ? 'Jatuh tempo hari ini'
@@ -182,83 +207,75 @@ const DebtCard: React.FC<{
             {debt.type === 'hutang' ? (
               <>
                 {liabilityName && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <span style={{ opacity: 0.7 }}>Hutang di:</span>
-                    <span style={{ fontWeight: 700, color: 'var(--danger)' }}>{liabilityName}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="opacity-70">Hutang di:</span>
+                    <span className="font-bold text-error">{liabilityName}</span>
                   </div>
                 )}
                 {paymentName && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <ArrowRightLeft size={10} />
-                    <span style={{ opacity: 0.7 }}>Bayar via:</span>
-                    <span style={{ fontWeight: 700 }}>{paymentName}</span>
+                  <div className="flex items-center gap-1">
+                    <MaterialIcon name="sync_alt" className="text-[10px]" />
+                    <span className="opacity-70">Bayar via:</span>
+                    <span className="font-bold">{paymentName}</span>
                   </div>
                 )}
               </>
             ) : (
               receiveName && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <ArrowRightLeft size={10} />
-                  <span style={{ opacity: 0.7 }}>Terima ke:</span>
-                  <span style={{ fontWeight: 700, color: 'var(--success)' }}>{receiveName}</span>
+                <div className="flex items-center gap-1">
+                  <MaterialIcon name="sync_alt" className="text-[10px]" />
+                  <span className="opacity-70">Terima ke:</span>
+                  <span className="font-bold text-success">{receiveName}</span>
                 </div>
               )
             )}
           </div>
 
           {/* Action buttons row */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <div className="flex justify-end gap-2">
             {!debt.isPaid && (
-              <button
+              <Button
+                variant={isHutang ? 'danger' : 'primary'}
+                size="sm"
+                data-testid={`debt-pay-${debt.id}`}
                 onClick={(e) => { e.stopPropagation(); onPay(); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 10,
-                  background: isHutang ? 'var(--danger)' : 'var(--success)', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                  boxShadow: isHutang ? '0 3px 10px var(--danger-glow)' : '0 3px 10px var(--success-glow)', whiteSpace: 'nowrap',
-                }}
+                className="py-1.5 h-auto text-xs"
               >
-                <PlayCircle size={14} /> Cicil / Lunas
-              </button>
+                <MaterialIcon name="play_circle" className="text-sm mr-1" /> Cicil / Lunas
+              </Button>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
-              className="btn-icon"
-              style={{
-                padding: 4, transform: isExpanded ? 'rotate(180deg)' : 'none',
-                transition: 'transform 0.3s'
-              }}
+              className={`p-1 rounded-full text-on-surface-variant hover:bg-surface-subtle transition-transform ${isExpanded ? 'rotate-90' : ''}`}
             >
-              <ChevronRight size={18} />
+              <MaterialIcon name="chevron_right" className="text-lg" />
             </button>
           </div>
         </div>
 
         {/* History section */}
         {isExpanded && (
-          <div style={{
-            marginTop: 16, paddingTop: 16, borderTop: '1px dashed var(--border-color)',
-            animation: 'fadeIn 0.3s ease'
-          }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div className="mt-4 pt-4 border-t border-dashed border-outline-variant animate-in fade-in">
+            <div className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2.5">
               Riwayat Transaksi
             </div>
             {history.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', padding: '10px 0' }}>
+              <div className="text-xs text-on-surface-variant italic py-2">
                 Belum ada riwayat pembayaran.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total Pinjaman:</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{fmt(debt.totalAmount, currencySymbol)}</span>
+              <div className="flex flex-col gap-2.5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[13px] text-on-surface-variant">Total Pinjaman:</span>
+                  <span className="text-[13px] font-bold text-on-surface">{fmt(debt.totalAmount, currencySymbol)}</span>
                 </div>
                 {history.map(tx => (
-                  <div key={tx.id} onClick={() => onHistoryClick?.(tx)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: onHistoryClick ? 'pointer' : 'default', padding: '6px', borderRadius: '8px', margin: '0 -6px' }}>
+                  <div key={tx.id} onClick={() => onHistoryClick?.(tx)} className={`flex justify-between items-center ${onHistoryClick ? 'cursor-pointer hover:bg-surface-subtle rounded-lg p-1.5 -mx-1.5' : ''}`}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{tx.note}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{tx.date}</div>
+                      <div className="text-[13px] font-bold text-on-surface">{tx.note}</div>
+                      <div className="text-[11px] text-on-surface-variant">{tx.date}</div>
                     </div>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: tx.type === 'pendapatan' ? 'var(--success)' : 'var(--text-main)' }}>
+                    <div className={`font-extrabold text-[13px] ${tx.type === 'pendapatan' ? 'text-success' : 'text-on-surface'}`}>
                       {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}{fmt(tx.amount, currencySymbol)}
                     </div>
                   </div>
@@ -267,11 +284,14 @@ const DebtCard: React.FC<{
             )}
           </div>
         )}
+      </Card>
+      </motion.div>
       </div>
     );
-  };
+});
 
 const Debts: React.FC = () => {
+  const navigate = useNavigate();
   const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol, updateTransaction, deleteTransaction } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -288,12 +308,15 @@ const Debts: React.FC = () => {
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
-  const handleSave = (data: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string) => {
+  const handleSave = (data: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string) => {
     if (editingDebt) updateDebt(editingDebt.id, data);
-    else addDebt(data, initialMode ?? 'none', categoryName);
+    else addDebt(data, initialMode ?? 'none', categoryName, subCategoryName);
   };
 
-  const getAssetName = (id?: string) => assets.find(a => a.id === id)?.name;
+  // Create Map for fast asset lookup
+  const assetMap = useMemo(() => new Map(assets.map(a => [a.id, a])), [assets]);
+
+  const getAssetName = (id?: string) => id ? assetMap.get(id)?.name : undefined;
 
   const summary = useMemo(() => {
     let totalHutang = 0, totalPiutang = 0;
@@ -301,7 +324,7 @@ const Debts: React.FC = () => {
       if (d.isPaid) return;
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
       }, 0);
 
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
@@ -317,7 +340,7 @@ const Debts: React.FC = () => {
       if (d.isPaid) return;
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.category) ? sum : sum + Number(tx.amount || 0);
+        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
       }, 0);
       const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
       if (remaining <= 0) return;
@@ -370,64 +393,48 @@ const Debts: React.FC = () => {
   }, [debts, filter]);
 
   return (
-    <div className="page">
+    <PageWrapper>
       {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 className="title" style={{ margin: 0 }}>Hutang & Piutang</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Kelola semua catatan hutang & piutangmu</p>
-      </div>
+      <PageHeader 
+        title="Hutang & Piutang" 
+        subtitle="Kelola semua catatan hutang & piutangmu"
+        leftAction={
+          <button
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white border-none shadow-sm cursor-pointer hover:bg-primary/90 transition-colors"
+          >
+            <MaterialIcon name="chevron_left" className="text-xl" />
+          </button>
+        }
+      />
 
       {/* Summary cards */}
-      <div data-tour="debt-summary" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-        <div style={{
-          background: 'var(--bg-card)',
-          borderRadius: 16,
-          padding: '16px',
-          border: '1.5px solid var(--border-color)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            position: 'absolute',
-            left: 0, top: 0, bottom: 0,
-            width: 4,
-            background: 'var(--danger)'
-          }} />
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Hutang</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(summary.totalHutang, currencySymbol)}</div>
-        </div>
-        <div style={{
-          background: 'var(--bg-card)',
-          borderRadius: 16,
-          padding: '16px',
-          border: '1.5px solid var(--border-color)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            position: 'absolute',
-            left: 0, top: 0, bottom: 0,
-            width: 4,
-            background: 'var(--success)'
-          }} />
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Total Piutang</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>{fmt(summary.totalPiutang, currencySymbol)}</div>
-        </div>
+      <div data-tour="debt-summary" className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+        <MetricCard
+          label="Total Hutang"
+          value={fmt(summary.totalHutang, currencySymbol)}
+          icon="trending_down"
+          iconColor="error"
+          valueColor="text-error"
+          glowColor="error"
+          data-testid="debt-summary-hutang"
+        />
+        <MetricCard
+          label="Total Piutang"
+          value={fmt(summary.totalPiutang, currencySymbol)}
+          icon="trending_up"
+          iconColor="success"
+          valueColor="text-success"
+          glowColor="success"
+          data-testid="debt-summary-piutang"
+        />
       </div>
 
       {/* Net position */}
       {(summary.totalHutang > 0 || summary.totalPiutang > 0) && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
-          borderRadius: 12, marginBottom: 12,
-          background: summary.net >= 0 ? 'var(--success-glow)' : 'var(--danger)',
-          border: `1px solid ${summary.net >= 0 ? 'hsla(145, 65%, 43%, 0.25)' : 'var(--danger)'}`,
-          boxShadow: summary.net >= 0 ? 'none' : '0 4px 12px var(--danger-glow)',
-        }}>
-          <ChevronRight size={14} color={summary.net >= 0 ? 'var(--success)' : '#ffffff'} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: summary.net >= 0 ? 'var(--success)' : '#ffffff' }}>
+        <div data-testid="debt-net-position" className={`flex items-center gap-2 p-3 rounded-2xl mb-3 ${summary.net >= 0 ? 'bg-success/10 border border-success/20 text-success' : 'bg-error text-white shadow-error-glow'}`}>
+          <MaterialIcon name="chevron_right" className="text-sm" />
+          <span className="text-sm font-bold">
             {summary.net >= 0
                ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
                : `Neto: kamu berhutang lebih banyak ${fmt(Math.abs(summary.net), currencySymbol)}`}
@@ -437,104 +444,53 @@ const Debts: React.FC = () => {
 
       {/* Offset Banner */}
       {offsetPotentials.length > 0 && (
-        <div style={{
-          marginBottom: 20, padding: '14px', borderRadius: '16px',
-          background: 'linear-gradient(135deg, hsl(145, 65%, 43%), hsl(145, 65%, 33%))', color: 'white',
-          boxShadow: '0 8px 20px var(--success-glow)',
-          display: 'flex', alignItems: 'center', gap: '12px'
-        }}>
-          <div style={{
-            width: '40px', height: '40px', borderRadius: '12px',
-            background: 'rgba(255,255,255,0.2)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center'
-          }}>
-            <ArrowRightLeft size={20} />
+        <div data-testid="debt-offset-banner" className="mb-5 p-4 rounded-3xl bg-gradient-to-br from-success to-[#1e7e46] text-white shadow-success-glow flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+            <MaterialIcon name="sync_alt" className="text-xl" />
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '13px', fontWeight: 800 }}>Tersedia Potong Silang (Offset)</div>
-            <div style={{ fontSize: '11px', opacity: 0.9, fontWeight: 600 }}>
+          <div className="flex-1">
+            <div className="text-sm font-extrabold">Tersedia Potong Silang (Offset)</div>
+            <div className="text-xs font-semibold opacity-90">
               Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif.
             </div>
           </div>
-          <button
+          <Button
+            variant="outline"
             onClick={() => {
               setOffsetTarget(offsetPotentials[0]);
               setIsOffsetModalOpen(true);
             }}
-            style={{
-              padding: '8px 16px', borderRadius: '10px', background: 'white',
-              color: 'var(--success)', border: 'none', fontWeight: 800,
-              fontSize: '12px', cursor: 'pointer'
-            }}
+            className="bg-white text-success border-white h-auto py-2 px-4 text-xs font-bold shrink-0"
           >
             Selesaikan
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, background: 'var(--bg-neutral)', borderRadius: 12, padding: 4, position: 'relative' }}>
-        {([['all', 'Aktif'], ['hutang', 'Hutang'], ['piutang', 'Piutang'], ['lunas', 'Lunas']] as const).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            style={{
-              flex: 1,
-              padding: '8px 0',
-              borderRadius: 8,
-              border: 'none',
-              fontWeight: 700,
-              fontSize: 12,
-              cursor: 'pointer',
-              background: 'transparent',
-              color: filter === key
-                ? (key === 'hutang' ? 'var(--danger)' : key === 'piutang' ? 'var(--success)' : key === 'lunas' ? 'var(--success)' : 'var(--primary)')
-                : 'var(--text-muted)',
-              position: 'relative',
-              transition: 'color 0.2s ease',
-            }}
-          >
-            {filter === key && (
-              <motion.div
-                layoutId="activeDebtFilter"
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'var(--bg-card)',
-                  borderRadius: 8,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                  zIndex: 1,
-                }}
-                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-              />
-            )}
-            <span style={{ position: 'relative', zIndex: 2 }}>{label}</span>
-          </button>
-        ))}
+      <div className="mb-4">
+        <SegmentedControl
+          tabs={[
+            { id: 'all', label: 'Aktif' },
+            { id: 'hutang', label: 'Hutang' },
+            { id: 'piutang', label: 'Piutang' },
+            { id: 'lunas', label: 'Lunas' }
+          ]}
+          activeTabId={filter}
+          onChange={(val) => setFilter(val as any)}
+        />
       </div>
 
       {/* Debt list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 100 }}>
+      <div className={filtered.length === 0 ? "pb-24" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-24"}>
         {filtered.length === 0 ? (
-          <div style={{
-            background: 'var(--bg-card)', border: '2px dashed var(--border-color)',
-            borderRadius: 18, padding: '40px 20px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 36, marginBottom: 10 }}>🎉</div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-main)', marginBottom: 4 }}>
-              {filter === 'lunas' ? 'Belum ada yang lunas' : 'Tidak ada catatan hutang/piutang'}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 }}>
-              Tambah catatan hutang atau piutang kamu.
-            </div>
-            {filter !== 'lunas' && (
-              <button onClick={openAdd} style={{
-                background: filter === 'piutang' ? 'var(--success)' : 'var(--danger)', color: '#fff', border: 'none',
-                borderRadius: 12, padding: '12px 24px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                boxShadow: filter === 'piutang' ? '0 4px 12px var(--success-glow)' : '0 4px 12px var(--danger-glow)',
-              }}>+ Tambah Sekarang</button>
-            )}
-          </div>
+          <EmptyState 
+            icon="receipt_long" 
+            title={filter === 'lunas' ? 'Belum ada yang lunas' : 'Tidak ada catatan hutang/piutang'} 
+            description="Tambah catatan hutang atau piutang kamu." 
+            actionLabel={filter !== 'lunas' ? "+ Tambah Sekarang" : undefined}
+            onAction={filter !== 'lunas' ? openAdd : undefined}
+          />
         ) : (
           filtered.map(d => (
             <DebtCard
@@ -587,7 +543,7 @@ const Debts: React.FC = () => {
           assets={assets}
           currencySymbol={currencySymbol}
           paidAmountFromTxs={transactions.filter(t => t.relatedId === payingDebt.id).reduce((sum, tx) => {
-            return isPrincipalTx(tx.note, tx.category) ? sum : sum + tx.amount;
+            return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + tx.amount;
           }, 0)}
           onConfirm={(amt, assetId, date, time, note, isFull) => {
             if (isFull) {
@@ -645,31 +601,29 @@ const Debts: React.FC = () => {
       )}
 
       {editingHistoryTx && (
-        <TransactionModal
-          isOpen={!!editingHistoryTx}
-          onClose={() => setEditingHistoryTx(null)}
-          assets={assets}
-          addTransaction={() => ({} as any)} // Not used when editing
-          updateTransaction={updateTransaction}
-          deleteTransaction={deleteTransaction}
-          editingTransaction={editingHistoryTx}
-        />
+        <Suspense fallback={null}>
+          <TransactionModal
+            isOpen={!!editingHistoryTx}
+            onClose={() => setEditingHistoryTx(null)}
+            assets={assets}
+            addTransaction={() => ({} as any)} // Not used when editing
+            updateTransaction={updateTransaction}
+            deleteTransaction={deleteTransaction}
+            editingTransaction={editingHistoryTx}
+          />
+        </Suspense>
       )}
 
       {/* Floating Action Button (FAB) matching Transactions page (Dynamic Theme & Visibility) */}
       {filter !== 'lunas' && (
         <button
           data-tour="add-debt"
-          className="fab"
+          data-testid="add-debt-fab"
+          className={`fixed bottom-20 right-4 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-bento z-50 transition-all active:scale-95 ${filter === 'piutang' ? 'bg-success shadow-success-glow' : 'bg-error shadow-error-glow'}`}
           onClick={openAdd}
-          style={{
-            zIndex: 1000,
-            background: filter === 'piutang' ? 'var(--success)' : 'var(--danger)',
-            boxShadow: filter === 'piutang' ? '0 4px 16px var(--success-glow)' : '0 4px 16px var(--danger-glow)'
-          }}
           aria-label="Tambah Hutang/Piutang"
         >
-          <Plus size={32} strokeWidth={3} />
+          <MaterialIcon name="add" className="text-3xl" />
         </button>
       )}
 
@@ -684,7 +638,7 @@ const Debts: React.FC = () => {
           { targetSelector: '[data-tour="debt-modal-submit"]', title: '💾 Simpan Catatan', description: 'Simpan catatan untuk mencatat data ini ke dalam sistem.' },
         ]} 
       />
-    </div>
+    </PageWrapper>
   );
 };
 

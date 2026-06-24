@@ -1,6 +1,7 @@
+import MaterialIcon from '../components/common/MaterialIcon';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart, LineChart, Line } from 'recharts';
-import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Receipt, Calendar, Flame, Heart, ShieldCheck, Activity, Target, Zap, CreditCard, CheckCircle2, AlertTriangle, LayoutDashboard, HandCoins } from 'lucide-react';
+
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
 import StatDetailModal from '../components/modals/StatDetailModal';
@@ -8,17 +9,36 @@ import type { StatDetailItem } from '../components/modals/StatDetailModal';
 import { formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
+import { MONTH_NAMES } from '../lib/constants';
 
 import { ALL_STATS_VIEWS } from './Settings';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import { BentoCard } from '../components/ui/Card';
+import { IconBlock } from '../components/ui/IconBlock';
+import { StatusBadge } from '../components/ui/StatusBadge';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { ListItem } from '../components/ui/ListItem';
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
-const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const VIEW_ICONS: Record<string, string> = {
+  all: 'stacked_bar_chart',
+  cash_bank: 'account_balance',
+  investment: 'savings',
+  goals: 'trending_up',
+  subs: 'subscriptions',
+  health: 'local_fire_department',
+  forecast: 'water_drop',
+  detailed_analysis: 'insights',
+};
+import { EmptyState } from '../components/ui/EmptyState';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
+const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+
+const COLORS = ['var(--primary)', 'var(--success)', 'var(--warning)', 'var(--danger)', 'var(--secondary)', 'hsl(330, 70%, 55%)', 'hsl(170, 60%, 40%)', 'hsl(350, 75%, 55%)', 'hsl(250, 60%, 55%)'];
 
 const Statistics: React.FC = () => {
   const {
-    transactions, assets,
+    transactions, assets, categories,
     currencySymbol, startOfMonthDay, theme, chartStyle,
     statsCarouselCards, defaultStatsView
   } = useMoney();
@@ -67,17 +87,20 @@ const Statistics: React.FC = () => {
 
   const fmt = useCallback((value: number) => formatCurrency(value, currencySymbol), [currencySymbol]);
 
+  // Create Map for O(1) category lookup
+  const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
+
   const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights, dailyExpenseChart, heatmapData } = useMemo((): {
     chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
     currentMonthIncome: number; currentMonthExpense: number;
     prevMonthIncome: number; prevMonthExpense: number;
-    expenseCategoryData: { name: string; value: number }[];
-    incomeCategoryData: { name: string; value: number }[];
-    topCategories: { id: string; category: string; amount: number; type: 'pengeluaran' | 'pendapatan'; color: string; colorIndex: number }[];
+    expenseCategoryData: { name: string; id: string; value: number }[];
+    incomeCategoryData: { name: string; id: string; value: number }[];
+    topCategories: { id: string; categoryId: string; categoryName: string; amount: number; type: 'pengeluaran' | 'pendapatan'; color: string; colorIndex: number }[];
     insights: {
       netSavings: number; savingsRate: number; avgDailySpending: number;
       txCountIncome: number; txCountExpense: number; txCountTransfer: number; txCountTotal: number;
-      biggestExpenseTx: { note: string; amount: number; category: string } | null;
+      biggestExpenseTx: { note: string; amount: number; categoryId: string } | null;
       topSpendingDay: { date: string; amount: number } | null;
     };
     dailyExpenseChart: { day: number; label: string; amount: number; income: number }[];
@@ -134,7 +157,7 @@ const Statistics: React.FC = () => {
       const pE = new Date(y, m + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
 
       last6Months.push({
-        name: MONTH_NAMES[m],
+        name: SHORT_MONTH_NAMES[m],
         month: m,
         year: y,
         pengeluaran: 0,
@@ -158,7 +181,7 @@ const Statistics: React.FC = () => {
     let txCountIncome = 0;
     let txCountExpense = 0;
     let txCountTransfer = 0;
-    let biggestExpenseTx: { note: string; amount: number; category: string } | null = null;
+    let biggestExpenseTx: { note: string; amount: number; categoryId: string } | null = null;
     const dailySpending: Record<string, number> = {}; // 'YYYY-MM-DD' -> total expense
 
     const dailyIncome: Record<string, number> = {};
@@ -171,7 +194,7 @@ const Statistics: React.FC = () => {
 
       // 1. Current Period Stats
       if (txDate >= vPeriodStart && txDate < vPeriodEnd) {
-        const subKey = tx.subCategory || tx.category;
+        const subKey = tx.subCategoryId || tx.categoryId || '';
 
         const transferFlow = getTransferFlowForActiveView(tx);
         const isIncomeTx = tx.type === 'pendapatan' || transferFlow === 'income';
@@ -179,17 +202,17 @@ const Statistics: React.FC = () => {
 
         if (isIncomeTx) {
           thisMonthInc += tx.amount;
-          if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === tx.category) {
+          if (drillDownCategory?.type === 'pendapatan' && drillDownCategory?.name === tx.categoryId) {
             incBySubCategory[subKey] = (incBySubCategory[subKey] || 0) + tx.amount;
           }
-          incByCategory[tx.category] = (incByCategory[tx.category] || 0) + tx.amount;
+          incByCategory[tx.categoryId || ''] = (incByCategory[tx.categoryId || ''] || 0) + tx.amount;
         }
         if (isExpenseTx) {
           thisMonthExp += tx.amount;
-          if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === tx.category) {
+          if (drillDownCategory?.type === 'pengeluaran' && drillDownCategory?.name === tx.categoryId) {
             expBySubCategory[subKey] = (expBySubCategory[subKey] || 0) + tx.amount;
           }
-          expByCategory[tx.category] = (expByCategory[tx.category] || 0) + tx.amount;
+          expByCategory[tx.categoryId || ''] = (expByCategory[tx.categoryId || ''] || 0) + tx.amount;
         }
 
         // Insight tracking
@@ -200,7 +223,7 @@ const Statistics: React.FC = () => {
           dailySpending[tx.date] = (dailySpending[tx.date] || 0) + tx.amount;
           // Biggest single expense
           if (!biggestExpenseTx || tx.amount > biggestExpenseTx.amount) {
-            biggestExpenseTx = { note: tx.note || tx.category, amount: tx.amount, category: tx.category };
+            biggestExpenseTx = { note: tx.note || tx.categoryId || '', amount: tx.amount, categoryId: tx.categoryId || '' };
           }
         }
         if (isIncomeTx) {
@@ -225,27 +248,41 @@ const Statistics: React.FC = () => {
     });
 
     const expenseData = drillDownCategory?.type === 'pengeluaran'
-      ? Object.keys(expBySubCategory).map(key => ({ name: key, value: expBySubCategory[key] })).sort((a, b) => b.value - a.value)
-      : Object.keys(expByCategory).map(key => ({ name: key, value: expByCategory[key] })).sort((a, b) => b.value - a.value);
+      ? Object.keys(expBySubCategory).map(key => {
+          const parentCat = drillDownCategory.name ? categoryMap.get(drillDownCategory.name) : undefined;
+          const subCatName = parentCat?.subcategories?.find(s => s.id === key)?.name || parentCat?.name || key;
+          return { name: subCatName, id: key, value: expBySubCategory[key] };
+        }).sort((a, b) => b.value - a.value)
+      : Object.keys(expByCategory).map(key => {
+          const catName = categoryMap.get(key)?.name || key;
+          return { name: catName, id: key, value: expByCategory[key] };
+        }).sort((a, b) => b.value - a.value);
 
     const incomeData = drillDownCategory?.type === 'pendapatan'
-      ? Object.keys(incBySubCategory).map(key => ({ name: key, value: incBySubCategory[key] })).sort((a, b) => b.value - a.value)
-      : Object.keys(incByCategory).map(key => ({ name: key, value: incByCategory[key] })).sort((a, b) => b.value - a.value);
+      ? Object.keys(incBySubCategory).map(key => {
+          const parentCat = drillDownCategory.name ? categoryMap.get(drillDownCategory.name) : undefined;
+          const subCatName = parentCat?.subcategories?.find(s => s.id === key)?.name || parentCat?.name || key;
+          return { name: subCatName, id: key, value: incBySubCategory[key] };
+        }).sort((a, b) => b.value - a.value)
+      : Object.keys(incByCategory).map(key => {
+          const catName = categoryMap.get(key)?.name || key;
+          return { name: catName, id: key, value: incByCategory[key] };
+        }).sort((a, b) => b.value - a.value);
 
     // Prepare the list for the bottom section
-    let allCategories: { id: string, category: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
+    let allCategories: { id: string, categoryId: string, categoryName: string, amount: number, type: 'pengeluaran' | 'pendapatan', color: string, colorIndex: number }[] = [];
 
     if (drillDownCategory) {
       const baseIdx = drillDownCategory.colorIndex;
       if (drillDownCategory.type === 'pengeluaran') {
         allCategories = expenseData.map((d, i) => ({
-          id: `exp-sub-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const,
+          id: `exp-sub-${d.id}`, categoryId: d.id, categoryName: d.name, amount: d.value, type: 'pengeluaran' as const,
           color: COLORS[(i + baseIdx) % COLORS.length],
           colorIndex: (i + baseIdx) % COLORS.length
         }));
       } else {
         allCategories = incomeData.map((d, i) => ({
-          id: `inc-sub-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const,
+          id: `inc-sub-${d.id}`, categoryId: d.id, categoryName: d.name, amount: d.value, type: 'pendapatan' as const,
           color: COLORS[(i + baseIdx) % COLORS.length],
           colorIndex: (i + baseIdx) % COLORS.length
         }));
@@ -253,12 +290,12 @@ const Statistics: React.FC = () => {
     } else {
       allCategories = [
         ...expenseData.map((d, i) => ({
-          id: `exp-${d.name}`, category: d.name, amount: d.value, type: 'pengeluaran' as const,
+          id: `exp-${d.id}`, categoryId: d.id, categoryName: d.name, amount: d.value, type: 'pengeluaran' as const,
           color: COLORS[i % COLORS.length],
           colorIndex: i % COLORS.length
         })),
         ...incomeData.map((d, i) => ({
-          id: `inc-${d.name}`, category: d.name, amount: d.value, type: 'pendapatan' as const,
+          id: `inc-${d.id}`, categoryId: d.id, categoryName: d.name, amount: d.value, type: 'pendapatan' as const,
           color: COLORS[(i + 3) % COLORS.length],
           colorIndex: (i + 3) % COLORS.length
         }))
@@ -420,18 +457,19 @@ const Statistics: React.FC = () => {
   }, [startOfMonthDay]);
 
   return (
-    <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 className="title" style={{ margin: 0 }}>Statistik</h1>
-        <button onClick={resetToToday} style={{
-          display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
-          borderRadius: '24px', border: 'none', background: 'var(--primary-glow)',
-          fontSize: '13px', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer',
-          boxShadow: '0 2px 10px var(--primary-glow)'
-        }}>
-          <CalendarDays size={16} /> Hari Ini
-        </button>
-      </div>
+    <PageWrapper>
+      <PageHeader
+        title="Statistik"
+        subtitle="Analisis pemasukan, pengeluaran, dan kesehatan finansial"
+        action={
+          <button
+            onClick={resetToToday}
+            className="flex lg:hidden items-center justify-center gap-0.5 sm:gap-1.5 px-2 py-2 rounded-xl border-none bg-primary-container/20 text-primary-color font-bold text-[11px] sm:text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity w-full"
+          >
+            <MaterialIcon name="calendar_month" className="text-[14px] sm:text-base shrink-0" /> <span className="truncate">Hari Ini</span>
+          </button>
+        }
+      />
 
       {/* View Carousel Selector */}
       <div style={{
@@ -439,7 +477,8 @@ const Statistics: React.FC = () => {
         overflowX: 'auto',
         WebkitOverflowScrolling: 'touch',
         paddingBottom: '4px',
-        margin: '0 -4px' // negative margin to allow shadow/glow to show
+        margin: '0 -4px', // negative margin to allow shadow/glow to show
+        scrollSnapType: 'x mandatory'
       }} className="hide-scrollbar">
         <div style={{
           display: 'flex',
@@ -451,16 +490,19 @@ const Statistics: React.FC = () => {
             const def = ALL_STATS_VIEWS.find(v => v.id === viewId);
             if (!def) return null;
             const isActive = activeViewId === viewId;
+            const iconName = VIEW_ICONS[viewId] || 'dashboard';
             return (
               <motion.button
                 key={viewId}
+                data-testid={`stats-view-${viewId}`}
+                layout
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   setActiveViewId(viewId);
                   setDrillDownCategory(null);
                 }}
                 style={{
-                  padding: '14px 24px',
+                  padding: isActive ? '14px 20px' : '14px',
                   borderRadius: '18px',
                   background: isActive ? 'var(--primary-gradient)' : 'var(--bg-card-solid)',
                   color: isActive ? 'white' : 'var(--text-muted)',
@@ -469,20 +511,36 @@ const Statistics: React.FC = () => {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
+                  justifyContent: 'center',
+                  gap: isActive ? '8px' : '0px',
+                  minWidth: isActive ? undefined : '50px',
                   boxShadow: isActive ? '0 10px 25px var(--primary-glow)' : '0 4px 12px rgba(0,0,0,0.03)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   flexShrink: 0,
-                  border: isActive ? 'none' : '1px solid var(--border-color)'
+                  border: isActive ? 'none' : '1px solid var(--border-color)',
+                  scrollSnapAlign: 'start',
+                  overflow: 'hidden',
                 }}
               >
-                {viewId === 'health' ? <Flame size={18} style={{ color: isActive ? 'white' : 'var(--secondary)' }} /> :
-                  viewId === 'budget' ? <Target size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
-                    viewId === 'goals' ? <TrendingUp size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
-                      viewId === 'subs' ? <CreditCard size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
-                        viewId === 'forecast' ? <Zap size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} /> :
-                          <LayoutDashboard size={18} style={{ color: isActive ? 'white' : 'var(--primary)' }} />}
-                {def.label}
+                <MaterialIcon
+                  name={iconName}
+                  className={isActive ? 'text-white text-[20px]' : 'text-[var(--primary)] text-[20px]'}
+                />
+                <motion.span
+                  initial={false}
+                  animate={{
+                    width: isActive ? 'auto' : 0,
+                    opacity: isActive ? 1 : 0,
+                    marginLeft: isActive ? 0 : -8,
+                  }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  style={{
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    lineHeight: 1,
+                  }}
+                >
+                  {def.label}
+                </motion.span>
               </motion.button>
             );
           })}
@@ -548,40 +606,69 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
           >
+                {/* Header with Month Selector matching Transactions.tsx */}
+                <PageHeader
+                  className="mt-2"
+                  title="Analisis Statistik"
+                  subtitle="Pantau tren dan riwayat finansial Anda"
+                  action={
+                    <div className="flex items-center gap-1 sm:gap-3 justify-end w-full">
+                      <button
+                        onClick={resetToToday}
+                        className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+                      >
+                        <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+                      </button>
+                      <div 
+                        className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-1 sm:px-2 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm w-full" 
+                        onClick={() => setIsDatePickerOpen(true)}
+                      >
+                        <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
+                          <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="prev-month-btn">
+                            <MaterialIcon name="chevron_left" className="text-on-surface-variant text-[14px] sm:text-base" />
+                          </button>
+                          <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden" data-testid="month-picker-toggle">
+                            <MaterialIcon name="calendar_month" className="text-primary text-[14px] sm:text-base shrink-0 hidden sm:block" />
+                            <span className="font-label-sm sm:font-label-md text-[10px] sm:text-sm text-on-surface font-semibold truncate" data-testid="month-label">
+                              {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear().toString().slice(2)}
+                            </span>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="next-month-btn">
+                            <MaterialIcon name="chevron_right" className="text-on-surface-variant text-[14px] sm:text-base" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                />
 
-            {/* Month Switcher Header */}
-            <div data-tour="month-nav" className="card shadow-soft" style={{ padding: '4px', marginBottom: '24px', border: 'none', background: 'var(--bg-card-solid)', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button onClick={() => changeMonth(-1)} className="btn-icon">
-                  <ChevronLeft size={24} />
-                </button>
+                {/* Hero Summary Section - Bento Grid */}
+                <section className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
 
-                <div
-                  onClick={() => setIsDatePickerOpen(true)}
-                  style={{
-                    textAlign: 'center', cursor: 'pointer', padding: '10px 20px', borderRadius: '14px',
-                    background: 'var(--bg-main)', flex: 1, margin: '0 8px'
-                  }}>
-                  <div style={{ fontWeight: 800, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', color: 'var(--text-main)' }}>
-                    {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
-                    <ChevronDown size={18} color="var(--primary)" />
-                  </div>
+            <div data-tour="stats-chart" className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative overflow-hidden">
+              <div className="flex items-center justify-between mb-4 relative z-10">
+                <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Tren 6 Bulan Terakhir</span>
+                <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                  <MaterialIcon name="bar_chart" className="text-primary text-base" />
                 </div>
-
-                <button onClick={() => changeMonth(1)} className="btn-icon">
-                  <ChevronRight size={24} />
-                </button>
               </div>
-            </div>
-
-            <div data-tour="stats-chart" className="card glass">
-              <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Tren 6 Bulan Terakhir</h2>
               <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer>
                   <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
-                    <YAxis hide domain={[0, 'dataMax + 10000']} />
+                    <YAxis
+                      width={40}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                      tickFormatter={(val) => {
+                        if (val >= 1000000) return `${(val / 1000000).toFixed(1).replace(/\.0$/, '')}jt`;
+                        if (val >= 1000) return `${(val / 1000).toFixed(0)}rb`;
+                        return val;
+                      }}
+                      domain={[0, 'dataMax + 10000']}
+                    />
                     <Tooltip
                       cursor={{ fill: 'var(--bg-main)' }}
                       contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
@@ -595,7 +682,7 @@ const Statistics: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '28px' }}>
+            <div className="col-span-1 md:col-span-12 flex flex-col md:flex-row gap-4 lg:gap-6 mb-2">
               {/* Pendapatan Card */}
               {(() => {
                 const growthPct = prevMonthIncome > 0
@@ -603,23 +690,27 @@ const Statistics: React.FC = () => {
                   : (currentMonthIncome > 0 ? 100 : 0);
                 const isUp = growthPct >= 0;
                 return (
-                  <div className="card" style={{
-                    flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--primary-gradient)',
-                    color: 'white', border: 'none', padding: '16px',
-                    boxShadow: '0 10px 25px var(--primary-glow)'
-                  }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pendapatan</div>
-                    <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmt(currentMonthIncome)}</div>
-                    {(currentMonthIncome > 0 || prevMonthIncome > 0) && (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '6px',
-                        padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
-                        background: isUp ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
-                      }}>
-                        {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                        {Math.abs(growthPct).toFixed(0)}% vs bulan lalu
+                  <div className="flex-1 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-primary opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+                    
+                    <div className="flex justify-between items-center relative z-10">
+                      <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pendapatan</span>
+                      <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                        <MaterialIcon name="arrow_downward" className="text-primary text-base" />
                       </div>
-                    )}
+                    </div>
+                    
+                    <div className="mt-2.5 relative z-10">
+                      <h2 className="text-3xl md:text-4xl font-bold text-on-surface tracking-tight truncate">{fmt(currentMonthIncome)}</h2>
+                      {(currentMonthIncome > 0 || prevMonthIncome > 0) && (
+                        <div className="mt-0.5">
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${isUp ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
+                            <MaterialIcon name={isUp ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
+                            {Math.abs(growthPct).toFixed(1)}% vs bulan lalu
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
@@ -632,23 +723,27 @@ const Statistics: React.FC = () => {
                 const isUp = growthPct >= 0;
                 // For expense: going up is bad (red-ish), going down is good (green-ish)
                 return (
-                  <div className="card" style={{
-                    flex: 1, minWidth: 0, marginBottom: 0, background: 'var(--secondary-gradient)',
-                    color: 'white', border: 'none', padding: '16px',
-                    boxShadow: '0 10px 25px var(--secondary-glow)'
-                  }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: '4px' }}>Pengeluaran</div>
-                    <div style={{ fontSize: '18px', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmt(currentMonthExpense)}</div>
-                    {(currentMonthExpense > 0 || prevMonthExpense > 0) && (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '6px',
-                        padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
-                        background: isUp ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)',
-                      }}>
-                        {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                        {Math.abs(growthPct).toFixed(0)}% vs bulan lalu
+                  <div className="flex-1 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-secondary opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+                    
+                    <div className="flex justify-between items-center relative z-10">
+                      <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran</span>
+                      <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                        <MaterialIcon name="arrow_upward" className="text-error text-base" />
                       </div>
-                    )}
+                    </div>
+                    
+                    <div className="mt-2.5 relative z-10">
+                      <h2 className="text-3xl md:text-4xl font-bold text-on-surface tracking-tight truncate">{fmt(currentMonthExpense)}</h2>
+                      {(currentMonthExpense > 0 || prevMonthExpense > 0) && (
+                        <div className="mt-0.5">
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${isUp ? 'bg-error-container/20 text-error' : 'bg-primary-container/20 text-primary-color'}`} title="Dari bulan lalu">
+                            <MaterialIcon name={isUp ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
+                            {Math.abs(growthPct).toFixed(1)}% vs bulan lalu
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
@@ -780,8 +875,7 @@ const Statistics: React.FC = () => {
 
               return (
                 <div
-                  className="card glass"
-                  style={{ marginBottom: '24px', padding: '16px', position: 'relative' }}
+                  className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento relative group"
                   onClick={() => setHoveredCell(null)}
                 >
                   {/* Scoped animations */}
@@ -798,15 +892,20 @@ const Statistics: React.FC = () => {
               }
             `}</style>
                   {/* Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Aktivitas Pengeluaran</h2>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{activeDays} hari aktif</span>
+                  <div className="flex justify-between items-center mb-4 relative z-10">
+                    <div className="flex items-center gap-2">
+                      <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Aktivitas Pengeluaran</span>
+                      <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                        <MaterialIcon name="grid_view" className="text-primary text-base" />
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-on-surface-variant">{activeDays} hari aktif</span>
                   </div>
 
                   {/* Scrollable container with modern scrollbar styling */}
                   <div
                     ref={heatmapScrollRef}
-                    className="custom-scrollbar"
+                    className="custom-scrollbar hidden sm:block"
                     style={{
                       overflowX: 'auto',
                       WebkitOverflowScrolling: 'touch',
@@ -916,42 +1015,81 @@ const Statistics: React.FC = () => {
                     ];
 
                     return (
-                      <div style={{ marginTop: '18px', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>Skala Akurasi Pengeluaran (Rupiah)</span>
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Maks: {fmt(maxAmount)}</span>
-                        </div>
+                      <>
+                        <div className="hidden sm:block" style={{ marginTop: '18px', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>Skala Akurasi Pengeluaran (Rupiah)</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Maks: {fmt(maxAmount)}</span>
+                          </div>
 
-                        {/* The continuous gradient bar */}
-                        <div style={{ position: 'relative', padding: '0 4px', marginBottom: '6px' }}>
-                          <div style={{
-                            height: '10px',
-                            borderRadius: '5px',
-                            background: `linear-gradient(to right, ${gradientStops})`,
-                            border: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
-                          }} />
+                          {/* The continuous gradient bar */}
+                          <div style={{ position: 'relative', padding: '0 4px', marginBottom: '6px' }}>
+                            <div style={{
+                              height: '10px',
+                              borderRadius: '5px',
+                              background: `linear-gradient(to right, ${gradientStops})`,
+                              border: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                            }} />
 
-                          {/* Ticks and Labels */}
-                          <div style={{ position: 'relative', height: '24px', marginTop: '4px' }}>
-                            {ticks.map((tick, idx) => (
-                              <div key={idx} style={{
-                                position: 'absolute',
-                                left: `${tick.pos}%`,
-                                transform: 'translateX(-50%)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                fontSize: '9px',
-                                fontWeight: 700,
-                                color: 'var(--text-muted)',
-                              }}>
-                                <div style={{ width: '1px', height: '4px', background: 'var(--text-muted)', opacity: 0.5, marginBottom: '2px' }} />
-                                <span style={{ whiteSpace: 'nowrap' }}>{tick.label}</span>
-                              </div>
-                            ))}
+                            {/* Ticks and Labels */}
+                            <div style={{ position: 'relative', height: '24px', marginTop: '4px' }}>
+                              {ticks.map((tick, idx) => (
+                                <div key={idx} style={{
+                                  position: 'absolute',
+                                  left: `${tick.pos}%`,
+                                  transform: 'translateX(-50%)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  fontSize: '9px',
+                                  fontWeight: 700,
+                                  color: 'var(--text-muted)',
+                                }}>
+                                  <div style={{ width: '1px', height: '4px', background: 'var(--text-muted)', opacity: 0.5, marginBottom: '2px' }} />
+                                  <span style={{ whiteSpace: 'nowrap' }}>{tick.label}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
+
+                        {/* Weekly Summary List for Mobile (hidden on sm: and up) */}
+                        <div className="block sm:hidden space-y-3 mt-4 border-t border-border-light pt-4">
+                          <p className="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider mb-2">Ringkasan Mingguan</p>
+                          {heatmapData.map((monthData, idx) => {
+                            // Group monthData.cells into weeks (7 days each)
+                            const weeks: { weekNum: number; total: number }[] = [];
+                            let currentWeekTotal = 0;
+                            monthData.cells.forEach((cell, cellIdx) => {
+                              currentWeekTotal += cell.amount;
+                              if ((cellIdx + 1) % 7 === 0 || cellIdx === monthData.cells.length - 1) {
+                                weeks.push({ weekNum: Math.floor(cellIdx / 7) + 1, total: currentWeekTotal });
+                                currentWeekTotal = 0;
+                              }
+                            });
+
+                            const monthTotal = monthData.cells.reduce((s, c) => s + c.amount, 0);
+                            if (monthTotal === 0) return null;
+
+                            return (
+                              <div key={idx} className="bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant flex flex-col gap-2.5">
+                                <div className="flex justify-between items-center pb-2 border-b border-outline-variant/60">
+                                  <span className="font-extrabold text-xs text-on-surface">{monthData.name} {viewDate.getFullYear()}</span>
+                                  <span className="font-extrabold text-xs text-secondary">{fmt(monthTotal)}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {weeks.map((w, wIdx) => (
+                                    <div key={wIdx} className="bg-bg-card p-2.5 rounded-xl border border-outline-variant/80 flex justify-between items-center text-[10px] gap-1">
+                                      <span className="text-on-surface-variant font-bold">Minggu {w.weekNum}</span>
+                                      <span className="font-extrabold text-on-surface text-right truncate">{fmt(w.total)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
                     );
                   })()}
 
@@ -1025,13 +1163,10 @@ const Statistics: React.FC = () => {
 
 
             {/* ── Insights Section ────────────────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
+            <div className="col-span-1 md:col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6 mb-2">
               {/* Net Savings */}
               <div 
-                className="card glass" 
-                style={{ marginBottom: 0, padding: '14px', cursor: 'pointer', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                className="bg-bg-card p-4 rounded-3xl shadow-bento group cursor-pointer hover:-translate-y-1 transition-all flex flex-col justify-between relative overflow-hidden" 
                 onClick={() => setDetailModalProps({
                   isOpen: true,
                   title: 'Sisa Bersih (Net Savings)',
@@ -1044,31 +1179,27 @@ const Statistics: React.FC = () => {
                   ]
                 })}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: insights.netSavings >= 0 ? 'var(--bg-income)' : 'var(--bg-expense)', color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--secondary)' }}>
-                    <TrendingUp size={14} />
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Sisa Bersih</span>
+                  <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="trending_up" className="text-primary text-base" />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    Sisa Bersih
-                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>!</div>
-                  </span>
                 </div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: insights.netSavings >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
-                  {insights.netSavings >= 0 ? '+' : ''}{fmt(insights.netSavings)}
+                <div className="mt-1 relative z-10">
+                  <h2 className={`text-xl font-bold truncate ${insights.netSavings >= 0 ? 'text-primary-color' : 'text-error'}`}>
+                    {insights.netSavings >= 0 ? '+' : ''}{fmt(insights.netSavings)}
+                  </h2>
+                  {currentMonthIncome > 0 && (
+                    <div className="text-xs text-on-surface-variant mt-1 font-medium">
+                      Rasio tabungan: {insights.savingsRate.toFixed(0)}%
+                    </div>
+                  )}
                 </div>
-                {currentMonthIncome > 0 && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Rasio tabungan: {insights.savingsRate.toFixed(0)}%
-                  </div>
-                )}
               </div>
 
               {/* Daily Average Spending */}
               <div 
-                className="card glass" 
-                style={{ marginBottom: 0, padding: '14px', cursor: 'pointer', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                className="bg-bg-card p-4 rounded-3xl shadow-bento group cursor-pointer hover:-translate-y-1 transition-all flex flex-col justify-between relative overflow-hidden" 
                 onClick={() => {
                    const now = new Date();
                    const vM = viewDate.getMonth();
@@ -1088,75 +1219,72 @@ const Statistics: React.FC = () => {
                    });
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(35,80%,55%,0.1)', color: 'hsl(35,80%,45%)' }}>
-                    <Calendar size={14} />
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Rata-rata/Hari</span>
+                  <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="calendar_today" className="text-secondary text-base" />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    Rata-rata/Hari
-                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>!</div>
-                  </span>
                 </div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--secondary)' }}>
-                  {fmt(insights.avgDailySpending)}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  pengeluaran harian
+                <div className="mt-1 relative z-10">
+                  <h2 className="text-xl font-bold text-on-surface truncate">{fmt(insights.avgDailySpending)}</h2>
+                  <div className="text-xs text-on-surface-variant mt-1 font-medium">
+                    pengeluaran harian
+                  </div>
                 </div>
               </div>
 
               {/* Transaction Count */}
-              <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(260,70%,60%,0.1)', color: 'hsl(260,70%,55%)' }}>
-                    <Receipt size={14} />
+              <div className="bg-bg-card p-4 rounded-3xl shadow-bento group flex flex-col justify-between relative overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Transaksi</span>
+                  <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="receipt" className="text-on-surface-variant text-base" />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Transaksi</span>
                 </div>
-                <div style={{ fontSize: '15px', fontWeight: 800 }}>
-                  {insights.txCountTotal}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {insights.txCountExpense} keluar · {insights.txCountIncome} masuk{insights.txCountTransfer > 0 ? ` · ${insights.txCountTransfer} tf` : ''}
+                <div className="mt-1 relative z-10">
+                  <h2 className="text-xl font-bold text-on-surface truncate">{insights.txCountTotal}</h2>
+                  <div className="text-[10px] text-on-surface-variant mt-1 font-medium truncate">
+                    {insights.txCountExpense} keluar · {insights.txCountIncome} masuk{insights.txCountTransfer > 0 ? ` · ${insights.txCountTransfer} tf` : ''}
+                  </div>
                 </div>
               </div>
 
               {/* Top Spending Day */}
-              <div className="card glass" style={{ marginBottom: 0, padding: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsla(350,80%,55%,0.1)', color: 'hsl(350,80%,50%)' }}>
-                    <Flame size={14} />
+              <div className="bg-bg-card p-4 rounded-3xl shadow-bento group flex flex-col justify-between relative overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Hari Terboros</span>
+                  <div className="w-8 h-8 rounded-lg bg-error-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="local_fire_department" className="text-error text-base" />
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Hari Terboros</span>
                 </div>
-                {insights.topSpendingDay ? (
-                  <>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--danger)' }}>
-                      {fmt(insights.topSpendingDay.amount)}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {new Date(insights.topSpendingDay.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>-</div>
-                )}
+                <div className="mt-1 relative z-10">
+                  {insights.topSpendingDay ? (
+                    <>
+                      <h2 className="text-xl font-bold text-error truncate">{fmt(insights.topSpendingDay.amount)}</h2>
+                      <div className="text-xs text-on-surface-variant mt-1 font-medium">
+                        {new Date(insights.topSpendingDay.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-on-surface-variant">-</div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Biggest Transaction */}
             {insights.biggestExpenseTx && (
-              <div className="card glass" style={{ marginBottom: '24px', padding: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-expense)', color: 'var(--secondary)', flexShrink: 0 }}>
-                  <Wallet size={18} />
+              <div className="col-span-1 md:col-span-12 bg-bg-card p-4 rounded-3xl shadow-bento group flex items-center gap-4 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-error-container flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                  <MaterialIcon name="account_balance_wallet" className="text-error text-xl" />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Pengeluaran Terbesar</div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {insights.biggestExpenseTx.note || insights.biggestExpenseTx.category}
+                <div className="flex-1 min-w-0">
+                  <div className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider mb-0.5">Pengeluaran Terbesar</div>
+                  <div className="text-sm font-bold text-on-surface truncate">
+                    {insights.biggestExpenseTx.note || insights.biggestExpenseTx.categoryId}
                   </div>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--danger)', flexShrink: 0 }}>
+                <div className="text-lg font-bold text-error shrink-0">
                   {fmt(insights.biggestExpenseTx.amount)}
                 </div>
               </div>
@@ -1164,34 +1292,24 @@ const Statistics: React.FC = () => {
 
             {/* ── Daily Expense Area Chart ──────────────────────────── */}
             {currentMonthExpense > 0 && (
-              <div className="card glass" style={{ marginBottom: '24px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '16px', gap: '12px' }}>
-                  <div>
-                    <h2 className="subtitle" style={{ fontSize: '14px', margin: 0 }}>Pengeluaran &amp; Pendapatan Harian</h2>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
-                      {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
+              <div className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative overflow-hidden mb-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 relative z-10 gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran Harian</span>
+                    <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                      <MaterialIcon name="show_chart" className="text-primary text-base" />
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '12px', padding: '2px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
-                    {(['linear', 'dual', 'log'] as const).map(scale => (
+                  <div className="flex bg-surface-container-lowest border border-outline-variant rounded-xl p-1 w-fit shadow-sm">
+                    {(['linear', 'log'] as const).map(scale => (
                       <button
                         key={scale}
+                        data-testid={`chart-scale-${scale}`}
                         onClick={() => changeChartScale(scale)}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '10px',
-                          border: 'none',
-                          background: chartScale === scale ? 'var(--bg-card-solid)' : 'transparent',
-                          color: chartScale === scale ? 'var(--text-main)' : 'var(--text-muted)',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          boxShadow: chartScale === scale ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartScale === scale ? 'bg-surface-container-highest text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
                       >
-                        {scale === 'linear' ? 'Gabungan' : scale === 'dual' ? 'Mandiri' : 'Log'}
+                        {scale === 'linear' ? 'Normal' : 'Log'}
                       </button>
                     ))}
                   </div>
@@ -1202,39 +1320,15 @@ const Statistics: React.FC = () => {
                       <LineChart data={scaledDailyChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                        {chartScale === 'dual' ? (
-                          <>
-                            <YAxis yAxisId="left" hide domain={[0, 'dataMax + 5000']} />
-                            <YAxis yAxisId="right" hide domain={[0, 'dataMax + 5000']} />
-                          </>
-                        ) : (
-                          <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
-                        )}
+                        <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
                         <Tooltip
                           contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                          formatter={(val: any, name: any, props: any) => {
-                            const item = props?.payload || {};
-                            const realVal = name === 'amount' || name === 'amountScaled' ? (item.amount ?? val) : (item.income ?? val);
-                            const formattedVal = chartScale === 'log' ? fmt(Number(realVal)) : fmt(Number(val));
-                            return [formattedVal, name === 'amount' || name === 'amountScaled' ? 'Pengeluaran' : 'Pendapatan'];
-                          }}
+                          formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
                           labelFormatter={(label: any) => `Tgl ${label}`}
                         />
                         <Line
                           type="monotone"
-                          dataKey={chartScale === 'log' ? 'incomeScaled' : 'income'}
-                          yAxisId={chartScale === 'dual' ? 'left' : undefined}
-                          stroke="var(--primary)"
-                          strokeWidth={2.5}
-                          dot={false}
-                          name="income"
-                          activeDot={{ r: 4 }}
-                          style={{ filter: 'drop-shadow(0px 3px 6px rgba(16, 185, 129, 0.25))' }}
-                        />
-                        <Line
-                          type="monotone"
                           dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
-                          yAxisId={chartScale === 'dual' ? 'right' : undefined}
                           stroke="var(--secondary)"
                           strokeWidth={3}
                           dot={false}
@@ -1250,45 +1344,18 @@ const Statistics: React.FC = () => {
                             <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
                             <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0} />
                           </linearGradient>
-                          <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                          </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                        {chartScale === 'dual' ? (
-                          <>
-                            <YAxis yAxisId="left" hide domain={[0, 'dataMax + 5000']} />
-                            <YAxis yAxisId="right" hide domain={[0, 'dataMax + 5000']} />
-                          </>
-                        ) : (
-                          <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
-                        )}
+                        <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
                         <Tooltip
                           contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                          formatter={(val: any, name: any, props: any) => {
-                            const item = props?.payload || {};
-                            const realVal = name === 'amount' || name === 'amountScaled' ? (item.amount ?? val) : (item.income ?? val);
-                            const formattedVal = chartScale === 'log' ? fmt(Number(realVal)) : fmt(Number(val));
-                            return [formattedVal, name === 'amount' || name === 'amountScaled' ? 'Pengeluaran' : 'Pendapatan'];
-                          }}
+                          formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
                           labelFormatter={(label: any) => `Tgl ${label}`}
                         />
                         <Area
                           type="monotone"
-                          dataKey={chartScale === 'log' ? 'incomeScaled' : 'income'}
-                          yAxisId={chartScale === 'dual' ? 'left' : undefined}
-                          stroke="var(--primary)"
-                          strokeWidth={1.5}
-                          fill="url(#incGrad)"
-                          dot={false}
-                          name="income"
-                        />
-                        <Area
-                          type="monotone"
                           dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
-                          yAxisId={chartScale === 'dual' ? 'right' : undefined}
                           stroke="var(--secondary)"
                           strokeWidth={2}
                           fill="url(#expGrad)"
@@ -1312,18 +1379,23 @@ const Statistics: React.FC = () => {
             )}
 
             {drillDownCategory && (
-              <div className="card glass" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button onClick={() => setDrillDownCategory(null)} className="btn" style={{ padding: '4px 12px', background: 'var(--bg-main)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <ChevronLeft size={16} /> Kembali
+              <div className="col-span-1 md:col-span-12 bg-surface-container-lowest border border-outline-variant rounded-xl p-3 mb-4 flex items-center gap-3">
+                <button onClick={() => setDrillDownCategory(null)} className="flex items-center gap-1 bg-surface-container hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-sm font-bold text-on-surface transition-colors">
+                  <MaterialIcon name="chevron_left" className="text-base" /> Kembali
                 </button>
-                <span style={{ fontWeight: 600 }}>Rincian Sub-kategori: {drillDownCategory.name}</span>
+                <span className="font-semibold text-sm text-on-surface">Rincian Sub-kategori: {drillDownCategory.name}</span>
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+            <div className="col-span-1 md:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-2">
               {expenseCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pengeluaran') && (
-                <div data-tour="stats-breakdown" className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
-                  <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pengeluaran {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
+                <div data-tour="stats-breakdown" className="bg-bg-card p-5 rounded-3xl shadow-bento group flex flex-col relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-4 relative z-10">
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran {drillDownCategory ? `(${categories?.find(c => c.id === drillDownCategory.name)?.name || drillDownCategory.name})` : 'per Kategori'}</span>
+                    <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                      <MaterialIcon name="pie_chart" className="text-secondary text-base" />
+                    </div>
+                  </div>
                   <div style={{ width: '100%', height: 180 }}>
                     <ResponsiveContainer>
                       <PieChart>
@@ -1335,7 +1407,7 @@ const Statistics: React.FC = () => {
                           dataKey="value"
                           onClick={(data, index) => {
                             if (!drillDownCategory && !(data as any).__isOthers) {
-                              setDrillDownCategory({ name: data.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                              setDrillDownCategory({ name: (data as any).id ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
                             }
                           }}
                           style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
@@ -1385,7 +1457,7 @@ const Statistics: React.FC = () => {
                           }}
                           onClick={() => {
                             if (!drillDownCategory && !isOthers) {
-                              setDrillDownCategory({ name: item.name ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                              setDrillDownCategory({ name: item.id ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
                             }
                           }}
                           onMouseEnter={e => { if (!drillDownCategory && !isOthers) e.currentTarget.style.color = 'var(--text-main)'; }}
@@ -1408,8 +1480,13 @@ const Statistics: React.FC = () => {
               )}
 
               {incomeCategoryData.length > 0 && (!drillDownCategory || drillDownCategory.type === 'pendapatan') && (
-                <div className="card glass" style={{ display: 'flex', flexDirection: 'column' }}>
-                  <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>Pendapatan {drillDownCategory ? `(${drillDownCategory.name})` : 'per Kategori'}</h2>
+                <div data-tour="stats-breakdown" className="bg-bg-card p-5 rounded-3xl shadow-bento group flex flex-col relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-4 relative z-10">
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pendapatan {drillDownCategory ? `(${categories?.find(c => c.id === drillDownCategory.name)?.name || drillDownCategory.name})` : 'per Kategori'}</span>
+                    <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                      <MaterialIcon name="pie_chart" className="text-primary text-base" />
+                    </div>
+                  </div>
                   <div style={{ width: '100%', height: 180 }}>
                     <ResponsiveContainer>
                       <PieChart>
@@ -1421,7 +1498,7 @@ const Statistics: React.FC = () => {
                           dataKey="value"
                           onClick={(data, index) => {
                             if (!drillDownCategory && !(data as any).__isOthers) {
-                              setDrillDownCategory({ name: data.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                              setDrillDownCategory({ name: (data as any).id ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
                             }
                           }}
                           style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
@@ -1471,7 +1548,7 @@ const Statistics: React.FC = () => {
                           }}
                           onClick={() => {
                             if (!drillDownCategory && !isOthers) {
-                              setDrillDownCategory({ name: item.name ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                              setDrillDownCategory({ name: item.id ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
                             }
                           }}
                           onMouseEnter={e => { if (!drillDownCategory && !isOthers) e.currentTarget.style.color = 'var(--text-main)'; }}
@@ -1495,41 +1572,41 @@ const Statistics: React.FC = () => {
             </div>
 
             {topCategories.length > 0 && (
-              <div className="card glass" style={{ marginBottom: '80px' }}>
-                <h2 className="subtitle" style={{ fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>
-                  {drillDownCategory ? `Rincian Sub-kategori: ${drillDownCategory.name}` : 'Total Terbesar per Kategori'}
-                </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {topCategories.map(cat => (
+              <div className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative mb-20">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+                    {drillDownCategory ? `Rincian Sub-kategori: ${categories?.find(c => c.id === drillDownCategory.name)?.name || drillDownCategory.name}` : 'Total Terbesar per Kategori'}
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="star" className="text-primary text-base" />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {topCategories.map((cat, i) => (
                     <div
                       key={cat.id}
                       onClick={() => {
                         if (!drillDownCategory) {
-                          setDrillDownCategory({ name: cat.category, type: cat.type, colorIndex: cat.colorIndex });
+                          setDrillDownCategory({ name: cat.categoryId, type: cat.type, colorIndex: cat.colorIndex });
                         }
                       }}
-                      style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '12px', background: 'var(--bg-main)', borderRadius: '12px',
-                        cursor: drillDownCategory ? 'default' : 'pointer'
-                      }}
+                      className={`flex justify-between items-center bg-surface-container-lowest p-2 rounded-xl border border-outline-variant transition-colors ${drillDownCategory ? '' : 'hover:bg-surface-container cursor-pointer'}`}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: `${cat.color}15`,
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 font-bold text-xs" style={{
+                          background: `${cat.color}20`,
                           color: cat.color
                         }}>
-                          {cat.type === 'pendapatan' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                          {i + 1}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600 }}>{cat.category}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          <div className="font-bold text-sm text-on-surface">{cat.categoryName}</div>
+                          <div className="text-xs text-on-surface-variant">
                             {drillDownCategory ? 'Sub-kategori' : (cat.type === 'pendapatan' ? 'Total Pendapatan' : 'Total Pengeluaran')}
                           </div>
                         </div>
                       </div>
-                      <div style={{ fontWeight: 700, color: cat.type === 'pendapatan' ? 'var(--primary)' : 'var(--secondary)' }}>
+                      <div className={`font-bold text-base shrink-0 ${cat.type === 'pendapatan' ? 'text-primary-color' : 'text-error'}`}>
                         {cat.type === 'pendapatan' ? '+' : '-'}{fmt(cat.amount)}
                       </div>
                     </div>
@@ -1537,6 +1614,9 @@ const Statistics: React.FC = () => {
                 </div>
               </div>
             )}
+
+              </section>
+
 
           </motion.div>
         )}
@@ -1561,16 +1641,16 @@ const Statistics: React.FC = () => {
           { targetSelector: '[data-tour="month-nav"]', title: '📅 Navigasi Bulan', description: 'Ubah bulan untuk melihat statistik di bulan spesifik.' }
         ]} 
       />
-    </div>
+    </PageWrapper>
   );
 };
 
 // ─── FinancialHealth Component ────────────────────────────────────────────────
 const SCORE_COLORS = {
-  excellent: '#10b981',
-  good: '#3b82f6',
-  fair: '#f59e0b',
-  poor: '#ef4444'
+  excellent: 'var(--success)',
+  good: 'var(--primary)',
+  fair: 'var(--warning)',
+  poor: 'var(--danger)'
 };
 
 const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ onShowDetail }) => {
@@ -1613,17 +1693,18 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     assets.filter(a => !a.isDeleted).forEach(a => {
       const txSum = transactions.filter(t => t.assetId === a.id || t.fromAssetId === a.id || t.toAssetId === a.id)
         .reduce((s, t) => {
-          if (t.type === 'pendapatan') return s + t.amount;
-          if (t.type === 'pengeluaran') return s - t.amount;
+          const amt = Number(t.amount) || 0;
+          if (t.type === 'pendapatan') return s + amt;
+          if (t.type === 'pengeluaran') return s - amt;
           if (t.type === 'transfer') {
-            if (t.toAssetId === a.id) return s + t.amount;
-            if (t.fromAssetId === a.id) return s - t.amount;
+            if (t.toAssetId === a.id) return s + amt;
+            if (t.fromAssetId === a.id) return s - amt;
           }
           return s;
         }, 0);
-      const val = (a.initialBalance || 0) + txSum;
+      const val = (Number(a.initialBalance) || 0) + txSum;
       totalAssetsValue += val;
-      if (['Cash', 'Bank Account', 'eWallet'].includes(a.type)) {
+      if (['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type)) {
         liquidAssetsValue += val;
       }
     });
@@ -1669,10 +1750,10 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     let adherenceRate = 100;
     if (activeBudgets.length > 0) {
       const withinBudgetCount = activeBudgets.filter(b => {
-        const cat = categories.find(c => c.id === b.categoryId);
+        const cat = categories?.find(c => c.id === b.categoryId);
         if (!cat) return true;
         const spent = transactions
-          .filter(tx => tx.type === 'pengeluaran' && tx.category === cat.name && new Date(tx.date).getMonth() === currentMonth.month)
+          .filter(tx => tx.type === 'pengeluaran' && tx.categoryId === cat.id && new Date(tx.date).getMonth() === currentMonth.month)
           .reduce((sum, tx) => sum + tx.amount, 0);
         return spent <= b.limit;
       }).length;
@@ -1726,12 +1807,12 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
       totalUnpaidDebt,
       currentNetWorth,
       metrics: [
-        { label: 'Rasio Tabungan', value: `${savingsRate.toFixed(1)}%`, score: savingsScore, max: 25, icon: TrendingUp },
-        { label: 'Dana Darurat', value: `${efMonths.toFixed(1)} bln`, score: efScore, max: 20, icon: ShieldCheck },
-        { label: 'Rasio Hutang', value: `${debtRatio.toFixed(1)}%`, score: debtScore, max: 20, icon: Zap },
-        { label: 'Kepatuhan Anggaran', value: `${adherenceRate.toFixed(0)}%`, score: budgetScore, max: 20, icon: Target },
-        { label: 'Konsistensi Belanja', value: spendingCV < 0.2 ? 'Stabil' : 'Fluktuatif', score: consistencyScore, max: 10, icon: Activity },
-        { label: 'Stabilitas Income', value: incomeCV < 0.15 ? 'Sangat Stabil' : 'Cukup Stabil', score: stabilityScore, max: 5, icon: Heart },
+        { label: 'Rasio Tabungan', value: `${savingsRate.toFixed(1)}%`, score: savingsScore, max: 25, icon: 'trending_up' },
+        { label: 'Dana Darurat', value: `${efMonths.toFixed(1)} bln`, score: efScore, max: 20, icon: 'security' },
+        { label: 'Rasio Hutang', value: `${debtRatio.toFixed(1)}%`, score: debtScore, max: 20, icon: 'bolt' },
+        { label: 'Kepatuhan Anggaran', value: `${adherenceRate.toFixed(0)}%`, score: budgetScore, max: 20, icon: 'track_changes' },
+        { label: 'Konsistensi Belanja', value: spendingCV < 0.2 ? 'Stabil' : 'Fluktuatif', score: consistencyScore, max: 10, icon: 'local_activity' },
+        { label: 'Stabilitas Income', value: incomeCV < 0.15 ? 'Sangat Stabil' : 'Cukup Stabil', score: stabilityScore, max: 5, icon: 'favorite' },
       ]
     };
   }, [transactions, assets, debts, budgets, categories]);
@@ -1745,16 +1826,11 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
   }, [stats.totalScore]);
 
   return (
-    <div style={{ paddingBottom: '40px' }}>
+    <div className="space-y-6 pb-10">
       {/* ─── Health Score Meter ────────────────────────────────────────────────── */}
-      <motion.div
-        className="card glass"
-        style={{
-          textAlign: 'center', padding: '32px 20px', overflow: 'hidden',
-          background: `linear-gradient(180deg, ${isDark ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.8)'}, transparent)`
-        }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <BentoCard
+        variant="glass"
+        className="text-center py-8 px-5 flex flex-col items-center"
       >
         <div style={{ position: 'relative', width: '220px', height: '140px', margin: '0 auto' }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -1775,25 +1851,23 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
             position: 'absolute', bottom: '0', left: '50%', transform: 'translateX(-50%)',
             display: 'flex', flexDirection: 'column', alignItems: 'center'
           }}>
-            <span style={{ fontSize: '48px', fontWeight: 800, lineHeight: 1, color: 'var(--text-main)' }}>{stats.totalScore}</span>
+            <span className="text-5xl font-black leading-none text-on-surface">{stats.totalScore}</span>
             <span style={{ fontSize: '16px', fontWeight: 700, color: scoreLabel.color, marginTop: '4px' }}>{scoreLabel.text}</span>
           </div>
         </div>
-        <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '20px', maxWidth: '300px', margin: '20px auto 0' }}>
+        <p className="text-xs text-on-surface-variant mt-5 max-w-[300px] mx-auto">
           Skor Anda didasarkan pada 6 metrik kesehatan finansial utama.
         </p>
-      </motion.div>
+      </BentoCard>
 
       {/* ─── Metric Breakdown ────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '24px' }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {stats.metrics.map((m, i) => (
-          <motion.div
-            key={i} 
-            className="card clickable-card" 
-            style={{ padding: '16px', margin: 0, border: '1.5px solid var(--border-color)', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.02))' }}
-            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
-            onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
-            onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+          <BentoCard
+            key={i}
+            interactive
+            padding="sm"
+            className="border border-outline-variant/60 hover:shadow-md transition-all flex flex-col justify-between h-full"
             onClick={() => {
               if (!onShowDetail) return;
               
@@ -1848,57 +1922,59 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
               onShowDetail({ isOpen: true, title: m.label, formula, explanation, details });
             }}
           >
-            <div className="flex-between" style={{ marginBottom: '12px' }}>
-              <div style={{ padding: '8px', borderRadius: '12px', background: 'var(--primary-glow)', color: 'var(--primary)' }}>
-                <m.icon size={18} />
+            <div>
+              <div className="flex justify-between items-center mb-2.5">
+                <IconBlock icon={m.icon as string} color="primary" size="sm" />
+                <span className="text-xs font-bold text-on-surface-variant">{m.score}/{m.max}</span>
               </div>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>{m.score}/{m.max}</span>
+              <div className="text-[11px] text-on-surface-variant font-bold mb-0.5 flex items-center gap-1.5">
+                {m.label}
+                <div className="w-3.5 h-3.5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-extrabold shrink-0" title="Detail metrik">!</div>
+              </div>
+              <div className="text-base font-extrabold text-on-surface mb-2">{m.value}</div>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {m.label}
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800 }}>!</div>
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)' }}>{m.value}</div>
-            <div style={{ height: '4px', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', width: `${(m.score / m.max) * 100}%`,
-                background: m.score / m.max > 0.8 ? '#10b981' : m.score / m.max > 0.5 ? '#3b82f6' : '#f59e0b'
-              }} />
-            </div>
-          </motion.div>
+            <ProgressBar
+              segments={[{
+                percent: (m.score / m.max) * 100,
+                color: (m.score / m.max) > 0.8 ? 'primary-color' : (m.score / m.max) > 0.5 ? 'primary' : 'error'
+              }]}
+              height="xs"
+            />
+          </BentoCard>
         ))}
       </div>
 
       {/* ─── MoM Indicators ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-        <div className="card shadow-soft" style={{ flex: 1, margin: 0, border: 'none', background: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Trend Belanja</div>
-          <div className="flex-gap" style={{ alignItems: 'center' }}>
-            <span style={{ fontSize: '18px', fontWeight: 800 }}>{Math.abs(stats.momSpending).toFixed(0)}%</span>
-            {stats.momSpending > 0 ? <ArrowUpRight size={18} color="#ef4444" /> : <ArrowDownRight size={18} color="#10b981" />}
+      <div className="flex gap-3">
+        <BentoCard variant="surface" className="flex-1 bg-surface-container-high/50 border border-outline-variant/50">
+          <div className="text-[11px] text-on-surface-variant font-bold mb-1">Trend Belanja</div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg font-extrabold text-on-surface">{Math.abs(stats.momSpending).toFixed(0)}%</span>
+            <MaterialIcon name={stats.momSpending > 0 ? 'call_made' : 'call_received'} className={`text-lg ${stats.momSpending > 0 ? 'text-error' : 'text-primary-color'}`} />
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>vs bulan lalu</div>
-        </div>
-        <div className="card shadow-soft" style={{ flex: 1, margin: 0, border: 'none', background: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Tabungan Bersih</div>
-          <div className="flex-gap" style={{ alignItems: 'center' }}>
-            <span style={{ fontSize: '18px', fontWeight: 800 }}>{Math.abs(stats.momSavings).toFixed(0)}%</span>
-            {stats.momSavings > 0 ? <ArrowUpRight size={18} color="#10b981" /> : <ArrowDownRight size={18} color="#ef4444" />}
+          <div className="text-[10px] text-on-surface-variant mt-0.5">vs bulan lalu</div>
+        </BentoCard>
+
+        <BentoCard variant="surface" className="flex-1 bg-surface-container-high/50 border border-outline-variant/50">
+          <div className="text-[11px] text-on-surface-variant font-bold mb-1">Tabungan Bersih</div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg font-extrabold text-on-surface">{Math.abs(stats.momSavings).toFixed(0)}%</span>
+            <MaterialIcon name={stats.momSavings > 0 ? 'call_made' : 'call_received'} className={`text-lg ${stats.momSavings > 0 ? 'text-primary-color' : 'text-error'}`} />
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>vs bulan lalu</div>
-        </div>
+          <div className="text-[10px] text-on-surface-variant mt-0.5">vs bulan lalu</div>
+        </BentoCard>
       </div>
 
       {/* ─── Net Worth Chart ─────────────────────────────────────────────────── */}
-      <div className="card glass" style={{ marginBottom: '24px' }}>
-        <div className="flex-between" style={{ marginBottom: '20px' }}>
+      <BentoCard variant="glass" className="border border-outline-variant">
+        <div className="flex justify-between items-start mb-5">
           <div>
-            <h2 className="subtitle" style={{ fontSize: '15px' }}>Kekayaan Bersih</h2>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{fmt(stats.currentNetWorth)}</div>
+            <h2 className="text-sm font-bold text-on-surface-variant">Kekayaan Bersih</h2>
+            <div className="text-xl font-extrabold text-primary mt-0.5">{fmt(stats.currentNetWorth)}</div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>Aset Total: {fmt(stats.totalAssetsValue)}</div>
-            <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700 }}>Hutang: {fmt(stats.totalUnpaidDebt)}</div>
+          <div className="text-right text-[10px] text-on-surface-variant font-semibold space-y-0.5">
+            <div>Aset Total: {fmt(stats.totalAssetsValue)}</div>
+            <div className="text-error">Hutang: {fmt(stats.totalUnpaidDebt)}</div>
           </div>
         </div>
         <div style={{ width: '100%', height: 200 }}>
@@ -1915,17 +1991,28 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
                 dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
                 tickFormatter={(val) => ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'][val]}
               />
-              <YAxis hide domain={['dataMin - 1000000', 'dataMax + 1000000']} />
+              <YAxis
+                width={40}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                tickFormatter={(val) => {
+                  if (val >= 1000000) return `${(val / 1000000).toFixed(1).replace(/\.0$/, '')}jt`;
+                  if (val >= 1000) return `${(val / 1000).toFixed(0)}rb`;
+                  return val;
+                }}
+                domain={['dataMin - 1000000', 'dataMax + 1000000']}
+              />
               <Tooltip
-                contentStyle={{ borderRadius: '12px', border: 'none', background: isDark ? '#1e293b' : '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
                 formatter={(val: any) => fmt(Number(val))}
-                labelFormatter={(label) => ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][label]}
+                labelFormatter={(label) => MONTH_NAMES[label]}
               />
               <Area type="monotone" dataKey="netWorth" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorNetWorth)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </BentoCard>
     </div>
   );
 };
@@ -1945,7 +2032,8 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         map.total += tx.amount;
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+        const cat = categories?.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories?.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
         if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
       }
     });
@@ -1954,105 +2042,112 @@ const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
 
   const currentMonthBudgets = budgets.filter(b => b.month === selectedMonth && b.year === selectedYear);
   const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
-  const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
+  const categoryIdBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
 
   const totalBudgeted = useMemo(() =>
-    categoryBudgets.reduce((sum, b) => sum + b.limit, 0),
-    [categoryBudgets]);
+    categoryIdBudgets.reduce((sum, b) => sum + b.limit, 0),
+    [categoryIdBudgets]);
 
   const unassignedMoney = monthlyIncome - totalBudgeted;
 
   const fmt = (v: number) => formatCurrency(v, currencySymbol);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="space-y-6 pb-10">
       {/* Global Budget / Zero-Based Hero Card */}
       {budgetMode === 'zero-based' ? (
-        <div className="card shadow-soft" style={{ padding: '24px 20px', border: 'none', background: 'var(--primary-gradient)', color: 'white', borderRadius: '24px', boxShadow: '0 12px 30px var(--primary-glow)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.1 }}>
-            <HandCoins size={120} />
+        <BentoCard
+          variant="solid"
+          className="text-white shadow-bento-lg p-6 relative overflow-hidden"
+          style={{ background: 'var(--primary-gradient)' }}
+        >
+          <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
+            <MaterialIcon name="payments" className="text-[120px]" />
           </div>
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Total Pendapatan</div>
-            <div style={{ fontSize: '32px', fontWeight: 800, marginBottom: '16px' }}>{fmt(monthlyIncome)}</div>
+          <div className="relative z-10 space-y-4">
+            <div>
+              <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Total Pendapatan</div>
+              <div className="text-3xl font-black">{fmt(monthlyIncome)}</div>
+            </div>
 
-            <div style={{ display: 'flex', gap: '20px' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Dialokasikan</div>
-                <div style={{ fontSize: '16px', fontWeight: 800 }}>{fmt(totalBudgeted)}</div>
+            <div className="flex gap-5 pt-3 border-t border-white/10">
+              <div className="flex-1">
+                <div className="text-[10px] font-bold opacity-80 uppercase mb-0.5">Dialokasikan</div>
+                <div className="text-base font-extrabold">{fmt(totalBudgeted)}</div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Sisa</div>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: unassignedMoney === 0 ? 'rgba(255,255,255,0.6)' : '#fff' }}>{fmt(unassignedMoney)}</div>
+              <div className="flex-1">
+                <div className="text-[10px] font-bold opacity-80 uppercase mb-0.5">Sisa</div>
+                <div className="text-base font-extrabold">{fmt(unassignedMoney)}</div>
               </div>
             </div>
           </div>
-        </div>
+        </BentoCard>
       ) : globalBudget ? (
-        <div className="card glass shadow-soft" style={{ padding: '20px', border: 'none', background: 'linear-gradient(135deg, var(--primary), var(--primary-light))', color: 'white' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '8px' }}>Total Anggaran</div>
-          <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>{fmt(globalBudget.limit)}</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-            <div style={{ fontSize: '13px', opacity: 0.9 }}>
-              Terpakai: <strong>{fmt(spendingMap.total)}</strong>
-            </div>
-            <div style={{ fontSize: '13px', fontWeight: 800 }}>
-              {Math.round((spendingMap.total / globalBudget.limit) * 100)}%
-            </div>
+        <BentoCard
+          variant="solid"
+          className="text-white shadow-bento-lg p-6 relative overflow-hidden"
+          style={{ background: 'var(--primary-gradient)' }}
+        >
+          <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Total Anggaran</div>
+          <div className="text-3xl font-black mb-1">{fmt(globalBudget.limit)}</div>
+          <div className="flex justify-between items-center mt-4 text-xs font-bold">
+            <span className="opacity-90">Terpakai: {fmt(spendingMap.total)}</span>
+            <span>{Math.round((spendingMap.total / globalBudget.limit) * 100)}%</span>
           </div>
-          <div style={{ height: '8px', background: 'rgba(255,255,255,0.2)', borderRadius: '4px', overflow: 'hidden', marginTop: '10px' }}>
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min((spendingMap.total / globalBudget.limit) * 100, 100)}%` }}
-              style={{ height: '100%', background: 'white', borderRadius: '4px' }}
+          <div className="mt-2">
+            <ProgressBar
+              segments={[{
+                percent: Math.min((spendingMap.total / globalBudget.limit) * 100, 100),
+                color: 'white'
+              }]}
+              height="sm"
             />
           </div>
           {spendingMap.total > globalBudget.limit && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '12px', padding: '6px 10px', background: 'rgba(255,255,255,0.2)', borderRadius: '8px', fontSize: '11px', fontWeight: 700 }}>
-              <AlertTriangle size={14} /> Melebihi anggaran sebesar {fmt(spendingMap.total - globalBudget.limit)}
+            <div className="flex items-center gap-1.5 mt-3.5 px-3 py-2 bg-white/20 rounded-xl text-[11px] font-extrabold">
+              <MaterialIcon name="warning" className="text-sm" /> Melebihi anggaran sebesar {fmt(spendingMap.total - globalBudget.limit)}
             </div>
           )}
-        </div>
+        </BentoCard>
       ) : (
-        <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--bg-card)', borderRadius: '20px', border: '1px dashed var(--border-color)' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
-          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>Belum ada anggaran global</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Atur anggaran di menu Pengaturan</div>
-        </div>
+        <BentoCard variant="glass" className="text-center py-10 px-5 border border-dashed border-outline-variant">
+          <div className="text-4xl mb-3">📊</div>
+          <div className="font-bold text-on-surface text-sm">Belum ada anggaran global</div>
+          <div className="text-xs text-on-surface-variant mt-1">Atur anggaran di menu Pengaturan</div>
+        </BentoCard>
       )}
 
       {/* Category Budgets */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>Anggaran Kategori</h3>
-        {categoryBudgets.length > 0 ? categoryBudgets.map(b => {
-          const cat = categories.find(c => c.id === b.categoryId);
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-on-surface pl-1">Anggaran Kategori</h3>
+        {categoryIdBudgets.length > 0 ? categoryIdBudgets.map(b => {
+          const cat = categories?.find(c => c.id === b.categoryId);
           const spent = spendingMap[b.categoryId!] || 0;
           const percent = b.limit > 0 ? (spent / b.limit) * 100 : 0;
-          const statusColor = percent > 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
+          const statusColor = percent > 100 ? 'error' : percent >= 75 ? 'secondary' : 'primary';
+          const textDanger = percent > 100 ? 'text-error' : 'text-on-surface';
           return (
-            <div key={b.id} className="card glass" style={{ padding: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: statusColor }}>
-                    <Wallet size={16} />
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '14px' }}>{cat?.name || 'Kategori'}</div>
+            <BentoCard key={b.id} variant="glass" className="border border-outline-variant/60">
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center gap-3">
+                  <IconBlock icon="account_balance_wallet" color={statusColor as any} size="sm" />
+                  <span className="font-bold text-sm text-on-surface">{cat?.name || 'Kategori'}</span>
                 </div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: percent > 100 ? 'var(--danger)' : 'var(--text-main)' }}>
-                  {fmt(spent)} <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '11px' }}>/ {fmt(b.limit)}</span>
+                <div className="text-right text-xs font-bold">
+                  <span className={textDanger}>{fmt(spent)}</span>
+                  <span className="text-[10px] text-on-surface-variant font-medium"> / {fmt(b.limit)}</span>
                 </div>
               </div>
-              <div style={{ height: '6px', background: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(percent, 100)}%` }}
-                  style={{ height: '100%', background: statusColor, borderRadius: '3px' }}
-                />
-              </div>
-            </div>
+              <ProgressBar
+                segments={[{ percent: Math.min(percent, 100), color: statusColor }]}
+                height="xs"
+              />
+            </BentoCard>
           );
         }) : (
-          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '13px' }}>Tidak ada anggaran kategori</div>
+          <div className="text-center py-6 text-xs text-on-surface-variant bg-surface-container/30 rounded-2xl border border-outline-variant/40">
+            Tidak ada anggaran kategori
+          </div>
         )}
       </div>
     </div>
@@ -2081,56 +2176,60 @@ const GoalStatistics: React.FC = () => {
   const fmt = (v: number) => formatCurrency(v, currencySymbol);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>Target Tabungan</h3>
+    <div className="space-y-4 pb-10">
+      <h3 className="text-sm font-bold text-on-surface pl-1">Target Tabungan</h3>
       {goals.length > 0 ? goals.map(g => {
         const current = goalAllocations[g.id] || 0;
         const percent = (current / g.targetAmount) * 100;
         const isCompleted = percent >= 100;
         return (
-          <div key={g.id} className="card glass" style={{ padding: '16px', borderLeft: isCompleted ? '4px solid var(--success)' : 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: isCompleted ? 'var(--bg-income)' : 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCompleted ? 'var(--success)' : 'var(--primary)' }}>
-                  {isCompleted ? <CheckCircle2 size={20} /> : <Target size={20} />}
-                </div>
+          <BentoCard
+            key={g.id}
+            variant="glass"
+            className={`border border-outline-variant/60 ${isCompleted ? 'border-l-4 border-l-primary-color' : ''}`}
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex items-center gap-3">
+                <IconBlock
+                  icon={isCompleted ? 'check_circle' : 'track_changes'}
+                  color={isCompleted ? 'income' : 'primary'}
+                  size="md"
+                />
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '15px' }}>{g.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  <div className="font-extrabold text-sm text-on-surface">{g.name}</div>
+                  <div className="text-[10px] text-on-surface-variant mt-0.5">
                     Target: {new Date(g.targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: isCompleted ? 'var(--success)' : 'var(--primary)' }}>{Math.floor(percent)}%</div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>Tercapai</div>
+              <div className="text-right">
+                <div className={`text-base font-extrabold ${isCompleted ? 'text-primary-color' : 'text-primary'}`}>{Math.floor(percent)}%</div>
+                <div className="text-[10px] text-on-surface-variant font-bold">Tercapai</div>
               </div>
             </div>
 
-            <div style={{ height: '8px', background: 'var(--bg-main)', borderRadius: '4px', overflow: 'hidden', marginBottom: '12px' }}>
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(percent, 100)}%` }}
-                style={{ height: '100%', background: isCompleted ? 'var(--success)' : 'var(--primary)', borderRadius: '4px' }}
-              />
-            </div>
+            <ProgressBar
+              segments={[{ percent: Math.min(percent, 100), color: isCompleted ? 'primary-color' : 'primary' }]}
+              height="xs"
+              className="my-3"
+            />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{fmt(current)} / {fmt(g.targetAmount)}</span>
+            <div className="flex justify-between text-xs font-semibold pt-1">
+              <span className="text-on-surface-variant">{fmt(current)} / {fmt(g.targetAmount)}</span>
               {isCompleted ? (
-                <span style={{ color: 'var(--success)', fontWeight: 700 }}>Selesai! ✨</span>
+                <span className="text-primary-color font-bold">Selesai! ✨</span>
               ) : (
-                <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Sisa {fmt(g.targetAmount - current)}</span>
+                <span className="text-primary font-bold">Sisa {fmt(g.targetAmount - current)}</span>
               )}
             </div>
-          </div>
+          </BentoCard>
         );
       }) : (
-        <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--bg-card)', borderRadius: '20px', border: '1px dashed var(--border-color)' }}>
-          <Target size={40} style={{ opacity: 0.2, marginBottom: '16px' }} />
-          <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>Belum ada target tabungan</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Mulai buat rencana untuk impian Anda!</div>
-        </div>
+        <EmptyState
+          icon="track_changes"
+          title="Belum ada target tabungan"
+          description="Mulai buat rencana untuk impian Anda!"
+        />
       )}
     </div>
   );
@@ -2147,35 +2246,41 @@ const SubscriptionStatistics: React.FC = () => {
   const fmt = (v: number) => formatCurrency(v, currencySymbol);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div className="card shadow-soft" style={{ padding: '20px', border: 'none', background: 'linear-gradient(135deg, #6366f1, #818cf8)', color: 'white' }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '8px' }}>Estimasi Biaya Langganan</div>
-        <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>{fmt(totalMonthly)}</div>
-        <div style={{ fontSize: '12px', opacity: 0.9 }}>Per bulan dari {subscriptions.filter(s => s.isActive).length} layanan aktif</div>
-      </div>
+    <div className="space-y-5 pb-10">
+      <BentoCard
+        variant="solid"
+        className="bg-primary text-white shadow-bento-lg p-6 relative overflow-hidden"
+      >
+        <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
+          <MaterialIcon name="credit_card" className="text-[120px]" />
+        </div>
+        <div className="relative z-10">
+          <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Estimasi Biaya Langganan</div>
+          <div className="text-3xl font-black mb-1">{fmt(totalMonthly)}</div>
+          <div className="text-xs opacity-90 mt-2">Per bulan dari {subscriptions.filter(s => s.isActive).length} layanan aktif</div>
+        </div>
+      </BentoCard>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>Daftar Layanan</h3>
-        {subscriptions.length > 0 ? subscriptions.map(s => (
-          <div key={s.id} className="card glass" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: s.isActive ? 1 : 0.6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1' }}>
-                <CreditCard size={20} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '14px' }}>{s.name}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {s.billingCycle === 'monthly' ? 'Bulanan' : 'Tahunan'} • {fmt(s.amount)}
-                </div>
-              </div>
-            </div>
-            {!s.isActive && (
-              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-main)', borderRadius: '12px' }}>NONAKTIF</div>
-            )}
-          </div>
-        )) : (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>Belum ada data langganan</div>
-        )}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-on-surface pl-1">Daftar Layanan</h3>
+        <div className="space-y-2">
+          {subscriptions.length > 0 ? subscriptions.map(s => (
+            <ListItem
+              key={s.id}
+              left={<IconBlock icon="credit_card" color="primary" size="md" />}
+              title={s.name}
+              subtitle={`${s.billingCycle === 'monthly' ? 'Bulanan' : 'Tahunan'} • ${fmt(s.amount)}`}
+              right={!s.isActive ? <StatusBadge type="neutral" label="NONAKTIF" /> : null}
+              className={s.isActive ? '' : 'opacity-60'}
+            />
+          )) : (
+            <EmptyState
+              icon="credit_card"
+              title="Belum ada data langganan"
+              description="Tambahkan data langganan Anda untuk melacak biaya rutin."
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2196,11 +2301,11 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
 
     // 1. Initial Balance (Hanya aset likuid)
     let currentBalance = assets
-      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type))
+      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type))
       .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
 
     let currentInvestBalance = assets
-      .filter(a => !a.isDeleted && ['Savings', 'Investment'].includes(a.type))
+      .filter(a => !a.isDeleted && ['Investment'].includes(a.type))
       .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
 
     const now = new Date();
@@ -2223,40 +2328,50 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
 
       // Check Recurring Transactions
       recurringTransactions.filter(rt => rt.isActive).forEach(rt => {
-        const startD = new Date(rt.startDate);
-        let isToday = false;
+        let startD: Date;
+        if (rt.startDate && rt.startDate.includes('-')) {
+          const parts = rt.startDate.split('T')[0].split('-');
+          const yr = Number(parts[0]) || now.getFullYear();
+          const mn = Number(parts[1]) || (now.getMonth() + 1);
+          const dy = Number(parts[2]) || now.getDate();
+          startD = new Date(yr, mn - 1, dy);
+        } else {
+          startD = new Date(rt.startDate || now);
+        }
 
+        let isToday = false;
         if (rt.frequency === 'daily') isToday = true;
         else if (rt.frequency === 'weekly' && dayOfWeek === startD.getDay()) isToday = true;
         else if (rt.frequency === 'monthly' && dayOfMonth === startD.getDate()) isToday = true;
         else if (rt.frequency === 'yearly' && dayOfMonth === startD.getDate() && month === startD.getMonth()) isToday = true;
 
         if (isToday) {
-          if (rt.type === 'pendapatan') dailyIncome += rt.amount;
-          else if (rt.type === 'pengeluaran') dailyExpense += rt.amount;
+          const rtAmount = Number(rt.amount) || 0;
+          if (rt.type === 'pendapatan') dailyIncome += rtAmount;
+          else if (rt.type === 'pengeluaran') dailyExpense += rtAmount;
           else if (rt.type === 'transfer') {
              const fromAsset = assets.find(a => a.id === rt.fromAssetId);
              const toAsset = assets.find(a => a.id === rt.toAssetId);
 
-             const isFromLiquid = fromAsset && ['Cash', 'Bank Account', 'eWallet'].includes(fromAsset.type);
-             const isToLiquid = toAsset && ['Cash', 'Bank Account', 'eWallet'].includes(toAsset.type);
-             const isFromInvest = fromAsset && ['Savings', 'Investment'].includes(fromAsset.type);
-             const isToInvest = toAsset && ['Savings', 'Investment'].includes(toAsset.type);
+             const isFromLiquid = fromAsset && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(fromAsset.type);
+             const isToLiquid = toAsset && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(toAsset.type);
+             const isFromInvest = fromAsset && ['Investment'].includes(fromAsset.type);
+             const isToInvest = toAsset && ['Investment'].includes(toAsset.type);
 
              if (isFromLiquid && isToInvest) {
-                dailyExpense += rt.amount;
-                dailyInvestInflow += rt.amount;
+                dailyExpense += rtAmount;
+                dailyInvestInflow += rtAmount;
              } else if (isFromInvest && isToLiquid) {
-                dailyIncome += rt.amount;
-                dailyInvestOutflow += rt.amount;
+                dailyIncome += rtAmount;
+                dailyInvestOutflow += rtAmount;
              } else if (isFromLiquid && !isToLiquid) {
-                dailyExpense += rt.amount;
+                dailyExpense += rtAmount;
              } else if (!isFromLiquid && isToLiquid) {
-                dailyIncome += rt.amount;
+                dailyIncome += rtAmount;
              } else if (isFromInvest && !isToInvest) {
-                dailyInvestOutflow += rt.amount;
+                dailyInvestOutflow += rtAmount;
              } else if (!isFromInvest && isToInvest) {
-                dailyInvestInflow += rt.amount;
+                dailyInvestInflow += rtAmount;
              }
           }
         }
@@ -2264,9 +2379,18 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
 
       // Check Subscriptions
       subscriptions.filter(s => s.isActive).forEach(sub => {
-        const subDate = new Date(sub.nextBillingDate);
-        let isToday = false;
+        let subDate: Date;
+        if (sub.nextBillingDate && sub.nextBillingDate.includes('-')) {
+          const parts = sub.nextBillingDate.split('T')[0].split('-');
+          const yr = Number(parts[0]) || now.getFullYear();
+          const mn = Number(parts[1]) || (now.getMonth() + 1);
+          const dy = Number(parts[2]) || now.getDate();
+          subDate = new Date(yr, mn - 1, dy);
+        } else {
+          subDate = new Date(sub.nextBillingDate || now);
+        }
 
+        let isToday = false;
         if (sub.billingCycle === 'monthly') {
           // Check if day matches
           if (dayOfMonth === subDate.getDate()) isToday = true;
@@ -2276,12 +2400,12 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
         }
 
         if (isToday) {
-          dailyExpense += sub.amount;
+          dailyExpense += Number(sub.amount) || 0;
         }
       });
 
-      currentBalance = currentBalance + dailyIncome - dailyExpense;
-      currentInvestBalance = currentInvestBalance + dailyInvestInflow - dailyInvestOutflow;
+      currentBalance = Number(currentBalance) + Number(dailyIncome) - Number(dailyExpense);
+      currentInvestBalance = Number(currentInvestBalance) + Number(dailyInvestInflow) - Number(dailyInvestOutflow);
 
       data.push({
         date: dateKey,
@@ -2304,7 +2428,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
     const next30Days = forecastData.slice(0, 30);
     const totalBills = next30Days.reduce((sum, d) => sum + d.expense, 0);
     const currentBal = assets
-      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type))
+      .filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type))
       .reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
     return Math.max(0, currentBal - totalBills);
   }, [forecastData, assets, getAssetBalance]);
@@ -2315,29 +2439,26 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
   }, [forecastData]);
 
   const currentInvestBal = useMemo(() => {
-    return assets.filter(a => !a.isDeleted && ['Savings', 'Investment'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+    return assets.filter(a => !a.isDeleted && ['Investment'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
   }, [assets, getAssetBalance]);
 
   const dangerDays = activeData.filter(d => d.isDanger);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
+    <div className="space-y-6 pb-10">
       {/* Hero Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'clamp(6px, 2vw, 12px)' }}>
-        <div 
-          className="card shadow-soft clickable-card" 
-          style={{
-            background: 'var(--primary-gradient)', color: 'white', border: 'none', padding: 'clamp(10px, 3vw, 16px)',
-            boxShadow: '0 10px 25px var(--primary-glow)', position: 'relative', overflow: 'hidden', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s'
-          }}
-          onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
-          onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <BentoCard
+          variant="solid"
+          interactive
+          className="text-white shadow-bento-lg p-4 relative overflow-hidden flex flex-col justify-between h-full"
+          style={{ background: 'var(--primary-gradient)' }}
           onClick={() => {
             if (!onShowDetail) return;
             const next30Days = forecastData.slice(0, 30);
             const totalBills = next30Days.reduce((sum, d) => sum + d.expense, 0);
             const totalIncome = next30Days.reduce((sum, d) => sum + d.income, 0);
-            const currentBal = assets.filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
+            const currentBal = assets.filter(a => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type)).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
             
             onShowDetail({
               isOpen: true,
@@ -2353,23 +2474,21 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
             });
           }}
         >
-          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            Aman Dibelanjakan
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, flexShrink: 0 }}>!</div>
+          <div>
+            <div className="text-[10px] font-black opacity-80 uppercase tracking-wider mb-1 flex items-center gap-1">
+              Aman Belanja
+              <div className="w-3.5 h-3.5 rounded-full bg-white text-primary flex items-center justify-center text-[9px] font-extrabold shrink-0">!</div>
+            </div>
+            <div className="text-base font-black truncate">{fmt(safeToSpend)}</div>
           </div>
-          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(safeToSpend)}</div>
-          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Setelah tagihan 30 hari</div>
-          <Zap size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
-        </div>
+          <div className="text-[9px] opacity-80 mt-1 truncate">Setelah tagihan 30 hari</div>
+          <div className="absolute right-[-10px] bottom-[-10px] opacity-15"><MaterialIcon name="bolt" className="text-[40px]" /></div>
+        </BentoCard>
 
-        <div 
-          className="card shadow-soft clickable-card" 
-          style={{
-            background: 'var(--success-gradient, linear-gradient(135deg, #10b981, #34d399))', color: 'white', border: 'none', padding: 'clamp(10px, 3vw, 16px)',
-            boxShadow: '0 10px 25px rgba(16,185,129,0.2)', position: 'relative', overflow: 'hidden', cursor: onShowDetail ? 'pointer' : 'default', transition: 'transform 0.2s'
-          }}
-          onMouseEnter={e => { if(onShowDetail) e.currentTarget.style.transform = 'translateY(-2px)' }}
-          onMouseLeave={e => { if(onShowDetail) e.currentTarget.style.transform = 'none' }}
+        <BentoCard
+          variant="solid"
+          interactive
+          className="bg-primary-color text-white shadow-bento-lg p-4 relative overflow-hidden flex flex-col justify-between h-full"
           onClick={() => {
             if (!onShowDetail) return;
             const next30Days = forecastData.slice(0, 30);
@@ -2388,43 +2507,43 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
             });
           }}
         >
-          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            Tabungan & Investasi
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, flexShrink: 0 }}>!</div>
+          <div>
+            <div className="text-[10px] font-black opacity-80 uppercase tracking-wider mb-1 flex items-center gap-1">
+              Tabungan & Inv
+              <div className="w-3.5 h-3.5 rounded-full bg-white text-emerald-600 flex items-center justify-center text-[9px] font-extrabold shrink-0">!</div>
+            </div>
+            <div className="text-base font-black truncate">{fmt(projectedInvest)}</div>
           </div>
-          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(projectedInvest)}</div>
-          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Estimasi 30 hari</div>
-          <Target size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
-        </div>
+          <div className="text-[9px] opacity-80 mt-1 truncate">Estimasi 30 hari</div>
+          <div className="absolute right-[-10px] bottom-[-10px] opacity-15"><MaterialIcon name="track_changes" className="text-[40px]" /></div>
+        </BentoCard>
 
-        <div className="card shadow-soft" style={{
-          background: dangerDays.length > 0 ? 'var(--secondary-gradient)' : 'var(--bg-card-solid)',
-          color: dangerDays.length > 0 ? 'white' : 'var(--text-main)',
-          border: 'none', padding: 'clamp(10px, 3vw, 16px)',
-          boxShadow: dangerDays.length > 0 ? '0 10px 25px var(--secondary-glow)' : '0 4px 12px rgba(0,0,0,0.03)',
-          position: 'relative', overflow: 'hidden'
-        }}>
-          <div style={{ fontSize: 'clamp(9px, 2.5vw, 11px)', fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', marginBottom: '4px' }}>Zona Bahaya</div>
-          <div style={{ fontSize: 'clamp(13px, 3.8vw, 18px)', fontWeight: 800 }}>{dangerDays.length} Hari</div>
-          <div style={{ fontSize: 'clamp(8px, 2.2vw, 10px)', opacity: 0.8, marginTop: '4px' }}>Saldo prediksi negatif</div>
-          <AlertTriangle size={40} style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.15 }} />
-        </div>
+        <BentoCard
+          variant="surface"
+          className={`p-4 relative overflow-hidden flex flex-col justify-between h-full border ${
+            dangerDays.length > 0 ? 'bg-error-container/25 border-error/30 text-error' : 'bg-surface-container border-outline-variant/60 text-on-surface'
+          }`}
+        >
+          <div>
+            <div className="text-[10px] font-bold opacity-80 uppercase tracking-wider mb-1">Zona Bahaya</div>
+            <div className={`text-base font-black ${dangerDays.length > 0 ? 'text-error' : 'text-on-surface'}`}>{dangerDays.length} Hari</div>
+          </div>
+          <div className="text-[9px] opacity-80 mt-1 truncate">Saldo prediksi negatif</div>
+          <div className="absolute right-[-10px] bottom-[-10px] opacity-15"><MaterialIcon name="warning" className={`text-[40px] ${dangerDays.length > 0 ? 'text-error' : 'text-on-surface-variant'}`} /></div>
+        </BentoCard>
       </div>
 
       {/* Chart Control */}
-      <div className="flex-between">
-        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Prediksi Saldo</h3>
-        <div style={{ display: 'flex', background: 'var(--bg-main)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+      <div className="flex justify-between items-center pl-1">
+        <h3 className="text-sm font-bold text-on-surface">Prediksi Saldo</h3>
+        <div className="flex bg-surface-container-low p-0.5 rounded-xl border border-outline-variant/60">
           {[30, 60, 90].map(days => (
             <button
               key={days}
               onClick={() => setForecastDays(days as any)}
-              style={{
-                padding: '6px 12px', borderRadius: '8px', border: 'none', fontSize: '11px', fontWeight: 700,
-                background: forecastDays === days ? 'var(--bg-card)' : 'transparent',
-                color: forecastDays === days ? 'var(--primary)' : 'var(--text-muted)',
-                cursor: 'pointer'
-              }}
+              className={`px-3 py-1 rounded-lg border-none text-[10px] font-extrabold cursor-pointer transition-all ${
+                forecastDays === days ? 'bg-primary text-white shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
+              }`}
             >
               {days} HARI
             </button>
@@ -2432,84 +2551,96 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
         </div>
       </div>
 
-      {/* Line Chart */}
-      <div className="card glass" style={{ height: '300px', padding: '20px 10px 10px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={activeData}>
-            <defs>
-              <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="investGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-            <XAxis
-              dataKey="displayDate"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
-              interval={forecastDays === 90 ? 14 : forecastDays === 60 ? 9 : 4}
-            />
-            <YAxis
-              hide
-              domain={['dataMin - 1000000', 'dataMax + 1000000']}
-            />
-            <Tooltip
-              contentStyle={{ borderRadius: '12px', border: 'none', background: isDark ? '#1e293b' : '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-              formatter={(val: any) => fmt(Number(val))}
-              labelStyle={{ fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}
-            />
-            <Area
-              type="monotone"
-              dataKey="balance"
-              name="Kas & Bank"
-              stroke="var(--primary)"
-              strokeWidth={3}
-              fillOpacity={1}
-              fill="url(#forecastGradient)"
-              animationDuration={1000}
-            />
-            <Area
-              type="monotone"
-              dataKey="investBalance"
-              name="Tabungan & Investasi"
-              stroke="#10b981"
-              strokeWidth={3}
-              fillOpacity={1}
-              fill="url(#investGradient)"
-              animationDuration={1000}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <BentoCard variant="glass" className="border border-outline-variant py-4 px-2">
+        <div style={{ width: '100%', height: '280px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={activeData}>
+              <defs>
+                <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="investGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+              <XAxis
+                dataKey="displayDate"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                interval={forecastDays === 90 ? 14 : forecastDays === 60 ? 9 : 4}
+              />
+              <YAxis
+                width={40}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                tickFormatter={(val) => {
+                  if (val >= 1000000) return `${(val / 1000000).toFixed(1).replace(/\.0$/, '')}jt`;
+                  if (val >= 1000) return `${(val / 1000).toFixed(0)}rb`;
+                  return val;
+                }}
+                domain={['dataMin - 1000000', 'dataMax + 1000000']}
+              />
+              <Tooltip
+                contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
+                formatter={(val: any) => fmt(Number(val))}
+                labelStyle={{ fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}
+              />
+              <Area
+                type="monotone"
+                dataKey="balance"
+                name="Kas & Bank"
+                stroke="var(--primary)"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#forecastGradient)"
+                animationDuration={1000}
+              />
+              <Area
+                type="monotone"
+                dataKey="investBalance"
+                name="Tabungan & Investasi"
+                stroke="#10b981"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#investGradient)"
+                animationDuration={1000}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </BentoCard>
 
       {/* Upcoming Large Bills */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Tagihan Mendatang</h3>
-        {activeData.filter(d => d.expense > 0).slice(0, 5).map((d, i) => (
-          <div key={i} className="card glass" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
-                <Calendar size={20} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '14px' }}>{d.displayDate}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Estimasi Tagihan</div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 800, color: 'var(--danger)', fontSize: '14px' }}>-{fmt(d.expense)}</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Saldo: {fmt(d.balance)}</div>
-            </div>
-          </div>
-        ))}
-        {activeData.filter(d => d.expense > 0).length === 0 && (
-          <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '13px' }}>Tidak ada tagihan rutin yang terdeteksi.</div>
-        )}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-on-surface pl-1">Tagihan Mendatang</h3>
+        <div className="space-y-2">
+          {activeData.filter(d => d.expense > 0).slice(0, 5).map((d, i) => (
+            <ListItem
+              key={i}
+              left={<IconBlock icon="calendar_today" color="error" size="md" />}
+              title={d.displayDate}
+              subtitle="Estimasi Tagihan"
+              right={
+                <div className="text-right">
+                  <div className="font-extrabold text-sm text-error">-{fmt(d.expense)}</div>
+                  <div className="text-[10px] text-on-surface-variant font-semibold mt-0.5">Saldo: {fmt(d.balance)}</div>
+                </div>
+              }
+            />
+          ))}
+          {activeData.filter(d => d.expense > 0).length === 0 && (
+            <EmptyState
+              icon="calendar_today"
+              title="Tidak ada tagihan rutin"
+              description="Tidak ada tagihan rutin yang terdeteksi untuk periode ini."
+            />
+          )}
+        </div>
       </div>
     </div>
   );

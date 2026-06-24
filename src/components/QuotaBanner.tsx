@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMoney } from '../contexts/MoneyContext';
-import { CloudUpload, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import MaterialIcon from './common/MaterialIcon';
 import { isFirebaseConfigured } from '../lib/firebase';
 
 export const QuotaBanner: React.FC = () => {
@@ -45,127 +45,72 @@ export const QuotaBanner: React.FC = () => {
 
     if (showSuccess) {
         return (
-            <div className="quota-banner success fade-in">
-                <div className="quota-banner-content">
-                    <CheckCircle2 size={18} />
-                    <span>Data berhasil disinkronkan ke Cloud!</span>
-                </div>
+            <div className="bg-success-container text-success p-3 rounded-2xl flex items-center gap-3 m-4 shadow-sm fade-in">
+                <MaterialIcon name="check_circle" className="text-lg" />
+                <span className="text-sm font-semibold">Data berhasil disinkronkan ke Cloud!</span>
             </div>
         );
     }
 
     if (errorMessage) {
         return (
-            <div className="quota-banner success fade-in" style={{ background: 'hsla(350, 80%, 58%, 0.1)', borderColor: 'hsla(350, 80%, 58%, 0.3)' }}>
-                <div className="quota-banner-content">
-                    <AlertCircle size={18} style={{ color: 'var(--danger)' }} />
-                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{errorMessage}</span>
-                </div>
+            <div className="bg-error-container text-error p-3 rounded-2xl flex items-center gap-3 m-4 shadow-sm fade-in">
+                <MaterialIcon name="error" className="text-lg" />
+                <span className="text-sm font-semibold">{errorMessage}</span>
             </div>
         );
     }
 
     if (syncError) {
         return (
-            <div className="quota-banner success fade-in" style={{ background: 'hsla(350, 80%, 58%, 0.1)', borderColor: 'hsla(350, 80%, 58%, 0.3)' }}>
-                <div className="quota-banner-content">
-                    <AlertCircle size={18} style={{ color: 'var(--danger)' }} />
-                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Sync Gagal: Kuota Firestore masih penuh.</span>
-                </div>
+            <div className="bg-error-container text-error p-3 rounded-2xl flex items-center gap-3 m-4 shadow-sm fade-in">
+                <MaterialIcon name="error" className="text-lg" />
+                <span className="text-sm font-semibold">Sync Gagal: Kuota Firestore masih penuh.</span>
             </div>
         );
     }
 
     if (autoCloudSync.status === 'pulling') {
         return (
-            <div className="quota-banner fade-in">
-                <div className="quota-banner-content">
-                    <Loader2 className="animate-spin" size={18} />
-                    <span>Sedang sinkronisasi data dari cloud...</span>
-                </div>
+            <div className="bg-surface-container-low text-on-surface p-3 rounded-2xl flex items-center gap-3 m-4 shadow-sm fade-in">
+                <MaterialIcon name="autorenew" className="text-lg animate-spin" />
+                <span className="text-sm font-semibold">Sedang sinkronisasi data dari cloud...</span>
             </div>
         );
     }
 
     return (
-        <div 
-            className="quota-banner fade-in"
-            style={{
-                background: 'linear-gradient(135deg, hsla(var(--p-h), 80%, 54%, 0.08) 0%, hsla(var(--p-h), 80%, 54%, 0.03) 100%)',
-                borderColor: 'hsla(var(--p-h), 80%, 54%, 0.25)',
-                borderWidth: '1.5px',
-                padding: '4px',
-                position: 'relative',
-                overflow: 'hidden',
-                boxShadow: '0 8px 32px hsla(var(--p-h), 80%, 54%, 0.06)'
-            }}
-        >
+        <div className="bg-primary-container text-primary-color p-4 rounded-3xl shadow-bento border border-primary/20 relative overflow-hidden m-4 fade-in">
             {/* Ambient Background Glow */}
-            <div style={{
-                position: 'absolute', top: '-20px', left: '-20px',
-                width: '80px', height: '80px',
-                background: 'var(--primary)',
-                filter: 'blur(30px)',
-                borderRadius: '50%',
-                opacity: 0.15,
-                pointerEvents: 'none'
-            }} />
+            <div className="absolute -top-5 -left-5 w-20 h-20 bg-primary rounded-full opacity-10 blur-2xl pointer-events-none" />
 
-            <div className="quota-banner-content" style={{ padding: '10px 16px' }}>
-                <div className="quota-info" style={{ gap: '16px' }}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-4 flex-1">
                     {/* Breathing/Pulsing Cloud Icon Container */}
-                    <div style={{
-                        width: '40px', height: '40px',
-                        borderRadius: '12px',
-                        background: 'var(--primary-glow)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 4px 12px hsla(var(--p-h), 80%, 54%, 0.1)'
-                    }}>
-                        <CloudUpload size={20} color="var(--primary)" />
+                    <div className="w-10 h-10 rounded-xl bg-primary-glow flex items-center justify-center shadow-sm shrink-0">
+                        <MaterialIcon name="cloud_upload" className="text-xl" />
                     </div>
 
-                    <div className="quota-text">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <strong style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-main)' }}>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                            <strong className="font-extrabold text-sm text-on-surface">
                                 Sinkronisasi Awan
                             </strong>
                             {/* Blue Pulse Indicator */}
-                            <span className="sync-pulse-dot" style={{
-                                width: '8px', height: '8px',
-                                borderRadius: '50%',
-                                background: '#3b82f6',
-                                display: 'inline-block',
-                                boxShadow: '0 0 8px #3b82f6',
-                                animation: 'pulse-blue 2s infinite'
-                            }} />
+                            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shadow-[0_0_8px_#3b82f6] animate-[pulse-blue_2s_infinite]" />
                         </div>
-                        <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                        <p className="mt-0.5 text-xs text-on-surface-variant font-medium leading-tight">
                             {pendingSyncCount} data baru tersimpan di perangkat ini & siap dicadangkan.
                         </p>
                     </div>
                 </div>
 
                 <button 
-                    className={`sync-button ${isSyncing ? 'loading' : ''}`}
+                    className={`shrink-0 bg-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${isSyncing ? 'opacity-70' : ''}`}
                     onClick={handleSync}
                     disabled={isSyncing}
-                    style={{
-                        background: 'var(--primary-gradient)',
-                        boxShadow: '0 4px 12px hsla(var(--p-h), 80%, 54%, 0.25)',
-                        borderRadius: '12px',
-                        padding: '10px 18px',
-                        fontSize: '13px',
-                        fontWeight: 800,
-                        border: 'none',
-                        color: 'white',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        transition: 'all 0.2s ease'
-                    }}
                 >
-                    {isSyncing ? <Loader2 className="animate-spin" size={16} /> : <CloudUpload size={16} />}
+                    {isSyncing ? <MaterialIcon name="autorenew" className="text-base animate-spin" /> : <MaterialIcon name="cloud_upload" className="text-base" />}
                     <span>Sync Sekarang</span>
                 </button>
             </div>

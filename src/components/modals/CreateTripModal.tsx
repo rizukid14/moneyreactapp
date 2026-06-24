@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Plus } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Trip, type TripMember } from '../../contexts/MoneyContext';
 import { generateId } from '../../lib/utils';
 import ContactSelectModal from './ContactSelectModal';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface CreateTripModalProps {
   isOpen: boolean;
@@ -85,7 +86,7 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: 800 }}>{editingTrip ? 'Edit Trip' : 'Buat Trip Baru'}</h2>
             <button onClick={onClose} className="btn-icon">
-              <X size={20} />
+              <MaterialIcon name="close" className="text-[20px]" />
             </button>
           </div>
 
@@ -96,7 +97,7 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
                 Nama Trip / Destinasi
               </label>
               <div style={{ position: 'relative' }}>
-                <MapPin size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <MaterialIcon name="location_on" />
                 <input 
                   type="text" 
                   value={name}
@@ -146,7 +147,7 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
                     {m.name}
                     {m.id !== 'me' && (
                       <button onClick={() => handleRemoveMember(m.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                        <X size={14} />
+                        <MaterialIcon name="close" className="text-[14px]" />
                       </button>
                     )}
                   </div>
@@ -161,7 +162,7 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer'
                 }}
               >
-                <Plus size={20} /> Tambah dari Kontak
+                <MaterialIcon name="add" className="text-[20px]" /> Tambah dari Kontak
               </button>
             </div>
 

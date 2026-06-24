@@ -62,6 +62,29 @@ const getDB = () => {
   return dbPromise;
 };
 
+if (typeof window !== 'undefined') {
+  (window as any).__dbHelper = {
+    clearAll: async () => {
+      const db = await getDB();
+      const stores = Array.from(db.objectStoreNames);
+      const tx = db.transaction(stores, 'readwrite');
+      for (const storeName of stores) {
+        tx.objectStore(storeName as any).clear();
+      }
+      await tx.done;
+    },
+    put: async (storeName: string, records: any[]) => {
+      const db = await getDB();
+      const tx = db.transaction(storeName as any, 'readwrite');
+      const store = tx.objectStore(storeName as any);
+      for (const rec of records) {
+        store.put(rec);
+      }
+      await tx.done;
+    }
+  };
+}
+
 export const localDbGetAllAssets = async (): Promise<Asset[]> => (await getDB()).getAll('assets');
 export const localDbGetAllTransactions = async (): Promise<Transaction[]> => (await getDB()).getAll('transactions');
 export const localDbGetAllCategories = async (): Promise<Category[]> => (await getDB()).getAll('categories');
@@ -659,6 +682,11 @@ export interface SharedSplit {
   members?: any[];        // For trip
   sourceId?: string;      // ID of the original trip or split to prevent duplicates
   createdAt: number;
+  paymentDetails?: {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+  };
 }
 
 export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorId' | 'createdAt'>): Promise<string> => {

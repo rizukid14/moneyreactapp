@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, Trash2, HelpCircle, X } from 'lucide-react';
+import MaterialIcon from './MaterialIcon';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -13,44 +13,35 @@ interface ConfirmDialogProps {
   cancelText?: string;
 }
 
-const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  title, 
-  message, 
+const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
   type = 'danger',
   confirmText = 'Ya, Hapus',
   cancelText = 'Batal'
 }) => {
-  const Icon = type === 'danger' ? Trash2 : type === 'warning' ? AlertCircle : HelpCircle;
-  const accentColor = type === 'danger' ? 'var(--danger)' : type === 'warning' ? 'var(--secondary)' : 'var(--primary)';
-  const glowColor = type === 'danger' ? 'hsla(350, 80%, 58%, 0.15)' : type === 'warning' ? 'hsla(35, 90%, 52%, 0.15)' : 'var(--primary-glow)';
+  const cfg = {
+    danger: { icon: 'delete', color: 'text-error', bg: 'bg-error', bgLight: 'bg-error/10', border: 'border-error/20', shadow: 'shadow-error/20' },
+    warning: { icon: 'error', color: 'text-warning', bg: 'bg-warning', bgLight: 'bg-warning/10', border: 'border-warning/20', shadow: 'shadow-warning/20' },
+    info: { icon: 'help', color: 'text-primary', bg: 'bg-primary', bgLight: 'bg-primary/10', border: 'border-primary/20', shadow: 'shadow-primary/20' }
+  }[type];
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div 
-          className="modal-overlay" 
-          style={{ zIndex: 3000, alignItems: 'center' }}
+        <motion.div
+          className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/45 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.1 }}
+          onClick={onClose}
         >
-          <motion.div 
-            className="card shadow-soft"
-            style={{ 
-              width: '90%', 
-              maxWidth: '360px', 
-              padding: '24px', 
-              textAlign: 'center', 
-              borderRadius: '24px',
-              background: 'var(--bg-card-solid)',
-              border: `1.5px solid ${accentColor}44`,
-              position: 'relative',
-              overflow: 'hidden'
-            }}
+          <motion.div
+            className={`w-[90%] max-w-[360px] p-6 text-center rounded-[24px] bg-bg-card relative overflow-hidden shadow-bento border-2 ${cfg.border}`}
             initial={{ scale: 0.95, opacity: 0, y: 10 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 10 }}
@@ -58,55 +49,40 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             onClick={e => e.stopPropagation()}
           >
             {/* Background Accent Glow */}
-            <div style={{
-              position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)',
-              width: '100px', height: '100px', background: glowColor, filter: 'blur(30px)', zIndex: 0
-            }} />
+            <div className={`absolute -top-[50px] left-1/2 -translate-x-1/2 w-[100px] h-[100px] blur-[30px] z-0 ${cfg.bgLight}`} />
 
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ 
-                width: '64px', height: '64px', borderRadius: '20px', background: `${accentColor}11`,
-                margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: accentColor, border: `1px solid ${accentColor}22`
-              }}>
-                <Icon size={32} />
+            <div className="relative z-10">
+              <div className={`w-16 h-16 rounded-[20px] mx-auto mb-4 flex items-center justify-center border ${cfg.bgLight} ${cfg.color} ${cfg.border}`}>
+                <MaterialIcon name={cfg.icon} className="text-[32px]" />
               </div>
 
-              <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>{title}</h3>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '24px' }}>{message}</p>
+              <h3 className="text-xl font-extrabold text-on-surface mb-2">{title}</h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed mb-6">{message}</p>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
+              <div className="flex gap-3">
+                <button
                   onClick={onClose}
-                  style={{ 
-                    flex: 1, padding: '14px', borderRadius: '16px', background: 'var(--bg-main)',
-                    border: '1px solid var(--border-color)', color: 'var(--text-muted)',
-                    fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
-                  }}
+                  className="flex-1 py-3.5 rounded-2xl bg-surface-container-low border border-outline-variant text-on-surface-variant font-bold text-sm cursor-pointer transition-all hover:bg-surface-container"
                 >
                   {cancelText}
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     onConfirm();
                     onClose();
                   }}
-                  style={{ 
-                    flex: 1.5, padding: '14px', borderRadius: '16px', background: accentColor,
-                    border: 'none', color: 'white', fontWeight: 700, fontSize: '14px',
-                    boxShadow: `0 8px 20px ${glowColor}`, cursor: 'pointer', transition: 'all 0.2s'
-                  }}
+                  className={`flex-[1.5] py-3.5 rounded-2xl border-none text-white font-bold text-sm cursor-pointer transition-all shadow-lg hover:opacity-90 ${cfg.bg} ${cfg.shadow}`}
                 >
                   {confirmText}
                 </button>
               </div>
             </div>
 
-            <button 
+            <button
               onClick={onClose}
-              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', opacity: 0.5 }}
+              className="absolute top-4 right-4 bg-transparent border-none text-on-surface-variant cursor-pointer opacity-50 hover:opacity-100 transition-opacity"
             >
-              <X size={20} />
+              <MaterialIcon name="close" className="text-xl" />
             </button>
           </motion.div>
         </motion.div>

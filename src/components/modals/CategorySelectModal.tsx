@@ -1,157 +1,138 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ChevronRight, Folder, FolderOpen, Check, Plus, Search } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import { type Category, useMoney } from '../../contexts/MoneyContext';
 import CategoryModal from './CategoryModal';
+import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface CategorySelectModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
   type: 'pengeluaran' | 'pendapatan';
-  initialCategory?: string;
-  initialSubCategory?: string;
-  onSelect: (category: string, subCategory: string) => void;
+  initialCategoryId?: string;
+  initialSubCategoryId?: string;
+  onSelect: (categoryId: string, subCategoryId: string) => void;
 }
 
 const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
-  isOpen, onClose, categories, type, initialCategory, initialSubCategory, onSelect
+  isOpen, onClose, categories, type, initialCategoryId, initialSubCategoryId, onSelect
 }) => {
   const { addCategory, updateCategory, addSubCategory } = useMoney();
-  const [activeCategory, setActiveCategory] = useState<string>('');
+  const [activeCategoryId, setActiveCategoryId] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter and sort main categories alphabetically
   const sortedCategories = useMemo(() => {
-    let result = [...categories].filter(c => c.type === type && (!c.isDeleted || c.name === initialCategory));
-    
+    const activeIds = new Set(
+      categories.filter(c => c.type === type && !c.isDeleted).map(c => c.id)
+    );
+
+    let result = [...categories].filter(c =>
+      c.type === type &&
+      (!c.isDeleted || (c.id === initialCategoryId && !activeIds.has(c.id)))
+    );
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(c => 
-        c.name.toLowerCase().includes(query) || 
+      result = result.filter(c =>
+        c.name.toLowerCase().includes(query) ||
         c.subcategories?.some(s => !s.isDeleted && s.name.toLowerCase().includes(query))
       );
     }
-    
+
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [categories, type, searchQuery, initialCategory]);
+  }, [categories, type, searchQuery, initialCategoryId]);
 
   useEffect(() => {
     if (isOpen) {
-      if (initialCategory && sortedCategories.some(c => c.name === initialCategory)) {
-        setActiveCategory(initialCategory);
+      if (initialCategoryId && sortedCategories.some(c => c.id === initialCategoryId)) {
+        setActiveCategoryId(initialCategoryId);
       } else if (sortedCategories.length > 0) {
-        setActiveCategory(sortedCategories[0].name);
+        setActiveCategoryId(sortedCategories[0].id);
       }
     }
-  }, [isOpen, initialCategory, sortedCategories]);
+  }, [isOpen, initialCategoryId, sortedCategories]);
 
   const activeCategoryObj = useMemo(() => {
-    return sortedCategories.find(c => c.name === activeCategory);
-  }, [activeCategory, sortedCategories]);
+    return sortedCategories.find(c => c.id === activeCategoryId);
+  }, [activeCategoryId, sortedCategories]);
 
   // Sort subcategories alphabetically
   const sortedSubcategories = useMemo(() => {
     if (!activeCategoryObj || !activeCategoryObj.subcategories) return [];
-    let result = [...activeCategoryObj.subcategories].filter(s => !s.isDeleted || s.name === initialSubCategory);
-    
+
+    const activeSubIds = new Set(
+      activeCategoryObj.subcategories.filter(s => !s.isDeleted).map(s => s.id)
+    );
+
+    let result = [...activeCategoryObj.subcategories].filter(s =>
+      !s.isDeleted || (s.id === initialSubCategoryId && !activeSubIds.has(s.id))
+    );
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(s => s.name.toLowerCase().includes(query));
     }
-    
-    return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeCategoryObj, searchQuery, initialSubCategory]);
 
-  const handleCategoryClick = (catName: string) => {
-    setActiveCategory(catName);
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeCategoryObj, searchQuery, initialSubCategoryId]);
+
+  const handleCategoryClick = (catId: string) => {
+    setActiveCategoryId(catId);
   };
 
-  const handleSubCategoryClick = (subName: string) => {
-    onSelect(activeCategory, subName);
+  const handleSubCategoryClick = (subId: string) => {
+    onSelect(activeCategoryId, subId);
     onClose();
   };
 
   const handleConfirmMainCategoryOnly = () => {
-    onSelect(activeCategory, '');
+    onSelect(activeCategoryId, '');
     onClose();
   };
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            style={{ zIndex: 3000 }} // Ensure it's above TransactionModal (2000 normally for overlay but TransactionModal is below)
-          >
-            <motion.div
-              className="modal-content"
-              onClick={e => e.stopPropagation()}
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 400, mass: 0.5 }}
-              style={{ padding: 0, height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      <Modal isOpen={isOpen} onClose={onClose} title="Pilih Kategori">
+        <div style={{ display: 'flex', flexDirection: 'column', height: '80vh', overflow: 'hidden' }}>
+          {/* Header Action: Add Category (Title and Close are handled by Modal) */}
+          <div style={{ position: 'absolute', top: '16px', right: '56px', zIndex: 10 }}>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              style={{
+                background: 'var(--primary-gradient)', color: 'white', border: 'none',
+                borderRadius: '10px', width: '32px', height: '32px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
+              }}
+              title="Tambah Kategori Baru"
             >
-              {/* Header */}
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0
-              }}>
-                <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Kategori</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button 
-                    onClick={() => setIsAddModalOpen(true)}
-                    style={{ 
-                      background: 'var(--primary-gradient)', color: 'white', border: 'none', 
-                      borderRadius: '10px', width: '32px', height: '32px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                      cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
-                    }}
-                    title="Tambah Kategori Baru"
-                  >
-                    <Plus size={18} />
-                  </button>
-                  <button className="close-btn" onClick={onClose}><X size={20} /></button>
-                </div>
-              </div>
+              <MaterialIcon name="add" className="text-[18px]" />
+            </button>
+          </div>
 
               {/* Search Bar */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
-                <div style={{ position: 'relative' }}>
-                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    placeholder="Cari kategori atau sub-kategori..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 36px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--bg-main)',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      marginBottom: 0,
-                    }}
-                  />
-                  {searchQuery && (
-                    <button 
+                <Input
+                  type="text"
+                  placeholder="Cari kategori atau sub-kategori..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  icon={<MaterialIcon name="search" className="text-[16px]" />}
+                  rightElement={searchQuery ? (
+                    <button
                       onClick={() => setSearchQuery('')}
-                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
                     >
-                      <X size={14} />
+                      <MaterialIcon name="close" className="text-[14px]" />
                     </button>
-                  )}
-                </div>
+                  ) : undefined}
+                  style={{ marginBottom: 0 }}
+                />
               </div>
 
               {/* Split View Content */}
@@ -171,23 +152,23 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                         Belum ada kategori.
                       </div>
-                      <button 
+                      <Button
+                        variant="primary"
                         onClick={() => setIsAddModalOpen(true)}
-                        className="btn btn-primary"
                         style={{ fontSize: '12px', padding: '8px 16px', height: 'auto', margin: '0 auto' }}
                       >
                         Tambah Kategori
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     sortedCategories.map(cat => {
-                      const isActive = cat.name === activeCategory;
+                      const isActive = cat.id === activeCategoryId;
                       const hasSub = cat.subcategories && cat.subcategories.length > 0;
 
                       return (
                         <button
                           key={cat.id}
-                          onClick={() => handleCategoryClick(cat.name)}
+                          onClick={() => handleCategoryClick(cat.id)}
                           style={{
                             width: '100%', padding: '14px 16px', background: isActive ? 'var(--bg-card)' : 'transparent',
                             border: 'none', borderLeft: `4px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
@@ -198,7 +179,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>
-                              {isActive ? <FolderOpen size={18} /> : <Folder size={18} />}
+                              {isActive ? <MaterialIcon name="folder_open" className="text-[18px]" /> : <MaterialIcon name="folder" className="text-[18px]" />}
                             </div>
                             <span style={{
                               fontSize: '14px',
@@ -209,7 +190,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                             </span>
                           </div>
                           {hasSub && (
-                            <ChevronRight size={16} color={isActive ? 'var(--primary)' : 'var(--border-color)'} />
+                            <MaterialIcon name="chevron_right" />
                           )}
                         </button>
                       );
@@ -227,20 +208,29 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                   {activeCategoryObj && (!activeCategoryObj.subcategories || activeCategoryObj.subcategories.length === 0) ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '20px', textAlign: 'center' }}>
                       <div style={{ width: 48, height: 48, borderRadius: 24, background: 'var(--bg-income)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                        <Check size={24} />
+                        <MaterialIcon name="check" className="text-[24px]" />
                       </div>
                       <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: 4 }}>"{activeCategoryObj.name}"</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 20 }}>Kategori ini tidak memiliki sub-kategori.</div>
-                      <button
+                      <Button
+                        variant="primary"
                         onClick={handleConfirmMainCategoryOnly}
-                        className="btn btn-primary"
-                        style={{ width: '100%' }}
+                        fullWidth
                       >
                         Pilih Kategori Ini
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <>
+                      {/* Custom Confirm Selection Main Category if it has subcategories but user wants main */}
+                      {activeCategoryObj?.subcategories && activeCategoryObj.subcategories.length > 0 && (
+                        <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, background: 'var(--bg-main)' }}>
+                          <Button variant="outline" fullWidth onClick={handleConfirmMainCategoryOnly} style={{ padding: '12px', fontSize: '13px', fontWeight: 700 }}>
+                            Pilih Kategori Utama: {activeCategoryObj.name}
+                          </Button>
+                        </div>
+                      )}
+
                       <button
                         onClick={() => handleSubCategoryClick('')}
                         style={{
@@ -249,18 +239,18 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                           cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--border-color)',
                         }}
                       >
-                        <span style={{ fontSize: '14px', fontWeight: !initialSubCategory ? 700 : 500, color: !initialSubCategory ? 'var(--primary)' : 'var(--text-main)', fontStyle: 'italic' }}>
+                        <span style={{ fontSize: '14px', fontWeight: !initialSubCategoryId ? 700 : 500, color: !initialSubCategoryId ? 'var(--primary)' : 'var(--text-main)', fontStyle: 'italic' }}>
                           Tanpa Sub-Kategori
                         </span>
-                        {!initialSubCategory && <Check size={16} color="var(--primary)" />}
+                        {!initialSubCategoryId && <MaterialIcon name="check" className="text-[16px]" />}
                       </button>
 
                       {sortedSubcategories.map(sub => {
-                        const isSubActive = sub.name === initialSubCategory;
+                        const isSubActive = sub.id === initialSubCategoryId;
                         return (
                           <button
                             key={sub.id}
-                            onClick={() => handleSubCategoryClick(sub.name)}
+                            onClick={() => handleSubCategoryClick(sub.id)}
                             style={{
                               width: '100%', padding: '14px 20px', background: 'transparent',
                               border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -270,7 +260,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                             <span style={{ fontSize: '14px', fontWeight: isSubActive ? 700 : 500, color: isSubActive ? 'var(--primary)' : 'var(--text-main)' }}>
                               {sub.name}
                             </span>
-                            {isSubActive && <Check size={16} color="var(--primary)" />}
+                            {isSubActive && <MaterialIcon name="check" className="text-[16px]" />}
                           </button>
                         );
                       })}
@@ -279,11 +269,8 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                 </div>
               </div>
 
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+        </div>
+      </Modal>
       {addCategory && (
         <CategoryModal
           isOpen={isAddModalOpen}

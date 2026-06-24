@@ -1,32 +1,38 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, AlertCircle, Loader2, X, Scissors, Trash2, Plus, Users, Receipt, Lightbulb, Terminal, ChevronLeft, ChevronRight, Folder, Wallet } from 'lucide-react';
+
 import { useMoney } from '../contexts/MoneyContext';
 import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceiptOCR';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
+import { validateFileSecure } from '../lib/fileValidation';
 import SplitBillModal from '../components/modals/SplitBillModal';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
-import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
+import { lazy, Suspense } from 'react';
+const OverspendReallocationModal = lazy(() => import('../components/modals/OverspendReallocationModal'));
 import { useNavigate } from 'react-router-dom';
 import CurrencyInput from '../components/common/CurrencyInput';
+
+import { TabBar } from '../components/ui/TabBar';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import MaterialIcon from '../components/common/MaterialIcon';
 
 type Stage = 'upload' | 'crop' | 'scanning' | 'results';
 
 interface CropRect { x: number; y: number; w: number; h: number; }
 
 const CONFIDENCE_BADGE = {
-  high: { label: 'Akurasi Tinggi', color: 'var(--success)' },
-  medium: { label: 'Akurasi Sedang', color: 'var(--secondary)' },
-  low: { label: 'Akurasi Rendah', color: 'var(--danger)' },
+  high: { label: 'Akurasi Tinggi (98%)', icon: 'verified', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  medium: { label: 'Akurasi Sedang (75%)', icon: 'info', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  low: { label: 'Akurasi Rendah (50%)', icon: 'warning', className: 'bg-rose-50 text-rose-700 border-rose-200' },
 };
 
 const ReceiptScanner: React.FC = () => {
   const navigate = useNavigate();
   const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId, validateTransactionBudget, zbbMode } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
-  const { parseData: parseMutasi, isParsing: isMutasiParsing, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
+  const { parseData: parseMutasi, progress: mutasiProgress, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { showToast } = useToast();
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
@@ -37,9 +43,10 @@ const ReceiptScanner: React.FC = () => {
   const [scanMode, setScanMode] = useState<'struk' | 'mutasi'>('struk');
   const error = scanMode === 'struk' ? strukError : mutasiError;
   const setError = scanMode === 'struk' ? setStrukError : setMutasiError;
-  const progress = scanMode === 'struk' ? strukProgress : (isMutasiParsing ? 50 : 0);
+  const progress = scanMode === 'struk' ? strukProgress : mutasiProgress;
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [croppedImageUrl, setCroppedImageUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [result, setResult] = useState<OCRResult | null>(null);
   const [mutasiResults, setMutasiResults] = useState<ParsedTransaction[]>([]);
@@ -49,6 +56,7 @@ const ReceiptScanner: React.FC = () => {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const cropRectRef = useRef<CropRect | null>(null); // always up-to-date for runScan
+  const [isFileDragging, setIsFileDragging] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -117,7 +125,9 @@ const ReceiptScanner: React.FC = () => {
 
   const reset = useCallback(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (croppedImageUrl) URL.revokeObjectURL(croppedImageUrl);
     setPreviewUrl(null);
+    setCroppedImageUrl(null);
     setImageFile(null);
     setResult(null);
     setError(null);
@@ -250,8 +260,10 @@ const ReceiptScanner: React.FC = () => {
       const ctx = cropped.getContext('2d')!;
       ctx.drawImage(img, activeCrop.x, activeCrop.y, activeCrop.w, activeCrop.h, 0, 0, activeCrop.w, activeCrop.h);
       blob = await new Promise<Blob>(resolve => cropped.toBlob(b => resolve(b!), 'image/jpeg', 0.95));
+      setCroppedImageUrl(URL.createObjectURL(blob));
     } else {
       blob = imageFile;
+      if (blob) setCroppedImageUrl(URL.createObjectURL(blob));
     }
 
     if (!blob) { setError('Gambar tidak valid'); setStage('crop'); return; }
@@ -273,15 +285,26 @@ const ReceiptScanner: React.FC = () => {
           const matchedFromAssetId = mapAsset(tx.fromAsset, fallbackAssetId);
           const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || fallbackAssetId);
 
-          let matchedCategory = '';
-          let matchedSubCategory = '';
-          if (tx.category && tx.type !== 'transfer') {
-            const matchedCat = categories.find(c => c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type && !c.isDeleted);
+          let matchedCategoryId = '';
+          let matchedSubCategoryId = '';
+          if (tx.categoryId && tx.type !== 'transfer') {
+            const matchedCat = categories.find(c => 
+              c.type === tx.type && 
+              !c.isDeleted && 
+              (c.name.toLowerCase() === tx.categoryId.toLowerCase() || 
+               c.name.toLowerCase().includes(tx.categoryId.toLowerCase()) || 
+               tx.categoryId.toLowerCase().includes(c.name.toLowerCase()))
+            );
             if (matchedCat) {
-              matchedCategory = matchedCat.name;
-              if (tx.subCategory && matchedCat.subcategories) {
-                const matchedSub = matchedCat.subcategories.find(s => s.name.toLowerCase() === tx.subCategory!.toLowerCase() && !s.isDeleted);
-                if (matchedSub) matchedSubCategory = matchedSub.name;
+              matchedCategoryId = matchedCat.id;
+              if (tx.subCategoryId && matchedCat.subcategories) {
+                const matchedSub = matchedCat.subcategories.find(s => 
+                  !s.isDeleted && 
+                  (s.name.toLowerCase() === tx.subCategoryId!.toLowerCase() ||
+                   s.name.toLowerCase().includes(tx.subCategoryId!.toLowerCase()) ||
+                   tx.subCategoryId!.toLowerCase().includes(s.name.toLowerCase()))
+                );
+                if (matchedSub) matchedSubCategoryId = matchedSub.id;
               }
             }
           }
@@ -291,8 +314,8 @@ const ReceiptScanner: React.FC = () => {
             asset: matchedAssetId,
             fromAsset: matchedFromAssetId,
             toAsset: matchedToAssetId,
-            category: matchedCategory || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? 'Lainnya' : 'Lain-lain'),
-            subCategory: matchedSubCategory || ''
+            categoryId: matchedCategoryId || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? categories.find(c => c.name === 'Lainnya' && c.type === 'pengeluaran')?.id || '' : categories.find(c => c.name === 'Lain-lain' && c.type === 'pendapatan')?.id || ''),
+            subCategoryId: matchedSubCategoryId || ''
           };
         });
 
@@ -401,12 +424,48 @@ const ReceiptScanner: React.FC = () => {
   };
 
   // ── Handle file select ─────────────────────────────────────────────────────
+  const processFile = async (file: File) => {
+    const validation = await validateFileSecure(file, {
+      maxSizeMB: 5,
+      allowedExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
+      allowedMimeTypes: ['image/*'],
+      checkMagicBytes: 'image'
+    });
+
+    if (!validation.isValid) {
+      showToast(validation.error || 'Format gambar tidak valid', 'error');
+      return false;
+    }
+
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url); setImageFile(file); setCropRect(null); setStage('crop');
+    return true;
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url); setImageFile(file); setCropRect(null); setStage('crop');
+    await processFile(file);
     e.target.value = '';
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsFileDragging(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsFileDragging(false);
+  };
+
+  const onDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsFileDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
   };
 
   const handleSaveMain = () => {
@@ -419,7 +478,7 @@ const ReceiptScanner: React.FC = () => {
       const validation = validateTransactionBudget({
         type: selectedType,
         amount: finalAmount,
-        category: selectedCategory || 'Belanja (OCR)',
+        categoryId: selectedCategory || 'Belanja (OCR)',
         date: selectedDate
       });
       if (!validation.isValid) {
@@ -454,8 +513,8 @@ const ReceiptScanner: React.FC = () => {
       addTransaction({
         type: selectedType,
         amount: finalAmount,
-        category: selectedCategory || 'Belanja (OCR)',
-        subCategory: selectedSubCategory || undefined,
+        categoryId: selectedCategory || 'Belanja (OCR)',
+        subCategoryId: selectedSubCategory || undefined,
         date: selectedDate,
         time: selectedTime,
         note: finalNote,
@@ -470,60 +529,9 @@ const ReceiptScanner: React.FC = () => {
     }
   };
 
-  const handleSaveLineItems = () => {
-    if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
-    const toSave = lineItems.filter(i => i.selected && i.amount !== 0);
-    if (toSave.length === 0) { showToast('Pilih minimal 1 item dengan nominal selain 0', 'warning'); return; }
 
-    const totalSaveAmount = toSave.reduce((sum, item) => sum + item.amount, 0);
 
-    if (zbbMode === 'strict' && selectedType === 'pengeluaran') {
-      const validation = validateTransactionBudget({
-        type: selectedType,
-        amount: totalSaveAmount,
-        category: selectedCategory || 'Belanja (OCR)',
-        date: selectedDate
-      });
-      if (!validation.isValid) {
-        setPendingAction({ type: 'save_line_items' });
-        setReallocationModal({
-          isOpen: true,
-          deficitCategory: validation.deficitCategory,
-          deficitAmount: validation.deficitAmount,
-          month: new Date(selectedDate).getMonth(),
-          year: new Date(selectedDate).getFullYear()
-        });
-        return;
-      }
-    }
-
-    performSaveLineItems();
-  };
-
-  const performSaveLineItems = () => {
-    const toSave = lineItems.filter(i => i.selected && i.amount !== 0);
-    try {
-      toSave.forEach(item => {
-        addTransaction({
-          type: selectedType,
-          amount: item.amount,
-          category: selectedCategory || 'Belanja (OCR)',
-          subCategory: selectedSubCategory || undefined,
-          date: selectedDate,
-          time: selectedTime,
-          note: item.name,
-          assetId: selectedAssetId,
-        });
-      });
-      showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
-      reset();
-    } catch (e) {
-      showToast('Gagal menyimpan transaksi. Silakan coba lagi.', 'error');
-      console.error(e);
-    }
-  };
-
-  const handleSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
+  const handleSplitSave = (splits: any[], data: { assetId: string, categoryId: string, subCategoryId: string }) => {
     const userSplit = splits.find(s => s.id === 'me');
     const payer = splits.find(s => s.isPayer) || splits[0];
     const isMePayer = payer.id === 'me';
@@ -532,7 +540,7 @@ const ReceiptScanner: React.FC = () => {
       const validation = validateTransactionBudget({
         type: 'pengeluaran',
         amount: userSplit.amount,
-        category: data.category || 'Belanja (OCR)',
+        categoryId: data.categoryId || 'Belanja (OCR)',
         date: selectedDate
       });
       if (!validation.isValid) {
@@ -551,7 +559,7 @@ const ReceiptScanner: React.FC = () => {
     performSplitSave(splits, data);
   };
 
-  const performSplitSave = (splits: any[], data: { assetId: string, category: string, subCategory: string }) => {
+  const performSplitSave = (splits: any[], data: { assetId: string, categoryId: string, subCategoryId: string }) => {
     try {
       const userSplit = splits.find(s => s.id === 'me');
       const payer = splits.find(s => s.isPayer) || splits[0];
@@ -564,8 +572,8 @@ const ReceiptScanner: React.FC = () => {
           addTransaction({
             type: 'pengeluaran',
             amount: userSplit.amount,
-            category: data.category || 'Belanja (OCR)',
-            subCategory: data.subCategory || undefined,
+            categoryId: data.categoryId || 'Belanja (OCR)',
+            subCategoryId: data.subCategoryId || undefined,
             date: selectedDate,
             time: selectedTime,
             note: merchantName || 'Split Bill',
@@ -648,14 +656,26 @@ const ReceiptScanner: React.FC = () => {
     const toSave = mutasiResults.filter(r => r.selected);
     toSave.forEach(tx => {
       if (tx.type === 'transfer') {
-        const finalFrom = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : batchAssetId;
-        const finalTo = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : batchAssetId;
+        let finalFrom = batchAssetId;
+        let finalTo = batchAssetId;
+
+        if (tx.fromAsset && tx.fromAsset !== batchAssetId) {
+          finalFrom = tx.fromAsset;
+          finalTo = batchAssetId;
+        } else if (tx.toAsset && tx.toAsset !== batchAssetId) {
+          finalFrom = batchAssetId;
+          finalTo = tx.toAsset;
+        } else {
+          finalFrom = batchAssetId;
+          finalTo = tx.toAsset || batchAssetId;
+        }
+
         const newTx = addTransaction({
           type: 'transfer',
           amount: tx.amount,
           date: tx.date,
           note: tx.note || 'Transfer',
-          category: 'Transfer',
+          categoryId: 'Transfer',
           fromAssetId: finalFrom,
           toAssetId: finalTo
         });
@@ -665,7 +685,7 @@ const ReceiptScanner: React.FC = () => {
           addTransaction({
             type: 'pengeluaran',
             amount: tx.adminFee,
-            category: 'Biaya Admin',
+            categoryId: 'Biaya Admin',
             date: tx.date,
             note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
             assetId: feeAssetId,
@@ -678,8 +698,8 @@ const ReceiptScanner: React.FC = () => {
           amount: tx.amount,
           date: tx.date,
           note: tx.note,
-          category: tx.category,
-          subCategory: tx.subCategory || undefined,
+          categoryId: tx.categoryId,
+          subCategoryId: tx.subCategoryId || undefined,
           assetId: batchAssetId
         });
       }
@@ -693,8 +713,6 @@ const ReceiptScanner: React.FC = () => {
     setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
     if (pendingAction?.type === 'save_main') {
       performSaveMain();
-    } else if (pendingAction?.type === 'save_line_items') {
-      performSaveLineItems();
     } else if (pendingAction?.type === 'split' && pendingAction.data) {
       performSplitSave(pendingAction.data.splits, pendingAction.data.data);
     } else if (pendingAction?.type === 'save_mutasi' && pendingAction.data?.batchAssetId) {
@@ -704,406 +722,367 @@ const ReceiptScanner: React.FC = () => {
   };
 
   return (
-    <div className="page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <button onClick={() => navigate(-1)} className="btn-icon" style={{ padding: '8px', background: 'var(--bg-card)' }}>
-          <ChevronLeft size={20} />
+    <PageWrapper>
+      <div className="flex items-center gap-4 mb-6 pb-5 border-b border-border-light">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white border-none shadow-sm cursor-pointer hover:bg-primary/90 transition-colors shrink-0"
+        >
+          <MaterialIcon name="chevron_left" className="text-2xl" />
         </button>
-        <h1 className="title" style={{ margin: 0 }}>{scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'}</h1>
+        <h2 className="font-headline-md text-headline-md text-on-surface font-extrabold m-0">
+          {scanMode === 'struk' ? 'Pindai Struk' : 'Pindai Mutasi'}
+        </h2>
       </div>
-      <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />
+      <input type="file" accept="image/*" ref={fileInputRef} data-testid="ocr-file-input" style={{ display: 'none' }} onChange={handleFileSelect} />
 
       {stage === 'upload' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '10px' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+          <div className="lg:col-span-8 flex flex-col gap-stack-md">
+            <div className="bg-white rounded-xl p-6 border border-border-light shadow-sm flex flex-col h-full">
+              <div className="mb-4">
+                <label className="font-headline-md text-headline-md block mb-1">Unggah Gambar Transaksi</label>
+                <p className="font-body-md text-body-md text-on-surface-variant">
+                  {scanMode === 'struk' ? 'Pilih atau tarik foto struk belanja Anda.' : 'Pilih atau tarik foto mutasi bank Anda.'} AI akan otomatis mengekstrak informasi di dalamnya.
+                </p>
+                <div className="w-full max-w-[300px] mt-4">
+                  <TabBar
+                    activeTabId={scanMode}
+                    onChange={(id) => setScanMode(id as 'struk' | 'mutasi')}
+                    tabs={[
+                      { id: 'struk', label: 'Struk Belanja', 'data-testid': 'scan-mode-struk' },
+                      { id: 'mutasi', label: 'Mutasi Bank', 'data-testid': 'scan-mode-mutasi' }
+                    ]}
+                  />
+                </div>
+              </div>
+              <div className="relative flex-grow min-h-[350px]">
+                <div
+                  onDragOver={onDragOver}
+                  onDragLeave={onDragLeave}
+                  onDrop={onDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  data-testid="camera-button"
+                  className={`w-full h-full p-8 rounded-xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center group ${
+                    isFileDragging
+                      ? 'border-primary bg-primary/10 ring-4 ring-primary/20 scale-[0.99]'
+                      : 'border-outline-variant hover:border-primary bg-surface-bright hover:bg-primary/5'
+                  }`}
+                >
+                  <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-lg transition-transform ${
+                    isFileDragging ? 'bg-primary text-white scale-110' : 'bg-primary-container text-primary group-hover:scale-105'
+                  }`}>
+                    <MaterialIcon name="photo_camera" className="text-[40px]" />
+                  </div>
+                  <h3 className="font-headline-md text-headline-md text-on-surface mb-2 text-center">
+                    {isFileDragging ? 'Lepaskan Gambar Di Sini' : 'Klik atau Tarik Gambar'}
+                  </h3>
+                  <p className="text-on-surface-variant font-body-md text-center max-w-[300px]">
+                    Format yang didukung: JPG, PNG, WEBP (Max 5MB).
+                  </p>
+                </div>
+              </div>
+            </div>
 
-          <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)', marginBottom: '16px', width: '100%', maxWidth: '300px' }}>
-            <button onClick={() => setScanMode('struk')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'struk' ? 'var(--primary)' : 'transparent', color: scanMode === 'struk' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Pindai Struk</button>
-            <button onClick={() => setScanMode('mutasi')} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: 'none', background: scanMode === 'mutasi' ? 'var(--primary)' : 'transparent', color: scanMode === 'mutasi' ? 'white' : 'var(--text-muted)', fontWeight: 600, fontSize: '12px', transition: 'all 0.2s' }}>Pindai Mutasi</button>
+            {error && (
+              <div className="card" style={{ backgroundColor: 'hsla(350,85%,60%,0.1)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <MaterialIcon name="error" className="text-danger text-xl" />
+                <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: 600, flex: 1 }}>{error}</span>
+                <button onClick={() => setError(null)} style={{ background: 'none', border: 'none' }}><MaterialIcon name="close" className="text-lg text-danger" /></button>
+              </div>
+            )}
           </div>
 
-          <button onClick={() => fileInputRef.current?.click()} className="glass" style={{
-            width: '100%', padding: '60px 24px', borderRadius: '28px',
-            border: '3px dashed var(--primary)', cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            color: 'var(--primary)', background: 'var(--bg-income)',
-            transition: 'all 0.3s'
-          }}>
-            <div style={{
-              width: 80, height: 80, borderRadius: '50%', background: 'var(--primary-gradient)',
-              display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white',
-              marginBottom: 20, boxShadow: '0 8px 16px var(--primary-glow)'
-            }}>
-              <Camera size={40} />
+          {/* Side Help Panel */}
+          <div className="lg:col-span-4 flex flex-col gap-stack-md">
+            <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant">
+              <div className="flex items-center gap-2 mb-4 text-primary">
+                <MaterialIcon name="lightbulb" />
+                <h2 className="font-headline-md text-headline-md">Tips Scan OCR</h2>
+              </div>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-primary-container text-on-primary-container text-xs font-bold">1</span>
+                  <p className="font-body-md text-body-md">Pastikan foto diambil di tempat yang <b>terang</b> dan fokusnya tajam.</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-primary-container text-on-primary-container text-xs font-bold">2</span>
+                  <p className="font-body-md text-body-md">Hindari pantulan cahaya berlebih atau kertas struk yang terlalu lecek.</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-primary-container text-on-primary-container text-xs font-bold">3</span>
+                  <p className="font-body-md text-body-md">Gunakan fitur Crop di langkah selanjutnya agar AI lebih fokus membaca data.</p>
+                </div>
+              </div>
             </div>
-            <div style={{ fontWeight: 800, fontSize: '22px' }}>{scanMode === 'struk' ? 'Ambil Foto Struk' : 'Ambil Foto Mutasi'}</div>
-            <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-              <Lightbulb size={16} style={{ color: 'var(--secondary)' }} />
-              <span>Tips: Pastikan foto {scanMode === 'struk' ? 'struk' : 'mutasi'} terlihat jelas dan terang</span>
+
+            {/* Decorative Illustration Card */}
+            <div className="relative overflow-hidden bg-primary text-white rounded-xl p-6 aspect-video flex flex-col justify-end">
+              <img 
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDffNo_3VQCkGKE8-pbiy12_m0WNimd9p_VhSfGdZjAh11wciBZMEAqF3hRgJc8GuzFrM9ABnlp-0M7rDWa8BwP5ZqoiPSLZDdi3i6tT16I_py6hHhnYai_7JEgZnZn79FjI84khSPO6S6x_cEN5S7PXV5qR0VW8xCpXZUw88rKBXVt9eWxycStckrmkknBGNV5x-A0KjnVxdU-pSptHdN2WxZu_0IPDwphyOf17RdY7TRXsYCg4Wsax6ldxnoVK5xFCazFC1J9SGY" 
+                alt="Financial Data Visualization" 
+                className="absolute inset-0 w-full h-full object-cover opacity-30" 
+              />
+              <div className="relative z-10">
+                <h4 className="font-headline-md text-headline-md">Pembacaan Otomatis</h4>
+                <p className="text-sm opacity-80">AI kami memisahkan item struk dengan akurasi tinggi.</p>
+              </div>
             </div>
-          </button>
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', maxWidth: '300px', lineHeight: 1.5 }}>
-            {scanMode === 'struk' ? 'AI akan membaca total belanja & mendeteksi kategori.' : 'AI akan memecah mutasi bank menjadi banyak transaksi secara otomatis.'}
-          </p>
-          {error && (
-            <div className="card" style={{ backgroundColor: 'hsla(350,85%,60%,0.1)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <AlertCircle color="var(--danger)" size={20} />
-              <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: 600 }}>{error}</span>
-              <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none' }}><X size={18} /></button>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
       {stage === 'crop' && (
-        <div style={{ width: '100%' }}>
-          <div className="card glass crop-actions-container" style={{ 
-            position: 'fixed',
-            bottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 'calc(100% - 40px)',
-            maxWidth: '500px',
-            zIndex: 100,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            margin: 0,
-            padding: '12px'
-          }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={runScan}>
-                <Scissors size={16} /> {cropRect && cropRect.w > 50 ? 'Crop & Scan' : 'Scan Gambar Penuh'}
-              </button>
-              <button className="btn" style={{ flex: 1 }} onClick={reset}>Batal</button>
-            </div>
+        <div className="w-full max-w-[800px] mx-auto flex flex-col gap-6">
+          <div className="bg-surface-container-low rounded-2xl overflow-hidden border border-outline-variant shadow-sm touch-none mb-24">
+            <canvas ref={canvasRef} className="w-full block" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
           </div>
-          <div style={{ borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border-color)', touchAction: 'none', marginBottom: '100px' }}>
-            <canvas ref={canvasRef} style={{ width: '100%', display: 'block' }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
+          
+          <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 p-4 pb-4 lg:pb-[max(20px,env(safe-area-inset-bottom,20px))] bg-white/90 backdrop-blur-md border-t border-outline-variant z-50">
+            <div className="max-w-[500px] mx-auto flex gap-2 sm:gap-3">
+              <button onClick={reset} className="flex-1 py-3 px-2 sm:px-4 rounded-xl border border-outline-variant text-on-surface font-label-sm sm:font-label-md font-bold bg-white hover:bg-surface-container transition-colors cursor-pointer text-center leading-tight">
+                Batal
+              </button>
+              <button onClick={runScan} className="flex-[2] py-3 px-2 sm:px-4 rounded-xl border-none bg-primary text-white font-label-sm sm:font-label-md font-bold hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-2 shadow-md shadow-primary/30 text-center leading-tight">
+                <MaterialIcon name="content_cut" className="text-sm sm:text-base" />
+                {cropRect && cropRect.w > 50 ? 'Crop & Scan' : 'Scan Gambar Penuh'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {stage === 'scanning' && (
-        <div style={{ textAlign: 'center', width: '100%' }}>
-          <Loader2 size={60} className="spin" color="var(--primary)" />
-          <h3 className="subtitle">{isInitializing ? 'Memuat Mesin AI...' : `Menganalisa... ${progress}%`}</h3>
+        <div className="flex flex-col items-center justify-center py-20 gap-6 w-full max-w-[800px] mx-auto">
+          <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-pulse">
+            <MaterialIcon name="autorenew" className="text-[60px] spin text-primary" />
+          </div>
+          <div className="text-center">
+            <h3 className="font-headline-md text-primary m-0 mb-2">
+              {isInitializing ? 'Memuat Mesin AI...' : `Menganalisa... ${progress}%`}
+            </h3>
+            <p className="text-on-surface-variant font-body-md m-0">Mohon tunggu sebentar, AI sedang membaca data Anda.</p>
+          </div>
         </div>
       )}
 
       {stage === 'results' && scanMode === 'struk' && result && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="card glass">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <CheckCircle size={24} color="var(--success)" />
-                <span style={{ fontWeight: 700 }}>Struk Dibaca</span>
-              </div>
-              <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '20px', color: 'white', backgroundColor: CONFIDENCE_BADGE[result.confidence].color }}>
-                {CONFIDENCE_BADGE[result.confidence].label}
-              </span>
-            </div>
-
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{currencySymbol}</span>
-                <CurrencyInput value={editableAmount} onChange={val => setEditableAmount(val)} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', flex: 1 }} />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-                {/* Category Selection */}
-                <button
-                  type="button"
-                  onClick={() => setIsCatModalOpen(true)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
-                    borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Folder size={18} color="var(--primary)" />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Kategori</span>
-                      <span style={{ fontWeight: 700, color: selectedCategory ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                        {selectedCategory || 'Pilih Kategori'}
-                        {selectedSubCategory && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> • {selectedSubCategory}</span>}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} color="var(--text-muted)" />
-                </button>
-
-                {/* Asset Selection */}
-                <button
-                  type="button"
-                  onClick={() => setIsAssetModalOpen(true)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)',
-                    borderRadius: '12px', cursor: 'pointer', textAlign: 'left'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Wallet size={18} color="var(--primary)" />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Rekening</span>
-                      <span style={{ fontWeight: 700, color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                        {assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} color="var(--text-muted)" />
-                </button>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <input
-                  type="text"
-                  placeholder="Catatan / Nama Merchant"
-                  value={merchantName}
-                  onChange={e => setMerchantName(e.target.value)}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}
-                />
-              </div>
-
-              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
-
-              <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-                  <div>
-                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>PAJAK</label>
-                    <CurrencyInput 
-                      value={taxAmount || ''} 
-                      onChange={val => setTaxAmount(parseInt(val) || 0)} 
-                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>SERVICE</label>
-                    <CurrencyInput 
-                      value={serviceAmount || ''} 
-                      onChange={val => setServiceAmount(parseInt(val) || 0)} 
-                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0 }}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>DISKON</label>
-                    <CurrencyInput 
-                      value={discountAmount || ''} 
-                      onChange={val => setDiscountAmount(parseInt(val) || 0)} 
-                      style={{ fontSize: '12px', padding: '6px', borderRadius: '8px', marginBottom: 0, color: 'var(--danger)' }}
-                      placeholder="0"
-                    />
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-10 gap-stack-lg relative">
+            {/* Left Column: Receipt Visual Reference */}
+            <div className="lg:col-span-4 space-y-stack-md">
+              <div className="bg-white rounded-xl border border-border-light shadow-sm overflow-hidden sticky top-24">
+                <div className="p-4 border-b border-border-light bg-surface-subtle flex justify-between items-center">
+                  <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Preview Struk Asli</span>
+                  <span className="text-[10px] bg-primary-container/20 text-primary px-2 py-0.5 rounded-full font-bold">TER-CROP</span>
+                </div>
+                <div className="p-4 bg-surface-dim/30">
+                  <div className="rounded-lg overflow-hidden border border-outline-variant bg-white flex items-center justify-center">
+                    <img alt="Receipt preview" className="max-w-full h-auto shadow-inner" src={croppedImageUrl || previewUrl || ''}/>
                   </div>
                 </div>
-                <button 
-                  className="btn" 
-                  onClick={handleDistributeCharges}
-                  style={{ width: '100%', fontSize: '12px', padding: '8px', background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)' }}
-                >
-                  Hitung Ulang & Distribusi ke Item
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button className="btn" style={{ flex: 1 }} onClick={reset}>Batal</button>
-              <button className="btn" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => setIsSplitModalOpen(true)}>
-                <Users size={16} /> Split Bill
-              </button>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSaveMain}>Simpan Total</button>
-            </div>
-          </div>
-
-          <div className="card glass">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Receipt size={16} style={{ color: 'var(--primary)' }} />
-                <span>Rincian Item ({lineItems.length})</span>
-              </h3>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: true })))} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>Pilih Semua</button>
-                <button onClick={() => setLineItems(p => p.map(i => ({ ...i, selected: false })))} style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Reset</button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto' }}>
-              {lineItems.length === 0 ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', padding: '12px 0' }}>Tidak ada item rincian terdeteksi.</p>
-              ) : lineItems.map((item, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => toggleItem(idx)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    padding: '10px 12px',
-                    background: item.selected ? 'var(--bg-income)' : 'var(--bg-main)',
-                    borderRadius: '12px',
-                    border: `1.5px solid ${item.selected ? 'hsla(var(--p-h), 85%, 58%, 0.3)' : 'var(--border-color)'}`,
-                    transition: 'all 0.2s ease',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={item.selected}
-                    onChange={() => toggleItem(idx)}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ width: '18px', height: '18px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer', marginBottom: 0 }}
-                  />
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {editingItemIdx === idx && editingField === 'name' ? (
-                      <input
-                        autoFocus
-                        value={item.name}
-                        onChange={e => editItem(idx, 'name', e.target.value)}
-                        onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
-                        style={{ width: '100%', fontSize: '13px', padding: '4px 8px', borderRadius: '6px', marginBottom: 0 }}
-                      />
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
-                        <span
-                          onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('name'); }}
-                          title={item.name}
-                          style={{
-                            fontSize: '13px', fontWeight: 600, cursor: 'text',
-                            display: 'block', whiteSpace: 'nowrap',
-                            overflow: 'hidden', textOverflow: 'ellipsis',
-                            color: 'var(--text-main)'
-                          }}
-                        >
-                          {item.name}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ flexShrink: 0, minWidth: '80px', textAlign: 'right' }}>
-                    {editingItemIdx === idx && editingField === 'amount' ? (
-                      <CurrencyInput
-                        autoFocus
-                        value={item.amount === 0 ? '' : item.amount}
-                        onChange={val => editItem(idx, 'amount', val)}
-                        onBlur={() => { setEditingItemIdx(null); setEditingField(null); }}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }}
-                        style={{ width: '80px', fontSize: '12px', fontWeight: 700, textAlign: 'right', padding: '4px 8px', borderRadius: '6px', marginBottom: 0 }}
-                      />
-                    ) : (
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('amount'); }}
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', cursor: 'text' }}
-                      >
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)' }}>
-                          {currencySymbol}{item.amount.toLocaleString('id-ID')}
-                        </span>
-                        {item.originalAmount && item.amount !== item.originalAmount && (
-                          <span style={{ fontSize: '9px', fontWeight: 800, color: item.amount > item.originalAmount ? 'var(--danger)' : 'var(--success)', opacity: 0.8 }}>
-                            {item.amount > item.originalAmount ? '+' : ''}{(item.amount - item.originalAmount).toLocaleString('id-ID')}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteItem(idx); }}
-                    style={{
-                      flexShrink: 0,
-                      color: 'var(--danger)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '8px',
-                      transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-expense)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-                  >
-                    <Trash2 size={15} />
+                <div className="p-4 bg-white">
+                  <button onClick={() => { reset(); setTimeout(() => fileInputRef.current?.click(), 100); }} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-outline-variant rounded-xl text-on-surface-variant hover:border-primary hover:text-primary transition-all font-label-md bg-transparent cursor-pointer">
+                    <MaterialIcon name="camera_alt" />
+                    Pindai Ulang
                   </button>
                 </div>
-              ))}
+              </div>
             </div>
 
-            {/* Tax, Service, Discount Breakdown */}
-            {(result.taxAmount! > 0 || result.serviceAmount! > 0 || result.discountAmount! > 0) && (
-              <div style={{
-                marginTop: '12px', padding: '10px 12px', background: 'var(--bg-main)',
-                borderRadius: '10px', border: '1px solid var(--border-color)',
-                display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px'
-              }}>
-                {result.taxAmount! > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Pajak (PPN/PB1)</span>
-                    <span style={{ fontWeight: 600 }}>{currencySymbol}{result.taxAmount?.toLocaleString('id-ID')}</span>
+            {/* Right Column: OCR Parsed Data & Itemizer */}
+            <div className="lg:col-span-6 space-y-stack-md mb-24">
+              <div className="bg-white rounded-xl border border-border-light shadow-sm p-stack-lg">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="font-headline-md text-headline-md m-0">Hasil Pemindaian Struk</h2>
+                  <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm border ${CONFIDENCE_BADGE[result.confidence].className}`}>
+                    <MaterialIcon name={CONFIDENCE_BADGE[result.confidence].icon} className="text-[14px]" />
+                    {CONFIDENCE_BADGE[result.confidence].label}
+                  </span>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="col-span-full">
+                      <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Nama Merchant / Toko</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-outline"><MaterialIcon name="store" /></span>
+                        <input className="w-full pl-12 pr-4 py-3 rounded-lg border border-border-light focus:ring-2 focus:ring-primary/20 focus:border-primary font-body-md outline-none transition-all" type="text" value={merchantName} onChange={e => setMerchantName(e.target.value)} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Tanggal</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-outline"><MaterialIcon name="calendar_today" className="text-[20px]" /></span>
+                        <input className="w-full pl-12 pr-4 py-3 rounded-lg border border-border-light focus:ring-2 focus:ring-primary/20 focus:border-primary font-body-md outline-none transition-all" type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Waktu</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-outline"><MaterialIcon name="schedule" className="text-[20px]" /></span>
+                        <input className="w-full pl-12 pr-4 py-3 rounded-lg border border-border-light focus:ring-2 focus:ring-primary/20 focus:border-primary font-body-md outline-none transition-all" type="time" value={selectedTime} onChange={e => setSelectedTime(e.target.value)} />
+                      </div>
+                    </div>
+
+                    <div className="col-span-full bg-surface-container-low rounded-xl p-4 flex items-center justify-between border border-primary/10">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-white rounded-lg border border-border-light text-primary flex items-center justify-center">
+                          <MaterialIcon name="calculate" />
+                        </div>
+                        <div>
+                          <label className="font-label-sm text-label-sm text-on-surface-variant block uppercase m-0">Total Transaksi</label>
+                          <div className="font-headline-md text-headline-md text-primary tracking-tight m-0 flex items-center gap-1">
+                            <span>{currencySymbol}</span>
+                            <CurrencyInput value={editableAmount} onChange={val => setEditableAmount(val)} style={{ fontSize: 'inherit', fontWeight: 'inherit', color: 'inherit', background: 'transparent', border: 'none', padding: 0, outline: 'none', width: '120px' }} />
+                          </div>
+                        </div>
+                      </div>
+                      <button className="p-2 hover:bg-white rounded-lg transition-colors text-outline border-none bg-transparent cursor-pointer flex items-center justify-center">
+                        <MaterialIcon name="edit" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Sumber Aset</label>
+                      <button onClick={() => setIsAssetModalOpen(true)} className="w-full px-4 py-3 rounded-lg border border-border-light hover:border-primary font-body-md bg-white text-left flex items-center justify-between transition-all cursor-pointer">
+                        <span className="truncate">{assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</span>
+                        <MaterialIcon name="expand_more" className="text-outline text-[18px]" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Kategori</label>
+                      <button onClick={() => setIsCatModalOpen(true)} className="w-full px-4 py-3 rounded-lg border border-border-light hover:border-primary font-body-md bg-white text-left flex items-center justify-between transition-all cursor-pointer">
+                        <div className="flex items-center gap-2 truncate">
+                          <MaterialIcon name="folder" className="text-primary text-[20px]" />
+                          <span className="truncate">
+                            {selectedCategory ? `${selectedCategory}${selectedSubCategory ? ` > ${selectedSubCategory}` : ''}` : 'Pilih Kategori'}
+                          </span>
+                        </div>
+                        <MaterialIcon name="expand_more" className="text-outline text-[18px]" />
+                      </button>
+                    </div>
                   </div>
-                )}
-                {result.serviceAmount! > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Service Charge</span>
-                    <span style={{ fontWeight: 600 }}>{currencySymbol}{result.serviceAmount?.toLocaleString('id-ID')}</span>
+
+                  <div className="pt-6 border-t border-border-light">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-label-md text-label-md font-bold uppercase tracking-widest text-on-surface-variant m-0">Rincian Item Belanja</h3>
+                      <button onClick={addItem} className="flex items-center gap-1 text-primary font-label-md hover:underline bg-transparent border-none cursor-pointer p-0">
+                        <MaterialIcon name="add" className="text-[18px]" />
+                        Tambah Item
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-3 custom-scrollbar max-h-[400px] overflow-y-auto pr-2">
+                      {lineItems.length === 0 ? (
+                        <p className="text-center text-on-surface-variant text-sm py-4">Tidak ada item rincian terdeteksi.</p>
+                      ) : lineItems.map((item, idx) => (
+                        <div key={idx} onClick={() => toggleItem(idx)} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border ${item.selected ? 'border-primary bg-primary/5' : 'border-border-light hover:border-primary-container/40'} transition-colors group cursor-pointer`}>
+                          <div className="flex items-start sm:items-center gap-4 w-full sm:flex-1 min-w-0">
+                            <input type="checkbox" checked={item.selected} onChange={() => toggleItem(idx)} onClick={e => e.stopPropagation()} className="w-5 h-5 mt-1 sm:mt-0 rounded border-outline-variant accent-primary cursor-pointer shrink-0" />
+                            {editingItemIdx === idx && editingField === 'name' ? (
+                              <textarea autoFocus value={item.name} onChange={e => editItem(idx, 'name', e.target.value)} onBlur={() => { setEditingItemIdx(null); setEditingField(null); }} onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditingItemIdx(null); setEditingField(null); } }} className="w-full text-[15px] font-medium border-b border-primary bg-transparent outline-none p-1 resize-none" rows={2} />
+                            ) : (
+                              <span onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('name'); }} className="font-body-md font-medium break-words whitespace-normal leading-snug pt-0.5" title={item.name}>{item.name}</span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pl-9 sm:pl-0 shrink-0 mt-1 sm:mt-0">
+                            {editingItemIdx === idx && editingField === 'amount' ? (
+                              <CurrencyInput autoFocus value={item.amount === 0 ? '' : item.amount} onChange={val => editItem(idx, 'amount', val)} onBlur={() => { setEditingItemIdx(null); setEditingField(null); }} onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter') { setEditingItemIdx(null); setEditingField(null); } }} style={{ width: '100px', fontSize: '15px', fontWeight: 'bold', textAlign: 'left', borderBottom: '1px solid var(--primary)', background: 'transparent', outline: 'none', padding: '4px' }} className="sm:text-right" />
+                            ) : (
+                              <span onClick={(e) => { e.stopPropagation(); setEditingItemIdx(idx); setEditingField('amount'); }} className="font-body-md text-primary font-bold whitespace-nowrap">
+                                {currencySymbol}{item.amount.toLocaleString('id-ID')}
+                              </span>
+                            )}
+                            
+                            <div className="flex gap-1">
+                              <button onClick={(e) => { e.stopPropagation(); deleteItem(idx); }} className="p-2 hover:bg-error-container/20 rounded-full text-error bg-transparent border-none cursor-pointer flex"><MaterialIcon name="delete" className="text-[18px]" /></button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Tax, Service, Discount */}
+                    <div className="mt-6 pt-4 border-t border-border-light space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-on-surface-variant font-medium">Pajak (PPN/PB1)</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-on-surface-variant">{currencySymbol}</span>
+                          <CurrencyInput value={taxAmount || ''} onChange={val => setTaxAmount(parseInt(val) || 0)} style={{ width: '80px', textAlign: 'right', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-light)' }} placeholder="0" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-on-surface-variant font-medium">Service Charge</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-on-surface-variant">{currencySymbol}</span>
+                          <CurrencyInput value={serviceAmount || ''} onChange={val => setServiceAmount(parseInt(val) || 0)} style={{ width: '80px', textAlign: 'right', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-light)' }} placeholder="0" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-on-surface-variant font-medium">Diskon</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-error font-bold">- {currencySymbol}</span>
+                          <CurrencyInput value={discountAmount || ''} onChange={val => setDiscountAmount(parseInt(val) || 0)} style={{ width: '80px', textAlign: 'right', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--error-container)', color: 'var(--error)', background: 'var(--error-container)', opacity: 0.8 }} placeholder="0" />
+                        </div>
+                      </div>
+                      <div className="pt-2">
+                        <button onClick={handleDistributeCharges} className="w-full py-2.5 rounded-lg border border-primary text-primary font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer">
+                          Hitung Ulang & Distribusi ke Item
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                )}
-                {result.discountAmount! > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Diskon</span>
-                    <span style={{ fontWeight: 600, color: 'var(--primary)' }}>-{currencySymbol}{result.discountAmount?.toLocaleString('id-ID')}</span>
+                  
+                  {/* Diagnostik Section inside the right column */}
+                  <div className="pt-4 border-t border-border-light">
+                    <details className="bg-surface-container-low rounded-xl p-4 cursor-pointer group">
+                      <summary className="font-label-sm text-primary font-bold flex items-center gap-2 outline-none">
+                        <MaterialIcon name="terminal" className="text-[16px]" />
+                        Diagnostik & Teks Mentah
+                        <MaterialIcon name="expand_more" className="ml-auto group-open:rotate-180 transition-transform text-[18px]" />
+                      </summary>
+                      <div className="mt-3 pt-3 border-t border-primary/10">
+                        {result.debugLogs && (
+                          <div className="p-3 bg-black/5 rounded-lg text-[10px] mb-3 max-h-32 overflow-y-auto font-mono text-on-surface-variant">
+                            {result.debugLogs.map((l, i) => <div key={i}>{l}</div>)}
+                          </div>
+                        )}
+                        <div className="whitespace-pre-wrap text-[11px] text-on-surface-variant font-mono p-3 bg-white border border-border-light rounded-lg">
+                          {result.rawText || "(Kosong)"}
+                        </div>
+                      </div>
+                    </details>
                   </div>
-                )}
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.7, marginTop: '2px', fontStyle: 'italic' }}>
-                  * Gunakan tombol "Hitung Ulang & Distribusi" untuk memasukkan Pajak/Service ke harga item secara proporsional.
                 </div>
               </div>
-            )}
-
-            <div style={{ marginTop: '10px', padding: '8px 10px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
-              <span className="text-muted">{lineItems.filter(i => i.selected).length} item dipilih</span>
-              <span style={{ color: 'var(--danger)' }}>
-                {currencySymbol}{lineItems.filter(i => i.selected).reduce((s, i) => s + i.amount, 0).toLocaleString('id-ID')}
-              </span>
             </div>
-
-
-            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-              <button
-                onClick={addItem}
-                style={{ flex: 1, padding: '9px', background: 'none', border: '1.5px dashed var(--border-color)', borderRadius: '10px', cursor: 'pointer', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-              >
-                <Plus size={14} /> Tambah
-              </button>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSaveLineItems}>
-                Simpan Item Terpilih
-              </button>
+            
+            {/* Floating Action Footer */}
+            <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 bg-white/90 backdrop-blur-md border-t border-outline-variant px-4 lg:px-8 py-4 z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.05)] lg:pb-[calc(24px+env(safe-area-inset-bottom,0px))]">
+              <div className="max-w-container-max mx-auto flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="hidden sm:flex items-center gap-3 text-on-surface-variant">
+                  <MaterialIcon name="info" />
+                  <span className="font-label-md">Pastikan rincian item sudah sesuai dengan struk asli.</span>
+                </div>
+                <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+                  <button onClick={handleSaveMain} className="flex-1 sm:flex-none px-3 sm:px-6 py-3 rounded-xl border border-primary text-primary font-label-sm sm:font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer font-bold leading-tight flex items-center justify-center text-center">
+                    Simpan Langsung
+                  </button>
+                  <button onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 rounded-xl bg-primary text-on-primary font-label-sm sm:font-label-md hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30 cursor-pointer font-bold border-none leading-tight text-center">
+                    <MaterialIcon name="group" />
+                    Split Bill
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {result && scanMode === 'struk' && (
-        <div style={{ marginTop: '24px' }}>
-          <details className="card" style={{ padding: '12px 16px' }}>
-            <summary style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Terminal size={14} />
-              <span>Diagnostik & Teks Mentah</span>
-            </summary>
-            {result.debugLogs && (
-              <div style={{ padding: '8px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', fontSize: '10px', marginBottom: '12px', maxHeight: '100px', overflowY: 'auto' }}>
-                {result.debugLogs.map((l, i) => <div key={i}>{l}</div>)}
-              </div>
-            )}
-            <div style={{ whiteSpace: 'pre-wrap', fontSize: '11px', color: 'var(--text-muted)' }}>{result.rawText || "(Kosong)"}</div>
-          </details>
-        </div>
-      )}
+
 
       {stage === 'results' && scanMode === 'mutasi' && (
         <BulkResultsEditor
@@ -1116,7 +1095,7 @@ const ReceiptScanner: React.FC = () => {
           isMutation={true}
           onSave={(batchAssetId) => {
             const toSave = mutasiResults.filter(r => r.selected);
-            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.category))) {
+            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.categoryId))) {
               showToast('Pastikan semua transaksi reguler memiliki Nominal dan Kategori!', 'warning');
               return;
             }
@@ -1128,7 +1107,7 @@ const ReceiptScanner: React.FC = () => {
             if (zbbMode === 'strict') {
               const expenses = toSave.filter(r => r.type === 'pengeluaran');
               const grouped = expenses.reduce((acc, tx) => {
-                const key = `${tx.category}_${tx.date}`;
+                const key = `${tx.categoryId}_${tx.date}`;
                 acc[key] = (acc[key] || 0) + tx.amount;
                 return acc;
               }, {} as Record<string, number>);
@@ -1138,7 +1117,7 @@ const ReceiptScanner: React.FC = () => {
                 const validation = validateTransactionBudget({
                   type: 'pengeluaran',
                   amount: grouped[key],
-                  category: cat,
+                  categoryId: cat,
                   date: dt
                 });
                 if (!validation.isValid) {
@@ -1174,8 +1153,8 @@ const ReceiptScanner: React.FC = () => {
         assets={assets}
         categories={categories}
         initialAssetId={selectedAssetId}
-        initialCategory={selectedCategory}
-        initialSubCategory={selectedSubCategory}
+        initialCategoryId={selectedCategory}
+        initialSubCategoryId={selectedSubCategory}
         onSave={handleSplitSave}
       />
 
@@ -1192,24 +1171,28 @@ const ReceiptScanner: React.FC = () => {
         onClose={() => setIsCatModalOpen(false)}
         categories={categories}
         type={selectedType}
-        initialCategory={selectedCategory}
-        initialSubCategory={selectedSubCategory}
+        initialCategoryId={selectedCategory}
+        initialSubCategoryId={selectedSubCategory}
         onSelect={(cat, sub) => {
           setSelectedCategory(cat);
           setSelectedSubCategory(sub);
         }}
       />
 
-      <OverspendReallocationModal
-        isOpen={reallocationModal.isOpen}
-        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
-        onSuccess={handleReallocationSuccess}
-        deficitCategoryId={reallocationModal.deficitCategory}
-        deficitAmount={reallocationModal.deficitAmount}
-        month={reallocationModal.month}
-        year={reallocationModal.year}
-      />
-    </div>
+      {reallocationModal.isOpen && (
+        <Suspense fallback={null}>
+          <OverspendReallocationModal
+            isOpen={reallocationModal.isOpen}
+            onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+            onSuccess={handleReallocationSuccess}
+            deficitCategoryId={reallocationModal.deficitCategory}
+            deficitAmount={reallocationModal.deficitAmount}
+            month={reallocationModal.month}
+            year={reallocationModal.year}
+          />
+        </Suspense>
+      )}
+    </PageWrapper>
   );
 };
 

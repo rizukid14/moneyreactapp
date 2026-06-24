@@ -1,53 +1,102 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
-
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 :root {
-  /* Premium HSL Color Palette - Indigo-Blue, Warm Amber, Harmonious Slate */
-  --p-h: 215;
-  /* Primary Hue (Indigo Blue) */
-  --s-h: 38;
-  /* Secondary Hue (Warm Amber/Gold) */
-  --n-h: 220;
-  /* Neutral Hue (Sleek Slate Gray) */
+  /* Minimalis Monokrom Palette - Zinc Greys, White/Black, Emerald Accent */
+  --p-h: 160; /* Emerald Accent */
+  --s-h: 220; /* Slate */
+  --n-h: 240; /* Zinc (Very desaturated blue) */
 
-  --primary: hsl(var(--p-h), 80%, 54%);
-  --primary-glow: hsla(var(--p-h), 80%, 54%, 0.15);
-  --primary-gradient: linear-gradient(135deg, hsl(var(--p-h), 80%, 54%), hsl(var(--p-h), 80%, 44%));
+  --primary: hsl(var(--p-h), 80%, 40%);
+  --primary-glow: hsla(var(--p-h), 80%, 40%, 0.15);
+  --primary-gradient: linear-gradient(135deg, hsl(var(--p-h), 80%, 40%), hsl(var(--p-h), 90%, 30%));
   
-  --secondary: hsl(var(--s-h), 85%, 50%);
-  --secondary-glow: hsla(var(--s-h), 85%, 50%, 0.15);
-  --secondary-gradient: linear-gradient(135deg, hsl(var(--s-h), 85%, 50%), hsl(var(--s-h), 85%, 40%));
+  --secondary: hsl(var(--n-h), 10%, 45%);
+  --secondary-glow: hsla(var(--n-h), 10%, 45%, 0.15);
+  --secondary-gradient: linear-gradient(135deg, hsl(var(--n-h), 10%, 45%), hsl(var(--n-h), 10%, 35%));
   
-  --success: hsl(145, 65%, 43%);
-  --success-glow: hsla(145, 65%, 43%, 0.15);
-  --success-gradient: linear-gradient(135deg, hsl(145, 65%, 43%), hsl(145, 65%, 33%));
+  --success: hsl(150, 75%, 45%);
+  --success-glow: hsla(150, 75%, 45%, 0.15);
+  --success-gradient: linear-gradient(135deg, hsl(150, 75%, 45%), hsl(150, 75%, 35%));
 
-  --warning: hsl(38, 85%, 50%);
-  --warning-glow: hsla(38, 85%, 50%, 0.15);
-  --warning-gradient: linear-gradient(135deg, hsl(38, 85%, 50%), hsl(38, 85%, 40%));
+  --danger: hsl(0, 80%, 55%);
+  --danger-glow: hsla(0, 80%, 55%, 0.15);
+  --danger-gradient: linear-gradient(135deg, hsl(0, 80%, 55%), hsl(0, 80%, 45%));
 
-  --danger: hsl(355, 75%, 54%);
-  --danger-glow: hsla(355, 75%, 54%, 0.15);
-  --danger-gradient: linear-gradient(135deg, hsl(355, 75%, 54%), hsl(355, 75%, 44%));
+  --warning: hsl(35, 90%, 55%);
+  --warning-glow: hsla(35, 90%, 55%, 0.15);
+  --warning-gradient: linear-gradient(135deg, hsl(35, 90%, 55%), hsl(35, 90%, 45%));
 
-  /* Light Theme - Harmonized slate background and tinted cards */
-  --bg-main: hsl(var(--n-h), 22%, 96.5%);
-  --bg-card: hsl(var(--n-h), 20%, 99.2%);
-  --bg-card-solid: hsl(var(--n-h), 20%, 99.2%);
+  /* Light Theme Specific Base Values */
+  --bg-main: #f9f8f6; /* Warm soft cream background */
+  --bg-card: #ffffff; /* Pure white cards */
+  --bg-card-solid: #ffffff;
+  --text-main: #2d2c2a; 
+  --text-muted: #8a8782; 
+  --border-color: #ebe9e4; 
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(235, 233, 228, 0.6);
 
-  --text-main: hsl(var(--n-h), 35%, 15%);
-  --text-muted: hsl(var(--n-h), 15%, 42%); /* Darkened from 52% → 42% for 4.5:1 WCAG contrast */
+  --bg-expense: rgba(226, 149, 120, 0.12); /* Soft coral */
+  --bg-income: rgba(139, 168, 136, 0.12); /* Soft sage */
+  --bg-neutral: rgba(138, 135, 130, 0.08);
 
-  --border-color: hsl(var(--n-h), 18%, 91%);
-  --glass-bg: hsla(var(--n-h), 20%, 99.2%, 0.85);
-  --glass-border: hsl(var(--n-h), 18%, 91%);
+  /* MD3 Tailwind Mappings (Light Mode) */
+  --tertiary: #8a8782;
+  --tertiary-fixed-dim: #ebe9e4;
+  --surface-container-high: #f0eee9;
+  --on-secondary: #ffffff;
+  --surface-container: #f9f8f6;
+  --surface-variant: #f0eee9;
+  --secondary-fixed: #f9f8f6;
+  --on-secondary-fixed: #2d2c2a;
+  --surface-tint: #8ba888;
+  --secondary-fixed-dim: #f0eee9;
+  --secondary: #8a8782;
+  --on-tertiary: #ffffff;
+  --outline-variant: #ebe9e4;
+  --tertiary-fixed: #f9f8f6;
+  --on-tertiary-container: #2d2c2a;
+  --on-surface-variant: #595854;
+  --surface-container-highest: #ebe9e4;
+  --background: #f9f8f6; /* Match --bg-main */
+  --inverse-on-surface: #f9f8f6;
+  --on-tertiary-fixed-variant: #595854;
+  --secondary-container: #ebe9e4;
+  --error: #e29578;
+  --inverse-primary: #8ba888;
+  --on-primary-container: #ffffff;
+  --on-error: #ffffff;
+  --on-background: #2d2c2a;
+  --on-error-container: #5c3528;
+  --primary-fixed-dim: #8ba888;
+  --on-secondary-fixed-variant: #595854;
+  --surface-bright: #ffffff;
+  --outline: #b0ada8;
+  --inverse-surface: #2d2c2a;
+  --surface-container-low: #fcfcfb;
+  --surface-container-lowest: #ffffff;
+  --on-surface: #2d2c2a;
+  --on-primary: #ffffff;
+  --primary-fixed: #d2e3cf;
+  --primary-container: #758f73;
+  --surface: #ffffff; /* Match --bg-card */
+  --on-primary-fixed: #252e24;
+  --tertiary-container: #e3e0da;
+  --border-light: #ebe9e4;
+  --primary-color: #8ba888;
+  --on-primary-fixed-variant: #566b55;
+  --error-container: #f5dcd3;
+  --on-tertiary-fixed: #2d2c2a;
+  --surface-dim: #f0eee9;
+  --on-secondary-container: #403f3c;
+  --surface-subtle: #fcfcfb;
 
-  --bg-expense: hsla(355, 75%, 54%, 0.06);
-  --bg-income: hsla(var(--p-h), 80%, 54%, 0.06);
-  --bg-neutral: hsla(var(--n-h), 15%, 50%, 0.05);
-
-  --radius-sm: 14px;
-  --radius-md: 18px;
-  --radius-lg: 28px;
+  /* Nordic Bento Radii - Extremely rounded */
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 32px;
   --nav-height: 68px;
   --sidebar-width: 280px;
   --sidebar-collapsed-width: 84px;
@@ -55,7 +104,7 @@
 
   --font-family: 'Outfit', 'Inter', system-ui, sans-serif;
 
-  /* Legacy Aliases for Component Stability */
+  /* Legacy Aliases */
   --secondary-blue: var(--primary);
   --primary-orange: var(--secondary);
   --success-green: var(--success);
@@ -71,7 +120,6 @@
   scrollbar-width: none;
 }
 
-/* Sleek custom scrollbars for interactive scrollable content */
 .custom-scrollbar::-webkit-scrollbar {
   height: 4px;
   width: 4px;
@@ -92,19 +140,70 @@
 }
 
 .dark {
-  /* Dark Theme - Highly immersive oceanic obsidian */
-  --bg-main: hsl(var(--n-h), 30%, 5%);
-  --bg-card: hsl(var(--n-h), 22%, 10%);
-  --bg-card-solid: hsl(var(--n-h), 22%, 10%);
-  --text-main: hsl(var(--n-h), 15%, 95%);
-  --text-muted: hsl(var(--n-h), 10%, 58%);
-  --border-color: hsl(var(--n-h), 18%, 17%);
-  --glass-bg: hsla(var(--n-h), 22%, 10%, 0.85);
-  --glass-border: hsl(var(--n-h), 18%, 17%);
+  /* Nordic Bento Dark Mode - Warm Dark Chocolate/Grey */
+  --bg-main: #1a1918; /* Very dark warm grey */
+  --bg-card: #242322; /* Elevated warm grey cards */
+  --bg-card-solid: #242322;
+  --text-main: #f2f0ed; 
+  --text-muted: #9e9b96; 
+  --border-color: #3b3a38; 
+  --glass-bg: rgba(36, 35, 34, 0.85);
+  --glass-border: rgba(59, 58, 56, 0.5);
 
-  --bg-expense: hsla(355, 75%, 54%, 0.12);
-  --bg-income: hsla(var(--p-h), 80%, 54%, 0.12);
-  --bg-neutral: hsla(var(--n-h), 15%, 90%, 0.05);
+  --bg-expense: rgba(226, 149, 120, 0.15); /* Soft coral */
+  --bg-income: rgba(139, 168, 136, 0.15); /* Soft sage */
+  --bg-neutral: rgba(158, 155, 150, 0.12);
+
+  /* MD3 Tailwind Mappings (Dark Mode) */
+  --tertiary: #9e9b96;
+  --tertiary-fixed-dim: #595854;
+  --surface-container-high: #3b3a38;
+  --on-secondary: #1a1918;
+  --surface-container: #242322;
+  --surface-variant: #3b3a38;
+  --secondary-fixed: #595854;
+  --on-secondary-fixed: #f2f0ed;
+  --surface-tint: #8ba888;
+  --secondary-fixed-dim: #595854;
+  --secondary: #8a8782;
+  --on-tertiary: #1a1918;
+  --outline-variant: #595854;
+  --tertiary-fixed: #3b3a38;
+  --on-tertiary-container: #f2f0ed;
+  --on-surface-variant: #b0ada8;
+  --surface-container-highest: #595854;
+  --background: #1a1918; /* Match --bg-main */
+  --inverse-on-surface: #1a1918;
+  --on-tertiary-fixed-variant: #ebe9e4;
+  --secondary-container: #3b3a38;
+  --error: #e29578;
+  --inverse-primary: #758f73;
+  --on-primary-container: #d2e3cf;
+  --on-error: #5c3528;
+  --on-background: #f2f0ed;
+  --on-error-container: #f5dcd3;
+  --primary-fixed-dim: #8ba888;
+  --on-secondary-fixed-variant: #ebe9e4;
+  --surface-bright: #242322;
+  --outline: #8a8782;
+  --inverse-surface: #f2f0ed;
+  --surface-container-low: #1e1d1c;
+  --surface-container-lowest: #1a1918;
+  --on-surface: #f2f0ed;
+  --on-primary: #252e24;
+  --primary-fixed: #8ba888;
+  --primary-container: #566b55;
+  --surface: #242322; /* Distinct Grey Cards */
+  --on-primary-fixed: #d1fae5;
+  --tertiary-container: #52525b;
+  --border-light: #27272a;
+  --primary-color: #10b981;
+  --on-primary-fixed-variant: #34d399;
+  --error-container: #7f1d1d;
+  --on-tertiary-fixed: #e4e4e7;
+  --surface-dim: #000000;
+  --on-secondary-container: #d4d4d8;
+  --surface-subtle: #18181b;
 }
 
 * {
@@ -132,8 +231,7 @@ button, .card, .nav-item, .fab-mini, .close-btn, .btn-icon, .budget-card-v2 {
 }
 
 html, body, #root {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
 }
 
 body {
@@ -345,6 +443,19 @@ body {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
 }
 
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.hover-lift:active {
+  transform: translateY(0) scale(0.98);
+}
+
 .transaction-card {
   transition: background 0.15s ease;
   border-color: transparent !important;
@@ -543,7 +654,7 @@ body {
   transform: translateX(-50%);
   width: 100%;
   max-width: 540px;
-  padding: 16px;
+  padding: 20px;
   background: var(--bg-main);
   border-top: 1px solid var(--border-color);
   display: flex;
@@ -597,7 +708,7 @@ textarea {
 input,
 select {
   width: 100%;
-  padding: 12px;
+  padding: 20px;
   background: var(--bg-card-solid);
   border: 2px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -670,18 +781,53 @@ textarea:focus {
   align-items: flex-end;
   justify-content: center;
   z-index: 2000;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);}
+
+@media (min-width: 640px) {
+  .modal-overlay {
+    align-items: center;
+    padding: 28px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .modal-overlay {
+    padding: 36px;
+  }
 }
 
 .modal-content {
   background: var(--bg-card-solid);
   width: 100%;
-  max-width: 540px;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: 20px 20px 32px 20px;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.1);
-  max-height: 92vh;
+  max-width: 512px;
+  border-radius: 32px 32px 0 0;
+  padding: 28px;
+  padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+  max-height: 90vh;
   overflow-y: auto;
   position: relative;
+  animation: modal-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 640px) {
+  .modal-content {
+    border-radius: var(--radius-lg);
+    padding-bottom: 28px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    animation: modal-zoom-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes modal-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes modal-zoom-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .modal-header {
@@ -727,7 +873,7 @@ textarea:focus {
   background: var(--bg-card);
   border: 1.5px solid var(--border-color);
   border-radius: 18px;
-  padding: 16px;
+  padding: 20px;
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 .budget-card-v2.over {
@@ -806,7 +952,7 @@ textarea:focus {
   border: 1.5px solid hsla(355, 75%, 54%, 0.25);
   backdrop-filter: blur(8px);
   border-radius: 18px;
-  padding: 16px;
+  padding: 20px;
   margin-bottom: 20px;
   animation: slideInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 8px 24px hsla(355, 75%, 54%, 0.08);
@@ -1003,4 +1149,25 @@ textarea:focus {
     bottom: 20px !important;
     left: calc(50% + var(--sidebar-collapsed-width) / 2) !important;
   }
-}
+}
+
+/* 60/40 Split Layout for Desktop Transactions */
+@media (min-width: 1024px) {
+  .transactions-split {
+    display: grid;
+    grid-template-columns: 4fr 6fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .transactions-split-left {
+    position: sticky;
+    top: 24px;
+  }
+  .transactions-split-right {
+    min-width: 0;
+  }
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}

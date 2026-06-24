@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Check, AlertCircle, Mic, Square, ArrowRight, Trash2, Plus } from 'lucide-react';
+import MaterialIcon from '../common/MaterialIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
+import { useSpeechToText } from '../../hooks/useSpeechToText';
 import CategorySelectModal from '../modals/CategorySelectModal';
 import AssetSelectModal from '../modals/AssetSelectModal';
 
@@ -16,10 +17,7 @@ interface Message {
   };
 }
 
-const MONTH_NAMES = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-];
+import { MONTH_NAMES } from '../../lib/constants';
 
 const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
@@ -27,15 +25,12 @@ const ChatBot: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const speechBaseRef = useRef('');
-  const finalTranscriptRef = useRef('');
+  const { isListening, toggleListening } = useSpeechToText(' ');
 
   // States for custom selection modals
   const [activeSelectCategoryMsgIdx, setActiveSelectCategoryMsgIdx] = useState<number | null>(null);
-  const [categoryModalType, setCategoryModalType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
-  const [categorySelectCallback, setCategorySelectCallback] = useState<((categoryName: string, subCategoryName: string) => void) | null>(null);
+  const [categoryIdModalType, setCategoryModalType] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
+  const [categoryIdSelectCallback, setCategorySelectCallback] = useState<((categoryIdName: string, subCategoryIdName: string) => void) | null>(null);
   
   const [activeSelectAssetMsgIdx, setActiveSelectAssetMsgIdx] = useState<number | null>(null);
   const [assetSelectCallback, setAssetSelectCallback] = useState<((assetId: string) => void) | null>(null);
@@ -146,7 +141,7 @@ const ChatBot: React.FC = () => {
             .map(t => ({
               type: t.type,
               amount: t.amount,
-              category: t.category,
+              categoryId: t.categoryId,
               note: t.note,
               date: t.date
             })),
@@ -154,7 +149,7 @@ const ChatBot: React.FC = () => {
           recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
             type: rt.type,
             amount: rt.amount,
-            category: rt.category,
+            categoryId: rt.categoryId,
             frequency: rt.frequency,
             startDate: rt.startDate,
             note: rt.note
@@ -174,7 +169,7 @@ const ChatBot: React.FC = () => {
           budgets,
           goals,
           appKnowledge: {
-            currentVersion: 'v1.0.18',
+            currentVersion: 'v2.0.1',
             latestFeatures: []
           }
         })
@@ -248,7 +243,7 @@ const ChatBot: React.FC = () => {
             .map(t => ({
               type: t.type,
               amount: t.amount,
-              category: t.category,
+              categoryId: t.categoryId,
               note: t.note,
               date: t.date
             })),
@@ -256,7 +251,7 @@ const ChatBot: React.FC = () => {
           recurringTransactions: recurringTransactions.filter(rt => rt.isActive).map(rt => ({
             type: rt.type,
             amount: rt.amount,
-            category: rt.category,
+            categoryId: rt.categoryId,
             frequency: rt.frequency,
             startDate: rt.startDate,
             note: rt.note
@@ -276,7 +271,7 @@ const ChatBot: React.FC = () => {
           budgets,
           goals,
           appKnowledge: {
-            currentVersion: 'v1.0.18',
+            currentVersion: 'v2.0.1',
             latestFeatures: [
               'Zero-Based Budgeting (ZBB): Fitur alokasi pendapatan secara ketat di mana setiap pemasukan harus dialokasikan ke amplop kategori sampai habis bersisa 0.',
               'ZBB Strict Mode: Sistem pemblokiran/pencegatan otomatis pada transaksi (manual, struk OCR, maupun mutasi) jika nominal melebihi sisa limit kategori, mengharuskan pemindahan/realokasi anggaran sebelum lanjut.',
@@ -308,51 +303,7 @@ const ChatBot: React.FC = () => {
   };
 
   const handleVoiceInput = () => {
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      return;
-    }
-
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
-      return;
-    }
-
-    const recognition = new SR();
-    recognition.lang = 'id-ID';
-    recognition.interimResults = true;
-    recognition.continuous = false;
-
-    recognitionRef.current = recognition;
-    speechBaseRef.current = input.trim();
-    finalTranscriptRef.current = '';
-    setIsListening(true);
-
-    recognition.onresult = (event: any) => {
-      let newFinalText = '';
-      let interimText = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) newFinalText += t;
-        else interimText += t;
-      }
-      if (newFinalText) finalTranscriptRef.current += newFinalText;
-      const combined = `${speechBaseRef.current} ${finalTranscriptRef.current} ${interimText}`.trim();
-      setInput(combined);
-    };
-    recognition.onerror = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
-      showToast('Gagal menangkap suara.', 'warning');
-    };
-    recognition.onend = () => {
-      const combined = `${speechBaseRef.current} ${finalTranscriptRef.current}`.trim();
-      if (combined) setInput(combined);
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-    recognition.start();
+    toggleListening(input, setInput);
   };
 
   const handleConfirmTransaction = (msgIndex: number, toolArgs: any) => {
@@ -371,7 +322,7 @@ const ChatBot: React.FC = () => {
           amount: Number(toolArgs.amount),
           date: toolArgs.date || getLocalDate(),
           note: toolArgs.note || 'Transfer via AI Chat',
-          category: 'Transfer',
+          categoryId: 'Transfer',
           fromAssetId: fromId,
           toAssetId: toId,
         });
@@ -381,7 +332,7 @@ const ChatBot: React.FC = () => {
           addTransaction({
             type: 'pengeluaran',
             amount: Number(toolArgs.adminFee),
-            category: 'Biaya Admin',
+            categoryId: 'Biaya Admin',
             date: toolArgs.date || getLocalDate(),
             note: `Biaya admin transfer`,
             assetId: feeAssetId,
@@ -392,8 +343,8 @@ const ChatBot: React.FC = () => {
         addTransaction({
           type: toolArgs.type,
           amount: Number(toolArgs.amount),
-          category: toolArgs.category,
-          subCategory: toolArgs.subCategory || undefined,
+          categoryId: toolArgs.categoryId,
+          subCategoryId: toolArgs.subCategoryId || undefined,
           assetId: toolArgs.assetId,
           note: toolArgs.note || 'Dari AI Chat',
           date: toolArgs.date || getLocalDate(),
@@ -425,7 +376,7 @@ const ChatBot: React.FC = () => {
         paidInstallments: 0,
         liabilityAssetId: toolArgs.type === 'hutang' ? toolArgs.assetId : undefined,
         paymentAssetId: toolArgs.type === 'piutang' ? toolArgs.assetId : undefined
-      }, toolArgs.type === 'hutang' ? 'cash' : 'none', toolArgs.category, toolArgs.subCategory);
+      }, toolArgs.type === 'hutang' ? 'cash' : 'none', toolArgs.categoryId, toolArgs.subCategoryId);
 
       setMessages(prev => prev.map((m, i) => 
         i === msgIndex ? { ...m, toolCall: undefined, content: `✅ ${toolArgs.type === 'hutang' ? 'Hutang' : 'Piutang'} berhasil dicatat!` } : m
@@ -541,7 +492,7 @@ const ChatBot: React.FC = () => {
 
         const newRec = {
           categoryId: cat.id,
-          categoryName: cat.name,
+          categoryIdName: cat.name,
           limit: 0,
           reason: 'Ditambahkan manual'
         };
@@ -565,7 +516,7 @@ const ChatBot: React.FC = () => {
         amount: Number(toolArgs.amount),
         billingCycle: toolArgs.billingCycle,
         nextBillingDate: toolArgs.nextBillingDate || getLocalDate(),
-        category: toolArgs.category,
+        categoryId: toolArgs.categoryId,
         assetId: toolArgs.assetId,
         isActive: true,
         note: toolArgs.note || ''
@@ -598,7 +549,7 @@ const ChatBot: React.FC = () => {
         amount: Number(tf.amount),
         date: getLocalDate(),
         note: tf.reason || `Transfer Rekomendasi AI`,
-        category: 'Transfer',
+        categoryId: 'Transfer',
         fromAssetId: tf.fromAssetId,
         toAssetId: tf.toAssetId,
       });
@@ -630,7 +581,7 @@ const ChatBot: React.FC = () => {
       addRecurringTransaction({
         type: rt.type,
         amount: Number(rt.amount),
-        category: rt.category,
+        categoryId: rt.categoryId,
         note: rt.note,
         frequency: rt.frequency,
         startDate: getLocalDate(),
@@ -698,12 +649,12 @@ const ChatBot: React.FC = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <MessageCircle size={18} />
+                <MaterialIcon name="forum" className="text-[18px]" />
               </div>
               <span style={{ fontWeight: 700, fontSize: '16px' }}>MoneyBot AI</span>
             </div>
             <button onClick={() => setIsChatOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '4px' }}>
-              <X size={20} />
+              <MaterialIcon name="close" className="text-[20px]" />
             </button>
           </div>
 
@@ -743,7 +694,7 @@ const ChatBot: React.FC = () => {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
-                      <AlertCircle size={16} />
+                      <MaterialIcon name="error" className="text-[16px]" />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
                         {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : msg.toolCall.name === 'create_debt' ? 'Draft Catatan Hutang' : 'Draft Langganan Baru'}
                       </span>
@@ -793,9 +744,9 @@ const ChatBot: React.FC = () => {
                                   setActiveSelectCategoryMsgIdx(idx);
                                   const flowType = msg.toolCall?.arguments?.type === 'pendapatan' ? 'pendapatan' : 'pengeluaran';
                                   setCategoryModalType(flowType);
-                                  setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
-                                    handleUpdateDraftField(idx, 'category', categoryName);
-                                    handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                  setCategorySelectCallback(() => (categoryIdName: string, subCategoryIdName: string) => {
+                                    handleUpdateDraftField(idx, 'categoryId', categoryIdName);
+                                    handleUpdateDraftField(idx, 'subCategoryId', subCategoryIdName);
                                   });
                                 }}
                                 style={{
@@ -811,11 +762,19 @@ const ChatBot: React.FC = () => {
                                   cursor: 'pointer'
                                 }}
                               >
-                                {msg.toolCall?.arguments?.category 
-                                  ? (msg.toolCall.arguments.subCategory 
-                                      ? `${msg.toolCall.arguments.category} (${msg.toolCall.arguments.subCategory})` 
-                                      : msg.toolCall.arguments.category)
-                                  : 'Pilih Kategori...'}
+                                {msg.toolCall?.arguments?.categoryId 
+                                 ? (() => {
+                                     const catId = msg.toolCall?.arguments?.categoryId;
+                                     const subCatId = msg.toolCall?.arguments?.subCategoryId;
+                                     const cat = categories.find(c => c.id === catId);
+                                     const catName = cat?.name || catId;
+                                     if (subCatId) {
+                                       const subName = cat?.subcategories?.find(s => s.id === subCatId)?.name || subCatId;
+                                       return `${catName} (${subName})`;
+                                     }
+                                     return catName;
+                                   })()
+                                 : 'Pilih Kategori...'}
                               </button>
                             </div>
                           )}
@@ -1051,9 +1010,9 @@ const ChatBot: React.FC = () => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 const flowType = msg.toolCall?.arguments?.type === 'hutang' ? 'pengeluaran' : 'pengeluaran';
                                 setCategoryModalType(flowType);
-                                setCategorySelectCallback(() => (categoryName: string, subCategoryName: string) => {
-                                  handleUpdateDraftField(idx, 'category', categoryName);
-                                  handleUpdateDraftField(idx, 'subCategory', subCategoryName);
+                                setCategorySelectCallback(() => (categoryIdName: string, subCategoryIdName: string) => {
+                                  handleUpdateDraftField(idx, 'categoryId', categoryIdName);
+                                  handleUpdateDraftField(idx, 'subCategoryId', subCategoryIdName);
                                 });
                               }}
                               style={{
@@ -1069,11 +1028,17 @@ const ChatBot: React.FC = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              {msg.toolCall?.arguments?.category 
-                                ? (msg.toolCall.arguments.subCategory 
-                                    ? `${msg.toolCall.arguments.category} (${msg.toolCall.arguments.subCategory})` 
-                                    : msg.toolCall.arguments.category)
-                                : 'Pilih Kategori...'}
+                              {(() => {
+                                 const catId = msg.toolCall?.arguments?.categoryId;
+                                 const subCatId = msg.toolCall?.arguments?.subCategoryId;
+                                 const cat = categories.find(c => c.id === catId);
+                                 const catName = cat?.name || catId;
+                                 if (subCatId) {
+                                   const subName = cat?.subcategories?.find(s => s.id === subCatId)?.name || subCatId;
+                                   return `${catName} (${subName})`;
+                                 }
+                                 return catName || 'Pilih Kategori...';
+                               })()}
                             </button>
                           </div>
 
@@ -1226,8 +1191,8 @@ const ChatBot: React.FC = () => {
                               onClick={() => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
-                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName?: string) => {
-                                  handleUpdateDraftField(idx, 'category', categoryName);
+                                setCategorySelectCallback(() => (categoryIdName: string, _subCategoryIdName?: string) => {
+                                  handleUpdateDraftField(idx, 'categoryId', categoryIdName);
                                 });
                               }}
                               style={{
@@ -1243,7 +1208,12 @@ const ChatBot: React.FC = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              {msg.toolCall?.arguments?.category || 'Pilih Kategori...'}
+                              {(() => {
+                                 const catId = msg.toolCall?.arguments?.categoryId;
+                                 return catId
+                                   ? (categories.find(c => c.id === catId)?.name || catId)
+                                   : 'Pilih Kategori...';
+                               })()}
                             </button>
                           </div>
 
@@ -1357,7 +1327,7 @@ const ChatBot: React.FC = () => {
                         }}
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                       >
-                        <Check size={16} /> Konfirmasi
+                        <MaterialIcon name="check" className="text-[16px]" /> Konfirmasi
                       </button>
                     </div>
                   </div>
@@ -1374,7 +1344,7 @@ const ChatBot: React.FC = () => {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
-                      <AlertCircle size={16} />
+                      <MaterialIcon name="error" className="text-[16px]" />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
                         Rekomendasi Anggaran ({MONTH_NAMES[msg.toolCall.arguments.month] || msg.toolCall.arguments.month} {msg.toolCall.arguments.year})
                       </span>
@@ -1397,7 +1367,7 @@ const ChatBot: React.FC = () => {
                             gap: '6px'
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{rec.categoryName}</span>
+                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{categories.find(c => c.id === rec.categoryId)?.name || rec.categoryIdName || rec.categoryId}</span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{currencySymbol}</span>
@@ -1440,7 +1410,7 @@ const ChatBot: React.FC = () => {
                                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
                                   onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
                                 >
-                                  <Trash2 size={14} />
+                                  <MaterialIcon name="delete" className="text-[14px]" />
                                 </button>
                               </div>
                             </div>
@@ -1480,15 +1450,16 @@ const ChatBot: React.FC = () => {
                             marginTop: '4px'
                           }}>
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Plus size={14} /> Tambah:
+                              <MaterialIcon name="add" className="text-[14px]" /> Tambah:
                             </span>
                             <button
                               type="button"
                               onClick={() => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
-                                setCategorySelectCallback(() => (categoryName: string, _subCategoryName: string) => {
-                                  const cat = categories.find(c => c.name === categoryName);
+                                setCategorySelectCallback(() => (categoryIdName: string, _subCategoryIdName: string) => {
+                                  const cat = categories.find(c => c.id === categoryIdName && c.type === 'pengeluaran' && !c.isDeleted) ||
+                                              categories.find(c => c.id === categoryIdName && c.type === 'pengeluaran');
                                   if (cat) {
                                     handleAddDraftBudgetCategory(idx, cat.id);
                                   }
@@ -1531,7 +1502,7 @@ const ChatBot: React.FC = () => {
                         marginBottom: '16px' 
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
-                          <ArrowRight size={16} />
+                          <MaterialIcon name="arrow_forward" className="text-[16px]" />
                           <span style={{ fontSize: '12px', fontWeight: 700 }}>
                             Rekomendasi Transfer Saldo
                           </span>
@@ -1562,7 +1533,7 @@ const ChatBot: React.FC = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
                                 <span>{tf.fromAssetName}</span>
-                                <ArrowRight size={12} style={{ color: 'var(--text-muted)' }} />
+                                <MaterialIcon name="arrow_forward" className="text-[12px] text-on-surface-variant" />
                                 <span>{tf.toAssetName}</span>
                               </div>
                               <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
@@ -1596,7 +1567,7 @@ const ChatBot: React.FC = () => {
                             >
                               {tf.isExecuted ? (
                                 <>
-                                  <Check size={12} /> Berhasil Ditransfer
+                                  <MaterialIcon name="check" className="text-[12px]" /> Berhasil Ditransfer
                                 </>
                               ) : (
                                 'Transfer Sekarang'
@@ -1619,7 +1590,7 @@ const ChatBot: React.FC = () => {
                         marginBottom: '16px' 
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
-                          <ArrowRight size={16} />
+                          <MaterialIcon name="arrow_forward" className="text-[16px]" />
                           <span style={{ fontSize: '12px', fontWeight: 700 }}>
                             Rekomendasi Transaksi Rutin
                           </span>
@@ -1643,7 +1614,7 @@ const ChatBot: React.FC = () => {
                               </span>
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              Kategori: {rt.category} | Tipe: {rt.type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}
+                              Kategori: {categories.find(c => c.id === rt.categoryId)?.name || rt.categoryId} | Tipe: {rt.type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}
                             </div>
                             {rt.reason && (
                               <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
@@ -1672,7 +1643,7 @@ const ChatBot: React.FC = () => {
                             >
                               {rt.isExecuted ? (
                                 <>
-                                  <Check size={12} /> Aktif Berulang
+                                  <MaterialIcon name="check" className="text-[12px]" /> Aktif Berulang
                                 </>
                               ) : (
                                 'Aktifkan Transaksi Rutin'
@@ -1694,7 +1665,7 @@ const ChatBot: React.FC = () => {
                         onClick={() => handleConfirmBudget(idx, msg.toolCall!.arguments)}
                         style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                       >
-                        <Check size={16} /> Terapkan Anggaran
+                        <MaterialIcon name="check" className="text-[16px]" /> Terapkan Anggaran
                       </button>
                     </div>
                   </div>
@@ -2002,7 +1973,7 @@ const ChatBot: React.FC = () => {
                 }}
                 title={isListening ? 'Sedang mendengar...' : 'Voice Input'}
               >
-                {isListening ? <Square size={16} /> : <Mic size={16} />}
+                {isListening ? <MaterialIcon name="stop" className="text-[16px]" /> : <MaterialIcon name="mic" className="text-[16px]" />}
               </button>
               <button 
                 onClick={() => handleSend()}
@@ -2023,7 +1994,7 @@ const ChatBot: React.FC = () => {
                   flexShrink: 0
                 }}
               >
-                <Send size={20} style={{ marginLeft: input.trim() ? '2px' : '0' }} />
+                <MaterialIcon name="send" className={`text-[20px] ${input.trim() ? 'ml-[2px]' : ''}`} />
               </button>
             </div>
           </div>
@@ -2040,10 +2011,10 @@ const ChatBot: React.FC = () => {
             setCategorySelectCallback(null);
           }}
           categories={categories}
-          type={categoryModalType}
-          onSelect={(categoryName, subCategoryName) => {
-            if (categorySelectCallback) {
-              categorySelectCallback(categoryName, subCategoryName);
+          type={categoryIdModalType}
+          onSelect={(categoryIdName, subCategoryIdName) => {
+            if (categoryIdSelectCallback) {
+              categoryIdSelectCallback(categoryIdName, subCategoryIdName);
             }
           }}
         />

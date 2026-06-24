@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Wallet, Calculator, Camera, Plus, Trash2 } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import AssetSelectModal from './AssetSelectModal';
 import { useMoney, type Trip, type TripExpense, type TripExpenseSplit } from '../../contexts/MoneyContext';
 import { useReceiptOCR } from '../../hooks/useReceiptOCR';
 import { generateId, getLocalTime } from '../../lib/utils';
-import CurrencyInput from '../common/CurrencyInput';
 import { useToast } from '../common/Toast';
+import { validateFileSecure } from '../../lib/fileValidation';
+import CurrencyInput from '../common/CurrencyInput';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface AddTripExpenseModalProps {
   isOpen: boolean;
@@ -103,6 +105,19 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
   const handleOCR = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = await validateFileSecure(file, {
+      maxSizeMB: 5,
+      allowedExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
+      allowedMimeTypes: ['image/*'],
+      checkMagicBytes: 'image'
+    });
+
+    if (!validation.isValid) {
+      showToast(validation.error || 'Format gambar tidak valid', 'error');
+      e.target.value = '';
+      return;
+    }
 
     const result = await scanReceipt(file);
     if (result) {
@@ -290,8 +305,8 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
           addTransaction({
             type: 'pengeluaran',
             amount: myAmount,
-            category: 'Liburan & Perjalanan',
-            subCategory: 'Biaya Trip',
+            categoryId: 'Liburan & Perjalanan',
+            subCategoryId: 'Biaya Trip',
             date: expenseData.date,
             time: getLocalTime(),
             note: `[Trip: ${trip.name}] ${description}`,
@@ -363,7 +378,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: 800 }}>{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</h2>
             <button onClick={onClose} className="btn-icon">
-              <X size={20} />
+              <MaterialIcon name="close" className="text-[20px]" />
             </button>
           </div>
 
@@ -441,7 +456,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                         background: 'var(--bg-card)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                       }}>
-                        <Wallet size={18} color={'var(--text-muted)'} />
+                        <MaterialIcon name="account_balance_wallet" />
                       </div>
                       <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                         <div style={{ fontWeight: 800, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -488,7 +503,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                       <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {m.name}
                       </span>
-                      {isActive && <Check size={14} />}
+                      {isActive && <MaterialIcon name="check" className="text-[14px]" />}
                     </button>
                   );
                 })}
@@ -502,7 +517,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                 padding: '12px', background: 'var(--bg-neutral)', borderRadius: '16px',
                 color: 'var(--primary)', fontWeight: 800, cursor: 'pointer', border: '1px solid var(--border-color)'
               }}>
-                {isScanning ? 'Memindai...' : <><Camera size={18} /> Scan Struk</>}
+                {isScanning ? 'Memindai...' : <><MaterialIcon name="camera_alt" className="text-[18px]" /> Scan Struk</>}
                 <input type="file" accept="image/*" onChange={handleOCR} hidden disabled={isScanning} />
               </label>
             )}
@@ -512,7 +527,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                 onClick={() => setShowOCRUI(true)}
                 style={{ padding: '16px', background: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 800, borderRadius: '16px', border: '1px solid var(--primary)', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                <Calculator size={18} /> Lihat & Bagi Rincian Struk ({ocrItems.length} Item)
+                <MaterialIcon name="calculate" className="text-[18px]" /> Lihat & Bagi Rincian Struk ({ocrItems.length} Item)
               </button>
             )}
 
@@ -548,7 +563,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                         display: 'flex', alignItems: 'center', justifyContent: 'center', background: isIncluded ? 'var(--primary)' : 'transparent',
                         borderColor: isIncluded ? 'var(--primary)' : 'var(--border-color)', color: 'white'
                       }}>
-                        {isIncluded && <Check size={14} strokeWidth={4} />}
+                        {isIncluded && <MaterialIcon name="check" />}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 800, fontSize: '14px', color: isIncluded ? 'var(--text-main)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
@@ -607,7 +622,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                   Rincian Item (Edit & Bagi)
                 </h3>
                 <button onClick={() => setShowOCRUI(false)} className="btn-icon">
-                  <X size={20} />
+                  <MaterialIcon name="close" className="text-[20px]" />
                 </button>
               </div>
 
@@ -616,7 +631,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                   onClick={addOcrItem}
                   style={{ padding: '8px 16px', borderRadius: '12px', background: 'var(--primary-glow)', border: 'none', color: 'var(--primary)', fontSize: '13px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                 >
-                  <Plus size={16} /> Tambah Item
+                  <MaterialIcon name="add" className="text-[16px]" /> Tambah Item
                 </button>
               </div>
 
@@ -688,7 +703,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
                         onClick={() => removeOcrItem(idx)}
                         style={{ padding: '12px', color: 'var(--danger)', background: 'var(--bg-neutral)', borderRadius: '12px', border: 'none', cursor: 'pointer' }}
                       >
-                        <Trash2 size={18} />
+                        <MaterialIcon name="delete" className="text-[18px]" />
                       </button>
                     </div>
 

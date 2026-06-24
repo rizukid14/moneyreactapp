@@ -46,9 +46,13 @@ export const generateId = (): string =>
  * Returns true if a debt-related transaction is a principal (loan creation) tx,
  * not a payment. Used to exclude it when calculating how much has been paid.
  */
-export const isPrincipalTx = (note: string, category?: string): boolean => {
+export const isPrincipalTx = (note: string, categoryIdOrName?: string, categories?: { id: string; name: string }[]): boolean => {
   const n = note.toLowerCase();
-  const c = category ? category.toLowerCase() : '';
+  let c = categoryIdOrName ? categoryIdOrName.toLowerCase() : '';
+  if (categories && categoryIdOrName) {
+    const found = categories.find(cat => cat.id === categoryIdOrName);
+    if (found) c = found.name.toLowerCase();
+  }
   return n.includes('penerimaan dana pinjaman') ||
          n.includes('pemberian pinjaman') ||
          n.includes('belanja via') ||
@@ -69,3 +73,15 @@ export const hashPin = async (pin: string): Promise<string> => {
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   return hashHex;
 };
+
+/**
+ * Triggers a subtle device vibration if supported.
+ * Mode 'light' is a short 15ms tap, 'medium' is 30ms, 'heavy' is 50ms.
+ */
+export const triggerHapticFeedback = (mode: 'light' | 'medium' | 'heavy' = 'light'): void => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    const duration = mode === 'light' ? 15 : mode === 'medium' ? 30 : 50;
+    navigator.vibrate(duration);
+  }
+};
+

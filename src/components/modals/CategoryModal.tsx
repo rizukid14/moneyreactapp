@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Plus } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import { useToast } from '../common/Toast';
 import type { Category, SubCategory } from '../../contexts/MoneyContext';
 import { generateId } from '../../lib/utils';
+import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -57,7 +60,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
     
     if (duplicate) {
       if (!editingCategory && addSubCategory && subcategories.length > 0) {
-        // Instead of error, let's add these subcategories to the existing category
+        // Instead of error, let's add these subcategories to the existing categoryId
         let addedCount = 0;
         subcategories.forEach(sub => {
           const exists = duplicate.subcategories?.some(s => s.name.toLowerCase() === sub.name.toLowerCase());
@@ -94,41 +97,23 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div 
-          className="modal-overlay" 
-          onClick={onClose}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          style={{ zIndex: 4000 }}
-        >
-          <motion.div 
-            className="modal-content" 
-            onClick={e => e.stopPropagation()}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
-          >
-            <div className="modal-header">
-              <h2 className="subtitle" style={{ margin: 0 }}>{editingCategory ? 'Edit Kategori' : `Tambah Kategori ${type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}`}</h2>
-              <button className="close-btn" onClick={onClose}><X size={24} /></button>
-            </div>
-
-            <form onSubmit={handleSave} style={{ padding: '0 4px' }}>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>Nama Kategori</label>
-                <input 
-                  type="text" 
-                  required 
-                  placeholder="Misal: Makanan, Transportasi..." 
-                  value={name} 
-                  onChange={e => setName(e.target.value)} 
-                  autoFocus
-                />
-              </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editingCategory ? 'Edit Kategori' : `Tambah Kategori ${type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}`}
+    >
+      <form onSubmit={handleSave} style={{ padding: '0 4px' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', display: 'block' }}>Nama Kategori</label>
+          <Input 
+            type="text" 
+            required 
+            placeholder="Misal: Makanan, Transportasi..." 
+            value={name} 
+            onChange={e => setName(e.target.value)} 
+            autoFocus
+          />
+        </div>
 
               {!editingCategory && (
                 <div style={{ marginBottom: '24px' }}>
@@ -173,7 +158,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
                         margin: 0
                       }}
                     >
-                      <Plus size={20} />
+                      <MaterialIcon name="add" className="text-[20px]" />
                     </button>
                   </div>
 
@@ -185,7 +170,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
                       }}>
                         <span>{sub.name}</span>
                         <button type="button" onClick={() => handleRemoveSub(sub.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                          <X size={14} />
+                          <MaterialIcon name="close" className="text-[14px]" />
                         </button>
                       </div>
                     ))}
@@ -193,15 +178,12 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
                 </div>
               )}
 
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 800 }}>
-                <Save size={20} />
-                {editingCategory ? 'Simpan Perubahan' : 'Simpan Kategori'}
-              </button>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        <Button variant="primary" type="submit" fullWidth style={{ height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 800 }}>
+          <MaterialIcon name="save" className="text-[20px]" />
+          {editingCategory ? 'Simpan Perubahan' : 'Simpan Kategori'}
+        </Button>
+      </form>
+    </Modal>
   );
 };
 

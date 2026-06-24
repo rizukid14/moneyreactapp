@@ -1,20 +1,19 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  User, Bell, Shield, Moon, CircleHelp, ChevronRight, X, Lock, ShieldCheck,
-  Mail, Camera, Tags, Plus, Trash2, Download, Upload, DatabaseBackup,
-  LogOut, FileSpreadsheet, AlertCircle, CheckCircle2, Target, RefreshCw,
-  Sliders, Wallet, GripVertical, LayoutDashboard, Sparkles, BookUser, Edit2, Save, Search, CreditCard, Calendar, ChevronLeft, Folder, Landmark, Smartphone, PiggyBank, TrendingUp, HandCoins, Share2, Plane
-} from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
 import { setupPushNotifications } from '../lib/notifications';
-import { downloadSampleExcel, parseExcelFile, type ImportResult } from '../lib/excelImport';
-import { BudgetManagement } from '../components/BudgetManagement';
-import { GoalManagement } from '../components/GoalManagement';
-import { QuotaBanner } from '../components/QuotaBanner';
+import { validateFileSecure } from '../lib/fileValidation';
+import { downloadSampleExcel, parseExcelFile, extractExcelHeaders, type ImportResult } from '../lib/excelImport';
+import { lazy, Suspense } from 'react';
+const ExcelMappingModal = lazy(() => import('../components/modals/ExcelMappingModal'));
+const BudgetManagement = lazy(() => import('../components/BudgetManagement').then(m => ({ default: m.BudgetManagement })));
+const GoalManagement = lazy(() => import('../components/GoalManagement').then(m => ({ default: m.GoalManagement })));
+
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
+
 import { useToast } from '../components/common/Toast';
 import { changelogData, changelogTypeMeta } from '../data/changelog';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
@@ -22,6 +21,9 @@ import CategorySelectModal from '../components/modals/CategorySelectModal';
 import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
 import ContactModal from '../components/modals/ContactModal';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import { PageWrapper } from '../components/ui/PageWrapper';
+import { PageHeader } from '../components/ui/PageHeader';
+import MaterialIcon from '../components/common/MaterialIcon';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import CurrencyInput from '../components/common/CurrencyInput';
 
@@ -76,11 +78,11 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <LayoutDashboard size={18} color="var(--primary)" />
+        <MaterialIcon name="dashboard" className="text-[18px]" />
         <span style={{ fontWeight: 700, fontSize: 14 }}>Rekap Aset di Halaman Aset</span>
       </div>
       <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
-        Pilih kartu yang tampil di carousel atas. Seret <GripVertical size={12} style={{ verticalAlign: 'middle', display: 'inline' }} /> untuk mengurutkan.
+        Pilih kartu yang tampil di carousel atas. Seret <MaterialIcon name="drag_indicator" /> untuk mengurutkan.
       </p>
 
       {/* Active cards – draggable order list */}
@@ -117,7 +119,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
                     userSelect: 'none',
                   }}
                 >
-                  <GripVertical size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                  <MaterialIcon name="drag_indicator" />
                   {/* Tier color dot */}
                   <div style={{
                     width: 10, height: 10, borderRadius: '50%',
@@ -136,7 +138,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
                     style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, opacity: activeCards.length <= 1 ? 0.3 : 0.7, flexShrink: 0 }}
                     disabled={activeCards.length <= 1}
                   >
-                    <X size={14} />
+                    <MaterialIcon name="close" className="text-[14px]" />
                   </button>
                 </div>
               );
@@ -166,7 +168,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-glow)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = 'var(--bg-card)'; }}
             >
-              <Plus size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+              <MaterialIcon name="add" />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -191,11 +193,11 @@ export const ALL_STATS_VIEWS = [
   { id: 'all', label: 'Ringkasan Umum', description: 'Analisis semua aset' },
   { id: 'cash_bank', label: 'Kas & Bank', description: 'Analisis tunai & rekening' },
   { id: 'investment', label: 'Investasi & Tabungan', description: 'Analisis aset produktif' },
-  { id: 'budget', label: 'Anggaran', description: 'Pantau sisa budget bulanan' },
   { id: 'goals', label: 'Tabungan', description: 'Progres target impian' },
   { id: 'subs', label: 'Langganan', description: 'Biaya rutin bulanan' },
   { id: 'health', label: 'Kesehatan Finansial', description: 'Skor kesehatan finansial' },
   { id: 'forecast', label: 'Proyeksi Kas', description: 'Prediksi saldo 90 hari ke depan' },
+  { id: 'detailed_analysis', label: 'Analisis Detail', description: 'Heatmap & Grafik Kategori' },
 ];
 
 interface StatsViewSettingsProps {
@@ -240,7 +242,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
   return (
     <div style={{ marginBottom: 20, marginTop: 30, paddingTop: 30, borderTop: '1px solid var(--border-color)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <TrendingUp size={18} color="var(--primary)" />
+        <MaterialIcon name="trending_up" className="text-[18px]" />
         <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilan Statistik</span>
       </div>
       <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
@@ -269,7 +271,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
                 cursor: 'grab', transition: 'all 0.15s'
               }}
             >
-              <GripVertical size={16} color="var(--text-muted)" />
+              <MaterialIcon name="drag_indicator" className="text-[16px]" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
@@ -291,7 +293,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
                   disabled={activeViews.length <= 1}
                   style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', opacity: activeViews.length <= 1 ? 0.3 : 0.7 }}
                 >
-                  <X size={14} />
+                  <MaterialIcon name="close" className="text-[14px]" />
                 </button>
               </div>
             </div>
@@ -312,7 +314,7 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
               background: 'var(--bg-card)', border: '1.5px dashed var(--border-color)', cursor: 'pointer', textAlign: 'left'
             }}
           >
-            <Plus size={14} color="var(--primary)" />
+            <MaterialIcon name="add" className="text-[14px]" />
             <div>
               <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
@@ -328,9 +330,10 @@ const Settings: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
-  const { user, updateUser, pin, setAppPin, lockApp, theme, toggleTheme, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, addTransaction, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
   const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   // Deep linking: open modal based on navigation state
   React.useEffect(() => {
@@ -341,17 +344,24 @@ const Settings: React.FC = () => {
       }
     }
   }, [location.state]);
+  const excelImportRef = useRef<HTMLInputElement>(null);
+  const [excelMappingPreset, setExcelMappingPreset] = useState<'default' | 'custom' | 'bca' | 'mandiri'>('default');
+  const [isImportingExcel, setIsImportingExcel] = useState(false);
+  const [excelResult, setExcelResult] = useState<ImportResult | null>(null);
+  const [mappingModalOpen, setMappingModalOpen] = useState(false);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [pendingExcelFile, setPendingExcelFile] = useState<File | null>(null);
+  
   const [isSharedBillsOpen, setIsSharedBillsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
   );
   const importInputRef = useRef<HTMLInputElement>(null);
-  const excelImportRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [isImportingExcel, setIsImportingExcel] = useState(false);
-  const [excelResult, setExcelResult] = useState<ImportResult | null>(null);
   const [isPulling, setIsPulling] = useState(false);
   const [pullResult, setPullResult] = useState<{ total: number } | null>(null);
+  const [isPushing, setIsPushing] = useState(false);
+  const [pushResult, setPushResult] = useState<{ success: number; failed: number; error?: string } | null>(null);
 
   // Global Confirm State for this page
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -390,7 +400,7 @@ const Settings: React.FC = () => {
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [newSubCatName, setNewSubCatName] = useState('');
 
-  // Category & Subcategory Edit State
+  // Category & SubcategoryId Edit State
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
   const [editingSubCatId, setEditingSubCatId] = useState<string | null>(null);
@@ -458,44 +468,6 @@ const Settings: React.FC = () => {
   const [isSubAssetSelectOpen, setIsSubAssetSelectOpen] = useState(false);
   const [isSubCatSelectOpen, setIsSubCatSelectOpen] = useState(false);
 
-  const menuGroups = [
-    {
-      title: 'Akun & Personalisasi',
-      items: [
-        { id: 'profile', icon: User, label: 'Profil Saya' },
-        { id: 'preferences', icon: Sliders, label: 'Preferensi Aplikasi' },
-        { id: 'theme', icon: Moon, label: 'Tema Gelap', isToggle: true },
-        { id: 'security', icon: Shield, label: 'Keamanan' },
-      ]
-    },
-    {
-      title: 'Manajemen Keuangan',
-      items: [
-        { id: 'categories', icon: Tags, label: 'Manajemen Kategori' },
-        { id: 'budgets', icon: Target, label: 'Budgeting & Goals' },
-        { id: 'recurring', icon: RefreshCw, label: 'Transaksi Rutin' },
-        { id: 'subscriptions', icon: CreditCard, label: 'Langganan (Subs)' },
-      ]
-    },
-    {
-      title: 'Sosial & Fitur Berbagi',
-      items: [
-        { id: 'contacts', icon: BookUser, label: 'Daftar Kontak' },
-        { id: 'trips', icon: Plane, label: 'Holiday Trip (Bagi Biaya)' },
-        { id: 'shared_bills', icon: Share2, label: 'Shared Split Bills' },
-      ]
-    },
-    {
-      title: 'Data & Sistem',
-      items: [
-        { id: 'backup', icon: DatabaseBackup, label: 'Backup & Restore Data' },
-        { id: 'whats_new', icon: Sparkles, label: "Apa yang Baru" },
-        { id: 'help', icon: CircleHelp, label: 'Bantuan & Dukungan' },
-        { id: 'reset_tutorial', icon: RefreshCw, label: 'Ulangi Tutorial Aplikasi' },
-      ]
-    }
-  ];
-
   const handleMenuClick = (id: string) => {
     if (id === 'help') {
       window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp&body=Halo, saya butuh bantuan terkait...';
@@ -507,6 +479,10 @@ const Settings: React.FC = () => {
     }
     if (id === 'trips') {
       navigate('/trips');
+      return;
+    }
+    if (id === 'debts') {
+      navigate('/debts');
       return;
     }
     if (id === 'reset_tutorial') {
@@ -521,9 +497,22 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = await validateFileSecure(file, {
+      maxSizeMB: 5,
+      allowedExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
+      allowedMimeTypes: ['image/*'],
+      checkMagicBytes: 'image'
+    });
+
+    if (!validation.isValid) {
+      showToast(validation.error || 'Format gambar tidak valid', 'error');
+      e.target.value = '';
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -680,7 +669,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Daftar Kontak</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}><X /></button>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingBottom: '20px' }}>
@@ -697,16 +686,14 @@ const Settings: React.FC = () => {
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
                   }}
                 >
-                  <Plus size={14} /> Tambah
+                  <MaterialIcon name="add" className="text-[14px]" /> Tambah
                 </button>
               </div>
 
               {/* Search Bar */}
               <div style={{ padding: '0 20px', marginBottom: '12px' }}>
                 <div style={{ position: 'relative' }}>
-                  <Search
-                    size={18}
-                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
+                  <MaterialIcon name="search"
                   />
                   <input
                     type="text"
@@ -780,7 +767,7 @@ const Settings: React.FC = () => {
                           setEditingContact(c.id);
                           setIsContactModalOpen(true);
                         }} className="btn-icon" style={{ color: 'var(--primary)', padding: 6 }}>
-                          <Edit2 size={18} />
+                          <MaterialIcon name="edit" className="text-[18px]" />
                         </button>
                         <button onClick={() => {
                           showConfirm(
@@ -789,7 +776,7 @@ const Settings: React.FC = () => {
                             () => deleteContact(c.id)
                           );
                         }} className="btn-icon" style={{ color: 'var(--danger)', padding: 6 }}>
-                          <Trash2 size={18} />
+                          <MaterialIcon name="delete" className="text-[18px]" />
                         </button>
                       </div>
                     </div>
@@ -806,7 +793,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Kategori</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
@@ -887,10 +874,10 @@ const Settings: React.FC = () => {
                           <span style={{ fontSize: '14px', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--text-main)' : 'var(--text-muted)' }}>{c.name}</span>
                           <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
                             <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                              <Edit2 size={12} />
+                              <MaterialIcon name="edit" className="text-[12px]" />
                             </button>
                             <button onClick={() => showConfirm('Hapus Kategori', `Hapus "${c.name}"?`, () => deleteCategory(c.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                              <Trash2 size={12} />
+                              <MaterialIcon name="delete" className="text-[12px]" />
                             </button>
                           </div>
                         </>
@@ -935,10 +922,10 @@ const Settings: React.FC = () => {
                               <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{sub.name}</span>
                               <div style={{ display: 'flex', gap: '4px' }}>
                                 <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                                  <Edit2 size={12} />
+                                  <MaterialIcon name="edit" className="text-[12px]" />
                                 </button>
                                 <button onClick={() => showConfirm('Hapus Sub-kategori', `Hapus "${sub.name}"?`, () => deleteSubCategory(expandedCat, sub.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                                  <Trash2 size={12} />
+                                  <MaterialIcon name="delete" className="text-[12px]" />
                                 </button>
                               </div>
                             </>
@@ -946,7 +933,7 @@ const Settings: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                    {/* Add Sub-category Input */}
+                    {/* Add Sub-categoryId Input */}
                     <div style={{ padding: '12px', borderTop: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.1)' }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <input
@@ -958,7 +945,7 @@ const Settings: React.FC = () => {
                           style={{ flex: 1, marginBottom: 0, padding: '8px 12px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                         />
                         <button onClick={() => handleAddSubCat(expandedCat, newSubCatName)} className="btn btn-primary" style={{ padding: '0 12px', margin: 0, borderRadius: '8px' }}>
-                          <Plus size={16} />
+                          <MaterialIcon name="add" className="text-[16px]" />
                         </button>
                       </div>
                     </div>
@@ -997,7 +984,7 @@ const Settings: React.FC = () => {
                 required
               />
               <button type="submit" className="btn btn-primary" style={{ width: '50px', padding: 0, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }}>
-                <Plus size={22} />
+                <MaterialIcon name="add" className="text-[22px]" />
               </button>
             </form>
           </>
@@ -1028,9 +1015,9 @@ const Settings: React.FC = () => {
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
                   }}
                 >
-                  <Plus size={14} /> Tambah
+                  <MaterialIcon name="add" className="text-[14px]" /> Tambah
                 </button>
-                <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+                <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><MaterialIcon name="close" className="text-base" /></button>
               </div>
             </div>
 
@@ -1038,7 +1025,7 @@ const Settings: React.FC = () => {
               {/* Summary Card */}
               <div style={{
                 margin: '0 20px 20px', padding: '16px',
-                background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                background: 'var(--primary)',
                 borderRadius: '16px', color: 'white', boxShadow: '0 8px 16px var(--primary-glow)'
               }}>
                 <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: 600 }}>Estimasi Pengeluaran Bulanan</div>
@@ -1070,7 +1057,7 @@ const Settings: React.FC = () => {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{s.name}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <CreditCard size={10} /> {currencySymbol}{s.amount.toLocaleString('id-ID')} • <Calendar size={10} /> {s.nextBillingDate} ({s.billingCycle === 'monthly' ? 'Bln' : 'Thn'})
+                        <MaterialIcon name="credit_card" className="text-[10px]" /> {currencySymbol}{s.amount.toLocaleString('id-ID')} • <MaterialIcon name="calendar_today" className="text-[10px]" /> {s.nextBillingDate} ({s.billingCycle === 'monthly' ? 'Bln' : 'Thn'})
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -1079,7 +1066,7 @@ const Settings: React.FC = () => {
                         className="btn-icon"
                         style={{ color: s.isActive ? 'var(--primary)' : 'var(--text-muted)', padding: 6 }}
                       >
-                        <RefreshCw size={18} style={{ opacity: s.isActive ? 1 : 0.4 }} />
+                        <MaterialIcon name="refresh" />
                       </button>
                       <button
                         onClick={() => {
@@ -1094,14 +1081,14 @@ const Settings: React.FC = () => {
                         className="btn-icon"
                         style={{ color: 'var(--primary)', padding: 6 }}
                       >
-                        <Edit2 size={18} />
+                        <MaterialIcon name="edit" className="text-[18px]" />
                       </button>
                       <button
                         onClick={() => showConfirm('Hapus Langganan', `Hapus "${s.name}"?`, () => deleteSubscription(s.id))}
                         className="btn-icon"
                         style={{ color: 'var(--danger)', padding: 6 }}
                       >
-                        <Trash2 size={18} />
+                        <MaterialIcon name="delete" className="text-[18px]" />
                       </button>
                     </div>
                   </div>
@@ -1122,12 +1109,12 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Preferensi Aplikasi</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Wallet size={18} color="var(--primary)" />
+                <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Dompet Utama</span>
               </div>
               <button
@@ -1143,34 +1130,32 @@ const Settings: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {(() => {
                     const asset = assets.find(a => a.id === defaultAssetId);
-                    if (!asset) return <Wallet size={18} color="var(--primary)" />;
-                    // Import icons or use a local helper. 
-                    // Since we already have Wallet, Landmark, etc. imported or available.
-                    let Icon = Wallet;
-                    let color = 'var(--primary)';
+                    if (!asset) return <MaterialIcon name="account_balance_wallet" className="text-[18px]" />;
+                    let iconName = 'account_balance_wallet';
+                    let colorClass = 'text-[var(--primary)]';
                     switch (asset.type) {
-                      case 'Cash': Icon = Wallet; color = 'var(--secondary)'; break;
-                      case 'Bank Account': Icon = Landmark; color = 'var(--primary)'; break;
-                      case 'Credit Card': Icon = CreditCard; color = 'var(--danger)'; break;
-                      case 'eWallet': Icon = Smartphone; color = 'var(--success)'; break;
-                      case 'Savings': Icon = PiggyBank; color = '#3b82f6'; break;
-                      case 'Investment': Icon = TrendingUp; color = '#10b981'; break;
-                      case 'Loan': Icon = HandCoins; color = 'var(--danger)'; break;
+                      case 'Cash': iconName = 'payments'; colorClass = 'text-[var(--secondary)]'; break;
+                      case 'Bank Account': iconName = 'account_balance'; colorClass = 'text-[var(--primary)]'; break;
+                      case 'Credit Card': iconName = 'credit_card'; colorClass = 'text-[var(--danger)]'; break;
+                      case 'eWallet': iconName = 'smartphone'; colorClass = 'text-[var(--success)]'; break;
+                      case 'Savings': iconName = 'savings'; colorClass = 'text-[#3b82f6]'; break;
+                      case 'Investment': iconName = 'trending_up'; colorClass = 'text-[#10b981]'; break;
+                      case 'Loan': iconName = 'handshake'; colorClass = 'text-[var(--danger)]'; break;
                     }
-                    return <Icon size={18} color={color} />;
+                    return <MaterialIcon name={iconName} className={`text-[18px] ${colorClass}`} />;
                   })()}
                   <span style={{ fontWeight: 600, color: defaultAssetId ? 'var(--text-main)' : 'var(--text-muted)' }}>
                     {assets.find(a => a.id === defaultAssetId)?.name || 'Pilih Dompet Utama...'}
                   </span>
                 </div>
-                <ChevronRight size={18} color="var(--text-muted)" />
+                <MaterialIcon name="chevron_right" className="text-[18px]" />
               </button>
               <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 8 }}>Digunakan sebagai pilihan otomatis saat mencatat transaksi baru.</p>
             </div>
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <RefreshCw size={18} color="var(--primary)" />
+                <MaterialIcon name="refresh" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Siklus Finansial</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1178,6 +1163,7 @@ const Settings: React.FC = () => {
               </p>
               <div style={{ position: 'relative', marginTop: '12px' }}>
                 <select
+                  data-testid="start-of-month"
                   value={startOfMonthDay}
                   onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
                   data-tour="pref-financial-cycle"
@@ -1217,7 +1203,7 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <HandCoins size={18} color="var(--primary)" />
+                <MaterialIcon name="payments" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilkan Transaksi Hutang/Piutang</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1236,13 +1222,14 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Wallet size={18} color="var(--primary)" />
+                <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Mata Uang & Simbol</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Ubah simbol mata uang yang ditampilkan (Contoh: Rp, $, RM).
               </p>
               <input
+                data-testid="currency-input"
                 type="text"
                 value={currencySymbol}
                 onChange={(e) => setCurrencySymbol(e.target.value)}
@@ -1255,7 +1242,7 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Moon size={18} color="var(--primary)" />
+                <MaterialIcon name="dark_mode" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Gaya Grafik Transaksi Harian</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1305,14 +1292,15 @@ const Settings: React.FC = () => {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Target size={18} color="var(--primary)" />
+                <MaterialIcon name="track_changes" className="text-[18px]" />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Metode Budgeting</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
                 Pilih antara budget reguler atau Zero-Based (Envelope).
               </p>
-              <div 
+              <div
                 data-tour="pref-budget-mode"
+                data-testid="budget-mode-toggle"
                 style={{
                   display: 'flex', background: 'var(--bg-main)', padding: '4px',
                   borderRadius: '12px', border: '1px solid var(--border-color)'
@@ -1405,7 +1393,7 @@ const Settings: React.FC = () => {
           <form onSubmit={handleUpdateProfile} style={{ padding: '0 4px' }}>
             <div className="modal-header" style={{ marginBottom: '20px' }}>
               <h2 className="subtitle" style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Profil Saya</h2>
-              <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><X size={18} /></button>
+              <button type="button" className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-[18px]" /></button>
             </div>
 
             {/* Premium Financial Member Pass Card */}
@@ -1491,7 +1479,7 @@ const Settings: React.FC = () => {
                     onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)'; }}
                     title="Ubah Foto"
                   >
-                    <Camera size={12} style={{ flexShrink: 0, display: 'block' }} />
+                    <MaterialIcon name="camera_alt" />
                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
                   </label>
                 </div>
@@ -1592,12 +1580,12 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Keamanan</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             {pin ? (
               <div style={{ textAlign: 'center' }}>
-                <ShieldCheck size={48} color="var(--success)" style={{ margin: '0 auto 16px auto' }} />
+                <MaterialIcon name="verified_user" />
                 <p style={{ marginBottom: '20px', color: 'var(--text-main)', fontWeight: 600 }}>Keamanan PIN Aktif</p>
                 <button type="button" onClick={handleDisablePin} className="btn" style={{ backgroundColor: 'var(--bg-expense)', color: 'var(--danger)', marginBottom: '10px', width: '100%' }}>Nonaktifkan PIN</button>
                 <button type="button" onClick={lockApp} className="btn btn-primary" style={{ width: '100%' }}>Kunci Sekarang</button>
@@ -1605,7 +1593,7 @@ const Settings: React.FC = () => {
             ) : (
               <form onSubmit={handleSetPin}>
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                  <Lock size={48} color="var(--secondary)" style={{ margin: '0 auto 16px auto' }} />
+                  <MaterialIcon name="lock" />
                   <p style={{ color: 'var(--text-muted)' }}>Setel PIN untuk mengamankan data Anda.</p>
                 </div>
                 <input
@@ -1636,13 +1624,13 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Backup & Restore</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setExcelResult(null); }}><X /></button>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setExcelResult(null); }}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             {/* ── Section 1: JSON Backup ── */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <DatabaseBackup size={15} color="var(--primary)" />
+                <MaterialIcon name="backup" className="text-[15px]" />
                 <span style={{ fontWeight: 700, fontSize: 13 }}>Backup JSON (Full Data)</span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1650,19 +1638,21 @@ const Settings: React.FC = () => {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button
+                  data-testid="export-data-btn"
                   className="btn btn-primary"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   onClick={exportData}
                 >
-                  <Download size={15} /> Ekspor Backup (.json)
+                  <MaterialIcon name="download" className="text-[15px]" /> Ekspor Backup (.json)
                 </button>
                 <button
+                  data-testid="import-data-btn"
                   className="btn"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--border-color)', color: 'var(--text-main)' }}
                   onClick={() => importInputRef.current?.click()}
                   disabled={isImporting}
                 >
-                  <Upload size={15} /> {isImporting ? 'Mengimpor...' : 'Restore Backup (.json)'}
+                  <MaterialIcon name="upload" className="text-[15px]" /> {isImporting ? 'Mengimpor...' : 'Restore Backup (.json)'}
                 </button>
               </div>
             </div>
@@ -1670,7 +1660,7 @@ const Settings: React.FC = () => {
             {/* ── Section 1.5: Pull from Cloud ── */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <RefreshCw size={15} color="var(--secondary)" />
+                <MaterialIcon name="refresh" className="text-[15px]" />
                 <span style={{ fontWeight: 700, fontSize: 13 }}>Tarik Data dari Cloud</span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1695,7 +1685,7 @@ const Settings: React.FC = () => {
                 onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); }}
                 disabled={isPulling}
               >
-                <RefreshCw size={15} style={{ animation: isPulling ? 'spin 1s linear infinite' : 'none' }} />
+                <MaterialIcon name="refresh" />
                 {isPulling ? 'Menarik data...' : 'Tarik Data dari Cloud'}
               </button>
             </div>
@@ -1705,7 +1695,7 @@ const Settings: React.FC = () => {
             {/* ── Section 2: Excel Import ── */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <FileSpreadsheet size={15} color="hsl(152,70%,42%)" />
+                <MaterialIcon name="table_view" className="text-[15px]" />
                 <span style={{ fontWeight: 700, fontSize: 13 }}>Import dari Excel</span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
@@ -1726,8 +1716,8 @@ const Settings: React.FC = () => {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                     {excelResult.imported > 0
-                      ? <CheckCircle2 size={15} color="var(--success)" />
-                      : <AlertCircle size={15} color="var(--danger)" />}
+                      ? <MaterialIcon name="check_circle" className="text-[15px]" />
+                      : <MaterialIcon name="error" className="text-[15px]" />}
                     <span style={{ fontWeight: 700, fontSize: 13, color: excelResult.imported > 0 ? 'var(--success)' : 'var(--danger)' }}>
                       {excelResult.imported > 0
                         ? `${excelResult.imported} transaksi berhasil diimpor`
@@ -1751,14 +1741,14 @@ const Settings: React.FC = () => {
                   onClick={() => excelImportRef.current?.click()}
                   disabled={isImportingExcel}
                 >
-                  <FileSpreadsheet size={15} /> {isImportingExcel ? 'Memproses...' : 'Import Excel (.xlsx / .xls)'}
+                  <MaterialIcon name="table_view" className="text-[15px]" /> {isImportingExcel ? 'Memproses...' : 'Import Excel (.xlsx / .xls)'}
                 </button>
                 <button
                   className="btn"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--bg-neutral)', color: 'var(--text-muted)', border: '1px dashed var(--border-color)' }}
                   onClick={downloadSampleExcel}
                 >
-                  <Download size={15} /> Download Contoh Format Excel
+                  <MaterialIcon name="download" className="text-[15px]" /> Download Contoh Format Excel
                 </button>
               </div>
             </div>
@@ -1776,7 +1766,7 @@ const Settings: React.FC = () => {
             amount: parseFloat(newSubAmount),
             billingCycle: newSubCycle,
             nextBillingDate: newSubDate,
-            category: newSubCat || 'Lainnya',
+            categoryId: newSubCat || 'Lainnya',
             assetId: newSubAsset,
             isActive: true,
           };
@@ -1791,7 +1781,7 @@ const Settings: React.FC = () => {
                 const rt = addRecurringTransaction({
                   type: 'pengeluaran',
                   amount: subData.amount,
-                  category: subData.category,
+                  categoryId: subData.categoryId,
                   note: `Langganan: ${subData.name}`,
                   frequency: subData.billingCycle === 'monthly' ? 'monthly' : 'yearly',
                   startDate: subData.nextBillingDate,
@@ -1814,11 +1804,11 @@ const Settings: React.FC = () => {
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button className="btn-icon" onClick={() => setActiveModal('subscriptions')} style={{ padding: 0 }}>
-                  <ChevronLeft size={20} />
+                  <MaterialIcon name="chevron_left" className="text-[20px]" />
                 </button>
                 <h2 className="subtitle" style={{ margin: 0 }}>{editingSub ? 'Edit Langganan' : 'Tambah Langganan'}</h2>
               </div>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><X /></button>
+              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingSub(null); }}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ padding: '20px' }}>
@@ -1911,12 +1901,12 @@ const Settings: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Folder size={18} color="var(--primary)" />
+                      <MaterialIcon name="folder" className="text-[18px]" />
                       <span style={{ fontWeight: 600, color: newSubCat ? 'var(--text-main)' : 'var(--text-muted)' }}>
                         {newSubCat || 'Pilih Kategori...'}
                       </span>
                     </div>
-                    <ChevronRight size={18} color="var(--text-muted)" />
+                    <MaterialIcon name="chevron_right" className="text-[18px]" />
                   </button>
                 </div>
 
@@ -1932,18 +1922,18 @@ const Settings: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Wallet size={18} color="var(--primary)" />
+                      <MaterialIcon name="account_balance_wallet" className="text-[18px]" />
                       <span style={{ fontWeight: 600, color: newSubAsset ? 'var(--text-main)' : 'var(--text-muted)' }}>
                         {assets.find(a => a.id === newSubAsset)?.name || 'Pilih Dompet...'}
                       </span>
                     </div>
-                    <ChevronRight size={18} color="var(--text-muted)" />
+                    <MaterialIcon name="chevron_right" className="text-[18px]" />
                   </button>
                 </div>
 
                 <div style={{ marginTop: 8 }}>
                   <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '14px', fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <Save size={18} /> {editingSub ? 'Simpan Perubahan' : 'Tambah Langganan'}
+                    <MaterialIcon name="save" className="text-[18px]" /> {editingSub ? 'Simpan Perubahan' : 'Tambah Langganan'}
                   </button>
                 </div>
               </form>
@@ -1956,7 +1946,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Transaksi Rutin</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
@@ -1979,7 +1969,7 @@ const Settings: React.FC = () => {
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{rt.note || rt.category}</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{rt.note || rt.categoryId}</div>
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                             {freqLabel} • Mulai {new Date(rt.startDate).toLocaleDateString('id-ID')}
                             {rt.endDate && ` • Sampai ${new Date(rt.endDate).toLocaleDateString('id-ID')}`}
@@ -2007,7 +1997,7 @@ const Settings: React.FC = () => {
                             }}
                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
                           >
-                            <Trash2 size={16} />
+                            <MaterialIcon name="delete" className="text-[16px]" />
                           </button>
                         </div>
                       </div>
@@ -2037,7 +2027,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
               <h2 className="subtitle">Budgeting & Goals</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
 
             <div style={{ display: 'flex', gap: '8px', margin: '16px 0', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
@@ -2069,7 +2059,9 @@ const Settings: React.FC = () => {
               </button>
             </div>
 
-            {budgetTab === 'budget' ? <BudgetManagement /> : <GoalManagement />}
+            <Suspense fallback={null}>
+              {budgetTab === 'budget' ? <BudgetManagement /> : <GoalManagement />}
+            </Suspense>
           </>
         );
 
@@ -2078,7 +2070,7 @@ const Settings: React.FC = () => {
           <>
             <div className="modal-header">
               <h2 className="subtitle">Apa yang Baru ✨</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><X /></button>
+              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {changelogData.map(v => (
@@ -2117,7 +2109,7 @@ const Settings: React.FC = () => {
                 </div>
               ))}
               <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingBottom: '8px' }}>
-                Money Tracker v1.0.18 · Made with ❤️
+                Money Tracker v2.0.0 · Made with ❤️
               </div>
             </div>
           </>
@@ -2129,189 +2121,597 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="page" style={{ paddingBottom: '80px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 className="title" style={{ margin: 0 }}>Settings</h1>
-      </div>
+    <PageWrapper>
+      <PageHeader
+        title="Pengaturan"
+        subtitle="Kelola akun, keamanan, dan preferensi aplikasi Anda."
+      />
 
-      <QuotaBanner />
+      <div className="flex flex-col lg:flex-row gap-8 mt-6 items-start w-full">
+        {/* Kolom Kiri */}
+        <div className="flex-1 flex flex-col gap-8 w-full min-w-0">
 
-      <div data-tour="settings-profile" className="card" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: '28px',
-          backgroundColor: 'var(--primary)',
-          display: 'flex', justifyContent: 'center', alignItems: 'center',
-          color: 'white', marginRight: '16px',
-          fontSize: '20px', fontWeight: 700,
-          overflow: 'hidden'
-        }}>
-          {user.avatar ? (
-            <img src={user.avatar} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            user.name.charAt(0).toUpperCase()
-          )}
-        </div>
-        <div>
-          <h2 className="subtitle" style={{ margin: 0, fontSize: '18px' }}>{user.name}</h2>
-          <div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>{user.email}</div>
-        </div>
-      </div>
-
-      <div data-tour="settings-menu">
-        {menuGroups.map((group) => (
-          <div key={group.title} style={{ marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', paddingLeft: '12px' }}>
-              {group.title}
-            </h3>
-            <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
-              {group.items.map((item, index) => {
-                const Icon = item.icon;
-                const isLast = index === group.items.length - 1;
-
-                if ((item as any).isToggle) {
-                  return (
-                    <div key={item.id} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '16px 0',
-                      borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <Icon size={20} color="var(--text-muted)" style={{ marginRight: '20px' }} />
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
-                      </div>
-                      <div
-                        onClick={toggleTheme}
-                        style={{
-                          width: '44px', height: '24px', borderRadius: '12px',
-                          backgroundColor: theme === 'dark' ? 'var(--primary)' : 'var(--border-color)',
-                          display: 'flex', alignItems: 'center', padding: '0 2px',
-                          cursor: 'pointer', transition: 'all 0.3s'
-                        }}>
-                        <div style={{
-                          width: '20px', height: '20px', borderRadius: '10px',
-                          backgroundColor: 'white',
-                          transform: theme === 'dark' ? 'translateX(20px)' : 'translateX(0)',
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                        }} />
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => handleMenuClick(item.id)}
-                    data-tour={item.id === 'preferences' ? 'settings-preferences' : undefined}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '16px 0',
-                      borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <Icon size={20} color={item.id === 'security' && pin ? 'var(--success)' : 'var(--text-muted)'} style={{ marginRight: '20px' }} />
-                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.label}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {item.id === 'security' && pin && <span style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 700 }}>AKTIF</span>}
-                      <ChevronRight size={20} color="var(--text-muted)" />
-                    </div>
+        {/* Profile Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+          {isEditingProfile ? (
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="relative flex-shrink-0">
+                  <div className="w-16 h-16 rounded-full bg-primary-container text-primary flex items-center justify-center text-xl font-bold border-2 border-outline overflow-hidden">
+                    {tempAvatar ? (
+                      <img src={tempAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      tempName ? tempName.charAt(0).toUpperCase() : 'U'
+                    )}
                   </div>
-                );
-              })}
+                  <label className="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full border border-white cursor-pointer hover:scale-105 transition-transform flex items-center justify-center">
+                    <MaterialIcon name="camera_alt" className="text-xs" />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  </label>
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Ubah Foto Profil</h4>
+                  <p className="text-[10px] text-on-surface-variant">Klik ikon kamera untuk mengunggah foto baru</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Nama Lengkap</label>
+                  <input
+                    type="text"
+                    value={tempName}
+                    onChange={e => setTempName(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={tempEmail}
+                    onChange={e => setTempEmail(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-primary text-white rounded-lg font-bold text-xs border-none cursor-pointer hover:opacity-90 transition-opacity"
+                >
+                  Simpan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempName(user.name);
+                    setTempEmail(user.email);
+                    setTempAvatar(user.avatar || '');
+                    setIsEditingProfile(false);
+                  }}
+                  className="flex-1 py-2 bg-surface-container-high border border-outline-variant text-on-surface rounded-lg font-bold text-xs cursor-pointer hover:bg-surface-container transition-colors"
+                >
+                  Batal
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full object-cover border-2 border-primary-fixed overflow-hidden flex items-center justify-center font-bold text-3xl bg-primary text-white">
+                    {user.avatar ? (
+                      <img alt="Avatar" className="w-full h-full object-cover" src={user.avatar} />
+                    ) : (
+                      user.name ? user.name.charAt(0).toUpperCase() : 'U'
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setIsEditingProfile(true)}
+                    className="absolute bottom-0 right-0 bg-primary text-white p-1.5 rounded-full border-2 border-white cursor-pointer hover:scale-105 transition-transform flex items-center justify-center"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                  </button>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface font-bold">{user.name}</h3>
+                  <p className="font-body-md text-body-md text-on-surface-variant truncate max-w-[200px]">{user.email}</p>
+                </div>
+              </div>
+
+              {/* Premium Member Pass Card */}
+              <div
+                className="p-5 rounded-2xl text-white relative overflow-hidden shadow-md flex flex-col gap-4 border border-white/10"
+                style={{ background: profileStats.tierColor, boxShadow: `0 8px 24px ${profileStats.shadowColor}` }}
+              >
+                <div className="absolute top-[-30px] right-[-30px] w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+                <div className="flex justify-between items-start z-10">
+                  <div>
+                    <div className="text-[9px] opacity-75 font-bold uppercase tracking-wider">Level Finansial</div>
+                    <div className="text-sm font-black mt-0.5">{profileStats.tierLabel}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[9px] opacity-75 font-bold uppercase tracking-wider">Saldo Bersih</div>
+                    <div className="text-sm font-black mt-0.5">{currencySymbol}{profileStats.netWorth.toLocaleString('id-ID')}</div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center bg-black/15 px-3 py-2 rounded-lg text-[10px] font-bold border border-white/5 z-10">
+                  <span>Aktivitas Bulan Ini:</span>
+                  <span>{profileStats.txCount} Transaksi</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsEditingProfile(true)}
+                className="w-full py-2.5 rounded-lg border border-primary text-primary font-label-md hover:bg-primary-fixed transition-colors cursor-pointer"
+              >
+                Ubah Profil
+              </button>
+            </>
+          )}
+        </section>
+
+        {/* Security Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">lock</span>
+              <h3 className="text-base font-bold text-on-surface">Keamanan</h3>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!pin}
+                onChange={() => {
+                  if (pin) handleDisablePin();
+                  else setActiveModal('security');
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              <span className="ms-3 font-label-md text-on-surface">PIN Lock</span>
+            </label>
+          </div>
+
+          <button
+            onClick={() => setActiveModal('security')}
+            className="w-full py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-md border border-outline-variant hover:bg-surface-container-high transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">password</span>
+            {pin ? 'Ubah PIN Keamanan' : 'Setel PIN Baru'}
+          </button>
+        </section>
+
+        {/* Preferensi Finansial & Mata Uang Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-5">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary">tune</span>
+            <h3 className="text-base font-bold text-on-surface">Preferensi Finansial</h3>
+          </div>
+
+          <div className="space-y-4">
+            {/* Dompet Utama */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Dompet Utama</label>
+              <button
+                type="button"
+                onClick={() => setIsAssetSelectOpen(true)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <MaterialIcon name="account_balance_wallet" className="text-primary text-base" />
+                  <span className="font-bold text-sm text-on-surface">
+                    {assets.find(a => a.id === defaultAssetId)?.name || 'Pilih Dompet Utama...'}
+                  </span>
+                </div>
+                <MaterialIcon name="chevron_right" className="text-base text-on-surface-variant" />
+              </button>
+            </div>
+
+            {/* Siklus Finansial */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Awal Siklus Bulanan (Gajian)</label>
+              <select
+                value={startOfMonthDay}
+                onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
+                className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
+              >
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                  <option key={day} value={day}>Tanggal {day}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Simbol Mata Uang */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Simbol Mata Uang</label>
+              <input
+                type="text"
+                value={currencySymbol}
+                onChange={(e) => setCurrencySymbol(e.target.value)}
+                className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
+                placeholder="Simbol Mata Uang..."
+              />
+            </div>
+
+          </div>
+        </section>
+
+
+
+
+
+
+
+
+
+
+        {/* Tata Letak Dashboard Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary">dashboard_customize</span>
+            <h3 className="text-base font-bold text-on-surface">Tata Letak Dashboard</h3>
+          </div>
+
+          <div className="space-y-4">
+            {/* Gaya Grafik */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Gaya Grafik Harian</label>
+              <div className="flex bg-surface-container-low rounded-xl p-1 border border-outline-variant">
+                <button
+                  type="button"
+                  onClick={() => setChartStyle('area')}
+                  className={`flex-1 py-2 rounded-lg border-none font-bold text-xs cursor-pointer transition-all ${chartStyle === 'area' ? 'bg-bg-card text-on-surface shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
+                >
+                  Area Chart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartStyle('line')}
+                  className={`flex-1 py-2 rounded-lg border-none font-bold text-xs cursor-pointer transition-all ${chartStyle === 'line' ? 'bg-bg-card text-on-surface shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
+                >
+                  Line Chart
+                </button>
+              </div>
+            </div>
+
+            {/* Tampilkan Hutang */}
+            <label className="flex items-center justify-between p-3.5 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors">
+              <div className="flex flex-col">
+                <span className="font-bold text-xs text-on-surface">Transaksi Hutang/Piutang</span>
+                <span className="text-[10px] text-on-surface-variant mt-0.5">Tampilkan di halaman utama</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={showDebtInTransactions}
+                onChange={(e) => setShowDebtInTransactions(e.target.checked)}
+                className="w-5 h-5 accent-primary cursor-pointer"
+              />
+            </label>
+          </div>
+
+          <CarouselCardSettings
+            activeCards={assetCarouselCards}
+            onChange={setAssetCarouselCards}
+          />
+        </section>
+
+
+        {/* Excel Import & Cloud Backup Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary">cloud_sync</span>
+            <h3 className="text-base font-bold text-on-surface">Data &amp; Sinkronisasi</h3>
+          </div>
+
+          <div>
+            <button
+              onClick={downloadSampleExcel}
+              className="text-primary font-label-md flex items-center gap-2 hover:underline border-none bg-transparent cursor-pointer pl-0"
+            >
+              <span className="material-symbols-outlined">download_for_offline</span>
+              Unduh Template Excel
+            </button>
+          </div>
+
+          <div
+            onClick={() => excelImportRef.current?.click()}
+            className="border-2 border-dashed border-outline-variant rounded-xl p-8 flex flex-col items-center justify-center gap-4 bg-surface-container-lowest hover:bg-surface-container-low transition-colors group cursor-pointer"
+          >
+            <div className="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-[32px]">upload_file</span>
+            </div>
+            <div className="text-center">
+              <p className="font-body-lg font-bold text-on-surface">Import Data Excel</p>
+              <p className="font-body-md text-on-surface-variant mt-0.5">(.xlsx, .xls, .csv)</p>
             </div>
           </div>
-        ))}
 
-      </div>
-      <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Bell size={18} color="var(--text-muted)" style={{ marginRight: '12px' }} />
-            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Notifikasi Otomatis</span>
+          {excelResult && (
+            <div className={`p-4 rounded-xl border text-xs leading-relaxed ${excelResult.errors.length > 0 ? 'bg-error-container/10 border-error/20 text-error' : 'bg-primary-container/10 border-primary/20 text-primary'
+              }`}>
+              <div className="font-bold flex items-center gap-1 mb-1.5">
+                <MaterialIcon name={excelResult.imported > 0 ? 'check_circle' : 'error'} className="text-sm" />
+                {excelResult.imported > 0 ? `${excelResult.imported} transaksi berhasil diimpor` : 'Proses import gagal'}
+              </div>
+              {excelResult.errors.slice(0, 3).map((e, idx) => (
+                <div key={idx} className="pl-5 text-[10px]">• {e}</div>
+              ))}
+            </div>
+          )}
+
+          <div className="w-full min-w-0">
+            <label className="block font-bold text-xs text-on-surface-variant mb-2">Konfigurasi Kolom Excel</label>
+            <select 
+              className="w-full max-w-full p-3 rounded-lg border border-outline-variant bg-surface-container-low font-body-md focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer text-on-surface text-ellipsis"
+              value={excelMappingPreset}
+              onChange={(e) => setExcelMappingPreset(e.target.value as any)}
+            >
+              <option value="default">Default Template (Tanggal, Tipe, Kategori, Nominal)</option>
+              <option value="custom">Custom Mapping (Pilih Kolom Sendiri)</option>
+              <option value="bca">Mutasi e-Statement Bank BCA (CSV)</option>
+              <option value="mandiri">Mutasi Bank Mandiri (Excel)</option>
+            </select>
           </div>
-          <span style={{
-            fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 700,
-            backgroundColor: notifPermission === 'granted' ? 'var(--success-glow)' : 'var(--danger-glow)',
-            color: notifPermission === 'granted' ? 'var(--success)' : 'var(--danger)'
-          }}>
-            {notifPermission === 'granted' ? 'AKTIF' : 'NONAKTIF'}
-          </span>
+
+          {/* Cloud sync section */}
+          <div className="pt-6 border-t border-border-light space-y-4">
+            <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+              <span>Cloud Sync Manual</span>
+              <span className="flex items-center gap-1 normal-case text-[11px] font-semibold text-on-surface-variant">
+                <MaterialIcon name="history" className="text-xs" /> Terakhir: 5m lalu
+              </span>
+            </div>
+
+            {pullResult && (
+              <div className={`p-3 rounded-xl border text-xs font-semibold ${pullResult.total > 0 ? 'bg-primary-container/15 border-primary text-primary-color' : 'bg-surface-container border-outline-variant text-on-surface-variant'
+                }`}>
+                {pullResult.total > 0 ? `✓ ${pullResult.total} data baru dari cloud` : 'Tidak ada data baru dari cloud'}
+              </div>
+            )}
+
+            {pushResult && (
+              <div className={`p-3 rounded-xl border text-xs font-semibold ${
+                pushResult.success > 0 ? 'bg-success-container/15 border-success text-success' : 'bg-error-container/15 border-error text-error'
+              }`}>
+                {pushResult.error ? `Sync Gagal: ${pushResult.error}` : pushResult.success > 0 ? `✓ ${pushResult.success} data berhasil diunggah` : 'Tidak ada data yang perlu diunggah'}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={async () => { setIsPushing(true); setPushResult(null); const r = await syncData(); setPushResult(r); setIsPushing(false); }}
+                disabled={isPushing || pendingSyncCount === 0}
+                className="py-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm disabled:opacity-50"
+              >
+                <MaterialIcon name="cloud_upload" className={`text-sm ${isPushing ? "animate-spin" : ""}`} />
+                {isPushing ? 'Menyinkron...' : `Push Data (${pendingSyncCount})`}
+              </button>
+              <button
+                onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); }}
+                disabled={isPulling}
+                className="py-3 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
+              >
+                <MaterialIcon name="cloud_download" className={`text-primary text-sm ${isPulling ? "animate-spin" : ""}`} />
+                {isPulling ? 'Menarik...' : 'Tarik Cloud'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={exportData}
+                className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="download" className="text-sm" /> Ekspor JSON
+              </button>
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={isImporting}
+                className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <MaterialIcon name="upload" className="text-sm" /> {isImporting ? 'Memproses...' : 'Restore JSON'}
+              </button>
+            </div>
+          </div>
+        </section>
         </div>
-        <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
-          Pengingat harian dan laporan mingguan dikirimkan otomatis ke perangkat ini.
-          {notifPermission !== 'granted' && " Klik untuk mengaktifkan izin notifikasi."}
-        </p>
-        {notifPermission !== 'granted' && (
+
+        {/* Kolom Kanan */}
+        <div className="flex-1 flex flex-col gap-8 w-full min-w-0">
+
+        {/* Budgeting Mode Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary">track_changes</span>
+            <h3 className="text-base font-bold text-on-surface">Mode Budgeting</h3>
+          </div>
+
+          <div className="flex flex-col gap-2 p-1 bg-surface-container-low rounded-xl border border-outline-variant/60">
+            <button
+              type="button"
+              onClick={() => setBudgetMode('regular')}
+              className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'regular'
+                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                }`}
+            >
+              <span>Batas Pengeluaran Bulanan</span>
+              {budgetMode === 'regular' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setBudgetMode('zero-based')}
+              className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'zero-based'
+                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                }`}
+            >
+              <span>Zero-Based Budgeting (ZBB)</span>
+              {budgetMode === 'zero-based' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
+            </button>
+          </div>
+
+          {budgetMode === 'zero-based' && (
+            <div className="mt-3 p-4 rounded-xl bg-bg-card border border-outline-variant/80 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-xs text-on-surface">Disiplin ZBB (Strict Mode)</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={zbbMode === 'strict'}
+                    onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+              <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                Jika aktif, setiap transaksi wajib dialokasikan. Jika kategori defisit, Anda dipaksa memindahkan saldo anggaran dari kategori lain.
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* Manajemen Keuangan Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary">manage_accounts</span>
+            <h3 className="text-base font-bold text-on-surface">Manajemen Keuangan</h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => handleMenuClick('recurring')}
+              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            >
+              <MaterialIcon name="autorenew" className="text-sm" />
+              Jadwal Transaksi Rutin
+            </button>
+            <button
+              onClick={() => handleMenuClick('subscriptions')}
+              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            >
+              <MaterialIcon name="credit_card" className="text-sm" />
+              Kelola Langganan ({subscriptions.length})
+            </button>
+            <button
+              onClick={() => handleMenuClick('budgets')}
+              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors sm:col-span-2"
+            >
+              <MaterialIcon name="track_changes" className="text-sm" />
+              Manajemen Anggaran &amp; Target
+            </button>
+          </div>
+        </section>
+
+        {/* Category Management Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">category</span>
+              <h3 className="text-base font-bold text-on-surface">Manajemen Kategori</h3>
+            </div>
+          </div>
+          
           <button
-            onClick={async () => {
-              const res = await Notification.requestPermission();
-              setNotifPermission(res);
-              if (res === 'granted') {
-                setupPushNotifications();
-              }
-            }}
-            className="btn btn-primary"
-            style={{ width: '100%', marginTop: '12px', padding: '8px', fontSize: '12px' }}
+            onClick={() => navigate('/categories')}
+            className="w-full py-3 px-4 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-90 border-none"
           >
-            Aktifkan Izin Notifikasi
+            Buka Manajemen Kategori
+            <MaterialIcon name="arrow_forward" className="text-sm" />
           </button>
-        )}
-      </div>
+        </section>
 
-      <div className="card" style={{
-        marginTop: '16px',
-        textAlign: 'center',
-        backgroundColor: 'var(--bg-main)',
-        borderColor: 'var(--border-color)',
-        borderStyle: 'solid',
-        borderWidth: '1px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 700 }}>
-          <Mail size={18} />
-          Hubungi Dukungan
+
+        {/* Tampilan Statistik Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary">pie_chart</span>
+            <h3 className="text-base font-bold text-on-surface">Tampilan Statistik</h3>
+          </div>
+
+          <StatsViewSettings
+            activeViews={statsCarouselCards}
+            onChange={setStatsCarouselCards}
+            defaultView={defaultStatsView}
+            onDefaultChange={setDefaultStatsView}
+          />
+        </section>
+
+        {/* Sistem & Preferensi Card */}
+        <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary">settings_applications</span>
+            <h3 className="text-base font-bold text-on-surface">Sistem &amp; Preferensi</h3>
+          </div>
+
+          {/* Notif permission */}
+          <div className="p-4 bg-surface-container-low border border-outline-variant rounded-xl flex flex-col gap-3">
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-xs text-on-surface">Notifikasi Otomatis</span>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${notifPermission === 'granted' ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'
+                }`}>
+                {notifPermission === 'granted' ? 'AKTIF' : 'NONAKTIF'}
+              </span>
+            </div>
+            <p className="text-[11px] text-on-surface-variant leading-relaxed">
+              Pengingat harian dan laporan mingguan dikirimkan otomatis ke perangkat ini.
+            </p>
+            {notifPermission !== 'granted' && (
+              <button
+                onClick={async () => {
+                  const res = await Notification.requestPermission();
+                  setNotifPermission(res);
+                  if (res === 'granted') setupPushNotifications();
+                }}
+                className="py-2.5 bg-primary text-white rounded-lg font-bold text-xs border-none cursor-pointer hover:opacity-90"
+              >
+                Izinkan Notifikasi
+              </button>
+            )}
+          </div>
+
+          {/* System buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={resetAllTutorials}
+              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            >
+              <MaterialIcon name="restart_alt" className="text-sm" />
+              Ulangi Semua Tutorial
+            </button>
+            <button
+              onClick={() => handleMenuClick('whats_new')}
+              className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            >
+              <MaterialIcon name="new_releases" className="text-sm" />
+              Apa yang Baru ✨
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2 text-center text-xs text-on-surface-variant">
+            <div className="font-semibold flex items-center justify-center gap-1 cursor-pointer hover:underline" onClick={() => window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp'}>
+              <MaterialIcon name="mail" className="text-sm" /> Hubungi Dukungan (rizqydaffa14@gmail.com)
+            </div>
+            <div className="text-[10px] opacity-75">MoneyApp v2.0.0 • Dibuat dengan ❤️ by Dappal</div>
+          </div>
+
+          <button
+            onClick={() => showConfirm('Keluar Akun', 'Apakah Anda yakin ingin keluar dari akun ini?', () => logOut(), 'warning', 'Ya, Keluar')}
+            className="w-full py-3 bg-error/10 hover:bg-error/20 border border-error/20 text-error font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+          >
+            <MaterialIcon name="logout" className="text-sm" /> Logout
+          </button>
+        </section>
         </div>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>rizqydaffa14@gmail.com</p>
-      </div>
-
-      <div style={{ marginTop: '24px', paddingBottom: '20px' }}>
-        <button
-          onClick={() => {
-            showConfirm(
-              'Keluar Akun',
-              'Apakah Anda yakin ingin keluar dari akun ini?',
-              () => logOut(),
-              'warning',
-              'Ya, Keluar'
-            );
-          }}
-          className="btn"
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            background: 'var(--bg-expense)',
-            color: 'var(--danger)',
-            padding: '12px',
-            borderRadius: '12px',
-            fontWeight: 700,
-            border: '1px solid var(--danger-glow)'
-          }}
-        >
-          <LogOut size={20} /> Logout dari Akun
-        </button>
-        <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-          MoneyApp v1.0.18 • Dibuat dengan ❤️ by Dappal
-        </p>
       </div>
 
       {/* Hidden inputs for backup handler */}
@@ -2321,6 +2721,20 @@ const Settings: React.FC = () => {
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
+
+          const validation = await validateFileSecure(file, {
+            maxSizeMB: 10, // JSON backups can be slightly larger
+            allowedExtensions: ['.json'],
+            allowedMimeTypes: ['application/json', 'text/plain', ''], // empty for cases where OS doesn't recognize it
+            checkMagicBytes: 'text'
+          });
+
+          if (!validation.isValid) {
+            showToast(validation.error || 'Format file JSON tidak valid', 'error');
+            e.target.value = '';
+            return;
+          }
+
           showConfirm(
             'Restore Backup',
             'Ini akan MENGGANTI semua data saat ini dengan data dari file backup. Lanjutkan?',
@@ -2342,20 +2756,88 @@ const Settings: React.FC = () => {
           );
         }}
       />
+      {mappingModalOpen && (
+        <Suspense fallback={null}>
+          <ExcelMappingModal
+            isOpen={mappingModalOpen}
+            onClose={() => {
+              setMappingModalOpen(false);
+              setPendingExcelFile(null);
+              setIsImportingExcel(false);
+              if (excelImportRef.current) excelImportRef.current.value = '';
+            }}
+            headers={excelHeaders}
+            onConfirm={async (mapping) => {
+              setMappingModalOpen(false);
+              if (!pendingExcelFile) return;
+              try {
+                const { rows, result } = await parseExcelFile(pendingExcelFile, categories, assets, mapping);
+                setExcelResult(result);
+                if (rows.length > 0) {
+                  navigate('/bulk-input', { state: { excelDraftData: rows } });
+                }
+              } catch (err) {
+                setExcelResult({ imported: 0, skipped: 0, errors: [`Gagal membaca file: ${String(err)}`] });
+              } finally {
+                setIsImportingExcel(false);
+                setPendingExcelFile(null);
+                if (excelImportRef.current) excelImportRef.current.value = '';
+              }
+            }}
+          />
+        </Suspense>
+      )}
+
       <input
         ref={excelImportRef}
         type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
+
+          const validation = await validateFileSecure(file, {
+            maxSizeMB: 5,
+            allowedExtensions: ['.xlsx', '.xls', '.csv'],
+            allowedMimeTypes: [
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'application/vnd.ms-excel',
+              'text/csv',
+              '' // Allow empty MIME for CSVs on some systems
+            ],
+            checkMagicBytes: 'excel'
+          });
+
+          if (!validation.isValid) {
+            setExcelResult({ imported: 0, skipped: 0, errors: [validation.error || 'Format file Excel/CSV tidak valid'] });
+            e.target.value = '';
+            return;
+          }
+
           setExcelResult(null);
           setIsImportingExcel(true);
-          try {
-            const { rows, result } = await parseExcelFile(file, categories, assets);
-            if (rows.length > 0) {
-              for (const tx of rows) addTransaction(tx);
+          
+          if (excelMappingPreset === 'custom') {
+            try {
+              const headers = await extractExcelHeaders(file);
+              setExcelHeaders(headers);
+              setPendingExcelFile(file);
+              setMappingModalOpen(true);
+              return; // Wait for modal confirmation
+            } catch (err) {
+              setExcelResult({ imported: 0, skipped: 0, errors: [`Gagal ekstrak header: ${String(err)}`] });
+              setIsImportingExcel(false);
+              e.target.value = '';
+              return;
             }
+          }
+
+          try {
+            const presetArg = excelMappingPreset === 'default' ? undefined : excelMappingPreset as 'bca' | 'mandiri';
+            const { rows, result } = await parseExcelFile(file, categories, assets, presetArg);
             setExcelResult(result);
+            if (rows.length > 0) {
+              navigate('/bulk-input', { state: { excelDraftData: rows } });
+            }
           } catch (err) {
             setExcelResult({ imported: 0, skipped: 0, errors: [`Gagal membaca file: ${String(err)}`] });
           } finally {
@@ -2369,7 +2851,7 @@ const Settings: React.FC = () => {
         {activeModal && (
           <motion.div
             className="modal-overlay"
-            onClick={() => setActiveModal(null)}
+            onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -2378,10 +2860,10 @@ const Settings: React.FC = () => {
             <motion.div
               className="modal-content"
               onClick={e => e.stopPropagation()}
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 600, mass: 0.5 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
             >
               {renderModalContent()}
             </motion.div>
@@ -2420,7 +2902,7 @@ const Settings: React.FC = () => {
         onClose={() => setIsSubCatSelectOpen(false)}
         categories={categories}
         type="pengeluaran"
-        initialCategory={newSubCat}
+        initialCategoryId={newSubCat}
         onSelect={(cat) => setNewSubCat(cat)}
       />
       <SharedBillsManagerModal
@@ -2447,7 +2929,7 @@ const Settings: React.FC = () => {
           { targetSelector: '[data-tour="settings-menu"]', title: '🛠️ Pengaturan Lainnya', description: 'Temukan berbagai pengaturan lainnya mulai dari kategori, backup data, hingga mengulang tutorial.', onBeforeShow: () => setActiveModal(null) }
         ]}
       />
-    </div>
+    </PageWrapper>
   );
 };
 

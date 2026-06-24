@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Plus, Trash2, Wallet, ArrowUpRight, ArrowDownLeft, Share2, Link2Off, Copy, ExternalLink, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import { useMoney, type Asset, type Category } from '../../contexts/MoneyContext';
 import { dbSaveSharedSplit, dbDeleteSharedSplit } from '../../lib/db';
 import ContactSelectModal from './ContactSelectModal';
@@ -10,6 +9,10 @@ import CategorySelectModal from './CategorySelectModal';
 import CurrencyInput from '../common/CurrencyInput';
 import { useToast } from '../common/Toast';
 import ConfirmDialog from '../common/ConfirmDialog';
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface SplitPerson {
   id: string;
@@ -28,9 +31,9 @@ interface SplitBillModalProps {
   assets: Asset[];
   categories: Category[];
   initialAssetId?: string;
-  initialCategory?: string;
-  initialSubCategory?: string;
-  onSave: (splits: SplitPerson[], data: { assetId: string, category: string, subCategory: string }) => void;
+  initialCategoryId?: string;
+  initialSubCategoryId?: string;
+  onSave: (splits: SplitPerson[], data: { assetId: string, categoryId: string, subCategoryId: string }) => void;
   sourceId?: string;
 }
 
@@ -44,8 +47,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   assets,
   categories,
   initialAssetId,
-  initialCategory,
-  initialSubCategory,
+  initialCategoryId,
+  initialSubCategoryId,
   onSave,
   sourceId,
 }) => {
@@ -67,7 +70,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
     type: 'danger'
   });
 
@@ -76,9 +79,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   };
 
   const [selectedAssetId, setSelectedAssetId] = useState(initialAssetId || '');
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
-  const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory || '');
+  const [receiveAssetId, setReceiveAssetId] = useState(initialAssetId || '');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(initialCategoryId || '');
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState(initialSubCategoryId || '');
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isReceiveAssetModalOpen, setIsReceiveAssetModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [localLineItems, setLocalLineItems] = useState<LineItem[]>([]);
   const [activeSharedId, setActiveSharedId] = useState<string | null>(null);
@@ -92,18 +97,19 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       setLocalLineItems(lineItems || []);
       setItemAssignments({});
       setSelectedAssetId(initialAssetId || '');
-      setSelectedCategory(initialCategory || '');
-      setSelectedSubCategory(initialSubCategory || '');
+      setReceiveAssetId(initialAssetId || '');
+      setSelectedCategoryId(initialCategoryId || '');
+      setSelectedSubCategoryId(initialSubCategoryId || '');
       setActiveSharedId(null);
       setIsSharing(false);
       setShowCopySuccess(false);
     }
-  }, [isOpen, totalAmount, lineItems, initialAssetId, initialCategory, initialSubCategory]);
+  }, [isOpen, totalAmount, lineItems, initialAssetId, initialCategoryId, initialSubCategoryId]);
 
   const addPeople = (names: string[]) => {
     const existingNames = splits.map(s => s.contactName);
     const newNames = names.filter(n => !existingNames.includes(n));
-    
+
     const newPeople = newNames.map(name => ({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
       contactName: name,
@@ -216,13 +222,13 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const removeLocalItem = (idx: number) => {
     const nextItems = localLineItems.filter((_, i) => i !== idx);
     setLocalLineItems(nextItems);
-    
+
     // Cleanup assignments
     const nextAssignments: Record<number, string[]> = {};
     Object.entries(itemAssignments).forEach(([key, val]) => {
       const k = parseInt(key);
       if (k < idx) nextAssignments[k] = val;
-      if (k > idx) nextAssignments[k-1] = val;
+      if (k > idx) nextAssignments[k - 1] = val;
     });
     setItemAssignments(nextAssignments);
     calculateItemSplit(splits, nextAssignments, nextItems);
@@ -267,6 +273,13 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     // Auto-generate shared link in the background to ensure it's accessible later
     try {
       if (!activeSharedId) {
+        const receiveAsset = assets.find(a => a.id === receiveAssetId);
+        const paymentDetails = receiveAsset?.accountNumber ? {
+          bankName: receiveAsset.name,
+          accountName: 'Pemilik Rekening', // Could be dynamic if we had it
+          accountNumber: receiveAsset.accountNumber
+        } : undefined;
+
         await dbSaveSharedSplit({
           type: 'split',
           sourceId: sourceId || `${merchantName}-${date}-${totalAmount}`,
@@ -276,7 +289,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
           currencySymbol,
           splits,
           lineItems: localLineItems,
-          itemAssignments
+          itemAssignments,
+          paymentDetails
         });
       }
     } catch (err) {
@@ -285,8 +299,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
     onSave(splits, {
       assetId: selectedAssetId,
-      category: selectedCategory,
-      subCategory: selectedSubCategory
+      categoryId: selectedCategoryId,
+      subCategoryId: selectedSubCategoryId
     });
     onClose();
   };
@@ -295,6 +309,13 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
     if (splits.length === 0) return;
     setIsSharing(true);
     try {
+      const receiveAsset = assets.find(a => a.id === receiveAssetId);
+      const paymentDetails = receiveAsset?.accountNumber ? {
+        bankName: receiveAsset.name,
+        accountName: 'Pemilik Rekening',
+        accountNumber: receiveAsset.accountNumber
+      } : undefined;
+
       const sharedId = await dbSaveSharedSplit({
         type: 'split',
         sourceId: sourceId || `${merchantName}-${date}-${totalAmount}`,
@@ -304,16 +325,21 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         currencySymbol,
         splits,
         lineItems: localLineItems,
-        itemAssignments
+        itemAssignments,
+        paymentDetails
       });
       setActiveSharedId(sharedId);
-      
+
       const shareUrl = `${window.location.origin}/shared-split/${sharedId}`;
-      
+      let text = `Detail split bill untuk ${merchantName} (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`;
+      if (paymentDetails) {
+        text += `\n\nTransfer ke:\n${paymentDetails.bankName} - ${paymentDetails.accountNumber}`;
+      }
+
       if (navigator.share) {
         await navigator.share({
           title: `Split Bill: ${merchantName}`,
-          text: `Detail split bill untuk ${merchantName} (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`,
+          text: text,
           url: shareUrl,
         });
       } else {
@@ -351,603 +377,575 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
-          >
-            <motion.div
-              className="modal-content"
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 600, mass: 0.5 }}
-            >
-              <div className="modal-header">
-                <h2 className="subtitle" style={{ margin: 0 }}>
-                  Split Bill
-                </h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {activeSharedId ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <button
-                        className="close-btn"
-                        onClick={() => {
-                          const url = `${window.location.origin}/shared-split/${activeSharedId}`;
-                          navigator.clipboard.writeText(url);
-                          setShowCopySuccess(true);
-                          setTimeout(() => setShowCopySuccess(false), 2000);
-                        }}
-                        title="Salin Link"
-                        style={{ color: showCopySuccess ? 'var(--success)' : 'var(--primary)' }}
-                      >
-                        {showCopySuccess ? <Check size={18} /> : <Copy size={18} />}
-                      </button>
-                      <button
-                        className="close-btn"
-                        onClick={() => window.open(`/shared-split/${activeSharedId}`, '_blank')}
-                        title="Buka Link"
-                      >
-                        <ExternalLink size={18} />
-                      </button>
-                      <button
-                        className="close-btn"
-                        onClick={handleRevoke}
-                        title="Hapus Link Sharing"
-                        style={{ color: 'var(--danger)' }}
-                      >
-                        <Link2Off size={18} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="close-btn"
-                      onClick={handleShare}
-                      disabled={isSharing || splits.length === 0}
-                      title="Bagikan Split Bill"
-                      style={{ color: 'var(--primary)', opacity: isSharing ? 0.5 : 1 }}
-                    >
-                      <Share2 size={18} className={isSharing ? 'animate-pulse' : ''} />
-                    </button>
-                  )}
-                  <button className="close-btn" onClick={onClose}>
-                    <X size={20} />
-                  </button>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  background: 'var(--bg-income)',
-                  border: '1.5px solid var(--primary)',
-                  borderRadius: 12,
-                  padding: '12px 14px',
-                  marginBottom: 16,
-                }}
-              >
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  {merchantName} • {date}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Wallet size={20} color="var(--primary)" />
-                  <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--primary)' }}>
-                    {currencySymbol}{totalAmount.toLocaleString('id-ID')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Asset & Category Pickers */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>REKENING</label>
-                  <button
-                    onClick={() => setIsAssetModalOpen(true)}
-                    style={{
-                      width: '100%', padding: '10px 8px', background: 'var(--bg-main)', border: '1.5px solid var(--border-color)',
-                      borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
-                    }}
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {selectedAssetId ? assets.find(a => a.id === selectedAssetId)?.name : 'Pilih...'}
-                    </span>
-                  </button>
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>KATEGORI</label>
-                  <button
-                    onClick={() => setIsCategoryModalOpen(true)}
-                    style={{
-                      width: '100%', padding: '10px 8px', background: 'var(--bg-main)', border: '1.5px solid var(--border-color)',
-                      borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
-                    }}
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, color: selectedCategory ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {selectedCategory ? (selectedSubCategory ? `${selectedCategory} > ${selectedSubCategory}` : selectedCategory) : 'Pilih...'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  background: 'var(--bg-main)',
-                  borderRadius: 12,
-                  padding: 4,
-                  marginBottom: 16,
-                  border: '1px solid var(--border-color)',
-                }}
-              >
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Split Bill"
+        headerActions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {activeSharedId ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button
-                  onClick={() => handleSplitMethodChange('equal')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: 'transparent',
-                    color: splitMethod === 'equal' ? 'white' : 'var(--text-muted)',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    position: 'relative',
-                    transition: 'color 0.2s ease',
+                  className="close-btn"
+                  onClick={() => {
+                    const url = `${window.location.origin}/shared-split/${activeSharedId}`;
+                    navigator.clipboard.writeText(url);
+                    setShowCopySuccess(true);
+                    setTimeout(() => setShowCopySuccess(false), 2000);
                   }}
+                  title="Salin Link"
+                  style={{ color: showCopySuccess ? 'var(--success)' : 'var(--primary)' }}
                 >
-                  {splitMethod === 'equal' && (
-                    <motion.div
-                      layoutId="activeSplitMethod"
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'var(--primary)',
-                        borderRadius: 8,
-                        zIndex: 1,
-                      }}
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <span style={{ position: 'relative', zIndex: 2 }}>Bagi Rata</span>
+                  {showCopySuccess ? <MaterialIcon name="check" className="text-[18px]" /> : <MaterialIcon name="content_copy" className="text-[18px]" />}
                 </button>
                 <button
-                  onClick={() => handleSplitMethodChange('items')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: 'transparent',
-                    color: splitMethod === 'items' ? 'white' : 'var(--text-muted)',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    position: 'relative',
-                    transition: 'color 0.2s ease',
-                  }}
+                  className="close-btn"
+                  onClick={() => window.open(`/shared-split/${activeSharedId}`, '_blank')}
+                  title="Buka Link"
                 >
-                  {splitMethod === 'items' && (
-                    <motion.div
-                      layoutId="activeSplitMethod"
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'var(--primary)',
-                        borderRadius: 8,
-                        zIndex: 1,
-                      }}
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <span style={{ position: 'relative', zIndex: 2 }}>Per Item</span>
+                  <MaterialIcon name="open_in_new" className="text-[18px]" />
                 </button>
                 <button
-                  onClick={() => handleSplitMethodChange('custom')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: 'transparent',
-                    color: splitMethod === 'custom' ? 'white' : 'var(--text-muted)',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    position: 'relative',
-                    transition: 'color 0.2s ease',
-                  }}
+                  className="close-btn"
+                  onClick={handleRevoke}
+                  title="Hapus Link Sharing"
+                  style={{ color: 'var(--danger)' }}
                 >
-                  {splitMethod === 'custom' && (
-                    <motion.div
-                      layoutId="activeSplitMethod"
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'var(--primary)',
-                        borderRadius: 8,
-                        zIndex: 1,
-                      }}
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <span style={{ position: 'relative', zIndex: 2 }}>Custom</span>
+                  <MaterialIcon name="link_off" className="text-[18px]" />
                 </button>
               </div>
-
-              <div
-                style={{
-                  maxHeight: splitMethod === 'items' ? 200 : 300,
-                  overflowY: 'auto',
-                  marginBottom: 16,
-                  paddingRight: 8,
-                  marginRight: -8,
-                }}
-                className="custom-scrollbar"
-              >
-                {splits.length === 0 ? (
-                  <div
-                    style={{
-                      textAlign: 'center',
-                      padding: '40px 20px',
-                      color: 'var(--text-muted)',
-                      background: 'var(--bg-main)',
-                      borderRadius: 12,
-                      border: '1.5px dashed var(--border-color)',
-                    }}
-                  >
-                    <Users size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-                    <div style={{ fontSize: 14, marginBottom: 8 }}>
-                      Belum ada orang ditambahkan
-                    </div>
-                    <div style={{ fontSize: 12 }}>
-                      Klik tombol "Tambah Orang" di bawah
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {splits.map((split) => (
-                      <div
-                        key={split.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          padding: '10px 12px',
-                          background: split.isPayer ? 'var(--bg-income)' : 'var(--bg-main)',
-                          border: `1.5px solid ${split.isPayer ? 'hsla(var(--p-h), 85%, 58%, 0.3)' : 'var(--border-color)'}`,
-                          borderRadius: 12,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 10,
-                            background: split.isPayer
-                              ? 'hsla(var(--p-h), 85%, 58%, 0.15)'
-                              : 'hsla(var(--n-h), 15%, 85%, 0.3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                            fontWeight: 700,
-                            fontSize: 13,
-                            color: split.isPayer ? 'var(--primary)' : 'var(--text-main)'
-                          }}
-                        >
-                          {split.contactName.charAt(0).toUpperCase()}
-                        </div>
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              fontSize: 13,
-                              color: 'var(--text-main)',
-                              marginBottom: 2,
-                            }}
-                          >
-                            {split.contactName}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 11,
-                              color: split.isPayer ? 'var(--primary)' : 'var(--text-muted)',
-                              fontWeight: 600,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                            }}
-                          >
-                            {split.isPayer ? (
-                              <>
-                                <ArrowUpRight size={12} />
-                                <span>Pemberi Dana (Piutang)</span>
-                              </>
-                            ) : (
-                              <>
-                                <ArrowDownLeft size={12} style={{ color: 'var(--danger)' }} />
-                                <span style={{ color: 'var(--text-muted)' }}>Penerima Dana (Hutang)</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        <CurrencyInput
-                          value={split.amount === 0 ? '' : split.amount}
-                          onChange={(raw) => updateAmount(split.id, parseInt(raw) || 0)}
-                          disabled={splitMethod !== 'custom'}
-                          style={{
-                            width: 90,
-                            padding: '6px 8px',
-                            borderRadius: 8,
-                            border: '1.5px solid var(--border-color)',
-                            textAlign: 'right',
-                            fontWeight: 700,
-                            fontSize: 12,
-                            marginBottom: 0,
-                            background: splitMethod !== 'custom' ? 'var(--bg-main)' : 'var(--bg-card-solid)',
-                            color: 'var(--text-main)',
-                          }}
-                          placeholder="0"
-                        />
-
-                        <button
-                          onClick={() => togglePayer(split.id)}
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 8,
-                            border: 'none',
-                            background: split.isPayer ? 'hsla(var(--p-h), 85%, 58%, 0.15)' : 'hsla(var(--n-h), 10%, 50%, 0.1)',
-                            color: split.isPayer ? 'var(--primary)' : 'var(--text-muted)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            flexShrink: 0,
-                            transition: 'all 0.2s',
-                          }}
-                          title="Ubah peran pembayar/penerima"
-                        >
-                          {split.isPayer ? <ArrowUpRight size={16} /> : <ArrowDownLeft size={16} />}
-                        </button>
-
-                        <button
-                          onClick={() => removePerson(split.id)}
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 8,
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--danger)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s',
-                            flexShrink: 0,
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-expense)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {splitMethod === 'items' && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Rincian Item</span>
-                    <button 
-                      onClick={addLocalItem}
-                      style={{ 
-                        padding: '4px 10px', borderRadius: '8px', background: 'var(--primary-glow)', 
-                        border: 'none', color: 'var(--primary)', fontSize: '11px', fontWeight: 800, cursor: 'pointer' 
-                      }}
-                    >
-                      <Plus size={14} style={{ marginRight: 4, display: 'inline' }} /> Tambah Item
-                    </button>
-                  </div>
-                  <div style={{ maxHeight: 250, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }} className="custom-scrollbar">
-                    {localLineItems.length === 0 ? (
-                      <div style={{ padding: '20px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: 12, color: 'var(--text-muted)', fontSize: 12 }}>
-                        Belum ada item. Klik "Tambah Item" untuk memulai.
-                      </div>
-                    ) : (
-                      localLineItems.map((item, idx) => (
-                        <div key={idx} style={{ background: 'var(--bg-card)', borderRadius: 12, padding: '12px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                            <input 
-                              type="text" 
-                              value={item.name}
-                              onChange={(e) => updateLocalItem(idx, { name: e.target.value })}
-                              placeholder="Nama Item..."
-                              style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13, fontWeight: 700, marginBottom: 0 }}
-                            />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
-                              <CurrencyInput 
-                                value={item.amount === 0 ? '' : item.amount}
-                                onChange={(raw) => updateLocalItem(idx, { amount: parseInt(raw) || 0 })}
-                                placeholder="0"
-                                style={{ width: 80, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13, fontWeight: 800, textAlign: 'right', marginBottom: 0 }}
-                              />
-                            </div>
-                            <button 
-                              onClick={() => removeLocalItem(idx)}
-                              style={{ padding: '6px', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                          
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                            {splits.map(person => {
-                              const isAssigned = (itemAssignments[idx] || []).includes(person.id);
-                              return (
-                                <button
-                                  key={person.id}
-                                  onClick={() => toggleItemAssignment(idx, person.id)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    borderRadius: 14,
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    border: isAssigned ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)',
-                                    background: isAssigned ? 'var(--primary-glow)' : 'var(--bg-main)',
-                                    color: isAssigned ? 'var(--primary)' : 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                  }}
-                                >
-                                  {person.contactName}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {splits.length > 0 && (
-                <div
-                  style={{
-                    background: 'var(--bg-main)',
-                    borderRadius: 12,
-                    padding: '10px 12px',
-                    marginBottom: 16,
-                    border: `1.5px solid ${Math.abs(difference) === 0 ? 'var(--success)' : 'var(--danger)'}`,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: 12,
-                      marginBottom: 4,
-                    }}
-                  >
-                    <span style={{ color: 'var(--text-muted)' }}>Total Split:</span>
-                    <span style={{ fontWeight: 700 }}>
-                      {currencySymbol}{totalSplit.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: 12,
-                      marginBottom: 4,
-                    }}
-                  >
-                    <span style={{ color: 'var(--text-muted)' }}>Total Tagihan:</span>
-                    <span style={{ fontWeight: 700 }}>
-                      {currencySymbol}{totalAmount.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      paddingTop: 8,
-                      borderTop: '1px solid var(--border-color)',
-                    }}
-                  >
-                    <span>Selisih:</span>
-                    <span
-                      style={{
-                        color: Math.abs(difference) === 0 ? 'var(--success)' : 'var(--danger)',
-                      }}
-                    >
-                      {difference === 0 ? '✓ Pas' : `${currencySymbol}${Math.abs(difference).toLocaleString('id-ID')}`}
-                    </span>
-                  </div>
-                </div>
-              )}
-
+            ) : (
               <button
-                onClick={() => setContactModalOpen(true)}
+                className="close-btn"
+                onClick={handleShare}
+                disabled={isSharing || splits.length === 0}
+                title="Bagikan Split Bill"
+                style={{ color: 'var(--primary)', opacity: isSharing ? 0.5 : 1 }}
+              >
+                <MaterialIcon name="share" className={isSharing ? 'animate-pulse' : ''} />
+              </button>
+            )}
+          </div>
+        }
+      >
+        <div style={{ flexShrink: 0 }}>
+          <Card
+          variant="glass"
+          style={{
+            padding: '12px 14px',
+            marginBottom: 16,
+            border: '1.5px solid var(--primary)'
+          }}
+        >
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+            {merchantName} • {date}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <MaterialIcon name="account_balance_wallet" className="text-[20px]" />
+            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--primary)' }}>
+              {currencySymbol}{totalAmount.toLocaleString('id-ID')}
+            </span>
+          </div>
+        </Card>
+
+        {/* Asset & Category Pickers */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title="DIBAYAR DENGAN">DIBAYAR DENGAN</label>
+            <button
+              onClick={() => setIsAssetModalOpen(true)}
+              style={{
+                width: '100%', padding: '10px 8px', background: 'var(--bg-main)', border: '1.5px solid var(--border-color)',
+                borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, color: selectedAssetId ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {selectedAssetId ? assets.find(a => a.id === selectedAssetId)?.name : 'Pilih...'}
+              </span>
+            </button>
+          </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title="TERIMA TRANSFER DI">TERIMA TRANSFER DI</label>
+            <button
+              onClick={() => setIsReceiveAssetModalOpen(true)}
+              style={{
+                width: '100%', padding: '10px 8px', background: 'var(--bg-main)', border: '1.5px solid var(--border-color)',
+                borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, color: receiveAssetId ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {receiveAssetId ? assets.find(a => a.id === receiveAssetId)?.name : 'Sama dengan bayar'}
+              </span>
+            </button>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>KATEGORI PENGELUARAN</label>
+            <button
+              onClick={() => setIsCategoryModalOpen(true)}
+              style={{
+                width: '100%', padding: '10px 8px', background: 'var(--bg-main)', border: '1.5px solid var(--border-color)',
+                borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, color: selectedCategoryId ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {selectedCategoryId ? (() => {
+                  const cat = categories.find(c => c.id === selectedCategoryId);
+                  const catName = cat?.name || selectedCategoryId;
+                  if (selectedSubCategoryId) {
+                    const subName = cat?.subcategories?.find(s => s.id === selectedSubCategoryId)?.name || selectedSubCategoryId;
+                    return `${catName} > ${subName}`;
+                  }
+                  return catName;
+                })() : 'Pilih...'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <Card
+          variant="default"
+          style={{
+            display: 'flex',
+            padding: 4,
+            marginBottom: 16,
+          }}
+        >
+          <button
+            onClick={() => handleSplitMethodChange('equal')}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'transparent',
+              color: splitMethod === 'equal' ? 'white' : 'var(--text-muted)',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+              position: 'relative',
+              transition: 'color 0.2s ease',
+            }}
+          >
+            {splitMethod === 'equal' && (
+              <div
                 style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: 'none',
-                  border: '1.5px dashed var(--border-color)',
-                  borderRadius: 12,
-                  cursor: 'pointer',
-                  color: 'var(--primary)',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  marginBottom: 16,
-                  transition: 'all 0.2s',
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'var(--primary)',
+                  borderRadius: 8,
+                  zIndex: 1,
                 }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)';
-                  (e.currentTarget as HTMLElement).style.background = 'var(--bg-income)';
+              />
+            )}
+            <span style={{ position: 'relative', zIndex: 2 }}>Bagi Rata</span>
+          </button>
+          <button
+            onClick={() => handleSplitMethodChange('items')}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'transparent',
+              color: splitMethod === 'items' ? 'white' : 'var(--text-muted)',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+              position: 'relative',
+              transition: 'color 0.2s ease',
+            }}
+          >
+            {splitMethod === 'items' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'var(--primary)',
+                  borderRadius: 8,
+                  zIndex: 1,
                 }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-color)';
-                  (e.currentTarget as HTMLElement).style.background = 'none';
+              />
+            )}
+            <span style={{ position: 'relative', zIndex: 2 }}>Per Item</span>
+          </button>
+          <button
+            onClick={() => handleSplitMethodChange('custom')}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'transparent',
+              color: splitMethod === 'custom' ? 'white' : 'var(--text-muted)',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+              position: 'relative',
+              transition: 'color 0.2s ease',
+            }}
+          >
+            {splitMethod === 'custom' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'var(--primary)',
+                  borderRadius: 8,
+                  zIndex: 1,
+                }}
+              />
+            )}
+            <span style={{ position: 'relative', zIndex: 2 }}>Custom</span>
+          </button>
+        </Card>
+
+        <div
+          style={{
+            marginBottom: 16,
+            paddingRight: 8,
+            marginRight: -8,
+          }}
+          className="custom-scrollbar"
+        >
+          {splits.length === 0 ? (
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '40px 20px',
+                color: 'var(--text-muted)',
+                background: 'var(--bg-main)',
+                borderRadius: 12,
+                border: '1.5px dashed var(--border-color)',
+              }}
+            >
+              <MaterialIcon name="people" />
+              <div style={{ fontSize: 14, marginBottom: 8 }}>
+                Belum ada orang ditambahkan
+              </div>
+              <div style={{ fontSize: 12 }}>
+                Klik tombol "Tambah Orang" di bawah
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {splits.map((split) => (
+                <div
+                  key={split.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 12px',
+                    background: split.isPayer ? 'var(--bg-income)' : 'var(--bg-main)',
+                    border: `1.5px solid ${split.isPayer ? 'hsla(var(--p-h), 85%, 58%, 0.3)' : 'var(--border-color)'}`,
+                    borderRadius: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      background: split.isPayer
+                        ? 'hsla(var(--p-h), 85%, 58%, 0.15)'
+                        : 'hsla(var(--n-h), 15%, 85%, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: split.isPayer ? 'var(--primary)' : 'var(--text-main)'
+                    }}
+                  >
+                    {split.contactName.charAt(0).toUpperCase()}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: 'var(--text-main)',
+                        marginBottom: 2,
+                      }}
+                    >
+                      {split.contactName}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: split.isPayer ? 'var(--primary)' : 'var(--text-muted)',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      {split.isPayer ? (
+                        <>
+                          <MaterialIcon name="call_made" className="text-[12px]" />
+                          <span>Pemberi Dana (Piutang)</span>
+                        </>
+                      ) : (
+                        <>
+                          <MaterialIcon name="call_received" />
+                          <span style={{ color: 'var(--text-muted)' }}>Penerima Dana (Hutang)</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <CurrencyInput
+                    value={split.amount === 0 ? '' : split.amount}
+                    onChange={(raw) => updateAmount(split.id, parseInt(raw) || 0)}
+                    disabled={splitMethod !== 'custom'}
+                    style={{
+                      width: 90,
+                      padding: '6px 8px',
+                      borderRadius: 8,
+                      border: '1.5px solid var(--border-color)',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      marginBottom: 0,
+                      background: splitMethod !== 'custom' ? 'var(--bg-main)' : 'var(--bg-card-solid)',
+                      color: 'var(--text-main)',
+                    }}
+                    placeholder="0"
+                  />
+
+                  <button
+                    onClick={() => togglePayer(split.id)}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      border: 'none',
+                      background: split.isPayer ? 'hsla(var(--p-h), 85%, 58%, 0.15)' : 'hsla(var(--n-h), 10%, 50%, 0.1)',
+                      color: split.isPayer ? 'var(--primary)' : 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      transition: 'all 0.2s',
+                    }}
+                    title="Ubah peran pembayar/penerima"
+                  >
+                    {split.isPayer ? <MaterialIcon name="call_made" className="text-[16px]" /> : <MaterialIcon name="call_received" className="text-[16px]" />}
+                  </button>
+
+                  <button
+                    onClick={() => removePerson(split.id)}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--danger)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s',
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-expense)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                  >
+                    <MaterialIcon name="delete" className="text-[16px]" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {splitMethod === 'items' && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Rincian Item</span>
+              <button
+                onClick={addLocalItem}
+                style={{
+                  padding: '4px 10px', borderRadius: '8px', background: 'var(--primary-glow)',
+                  border: 'none', color: 'var(--primary)', fontSize: '11px', fontWeight: 800, cursor: 'pointer'
                 }}
               >
-                <Plus size={16} />
-                Tambah Orang
+                <MaterialIcon name="add" /> Tambah Item
               </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} className="custom-scrollbar">
+              {localLineItems.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: 12, color: 'var(--text-muted)', fontSize: 12 }}>
+                  Belum ada item. Klik "Tambah Item" untuk memulai.
+                </div>
+              ) : (
+                localLineItems.map((item, idx) => (
+                  <div key={idx} style={{ background: 'var(--bg-card)', borderRadius: 12, padding: '12px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                      <input
+                        type="text"
+                        value={item.name}
+                        onChange={(e) => updateLocalItem(idx, { name: e.target.value })}
+                        placeholder="Nama Item..."
+                        style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13, fontWeight: 700, marginBottom: 0 }}
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{currencySymbol}</span>
+                        <CurrencyInput
+                          value={item.amount === 0 ? '' : item.amount}
+                          onChange={(raw) => updateLocalItem(idx, { amount: parseInt(raw) || 0 })}
+                          placeholder="0"
+                          style={{ width: 80, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13, fontWeight: 800, textAlign: 'right', marginBottom: 0 }}
+                        />
+                      </div>
+                      <button
+                        onClick={() => removeLocalItem(idx)}
+                        style={{ padding: '6px', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                      >
+                        <MaterialIcon name="delete" className="text-[16px]" />
+                      </button>
+                    </div>
 
-              <div style={{ display: 'flex', gap: 10 }}>
-                {activeSharedId ? (
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => window.open(`${window.location.origin}/shared-split/${activeSharedId}`, '_blank')}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                  >
-                    <ExternalLink size={16} /> Buka Link
-                  </button>
-                ) : (
-                  <button
-                    className="btn"
-                    onClick={onClose}
-                    style={{ flex: 1 }}
-                  >
-                    Batal
-                  </button>
-                )}
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSave}
-                  style={{ flex: 2 }}
-                  disabled={splits.length === 0 || Math.abs(difference) !== 0}
-                >
-                  Simpan Split Bill
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {splits.map(person => {
+                        const isAssigned = (itemAssignments[idx] || []).includes(person.id);
+                        return (
+                          <button
+                            key={person.id}
+                            onClick={() => toggleItemAssignment(idx, person.id)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 14,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              border: isAssigned ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)',
+                              background: isAssigned ? 'var(--primary-glow)' : 'var(--bg-main)',
+                              color: isAssigned ? 'var(--primary)' : 'var(--text-muted)',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                            }}
+                          >
+                            {person.contactName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
-      <ContactSelectModal 
+        {splits.length > 0 && (
+          <Card
+            variant="default"
+            style={{
+              padding: '10px 12px',
+              marginBottom: 16,
+              border: `1.5px solid ${Math.abs(difference) === 0 ? 'var(--success)' : 'var(--danger)'}`,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 12,
+                marginBottom: 4,
+              }}
+            >
+              <span style={{ color: 'var(--text-muted)' }}>Total Split:</span>
+              <span style={{ fontWeight: 700 }}>
+                {currencySymbol}{totalSplit.toLocaleString('id-ID')}
+              </span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 12,
+                marginBottom: 4,
+              }}
+            >
+              <span style={{ color: 'var(--text-muted)' }}>Total Tagihan:</span>
+              <span style={{ fontWeight: 700 }}>
+                {currencySymbol}{totalAmount.toLocaleString('id-ID')}
+              </span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 13,
+                fontWeight: 700,
+                paddingTop: 8,
+                borderTop: '1px solid var(--border-color)',
+              }}
+            >
+              <span>Selisih:</span>
+              <span
+                style={{
+                  color: Math.abs(difference) === 0 ? 'var(--success)' : 'var(--danger)',
+                }}
+              >
+                {difference === 0 ? '✓ Pas' : `${currencySymbol}${Math.abs(difference).toLocaleString('id-ID')}`}
+              </span>
+            </div>
+          </Card>
+        )}
+
+        <Button
+          variant="outline"
+          fullWidth
+          onClick={() => setContactModalOpen(true)}
+          style={{
+            borderStyle: 'dashed',
+            marginBottom: 16,
+            height: 'auto',
+            padding: '12px'
+          }}
+        >
+          <MaterialIcon name="add" className="text-[16px]" />
+          Tambah Orang
+        </Button>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          {activeSharedId ? (
+            <Button
+              variant="outline"
+              onClick={() => window.open(`${window.location.origin}/shared-split/${activeSharedId}`, '_blank')}
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              <MaterialIcon name="open_in_new" className="text-[16px]" /> Buka Link
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={onClose}
+              style={{ flex: 1 }}
+            >
+              Batal
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            style={{ flex: 2 }}
+            disabled={splits.length === 0 || Math.abs(difference) !== 0}
+          >
+            Simpan Split Bill
+          </Button>
+        </div>
+        </div>
+      </Modal>
+
+      <ContactSelectModal
         isOpen={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
         contacts={contacts}
@@ -961,7 +959,21 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         onClose={() => setIsAssetModalOpen(false)}
         assets={assets}
         selectedAssetId={selectedAssetId}
-        onSelect={setSelectedAssetId}
+        onSelect={(id) => {
+          setSelectedAssetId(id);
+          // If receive asset is not set, or was previously the same as selected, keep them synced
+          if (!receiveAssetId) {
+            setReceiveAssetId(id);
+          }
+        }}
+      />
+
+      <AssetSelectModal
+        isOpen={isReceiveAssetModalOpen}
+        onClose={() => setIsReceiveAssetModalOpen(false)}
+        assets={assets}
+        selectedAssetId={receiveAssetId || selectedAssetId}
+        onSelect={setReceiveAssetId}
       />
 
       <CategorySelectModal
@@ -969,11 +981,11 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
         type="pengeluaran"
-        initialCategory={selectedCategory}
-        initialSubCategory={selectedSubCategory}
+        initialCategoryId={selectedCategoryId}
+        initialSubCategoryId={selectedSubCategoryId}
         onSelect={(cat, sub) => {
-          setSelectedCategory(cat);
-          setSelectedSubCategory(sub || '');
+          setSelectedCategoryId(cat);
+          setSelectedSubCategoryId(sub || '');
         }}
       />
 

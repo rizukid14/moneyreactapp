@@ -1,15 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, AlertTriangle, MoreVertical, Edit2, Trash2, PlusCircle, Wallet, ArrowRightLeft, HandCoins, Info, Folder, Check } from 'lucide-react';
+import MaterialIcon from './common/MaterialIcon';
 import { useMoney, type Budget } from '../contexts/MoneyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import BudgetModal from './modals/BudgetModal';
 import ConfirmDialog from './common/ConfirmDialog';
+import DropdownMenu from './common/DropdownMenu';
 import CurrencyInput from './common/CurrencyInput';
 
-const MONTH_NAMES = [
-  'Januari','Februari','Maret','April','Mei','Juni',
-  'Juli','Agustus','September','Oktober','November','Desember'
-];
+import { MONTH_NAMES } from '../lib/constants';
 
 const fmt = (val: number, sym: string) => `${sym}${val.toLocaleString('id-ID')}`;
 
@@ -18,9 +16,9 @@ const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   const circ = 2 * Math.PI * r;
   const clamped = Math.min(percent, 100);
   const offset = circ - (clamped / 100) * circ;
-  const color = percent >= 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
+  const color = percent >= 100 ? 'var(--danger)' : percent >= 75 ? 'var(--warning)' : 'var(--primary)';
   return (
-    <svg width="108" height="108" viewBox="0 0 108 108">
+    <svg data-testid="budget-progress" width="108" height="108" viewBox="0 0 108 108">
       <circle cx="54" cy="54" r={r} fill="none" stroke="var(--border-color)" strokeWidth="10" />
       <circle
         cx="54" cy="54" r={r} fill="none"
@@ -41,7 +39,7 @@ const CircleProgress: React.FC<{ percent: number }> = ({ percent }) => {
   );
 };
 
-const EnvelopeCard: React.FC<{
+interface EnvelopeCardProps {
   label: string;
   spent: number;
   limit: number;
@@ -51,12 +49,15 @@ const EnvelopeCard: React.FC<{
   isMenuOpen: boolean;
   onMenuToggle: () => void;
   currencySymbol: string;
-}> = ({ label, spent, limit, onTopUp, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol }) => {
+  id: string;
+}
+
+const EnvelopeCard = React.memo<EnvelopeCardProps>(({ label, spent, limit, onTopUp, onEdit, onDelete, currencySymbol, id }) => {
   const available = limit - spent;
   const isOver = available < 0;
   
   return (
-    <div className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative', padding: '16px 20px', borderLeft: isOver ? '4px solid var(--danger)' : available === 0 ? '4px solid var(--border-color)' : '4px solid var(--primary)' }}>
+    <div data-testid={`budget-card-${id}`} className={`bg-bg-card p-4 rounded-2xl shadow-bento border-l-[4px] relative mb-3 group transition-all ${isOver ? 'border-l-error' : available === 0 ? 'border-l-outline-variant' : 'border-l-primary'}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
         <div>
           <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)', marginBottom: 2 }}>{label}</div>
@@ -64,26 +65,12 @@ const EnvelopeCard: React.FC<{
             Dianggarkan: {fmt(limit, currencySymbol)} &bull; Terpakai: {fmt(spent, currencySymbol)}
           </div>
         </div>
-        <div style={{ position: 'relative' }}>
-          <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
-            <MoreVertical size={16} />
-          </button>
-          <AnimatePresence>
-            {isMenuOpen && (
-              <motion.div 
-                className="budget-dropdown" 
-                style={{ right: 0, top: 28 }}
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                transition={{ duration: 0.1 }}
-              >
-                <button className="budget-dropdown-item" onClick={onEdit}><Edit2 size={13} /> Edit Limit</button>
-                <button className="budget-dropdown-item danger" onClick={onDelete}><Trash2 size={13} /> Hapus</button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <DropdownMenu 
+          items={[
+            { icon: 'edit', label: 'Edit Limit', onClick: onEdit },
+            { icon: 'delete', label: 'Hapus', danger: true, onClick: onDelete }
+          ]}
+        />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12 }}>
@@ -101,21 +88,16 @@ const EnvelopeCard: React.FC<{
         
         <button 
           onClick={(e) => { e.stopPropagation(); onTopUp(); }}
-          style={{ 
-            background: 'var(--bg-main)', border: '1px solid var(--border-color)', 
-            color: 'var(--primary)', width: 36, height: 36, borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-          }}
+          className="w-9 h-9 rounded-full bg-surface-container-low border border-outline-variant text-primary flex items-center justify-center cursor-pointer shadow-sm hover:bg-surface-container transition-colors"
         >
-          <PlusCircle size={18} />
+          <MaterialIcon name="add_circle" className="text-lg" />
         </button>
       </div>
     </div>
   );
-};
+});
 
-const BudgetCard: React.FC<{
+interface BudgetCardProps {
   label: string;
   icon?: React.ReactNode;
   spent: number;
@@ -126,22 +108,20 @@ const BudgetCard: React.FC<{
   isMenuOpen: boolean;
   onMenuToggle: () => void;
   currencySymbol: string;
-}> = ({ label, icon, spent, limit, isOver, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol }) => {
+  id: string;
+}
+
+const BudgetCard = React.memo<BudgetCardProps>(({ label, icon, spent, limit, isOver, onEdit, onDelete, currencySymbol, id }) => {
   const percent = limit > 0 ? (spent / limit) * 100 : 0;
   const remaining = limit - spent;
-  const barColor = percent >= 100 ? 'var(--danger)' : percent >= 75 ? '#f59e0b' : 'var(--primary)';
+  const barColor = percent >= 100 ? 'var(--danger)' : percent >= 75 ? 'var(--warning)' : 'var(--primary)';
 
   return (
-    <div className={`budget-card-v2 ${isOver ? 'over' : ''}`} style={{ position: 'relative' }}>
+    <div data-testid={`budget-card-${id}`} className={`bg-bg-card p-4 rounded-2xl shadow-bento border border-outline-variant relative mb-3 group transition-all`} style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {icon && (
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: isOver ? 'var(--bg-expense)' : 'var(--bg-income)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: isOver ? 'var(--danger)' : 'var(--primary)', flexShrink: 0
-            }}>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isOver ? 'bg-error-container text-error' : 'bg-primary-container text-primary-color'}`}>
               {icon}
             </div>
           )}
@@ -149,31 +129,17 @@ const BudgetCard: React.FC<{
             <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>{label}</div>
             {isOver && (
               <div style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
-                <AlertTriangle size={10} /> Over budget
+                <MaterialIcon name="warning" className="text-[10px]" /> Over budget
               </div>
             )}
           </div>
         </div>
-        <div style={{ position: 'relative' }}>
-          <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
-            <MoreVertical size={16} />
-          </button>
-          <AnimatePresence>
-            {isMenuOpen && (
-              <motion.div 
-                className="budget-dropdown" 
-                style={{ right: 0, top: 28 }}
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                transition={{ duration: 0.1 }}
-              >
-                <button className="budget-dropdown-item" onClick={onEdit}><Edit2 size={13} /> Edit</button>
-                <button className="budget-dropdown-item danger" onClick={onDelete}><Trash2 size={13} /> Hapus</button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <DropdownMenu 
+          items={[
+            { icon: 'edit', label: 'Edit', onClick: onEdit },
+            { icon: 'delete', label: 'Hapus', danger: true, onClick: onDelete }
+          ]}
+        />
       </div>
 
       <div style={{ height: 7, background: 'var(--bg-neutral)', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
@@ -191,14 +157,14 @@ const BudgetCard: React.FC<{
         </span>
         <span style={{
           fontWeight: 700,
-          color: isOver ? 'var(--danger)' : remaining < limit * 0.25 ? '#f59e0b' : 'var(--success)'
+          color: isOver ? 'var(--danger)' : remaining < limit * 0.25 ? 'var(--warning)' : 'var(--success)'
         }}>
           {isOver ? `-${fmt(spent - limit, currencySymbol)}` : `Sisa ${fmt(remaining, currencySymbol)}`}
         </span>
       </div>
     </div>
   );
-};
+});
 
 export const BudgetManagement: React.FC = () => {
   const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget, currencySymbol, startOfMonthDay, budgetMode, monthlyIncomes, setMonthIncome, moveBudgetMoney, budgetReallocations } = useMoney();
@@ -234,7 +200,8 @@ export const BudgetManagement: React.FC = () => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
         map.total += tx.amount;
-        const cat = categories.find(c => c.name === tx.category && c.type === 'pengeluaran');
+        const cat = categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories.find(c => c.name === tx.categoryId && c.type === 'pengeluaran');
         if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
       }
     });
@@ -302,11 +269,11 @@ export const BudgetManagement: React.FC = () => {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: 'var(--bg-main)', borderRadius: 14, padding: '4px 6px', marginBottom: 16,
       }}>
-        <button onClick={() => changeMonth(-1)} className="btn-icon"><ChevronLeft size={18} /></button>
+        <button data-testid="budget-month-prev" onClick={() => changeMonth(-1)} className="btn-icon"><MaterialIcon name="chevron_left" className="text-lg" /></button>
         <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>
           {MONTH_NAMES[selectedMonth]} {selectedYear}
         </span>
-        <button onClick={() => changeMonth(1)} className="btn-icon"><ChevronRight size={18} /></button>
+        <button data-testid="budget-month-next" onClick={() => changeMonth(1)} className="btn-icon"><MaterialIcon name="chevron_right" className="text-lg" /></button>
       </div>
 
       {/* Hero Card */}
@@ -319,7 +286,7 @@ export const BudgetManagement: React.FC = () => {
             position: 'relative', overflow: 'hidden'
           }}>
             <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.1 }}>
-              <HandCoins size={120} strokeWidth={1} />
+              <MaterialIcon name="savings" className="text-[120px]" />
             </div>
             
             <div style={{ position: 'relative', zIndex: 1 }}>
@@ -371,7 +338,7 @@ export const BudgetManagement: React.FC = () => {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}
                 >
-                  <ArrowRightLeft size={14} /> Pindahkan
+                  <MaterialIcon name="swap_horiz" className="text-sm" /> Pindahkan
                 </button>
               </div>
             </div>
@@ -386,13 +353,13 @@ export const BudgetManagement: React.FC = () => {
                 display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600
               }}
             >
-              <Info size={14} />
+              <MaterialIcon name="info" className="text-sm" />
               <span>Alokasikan sisa <strong>{fmt(unassignedMoney, currencySymbol)}</strong> ke kategori agar menjadi nol.</span>
             </motion.div>
           )}
         </div>
       ) : globalBudget ? (
-        <div className={`budget-hero-card ${globalPercent >= 100 ? 'danger' : globalPercent >= 75 ? 'warning' : ''}`} style={{ marginBottom: 16, position: 'relative', padding: 16 }}>
+        <div data-testid="budget-global" className={`budget-hero-card ${globalPercent >= 100 ? 'danger' : globalPercent >= 75 ? 'warning' : ''}`} style={{ marginBottom: 16, position: 'relative', padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>
@@ -406,7 +373,7 @@ export const BudgetManagement: React.FC = () => {
               </div>
               {globalPercent >= 100 ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 10, padding: '6px 10px', background: 'hsla(350,80%,58%,0.12)', borderRadius: 8, width: 'fit-content' }}>
-                  <AlertTriangle size={13} color="var(--danger)" />
+                  <MaterialIcon name="warning" className="text-[13px] text-error" />
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>
                     Melebihi {fmt(spendingMap.total - globalBudget.limit, currencySymbol)}
                   </span>
@@ -420,26 +387,14 @@ export const BudgetManagement: React.FC = () => {
             <div style={{ transform: 'scale(0.8)', marginLeft: -10 }}>
               <CircleProgress percent={globalPercent} />
             </div>
-          </div>
-          <div style={{ position: 'absolute', top: 10, right: 10 }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setActiveMenu(activeMenu === globalBudget.id ? null : globalBudget.id)} className="btn-icon" style={{ padding: 4 }}>
-              <MoreVertical size={16} />
-            </button>
-            <AnimatePresence>
-              {activeMenu === globalBudget.id && (
-                <motion.div 
-                  className="budget-dropdown" 
-                  style={{ right: 0, top: 28 }}
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <button className="budget-dropdown-item" onClick={() => handleEdit(globalBudget)}><Edit2 size={13} /> Edit</button>
-                  <button className="budget-dropdown-item danger" onClick={() => handleDelete(globalBudget.id)}><Trash2 size={13} /> Hapus</button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div style={{ position: 'absolute', top: 10, right: 10 }}>
+              <DropdownMenu 
+                items={[
+                  { icon: 'edit', label: 'Edit', onClick: () => { setActiveMenu(null); handleEdit(globalBudget); } },
+                  { icon: 'delete', label: 'Hapus', danger: true, onClick: () => { setActiveMenu(null); handleDelete(globalBudget.id); } }
+                ]}
+              />
+            </div>
           </div>
         </div>
       ) : (
@@ -460,8 +415,8 @@ export const BudgetManagement: React.FC = () => {
               Salin Bulan Lalu
             </button>
           )}
-          <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <PlusCircle size={14} /> Tambah
+          <button data-testid="add-budget-btn" onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <MaterialIcon name="add_circle" className="text-sm" /> Tambah
           </button>
         </div>
       </div>
@@ -486,11 +441,12 @@ export const BudgetManagement: React.FC = () => {
                   isMenuOpen={activeMenu === b.id}
                   onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
                   currencySymbol={currencySymbol}
+                  id={b.id}
                 />
               ) : (
                 <BudgetCard
                   label={cat?.name || 'Kategori Terhapus'}
-                  icon={<Wallet size={14} />}
+                  icon={<MaterialIcon name="account_balance_wallet" className="text-sm" />}
                   spent={spent}
                   limit={b.limit}
                   isOver={spent > b.limit}
@@ -499,6 +455,7 @@ export const BudgetManagement: React.FC = () => {
                   isMenuOpen={activeMenu === b.id}
                   onMenuToggle={() => setActiveMenu(activeMenu === b.id ? null : b.id)}
                   currencySymbol={currencySymbol}
+                  id={b.id}
                 />
               )}
             </div>
@@ -526,7 +483,7 @@ export const BudgetManagement: React.FC = () => {
                     <div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>{fromName}</span>
-                        <ArrowRightLeft size={10} style={{ color: 'var(--text-muted)' }} />
+                        <MaterialIcon name="swap_horiz" className="text-[10px] text-on-surface-variant" />
                         <span>{toName}</span>
                       </div>
                       <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
@@ -593,7 +550,7 @@ interface MoveMoneyModalProps {
   defaultToId?: string | null;
 }
 
-const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, spendingMap, onMove, currencySymbol, defaultToId }) => {
+export const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budgets, categories, unassignedMoney, spendingMap, onMove, currencySymbol, defaultToId }) => {
   const [fromId, setFromId] = useState<string | null | 'unassigned'>('unassigned');
   const [toId, setToId] = useState<string | null | 'unassigned'>('');
   const [amount, setAmount] = useState<string>('');
@@ -647,11 +604,11 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
       <motion.div 
         className="modal-content" 
         onClick={e => e.stopPropagation()}
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
       >
         <div className="modal-header">
           <h2 className="subtitle">Pindahkan Dana</h2>
-          <button className="close-btn" onClick={onClose}><X /></button>
+          <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-xl" /></button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -667,20 +624,20 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Folder size={18} color="var(--primary)" />
+                <MaterialIcon name="folder" className="text-lg text-primary" />
                 <span style={{ fontWeight: 600 }}>
                   {fromId === 'unassigned' ? `Sisa Belum Dialokasikan (Tersedia: ${fmt(unassignedMoney, currencySymbol)})` : (
                     categories.find(c => c.id === fromId)?.name ? `${categories.find(c => c.id === fromId)?.name} (Tersedia: ${fmt(available, currencySymbol)})` : 'Pilih sumber...'
                   )}
                 </span>
               </div>
-              <ChevronRight size={18} color="var(--text-muted)" />
+              <MaterialIcon name="chevron_right" className="text-lg text-on-surface-variant" />
             </button>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-              <ArrowRightLeft size={20} />
+              <MaterialIcon name="swap_horiz" className="text-xl" />
             </div>
           </div>
 
@@ -696,14 +653,14 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Folder size={18} color="var(--primary)" />
+                <MaterialIcon name="folder" className="text-lg text-primary" />
                 <span style={{ fontWeight: 600 }}>
                   {toId === 'unassigned' ? 'Sisa Belum Dialokasikan' : (
                     categories.find(c => c.id === toId)?.name ? categories.find(c => c.id === toId)?.name : 'Pilih target...'
                   )}
                 </span>
               </div>
-              <ChevronRight size={18} color="var(--text-muted)" />
+              <MaterialIcon name="chevron_right" className="text-lg text-on-surface-variant" />
             </button>
           </div>
 
@@ -752,14 +709,12 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
             <motion.div
               className="modal-content"
               onClick={e => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               style={{ maxHeight: '60vh', overflowY: 'auto', padding: '20px' }}
             >
               <div className="modal-header">
                 <h3 className="subtitle" style={{ margin: 0 }}>Pilih Sumber Dana</h3>
-                <button className="close-btn" onClick={() => setIsFromModalOpen(false)}><X /></button>
+                <button className="close-btn" onClick={() => setIsFromModalOpen(false)}><MaterialIcon name="close" className="text-xl" /></button>
               </div>
 
               <div style={{ display: 'grid', gap: '8px', marginTop: '16px' }}>
@@ -785,13 +740,13 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
                     background: 'var(--bg-card)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
-                    <Wallet size={18} color={fromId === 'unassigned' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    <MaterialIcon name="account_balance_wallet" className={fromId === 'unassigned' ? 'text-primary text-lg' : 'text-on-surface-variant text-lg'} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: '13px' }}>Sisa Belum Dialokasikan</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tersedia: {fmt(unassignedMoney, currencySymbol)}</div>
                   </div>
-                  {fromId === 'unassigned' && <Check size={18} color="var(--primary)" />}
+                  {fromId === 'unassigned' && <MaterialIcon name="check" className="text-lg text-primary" />}
                 </button>
 
                 {budgets.filter(b => {
@@ -831,7 +786,7 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
                         background: 'var(--bg-card)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
-                        <Folder size={18} color={isSelected ? 'var(--primary)' : 'var(--text-muted)'} />
+                        <MaterialIcon name="folder" className={isSelected ? 'text-primary text-lg' : 'text-on-surface-variant text-lg'} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: '13px' }}>{cat?.name || 'Kategori'}</div>
@@ -839,7 +794,7 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
                           Tersedia: {fmt(rem, currencySymbol)} {!hasMoney && '• Anggaran Habis'}
                         </div>
                       </div>
-                      {isSelected && <Check size={18} color="var(--primary)" />}
+                      {isSelected && <MaterialIcon name="check" className="text-lg text-primary" />}
                     </button>
                   );
                 })}
@@ -863,14 +818,12 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
             <motion.div
               className="modal-content"
               onClick={e => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               style={{ maxHeight: '60vh', overflowY: 'auto', padding: '20px' }}
             >
               <div className="modal-header">
                 <h3 className="subtitle" style={{ margin: 0 }}>Pilih Target Dana</h3>
-                <button className="close-btn" onClick={() => setIsToModalOpen(false)}><X /></button>
+                <button className="close-btn" onClick={() => setIsToModalOpen(false)}><MaterialIcon name="close" className="text-xl" /></button>
               </div>
 
               <div style={{ display: 'grid', gap: '8px', marginTop: '16px' }}>
@@ -894,12 +847,12 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
                     background: 'var(--bg-card)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
-                    <Wallet size={18} color={toId === 'unassigned' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    <MaterialIcon name="account_balance_wallet" className={toId === 'unassigned' ? 'text-primary text-lg' : 'text-on-surface-variant text-lg'} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: '13px' }}>Sisa Belum Dialokasikan</div>
                   </div>
-                  {toId === 'unassigned' && <Check size={18} color="var(--primary)" />}
+                  {toId === 'unassigned' && <MaterialIcon name="check" className="text-lg text-primary" />}
                 </button>
 
                 {budgets.filter(b => {
@@ -932,12 +885,12 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
                         background: 'var(--bg-card)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
-                        <Folder size={18} color={isSelected ? 'var(--primary)' : 'var(--text-muted)'} />
+                        <MaterialIcon name="folder" className={isSelected ? 'text-primary text-lg' : 'text-on-surface-variant text-lg'} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: '13px' }}>{cat?.name || 'Kategori'}</div>
                       </div>
-                      {isSelected && <Check size={18} color="var(--primary)" />}
+                      {isSelected && <MaterialIcon name="check" className="text-lg text-primary" />}
                     </button>
                   );
                 })}
@@ -966,13 +919,13 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
                         background: 'var(--bg-card)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
-                        <Folder size={18} color={isSelected ? 'var(--primary)' : 'var(--text-muted)'} />
+                        <MaterialIcon name="folder" className={isSelected ? 'text-primary text-lg' : 'text-on-surface-variant text-lg'} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: '13px' }}>{c.name}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Buat Amplop Baru</div>
                       </div>
-                      {isSelected && <Check size={18} color="var(--primary)" />}
+                      {isSelected && <MaterialIcon name="check" className="text-lg text-primary" />}
                     </button>
                   );
                 })}
@@ -985,8 +938,5 @@ const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose, budget
   );
 };
 
-const X = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 6L6 18M6 6l12 12" />
-  </svg>
-);
+
+

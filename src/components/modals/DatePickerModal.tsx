@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { X, CalendarDays } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
+import MaterialIcon from '../common/MaterialIcon';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -85,10 +86,10 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({ isOpen, onClose, view
                       fontSize: '12px', fontWeight: 700, cursor: 'pointer'
                     }}
                   >
-                    <CalendarDays size={14} /> Hari Ini
+                    <MaterialIcon name="calendar_month" className="text-[14px]" /> Hari Ini
                   </button>
                 )}
-                <button className="close-btn" onClick={onClose}><X size={20} /></button>
+                <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-[20px]" /></button>
               </div>
             </div>
 

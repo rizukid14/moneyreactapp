@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { getLocalDate } from '../lib/utils';
+import { resizeImage, blobToBase64 } from '../lib/imageUtils';
 
 export interface LineItem {
   name: string;
@@ -25,49 +26,6 @@ export interface OCRResult {
   confidence: 'high' | 'medium' | 'low';
   debugLogs?: string[];
 }
-
-const resizeImage = (blob: Blob, maxWidth: number = 1024): Promise<Blob> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = URL.createObjectURL(blob);
-    img.onload = () => {
-      URL.revokeObjectURL(img.src);
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > maxWidth) {
-          height *= maxWidth / width;
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxWidth) {
-          width *= maxWidth / height;
-          height = maxWidth;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.6);
-    };
-  });
-};
-
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = (reader.result as string).split(',')[1];
-      resolve(base64String);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
 
 export const useReceiptOCR = () => {
   const [isScanning, setIsScanning] = useState(false);
@@ -106,25 +64,45 @@ export const useReceiptOCR = () => {
       setProgress(40);
       addLog("Mengirim data ke AI Server (OpenAI)...");
       
-      const response = await fetch('/api/scan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          image: base64,
-          categories: categories?.map(c => ({ name: c.name, subcategories: c.subcategories?.map((s:any) => s.name) })),
-          assets: assets?.map(a => ({ name: a.name, id: a.id })),
-          defaultAssetId,
-        }),
-      });
+      // Simulate progress increments during network request
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev < 75) return prev + 5;
+          return prev;
+        });
+      }, 500);
+      
+      let response;
+      try {
+        response = await fetch('/api/scan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            image: base64,
+            categories: categories
+              ?.filter(c => !c.isDeleted)
+              .map(c => ({ 
+                name: c.name, 
+                subcategories: c.subcategories
+                  ?.filter((s: any) => !s.isDeleted)
+                  .map((s: any) => s.name) 
+              })),
+            assets: assets?.map(a => ({ name: a.name, id: a.id })),
+            defaultAssetId,
+          }),
+        });
+      } finally {
+        clearInterval(progressInterval);
+      }
 
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.message || 'Gagal menghubungi server AI.');
       }
 
-      setProgress(80);
+      setProgress(85);
       const result = await response.json();
       addLog("Data berhasil diterima dari Cloud AI.");
 

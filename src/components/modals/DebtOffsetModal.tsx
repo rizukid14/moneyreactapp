@@ -1,5 +1,10 @@
 import React from 'react';
-import { X, ArrowRightLeft, TrendingDown, TrendingUp, CheckCircle2 } from 'lucide-react';
+
+import { Modal } from '../ui/Modal';
+import { Card } from '../ui/Card';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
+import MaterialIcon from '../common/MaterialIcon';
 
 interface DebtOffsetModalProps {
   isOpen: boolean;
@@ -24,14 +29,12 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
   const remainingPiutang = totalPiutang - offsetAmount;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-        <div className="modal-header">
-          <h2 className="modal-title">Potong Silang Utang</h2>
-          <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-        </div>
-
-        <div style={{ padding: '20px' }}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Potong Silang Utang"
+    >
+        <div>
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
             <div style={{ 
               width: '60px', height: '60px', borderRadius: '30px', 
@@ -39,7 +42,7 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 12px'
             }}>
-              <ArrowRightLeft size={30} />
+              <MaterialIcon name="swap_horiz" className="text-[30px]" />
             </div>
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{contactName}</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
@@ -47,17 +50,17 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
             </p>
           </div>
 
-          <div style={{ background: 'var(--bg-neutral)', borderRadius: '16px', padding: '16px', marginBottom: '24px' }}>
+          <Card variant="default" style={{ padding: '16px', marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <TrendingDown size={14} color="var(--danger)" />
+                <MaterialIcon name="trending_down" className="text-[14px]" />
                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Total Hutang</span>
               </div>
               <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)' }}>{fmt(totalHutang, currencySymbol)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <TrendingUp size={14} color="var(--primary)" />
+                <MaterialIcon name="trending_up" className="text-[14px]" />
                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Total Piutang</span>
               </div>
               <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>{fmt(totalPiutang, currencySymbol)}</span>
@@ -72,7 +75,7 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
                 *Saldo rekening asli Anda tidak akan berubah.
               </p>
             </div>
-          </div>
+          </Card>
 
           <div style={{ marginBottom: '24px' }}>
             <p style={{ fontSize: '13px', fontWeight: 700, marginBottom: '12px', color: 'var(--text-muted)' }}>SETELAH POTONG SILANG:</p>
@@ -96,29 +99,27 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
             <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
               Tanggal Transaksi:
             </label>
-            <input 
+            <Input 
               type="date" 
               value={date} 
               onChange={e => setDate(e.target.value)} 
-              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-main)' }} 
+              style={{ marginBottom: 0 }} 
             />
           </div>
 
-          <button
+          <Button
+            variant="primary"
             onClick={() => onConfirm(date)}
+            fullWidth
             style={{
-              width: '100%', padding: '14px', borderRadius: '14px',
-              background: 'var(--primary-gradient)', color: 'white',
-              border: 'none', fontWeight: 800, fontSize: '15px', cursor: 'pointer',
-              boxShadow: '0 4px 15px var(--primary-glow)',
+              padding: '14px', fontWeight: 800, fontSize: '15px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
             }}
           >
-            <CheckCircle2 size={18} /> Konfirmasi Potong Silang
-          </button>
+            <MaterialIcon name="check_circle" className="text-[18px]" /> Konfirmasi Potong Silang
+          </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 
