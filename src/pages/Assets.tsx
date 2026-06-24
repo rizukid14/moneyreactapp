@@ -2,7 +2,8 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
-import TransactionModal from '../components/modals/TransactionModal';
+import { lazy, Suspense } from 'react';
+const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import { motion } from 'framer-motion';
@@ -564,7 +565,7 @@ const Assets: React.FC = () => {
 
   return (
     <PageWrapper>
-      <PageHeader title="Aset Saya" />
+      <PageHeader title="Aset Saya" subtitle="Pantau saldo rekening, e-wallet, dan investasi Anda" />
 
       {/* Asset Summary Carousel */}
       <div data-tour="net-worth" data-testid="net-worth-carousel">
@@ -726,15 +727,19 @@ const Assets: React.FC = () => {
       )}
 
       {/* Transaction edit modal from drawer */}
-      <TransactionModal
-        isOpen={isTxModalOpen}
-        onClose={() => { setIsTxModalOpen(false); setEditingTx(null); }}
-        assets={assets.filter(a => !a.isDeleted)}
-        addTransaction={addTransaction}
-        updateTransaction={updateTransaction}
-        deleteTransaction={deleteTransaction}
-        editingTransaction={editingTx}
-      />
+      {isTxModalOpen && (
+        <Suspense fallback={null}>
+          <TransactionModal
+            isOpen={isTxModalOpen}
+            onClose={() => { setIsTxModalOpen(false); setEditingTx(null); }}
+            assets={assets.filter(a => !a.isDeleted)}
+            addTransaction={addTransaction}
+            updateTransaction={updateTransaction}
+            deleteTransaction={deleteTransaction}
+            editingTransaction={editingTx}
+          />
+        </Suspense>
+      )}
 
       <OnboardingTutorial 
         pageKey="assets" 

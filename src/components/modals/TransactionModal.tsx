@@ -8,7 +8,8 @@ import AssetSelectModal from './AssetSelectModal';
 import GoalSelectModal from './GoalSelectModal';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
-import OverspendReallocationModal from './OverspendReallocationModal';
+import { lazy, Suspense } from 'react';
+const OverspendReallocationModal = lazy(() => import('./OverspendReallocationModal'));
 import CurrencyInput from '../common/CurrencyInput';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { useTransactionPresets } from '../../hooks/useTransactionPresets';
@@ -439,6 +440,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
     setNote(preset.note || '');
   };
+
+  const isFormValid = useMemo(() => {
+    const rawAmount = Number(amount.replace(/\./g, ''));
+    if (rawAmount <= 0) return false;
+    if (!date || !time) return false;
+    if (type === 'transfer') {
+      return !!(fromAssetId && toAssetId && fromAssetId !== toAssetId);
+    } else {
+      return !!(categoryId && assetId);
+    }
+  }, [amount, date, time, type, fromAssetId, toAssetId, categoryId, assetId]);
 
   return (
     <>
@@ -894,15 +906,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             variant="outline"
                             data-testid="tx-submit-continue-btn"
                             onClick={() => { submitActionRef.current = 'continue'; }}
+                            disabled={!isFormValid}
                             fullWidth
                           >
                             Simpan & Lanjut
                           </Button>
                           <Button
                             type="submit"
-                            variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
+                            variant="primary"
                             data-testid="tx-submit-btn"
                             onClick={() => { submitActionRef.current = 'close'; }}
+                            disabled={!isFormValid}
                             fullWidth
                           >
                             {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
@@ -923,9 +937,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           )}
                           <Button
                             type="submit"
-                            variant={type === 'pendapatan' ? 'primary' : type === 'pengeluaran' ? 'secondary' : 'primary'}
+                            variant="primary"
                             data-testid="tx-submit-btn"
                             onClick={() => { submitActionRef.current = 'close'; }}
+                            disabled={!isFormValid}
                             fullWidth
                           >
                             Simpan Perubahan
@@ -984,15 +999,19 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         onSelect={(id) => setGoalId(id)}
       />
 
-      <OverspendReallocationModal
-        isOpen={reallocationModal.isOpen}
-        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
-        onSuccess={handleReallocationSuccess}
-        deficitCategoryId={reallocationModal.deficitCategoryId}
-        deficitAmount={reallocationModal.deficitAmount}
-        month={reallocationModal.month}
-        year={reallocationModal.year}
-      />
+      {reallocationModal.isOpen && (
+        <Suspense fallback={null}>
+          <OverspendReallocationModal
+            isOpen={reallocationModal.isOpen}
+            onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+            onSuccess={handleReallocationSuccess}
+            deficitCategoryId={reallocationModal.deficitCategoryId}
+            deficitAmount={reallocationModal.deficitAmount}
+            month={reallocationModal.month}
+            year={reallocationModal.year}
+          />
+        </Suspense>
+      )}
 
       <ConfirmDialog
         isOpen={isDeleteConfirmOpen}

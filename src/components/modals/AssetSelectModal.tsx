@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-import { motion, AnimatePresence } from 'framer-motion';
 import { type Asset, type AssetType, useMoney } from '../../contexts/MoneyContext';
 import AssetModal from './AssetModal';
+import { Modal } from '../ui/Modal';
 import MaterialIcon from '../common/MaterialIcon';
 
 interface AssetSelectModalProps {
@@ -75,48 +75,23 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="modal-overlay"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            style={{ zIndex: 3000 }}
-          >
-            <motion.div
-              className="modal-content"
-              onClick={e => e.stopPropagation()}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.5 }}
-              style={{ padding: 0, height: '75vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      <Modal isOpen={isOpen} onClose={onClose} title="Pilih Rekening">
+        <div style={{ display: 'flex', flexDirection: 'column', height: '75vh', overflow: 'hidden' }}>
+          {/* Header Action: Add Asset */}
+          <div style={{ position: 'absolute', top: '16px', right: '56px', zIndex: 10 }}>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              style={{
+                background: 'var(--primary-gradient)', color: 'white', border: 'none',
+                borderRadius: '10px', width: '32px', height: '32px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
+              }}
+              title="Tambah Rekening Baru"
             >
-              {/* Header */}
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '16px 20px', borderBottom: '1px solid var(--border-color)', flexShrink: 0,
-              }}>
-                <h2 className="subtitle" style={{ margin: 0, fontSize: '16px' }}>Pilih Rekening</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    style={{
-                      background: 'var(--primary-gradient)', color: 'white', border: 'none',
-                      borderRadius: '10px', width: '32px', height: '32px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
-                    }}
-                    title="Tambah Rekening Baru"
-                  >
-                    <MaterialIcon name="add" className="text-[18px]" />
-                  </button>
-                  <button className="close-btn" onClick={onClose}><MaterialIcon name="close" className="text-[20px]" /></button>
-                </div>
-              </div>
+              <MaterialIcon name="add" className="text-[18px]" />
+            </button>
+          </div>
 
               {/* Search Bar */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
@@ -270,12 +245,9 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                     })
                   )}
                 </div>
-
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      </Modal>
 
       <AssetModal
         isOpen={isAddModalOpen}

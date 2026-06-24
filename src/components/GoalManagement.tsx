@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import MaterialIcon from './common/MaterialIcon';
 import { useMoney, type Goal } from '../contexts/MoneyContext';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import GoalModal from './modals/GoalModal';
 import ConfirmDialog from './common/ConfirmDialog';
+import DropdownMenu from './common/DropdownMenu';
 
 const fmt = (val: number, sym: string) => `${sym}${val.toLocaleString('id-ID')}`;
 
@@ -12,10 +13,8 @@ const GoalCard: React.FC<{
   currentAmount: number;
   onEdit: () => void;
   onDelete: () => void;
-  isMenuOpen: boolean;
-  onMenuToggle: () => void;
   currencySymbol: string;
-}> = ({ goal, currentAmount, onEdit, onDelete, isMenuOpen, onMenuToggle, currencySymbol }) => {
+}> = ({ goal, currentAmount, onEdit, onDelete, currencySymbol }) => {
   const percent = goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
   const isCompleted = percent >= 100;
   
@@ -44,7 +43,7 @@ const GoalCard: React.FC<{
   const barColor = isCompleted ? 'var(--success)' : status === 'behind' ? '#f59e0b' : 'var(--primary)';
 
   return (
-    <div className={`bg-bg-card p-4 rounded-2xl shadow-bento border relative mb-3 group transition-all ${isCompleted ? 'border-success' : 'border-outline-variant'}`}>
+    <div className={`bg-bg-card p-4 rounded-2xl shadow-bento border relative mb-3 group transition-all ${isCompleted ? 'border-success' : 'border-outline-variant'}`} style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? 'bg-success-container text-success' : 'bg-primary-container text-primary-color'}`}>
@@ -57,26 +56,12 @@ const GoalCard: React.FC<{
             </div>
           </div>
         </div>
-        <div style={{ position: 'relative' }}>
-          <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} className="btn-icon" style={{ padding: 4 }}>
-            <MaterialIcon name="more_vert" className="text-base" />
-          </button>
-          <AnimatePresence>
-            {isMenuOpen && (
-              <motion.div 
-                className="budget-dropdown bg-bg-card shadow-bento rounded-xl overflow-hidden border border-border-light" 
-                style={{ right: 0, top: 28 }}
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                transition={{ duration: 0.1 }}
-              >
-                <button className="budget-dropdown-item flex items-center gap-2" onClick={onEdit}><MaterialIcon name="edit" className="text-[13px]" /> Edit</button>
-                <button className="budget-dropdown-item danger flex items-center gap-2" onClick={onDelete}><MaterialIcon name="delete" className="text-[13px]" /> Hapus</button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <DropdownMenu 
+          items={[
+            { icon: 'edit', label: 'Edit', onClick: onEdit },
+            { icon: 'delete', label: 'Hapus', danger: true, onClick: onDelete }
+          ]}
+        />
       </div>
 
       <div style={{ height: 8, background: 'var(--bg-neutral)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
@@ -113,7 +98,7 @@ const GoalCard: React.FC<{
           <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Status</span>
           <div style={{ 
             fontSize: '11px', fontWeight: 800, 
-            color: isCompleted ? 'var(--success)' : status === 'behind' ? '#f59e0b' : 'var(--primary)',
+            color: isCompleted ? 'var(--success)' : status === 'behind' ? 'var(--warning)' : 'var(--primary)',
             display: 'flex', alignItems: 'center', gap: 4
           }}>
             {isCompleted ? 'Selesai' : status === 'behind' ? 'Terlambat' : 'On Track'}
@@ -128,7 +113,6 @@ export const GoalManagement: React.FC = () => {
   const { goals, transactions, assets, addGoal, updateGoal, deleteGoal, currencySymbol } = useMoney();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
 
   const goalAllocations = useMemo(() => {
@@ -149,14 +133,13 @@ export const GoalManagement: React.FC = () => {
   }, [goals, transactions]);
 
   const openAdd = () => { setEditingGoal(null); setIsModalOpen(true); };
-  const handleEdit = (g: Goal) => { setEditingGoal(g); setIsModalOpen(true); setActiveMenu(null); };
+  const handleEdit = (g: Goal) => { setEditingGoal(g); setIsModalOpen(true); };
   const handleDelete = (id: string) => {
     setDeleteConfirm({ open: true, id });
-    setActiveMenu(null);
   };
 
   return (
-    <div className="budget-management-embedded" onClick={() => setActiveMenu(null)}>
+    <div className="budget-management-embedded">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <MaterialIcon name="trending_up" className="text-lg text-primary" />
@@ -175,8 +158,6 @@ export const GoalManagement: React.FC = () => {
               currentAmount={goalAllocations[g.id] || 0}
               onEdit={() => handleEdit(g)}
               onDelete={() => handleDelete(g.id)}
-              isMenuOpen={activeMenu === g.id}
-              onMenuToggle={() => setActiveMenu(activeMenu === g.id ? null : g.id)}
               currencySymbol={currencySymbol}
             />
           </div>

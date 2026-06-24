@@ -17,7 +17,7 @@ export default defineConfig({
         name: 'MoneyApp',
         short_name: 'MoneyApp',
         description: 'Track your expenses and incomes easily',
-        theme_color: '#f97316',
+        theme_color: '#14b881',
         start_url: '/',
         icons: [
           {

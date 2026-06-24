@@ -14,17 +14,17 @@ export interface SearchInputProps {
  * Compact search input with icon, matching the Bento search pattern.
  * Automatically handles the !p-0 !mb-0 overrides for the inner input.
  */
-export const SearchInput: React.FC<SearchInputProps> = ({ 
-  value, 
-  onChange, 
-  placeholder = 'Cari...', 
+export const SearchInput: React.FC<SearchInputProps> = ({
+  value,
+  onChange,
+  placeholder = 'Cari...',
   maxWidth = '220px',
   className = '',
   'data-testid': testId,
 }) => {
   return (
-    <div 
-      className={`flex items-center gap-2 bg-surface-container-low rounded-lg px-3 py-1.5 border border-outline-variant w-full ${className}`}
+    <div
+      className={`flex items-center gap-2 bg-surface-container-low rounded-3xl px-3 py-1.5 border border-outline-variant w-full ${className}`}
       style={{ maxWidth }}
     >
       <MaterialIcon name="search" className="text-on-surface-variant text-sm shrink-0" />
@@ -37,10 +37,10 @@ export const SearchInput: React.FC<SearchInputProps> = ({
         data-testid={testId}
       />
       {value && (
-        <MaterialIcon 
-          name="close" 
-          className="text-on-surface-variant text-sm cursor-pointer shrink-0" 
-          onClick={() => onChange('')} 
+        <MaterialIcon
+          name="close"
+          className="text-on-surface-variant text-sm cursor-pointer shrink-0"
+          onClick={() => onChange('')}
         />
       )}
     </div>

@@ -33,33 +33,33 @@ export const useToast = (): ToastContextValue => {
 
 const TOAST_CONFIG: Record<ToastType, {
   iconName: string;
-  bg: string;
-  border: string;
-  color: string;
+  bgClass: string;
+  borderClass: string;
+  colorClass: string;
 }> = {
   success: {
     iconName: 'check_circle',
-    bg: 'hsla(152,70%,42%,0.12)',
-    border: 'hsla(152,70%,42%,0.35)',
-    color: 'var(--success)',
+    bgClass: 'bg-success/15',
+    borderClass: 'border-success/30',
+    colorClass: 'text-success',
   },
   error: {
     iconName: 'cancel',
-    bg: 'hsla(350,80%,58%,0.12)',
-    border: 'hsla(350,80%,58%,0.35)',
-    color: 'var(--danger)',
+    bgClass: 'bg-error/15',
+    borderClass: 'border-error/30',
+    colorClass: 'text-error',
   },
   warning: {
     iconName: 'warning',
-    bg: 'hsla(35,90%,52%,0.12)',
-    border: 'hsla(35,90%,52%,0.35)',
-    color: '#f59e0b',
+    bgClass: 'bg-warning/15',
+    borderClass: 'border-warning/30',
+    colorClass: 'text-warning',
   },
   info: {
     iconName: 'info',
-    bg: 'hsla(220,90%,60%,0.12)',
-    border: 'hsla(220,90%,60%,0.35)',
-    color: 'var(--primary)',
+    bgClass: 'bg-primary/15',
+    borderClass: 'border-primary/30',
+    colorClass: 'text-primary',
   },
 };
 
@@ -67,7 +67,6 @@ const TOAST_CONFIG: Record<ToastType, {
 
 const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = ({ toast, onDismiss }) => {
   const cfg = TOAST_CONFIG[toast.type];
-  const IconName = cfg.iconName;
 
   return (
     <motion.div
@@ -76,31 +75,12 @@ const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = (
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -16, scale: 0.95 }}
       transition={{ type: 'spring', damping: 28, stiffness: 500, mass: 0.5 }}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        padding: '14px 16px',
-        borderRadius: '16px',
-        background: cfg.bg,
-        border: `1.5px solid ${cfg.border}`,
-        backdropFilter: 'blur(12px)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-        maxWidth: '360px',
-        width: 'calc(100vw - 32px)',
-        pointerEvents: 'auto',
-      }}
+      className={`flex items-center gap-3 py-3.5 px-4 rounded-2xl border-2 backdrop-blur-md shadow-lg max-w-[360px] w-[calc(100vw-32px)] pointer-events-auto ${cfg.bgClass} ${cfg.borderClass}`}
     >
-      <span style={{ color: cfg.color, flexShrink: 0, display: 'flex' }}>
-        <MaterialIcon name={IconName} className="text-xl" />
+      <span className={`shrink-0 flex ${cfg.colorClass}`}>
+        <MaterialIcon name={cfg.iconName} className="text-xl" />
       </span>
-      <span style={{
-        flex: 1,
-        fontSize: '14px',
-        fontWeight: 600,
-        color: 'var(--text-main)',
-        lineHeight: 1.4,
-      }}>
+      <span className="flex-1 text-sm font-bold text-on-surface leading-snug">
         {toast.message}
       </span>
       {toast.action && (
@@ -109,34 +89,14 @@ const ToastItem: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = (
             if (toast.action) toast.action.onClick();
             onDismiss(toast.id);
           }}
-          style={{
-             background: 'var(--primary)',
-             color: 'white',
-             border: 'none',
-             borderRadius: '6px',
-             padding: '6px 12px',
-             fontSize: '12px',
-             fontWeight: 700,
-             cursor: 'pointer',
-             flexShrink: 0,
-             marginRight: '8px'
-          }}
+          className="shrink-0 mr-2 px-3 py-1.5 rounded-md bg-primary text-white border-none text-xs font-bold cursor-pointer"
         >
           {toast.action.label}
         </button>
       )}
       <button
         onClick={() => onDismiss(toast.id)}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          padding: '2px',
-          flexShrink: 0,
-          opacity: 0.6,
-          lineHeight: 1,
-        }}
+        className="shrink-0 p-0.5 bg-transparent border-none text-on-surface-variant cursor-pointer opacity-60 hover:opacity-100 leading-none"
       >
         <MaterialIcon name="close" className="text-base" />
       </button>
@@ -168,18 +128,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {children}
 
       {/* Toast Stack — fixed top-center */}
-      <div style={{
-        position: 'fixed',
-        top: '16px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 99999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '8px',
-        pointerEvents: 'none',
-      }}>
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[99999] flex flex-col items-center gap-2 pointer-events-none">
         <AnimatePresence mode="popLayout">
           {toasts.map(t => (
             <ToastItem key={t.id} toast={t} onDismiss={dismiss} />

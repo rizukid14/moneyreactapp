@@ -9,6 +9,7 @@ import type { StatDetailItem } from '../components/modals/StatDetailModal';
 import { formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
+import { MONTH_NAMES } from '../lib/constants';
 
 import { ALL_STATS_VIEWS } from './Settings';
 import { PremiumGate } from '../components/common/PremiumGate';
@@ -19,12 +20,22 @@ import { IconBlock } from '../components/ui/IconBlock';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { ListItem } from '../components/ui/ListItem';
+
+const VIEW_ICONS: Record<string, string> = {
+  all: 'stacked_bar_chart',
+  cash_bank: 'account_balance',
+  investment: 'savings',
+  goals: 'trending_up',
+  subs: 'subscriptions',
+  health: 'local_fire_department',
+  forecast: 'water_drop',
+  detailed_analysis: 'insights',
+};
 import { EmptyState } from '../components/ui/EmptyState';
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
-const MONTH_NAMES_FULL = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1'];
+const COLORS = ['var(--primary)', 'var(--success)', 'var(--warning)', 'var(--danger)', 'var(--secondary)', 'hsl(330, 70%, 55%)', 'hsl(170, 60%, 40%)', 'hsl(350, 75%, 55%)', 'hsl(250, 60%, 55%)'];
 
 const Statistics: React.FC = () => {
   const {
@@ -76,6 +87,9 @@ const Statistics: React.FC = () => {
   }, []);
 
   const fmt = useCallback((value: number) => formatCurrency(value, currencySymbol), [currencySymbol]);
+
+  // Create Map for O(1) category lookup
+  const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
 
   const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights, dailyExpenseChart, heatmapData } = useMemo((): {
     chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
@@ -144,7 +158,7 @@ const Statistics: React.FC = () => {
       const pE = new Date(y, m + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
 
       last6Months.push({
-        name: MONTH_NAMES[m],
+        name: SHORT_MONTH_NAMES[m],
         month: m,
         year: y,
         pengeluaran: 0,
@@ -236,23 +250,23 @@ const Statistics: React.FC = () => {
 
     const expenseData = drillDownCategory?.type === 'pengeluaran'
       ? Object.keys(expBySubCategory).map(key => {
-          const parentCat = categories?.find(c => c.id === drillDownCategory.name);
+          const parentCat = drillDownCategory.name ? categoryMap.get(drillDownCategory.name) : undefined;
           const subCatName = parentCat?.subcategories?.find(s => s.id === key)?.name || parentCat?.name || key;
           return { name: subCatName, id: key, value: expBySubCategory[key] };
         }).sort((a, b) => b.value - a.value)
       : Object.keys(expByCategory).map(key => {
-          const catName = categories?.find(c => c.id === key)?.name || key;
+          const catName = categoryMap.get(key)?.name || key;
           return { name: catName, id: key, value: expByCategory[key] };
         }).sort((a, b) => b.value - a.value);
 
     const incomeData = drillDownCategory?.type === 'pendapatan'
       ? Object.keys(incBySubCategory).map(key => {
-          const parentCat = categories?.find(c => c.id === drillDownCategory.name);
+          const parentCat = drillDownCategory.name ? categoryMap.get(drillDownCategory.name) : undefined;
           const subCatName = parentCat?.subcategories?.find(s => s.id === key)?.name || parentCat?.name || key;
           return { name: subCatName, id: key, value: incBySubCategory[key] };
         }).sort((a, b) => b.value - a.value)
       : Object.keys(incByCategory).map(key => {
-          const catName = categories?.find(c => c.id === key)?.name || key;
+          const catName = categoryMap.get(key)?.name || key;
           return { name: catName, id: key, value: incByCategory[key] };
         }).sort((a, b) => b.value - a.value);
 
@@ -447,12 +461,13 @@ const Statistics: React.FC = () => {
     <PageWrapper>
       <PageHeader
         title="Statistik"
+        subtitle="Analisis pemasukan, pengeluaran, dan kesehatan finansial"
         action={
           <button
             onClick={resetToToday}
-            className="flex lg:hidden items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+            className="flex lg:hidden items-center justify-center gap-0.5 sm:gap-1.5 px-2 py-2 rounded-xl border-none bg-primary-container/20 text-primary-color font-bold text-[11px] sm:text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity w-full"
           >
-            <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+            <MaterialIcon name="calendar_month" className="text-[14px] sm:text-base shrink-0" /> <span className="truncate">Hari Ini</span>
           </button>
         }
       />
@@ -476,17 +491,19 @@ const Statistics: React.FC = () => {
             const def = ALL_STATS_VIEWS.find(v => v.id === viewId);
             if (!def) return null;
             const isActive = activeViewId === viewId;
+            const iconName = VIEW_ICONS[viewId] || 'dashboard';
             return (
               <motion.button
                 key={viewId}
                 data-testid={`stats-view-${viewId}`}
+                layout
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   setActiveViewId(viewId);
                   setDrillDownCategory(null);
                 }}
                 style={{
-                  padding: '14px 24px',
+                  padding: isActive ? '14px 20px' : '14px',
                   borderRadius: '18px',
                   background: isActive ? 'var(--primary-gradient)' : 'var(--bg-card-solid)',
                   color: isActive ? 'white' : 'var(--text-muted)',
@@ -495,21 +512,36 @@ const Statistics: React.FC = () => {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
+                  justifyContent: 'center',
+                  gap: isActive ? '8px' : '0px',
+                  minWidth: isActive ? undefined : '50px',
                   boxShadow: isActive ? '0 10px 25px var(--primary-glow)' : '0 4px 12px rgba(0,0,0,0.03)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   flexShrink: 0,
                   border: isActive ? 'none' : '1px solid var(--border-color)',
-                  scrollSnapAlign: 'start'
+                  scrollSnapAlign: 'start',
+                  overflow: 'hidden',
                 }}
               >
-                {viewId === 'health' ? <MaterialIcon name="local_fire_department" className={isActive ? 'text-white' : 'text-[var(--secondary)]'} /> :
-                  viewId === 'budget' ? <MaterialIcon name="track_changes" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
-                    viewId === 'goals' ? <MaterialIcon name="trending_up" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
-                      viewId === 'subs' ? <MaterialIcon name="credit_card" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
-                        viewId === 'forecast' ? <MaterialIcon name="bolt" className={isActive ? 'text-white' : 'text-[var(--primary)]'} /> :
-                          <MaterialIcon name="dashboard" className={isActive ? 'text-white' : 'text-[var(--primary)]'} />}
-                {def.label}
+                <MaterialIcon
+                  name={iconName}
+                  className={isActive ? 'text-white text-[20px]' : 'text-[var(--primary)] text-[20px]'}
+                />
+                <motion.span
+                  initial={false}
+                  animate={{
+                    width: isActive ? 'auto' : 0,
+                    opacity: isActive ? 1 : 0,
+                    marginLeft: isActive ? 0 : -8,
+                  }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  style={{
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    lineHeight: 1,
+                  }}
+                >
+                  {def.label}
+                </motion.span>
               </motion.button>
             );
           })}
@@ -584,43 +616,40 @@ const Statistics: React.FC = () => {
             transition={{ duration: 0.2 }}
           >
                 {/* Header with Month Selector matching Transactions.tsx */}
-                <div data-tour="month-nav" className="flex flex-col lg:flex-row items-center lg:items-end justify-center lg:justify-between text-center lg:text-left gap-4 border-b border-border-light pb-5">
-                  <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
-                    <h2 className="font-headline-md text-headline-md text-on-surface">Analisis Statistik</h2>
-                    <p className="text-sm text-on-surface-variant mt-1">Pantau tren dan riwayat finansial Anda</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 self-center lg:self-auto">
-                    <button
-                      onClick={resetToToday}
-                      className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
-                    >
-                      <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
-                    </button>
-                    <div 
-                      className="flex items-center bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm" 
-                      onClick={() => setIsDatePickerOpen(true)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="prev-month-btn">
-                          <MaterialIcon name="chevron_left" className="text-on-surface-variant text-base" />
-                        </button>
-                        
-                        <div className="flex items-center gap-2" data-testid="month-picker-toggle">
-                          <MaterialIcon name="calendar_month" className="text-primary text-base" />
-                          <span className="font-label-md text-label-md text-on-surface font-semibold" data-testid="month-label">
-                            {MONTH_NAMES_FULL[viewDate.getMonth()]} {viewDate.getFullYear()}
-                          </span>
-                          <MaterialIcon name="expand_more" className="text-base text-on-surface-variant" />
+                <PageHeader
+                  className="mt-2"
+                  title="Analisis Statistik"
+                  subtitle="Pantau tren dan riwayat finansial Anda"
+                  action={
+                    <div className="flex items-center gap-1 sm:gap-3 justify-end w-full">
+                      <button
+                        onClick={resetToToday}
+                        className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+                      >
+                        <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+                      </button>
+                      <div 
+                        className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-1 sm:px-2 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm w-full" 
+                        onClick={() => setIsDatePickerOpen(true)}
+                      >
+                        <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
+                          <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="prev-month-btn">
+                            <MaterialIcon name="chevron_left" className="text-on-surface-variant text-[14px] sm:text-base" />
+                          </button>
+                          <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden" data-testid="month-picker-toggle">
+                            <MaterialIcon name="calendar_month" className="text-primary text-[14px] sm:text-base shrink-0 hidden sm:block" />
+                            <span className="font-label-sm sm:font-label-md text-[10px] sm:text-sm text-on-surface font-semibold truncate" data-testid="month-label">
+                              {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear().toString().slice(2)}
+                            </span>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="next-month-btn">
+                            <MaterialIcon name="chevron_right" className="text-on-surface-variant text-[14px] sm:text-base" />
+                          </button>
                         </div>
-
-                        <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0.5 transition-colors" data-testid="next-month-btn">
-                          <MaterialIcon name="chevron_right" className="text-on-surface-variant text-base" />
-                        </button>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  }
+                />
 
                 {/* Hero Summary Section - Bento Grid */}
                 <section className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
@@ -675,7 +704,7 @@ const Statistics: React.FC = () => {
                     
                     <div className="flex justify-between items-center relative z-10">
                       <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pendapatan</span>
-                      <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                      <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                         <MaterialIcon name="arrow_downward" className="text-primary text-base" />
                       </div>
                     </div>
@@ -709,7 +738,7 @@ const Statistics: React.FC = () => {
                     <div className="flex justify-between items-center relative z-10">
                       <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran</span>
                       <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                        <MaterialIcon name="arrow_upward" className="text-secondary text-base" />
+                        <MaterialIcon name="arrow_upward" className="text-error text-base" />
                       </div>
                     </div>
                     
@@ -1162,8 +1191,8 @@ const Statistics: React.FC = () => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-on-surface-variant font-label-md text-xs uppercase tracking-wider">Sisa Bersih</span>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm ${insights.netSavings >= 0 ? 'bg-primary-container text-primary-color' : 'bg-error-container text-error'}`}>
-                    <MaterialIcon name="trending_up" className="text-base" />
+                  <div className="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                    <MaterialIcon name="trending_up" className="text-primary text-base" />
                   </div>
                 </div>
                 <div className="mt-1 relative z-10">
@@ -1276,21 +1305,21 @@ const Statistics: React.FC = () => {
               <div className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento group relative overflow-hidden mb-2">
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 relative z-10 gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran &amp; Pendapatan Harian</span>
+                    <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran Harian</span>
                     <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                       <MaterialIcon name="show_chart" className="text-primary text-base" />
                     </div>
                   </div>
 
                   <div className="flex bg-surface-container-lowest border border-outline-variant rounded-xl p-1 w-fit shadow-sm">
-                    {(['linear', 'dual', 'log'] as const).map(scale => (
+                    {(['linear', 'log'] as const).map(scale => (
                       <button
                         key={scale}
                         data-testid={`chart-scale-${scale}`}
                         onClick={() => changeChartScale(scale)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartScale === scale ? 'bg-surface-container-highest text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
                       >
-                        {scale === 'linear' ? 'Gabungan' : scale === 'dual' ? 'Mandiri' : 'Log'}
+                        {scale === 'linear' ? 'Normal' : 'Log'}
                       </button>
                     ))}
                   </div>
@@ -1301,39 +1330,15 @@ const Statistics: React.FC = () => {
                       <LineChart data={scaledDailyChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                        {chartScale === 'dual' ? (
-                          <>
-                            <YAxis yAxisId="left" hide domain={[0, 'dataMax + 5000']} />
-                            <YAxis yAxisId="right" hide domain={[0, 'dataMax + 5000']} />
-                          </>
-                        ) : (
-                          <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
-                        )}
+                        <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
                         <Tooltip
                           contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                          formatter={(val: any, name: any, props: any) => {
-                            const item = props?.payload || {};
-                            const realVal = name === 'amount' || name === 'amountScaled' ? (item.amount ?? val) : (item.income ?? val);
-                            const formattedVal = chartScale === 'log' ? fmt(Number(realVal)) : fmt(Number(val));
-                            return [formattedVal, name === 'amount' || name === 'amountScaled' ? 'Pengeluaran' : 'Pendapatan'];
-                          }}
+                          formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
                           labelFormatter={(label: any) => `Tgl ${label}`}
                         />
                         <Line
                           type="monotone"
-                          dataKey={chartScale === 'log' ? 'incomeScaled' : 'income'}
-                          yAxisId={chartScale === 'dual' ? 'left' : undefined}
-                          stroke="var(--primary)"
-                          strokeWidth={2.5}
-                          dot={false}
-                          name="income"
-                          activeDot={{ r: 4 }}
-                          style={{ filter: 'drop-shadow(0px 3px 6px rgba(16, 185, 129, 0.25))' }}
-                        />
-                        <Line
-                          type="monotone"
                           dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
-                          yAxisId={chartScale === 'dual' ? 'right' : undefined}
                           stroke="var(--secondary)"
                           strokeWidth={3}
                           dot={false}
@@ -1349,45 +1354,18 @@ const Statistics: React.FC = () => {
                             <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
                             <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0} />
                           </linearGradient>
-                          <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                          </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                        {chartScale === 'dual' ? (
-                          <>
-                            <YAxis yAxisId="left" hide domain={[0, 'dataMax + 5000']} />
-                            <YAxis yAxisId="right" hide domain={[0, 'dataMax + 5000']} />
-                          </>
-                        ) : (
-                          <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
-                        )}
+                        <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
                         <Tooltip
                           contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                          formatter={(val: any, name: any, props: any) => {
-                            const item = props?.payload || {};
-                            const realVal = name === 'amount' || name === 'amountScaled' ? (item.amount ?? val) : (item.income ?? val);
-                            const formattedVal = chartScale === 'log' ? fmt(Number(realVal)) : fmt(Number(val));
-                            return [formattedVal, name === 'amount' || name === 'amountScaled' ? 'Pengeluaran' : 'Pendapatan'];
-                          }}
+                          formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
                           labelFormatter={(label: any) => `Tgl ${label}`}
                         />
                         <Area
                           type="monotone"
-                          dataKey={chartScale === 'log' ? 'incomeScaled' : 'income'}
-                          yAxisId={chartScale === 'dual' ? 'left' : undefined}
-                          stroke="var(--primary)"
-                          strokeWidth={1.5}
-                          fill="url(#incGrad)"
-                          dot={false}
-                          name="income"
-                        />
-                        <Area
-                          type="monotone"
                           dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
-                          yAxisId={chartScale === 'dual' ? 'right' : undefined}
                           stroke="var(--secondary)"
                           strokeWidth={2}
                           fill="url(#expGrad)"
@@ -1679,10 +1657,10 @@ const Statistics: React.FC = () => {
 
 // ─── FinancialHealth Component ────────────────────────────────────────────────
 const SCORE_COLORS = {
-  excellent: '#10b981',
-  good: '#3b82f6',
-  fair: '#f59e0b',
-  poor: '#ef4444'
+  excellent: 'var(--success)',
+  good: 'var(--primary)',
+  fair: 'var(--warning)',
+  poor: 'var(--danger)'
 };
 
 const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ onShowDetail }) => {
@@ -2038,7 +2016,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
               <Tooltip
                 contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
                 formatter={(val: any) => fmt(Number(val))}
-                labelFormatter={(label) => ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][label]}
+                labelFormatter={(label) => MONTH_NAMES[label]}
               />
               <Area type="monotone" dataKey="netWorth" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorNetWorth)" />
             </AreaChart>

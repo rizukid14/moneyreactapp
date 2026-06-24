@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Trip } from '../contexts/MoneyContext';
 import { useNavigate } from 'react-router-dom';
 import CreateTripModal from '../components/modals/CreateTripModal';
@@ -8,6 +8,14 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import MaterialIcon from '../components/common/MaterialIcon';
+
+type TripFilter = 'all' | 'active' | 'settled';
+
+const FILTER_LABELS: Record<TripFilter, string> = {
+  all: 'Semua',
+  active: 'Aktif',
+  settled: 'Lunas',
+};
 
 const Trips: React.FC = () => {
   const { trips, tripExpenses, currencySymbol, deleteTrip } = useMoney();
@@ -17,6 +25,13 @@ const Trips: React.FC = () => {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [tripFilter, setTripFilter] = useState<TripFilter>('all');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  const filteredTrips = useMemo(() => {
+    if (tripFilter === 'all') return trips;
+    return trips.filter(t => tripFilter === 'settled' ? t.isSettled : !t.isSettled);
+  }, [trips, tripFilter]);
 
   const getTripTotal = (tripId: string) => {
     return tripExpenses
@@ -33,30 +48,65 @@ const Trips: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter max-w-container-max mx-auto w-full h-full">
         {/* Left Panel: List (Always visible on mobile because we navigate away on click) */}
         <div className="lg:col-span-4 flex flex-col gap-stack-md flex">
-          <div className="flex justify-between items-center mb-2 mt-4 lg:mt-0">
-            <h1 className="font-headline-md text-headline-md text-on-surface">Daftar Perjalanan</h1>
-            <button className="p-2 text-primary hover:bg-primary-fixed rounded-full transition-colors">
-              <MaterialIcon name="filter_list" />
+          <div className="flex items-center gap-3 mb-2 mt-4 lg:mt-0">
+            <button
+              onClick={() => navigate(-1)}
+              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white border-none shadow-sm cursor-pointer hover:bg-primary/90 transition-colors shrink-0"
+            >
+              <MaterialIcon name="chevron_left" className="text-xl" />
             </button>
+            <h1 className="font-headline-md text-headline-md text-on-surface">Daftar Perjalanan</h1>
+            <div className="relative">
+              <button 
+                onClick={() => setIsFilterOpen(prev => !prev)}
+                className={`p-2 rounded-full transition-colors ${tripFilter !== 'all' ? 'bg-primary text-on-primary' : 'text-primary hover:bg-primary-fixed'}`}
+                title="Filter"
+              >
+                <MaterialIcon name="filter_list" />
+              </button>
+              <AnimatePresence>
+                {isFilterOpen && (
+                  <motion.div 
+                    className="absolute right-0 top-10 z-50 bg-bg-card shadow-lg rounded-xl overflow-hidden border border-border-light min-w-[120px]"
+                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                    transition={{ duration: 0.1 }}
+                  >
+                    {(Object.keys(FILTER_LABELS) as TripFilter[]).map(key => (
+                      <button
+                        key={key}
+                        onClick={() => { setTripFilter(key); setIsFilterOpen(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors hover:bg-surface-container ${tripFilter === key ? 'text-primary font-bold' : 'text-on-surface'}`}
+                      >
+                        {FILTER_LABELS[key]}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
         <div data-tour="trip-list" className="flex flex-col gap-4">
-          {trips.length === 0 ? (
-            <div className="bg-white p-5 rounded-xl border-2 border-dashed border-outline-variant text-center my-4">
+          {filteredTrips.length === 0 ? (
+            <div className="bg-bg-card p-5 rounded-xl border-2 border-dashed border-outline-variant text-center my-4">
               <div className="w-20 h-20 bg-primary-fixed rounded-[30px] flex items-center justify-center mx-auto mb-6">
                 <MaterialIcon name="flight" className="text-[40px] text-primary" />
               </div>
-              <h3 className="font-headline-md text-body-lg font-bold mb-2">Belum ada rencana trip</h3>
-              <p className="text-on-surface-variant text-sm mb-8">Mulai buat grup liburanmu dan catat pengeluarannya di sini.</p>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="bg-primary text-white px-6 py-3 rounded-xl font-label-md font-bold shadow-md hover:bg-opacity-90 transition-all active:scale-95"
-              >
-                Buat Trip Pertama
-              </button>
+              <h3 className="font-headline-md text-body-lg font-bold mb-2">{trips.length === 0 ? 'Belum ada rencana trip' : 'Tidak ada trip'}</h3>
+              <p className="text-on-surface-variant text-sm mb-8">{trips.length === 0 ? 'Mulai buat grup liburanmu dan catat pengeluarannya di sini.' : `Tidak ada trip dengan status "${FILTER_LABELS[tripFilter]}".`}</p>
+              {trips.length === 0 && (
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-primary text-white px-6 py-3 rounded-xl font-label-md font-bold shadow-md hover:bg-opacity-90 transition-all active:scale-95"
+                >
+                  Buat Trip Pertama
+                </button>
+              )}
             </div>
           ) : (
-            trips.map((trip, idx) => {
+            filteredTrips.map((trip, idx) => {
               const total = getTripTotal(trip.id);
               return (
                 <motion.div
@@ -72,7 +122,7 @@ const Trips: React.FC = () => {
                       navigate(`/trips/${trip.id}`);
                     }
                   }}
-                  className={`bg-white p-5 rounded-xl border ${trip.isSettled ? 'border-outline-variant opacity-80 hover:opacity-100' : selectedPreviewId === trip.id ? 'border-2 border-primary ring-4 ring-primary-fixed' : 'border-2 border-transparent hover:border-primary'} card-lift cursor-pointer relative overflow-hidden transition-all duration-200`}
+                  className={`bg-bg-card p-5 rounded-xl border ${trip.isSettled ? 'border-outline-variant opacity-80 hover:opacity-100' : selectedPreviewId === trip.id ? 'border-2 border-primary ring-4 ring-primary-fixed' : 'border-2 border-transparent hover:border-primary'} card-lift cursor-pointer relative overflow-hidden transition-all duration-200`}
                 >
                   {!trip.isSettled && (
                     <div className="absolute top-0 right-0 w-16 h-16 bg-primary-fixed opacity-10 rounded-bl-full pointer-events-none"></div>
@@ -83,7 +133,7 @@ const Trips: React.FC = () => {
                       {trip.isSettled ? (
                         <span className="bg-secondary-container text-on-secondary-container text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">Lunas</span>
                       ) : (
-                        <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">Aktif</span>
+                        <span className="bg-success-container text-on-success-container text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">Aktif</span>
                       )}
                       <h3 className="font-headline-md text-body-lg font-bold text-on-surface truncate" title={trip.name}>{trip.name}</h3>
                     </div>
@@ -159,7 +209,7 @@ const Trips: React.FC = () => {
           const myBalance = myPaid - myConsumed;
           
           return (
-            <div className="bg-white rounded-2xl border border-outline-variant h-full flex flex-col overflow-hidden relative shadow-sm">
+            <div className="bg-bg-card rounded-2xl border border-outline-variant h-full flex flex-col overflow-hidden relative shadow-sm">
               <div className="h-32 bg-gradient-to-r from-primary to-primary-container absolute top-0 left-0 right-0 opacity-10"></div>
               
               <div className="p-8 flex-1 flex flex-col relative z-10 overflow-y-auto hide-scrollbar">
@@ -194,7 +244,7 @@ const Trips: React.FC = () => {
                   {selectedTrip.isSettled ? (
                     <span className="bg-secondary-container text-on-secondary-container text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Lunas</span>
                   ) : (
-                    <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Aktif</span>
+                    <span className="bg-success-container text-on-success-container text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Aktif</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-on-surface-variant mb-8">

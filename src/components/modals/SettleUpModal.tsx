@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, lazy, Suspense } from 'react';
 
 import AssetSelectModal from './AssetSelectModal';
 import CurrencyInput from '../common/CurrencyInput';
 import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
 import { getLocalDate, getLocalTime, isPrincipalTx } from '../../lib/utils';
-import SettlementExplanationModal from './SettlementExplanationModal';
+const SettlementExplanationModal = lazy(() => import('./SettlementExplanationModal'));
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -666,16 +666,18 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
           )}
       </Modal>
     
-    <SettlementExplanationModal
-      isOpen={!!selectedSettlement}
-      onClose={() => setSelectedSettlement(null)}
-      settlement={selectedSettlement}
-      mode={mode}
-      trip={trip}
-      expenses={expenses}
-      currencySymbol={currencySymbol}
-      settlementData={settlement}
-    />
+    <Suspense fallback={null}>
+      <SettlementExplanationModal
+        isOpen={!!selectedSettlement}
+        onClose={() => setSelectedSettlement(null)}
+        settlement={selectedSettlement}
+        mode={mode}
+        trip={trip}
+        expenses={expenses}
+        currencySymbol={currencySymbol}
+        settlementData={settlement}
+      />
+    </Suspense>
     </>
   );
 };

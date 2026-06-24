@@ -52,9 +52,9 @@ const GACHA_TIERS: GachaTier[] = [
       '🚀 Kerja keras + hemat = kebebasan finansial. Kamu bisa!',
     ],
     emoji: '🩶',
-    gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
-    shadowColor: 'rgba(100,116,139,0.35)',
-    liquidColor: 'rgba(148,163,184,0.55)',
+    gradient: 'linear-gradient(135deg, #9c7b66 0%, #7a5c48 100%)',
+    shadowColor: 'rgba(122, 92, 72, 0.35)',
+    liquidColor: 'rgba(156, 123, 102, 0.55)',
     minVal: 0,
     maxVal: 500_000,
   },
@@ -66,9 +66,9 @@ const GACHA_TIERS: GachaTier[] = [
       '💡 Disiplin kecil setiap hari = hasil besar besok!',
     ],
     emoji: '🥈',
-    gradient: 'linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)',
-    shadowColor: 'rgba(148,163,184,0.35)',
-    liquidColor: 'rgba(203,213,225,0.55)',
+    gradient: 'linear-gradient(135deg, #8b97a2 0%, #687480 100%)',
+    shadowColor: 'rgba(104, 116, 128, 0.35)',
+    liquidColor: 'rgba(139, 151, 162, 0.55)',
     minVal: 500_001,
     maxVal: 2_500_000,
   },
@@ -80,9 +80,9 @@ const GACHA_TIERS: GachaTier[] = [
       '🔥 Konsistensimu mulai terasa. Jangan putus di sini!',
     ],
     emoji: '🥇',
-    gradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
-    shadowColor: 'rgba(251,191,36,0.4)',
-    liquidColor: 'rgba(251,191,36,0.5)',
+    gradient: 'linear-gradient(135deg, #c7a456 0%, #a38237 100%)',
+    shadowColor: 'rgba(163, 130, 55, 0.35)',
+    liquidColor: 'rgba(199, 164, 86, 0.55)',
     minVal: 2_500_001,
     maxVal: 7_500_000,
   },
@@ -94,9 +94,9 @@ const GACHA_TIERS: GachaTier[] = [
       '🎯 Target 10 juta sudah di depan mata. Ayo kejar!',
     ],
     emoji: '💚',
-    gradient: 'linear-gradient(135deg, #34d399 0%, #059669 100%)',
-    shadowColor: 'rgba(52,211,153,0.4)',
-    liquidColor: 'rgba(52,211,153,0.5)',
+    gradient: 'linear-gradient(135deg, #6c9a76 0%, #4a7553 100%)',
+    shadowColor: 'rgba(74, 117, 83, 0.35)',
+    liquidColor: 'rgba(108, 154, 118, 0.55)',
     minVal: 7_500_001,
     maxVal: 10_000_000,
   },
@@ -108,9 +108,9 @@ const GACHA_TIERS: GachaTier[] = [
       '🌊 Aliran uangmu sudah lebih stabil. Jaga terus!',
     ],
     emoji: '💎',
-    gradient: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)',
-    shadowColor: 'rgba(96,165,250,0.4)',
-    liquidColor: 'rgba(96,165,250,0.5)',
+    gradient: 'linear-gradient(135deg, #6b8cba 0%, #4a6a96 100%)',
+    shadowColor: 'rgba(74, 106, 150, 0.35)',
+    liquidColor: 'rgba(107, 140, 186, 0.55)',
     minVal: 10_000_001,
     maxVal: 25_000_000,
   },
@@ -122,9 +122,9 @@ const GACHA_TIERS: GachaTier[] = [
       '🔮 Masa pensiun yang nyaman sudah tidak terlalu jauh!',
     ],
     emoji: '♦️',
-    gradient: 'linear-gradient(135deg, #f87171 0%, #b91c1c 100%)',
-    shadowColor: 'rgba(248,113,113,0.4)',
-    liquidColor: 'rgba(248,113,113,0.5)',
+    gradient: 'linear-gradient(135deg, #b56e6e 0%, #8c4646 100%)',
+    shadowColor: 'rgba(140, 70, 70, 0.35)',
+    liquidColor: 'rgba(181, 110, 110, 0.55)',
     minVal: 25_000_001,
     maxVal: 50_000_000,
   },
@@ -136,9 +136,9 @@ const GACHA_TIERS: GachaTier[] = [
       '✨ Setengah dari 100 juta — puncak sudah terlihat!',
     ],
     emoji: '🔮',
-    gradient: 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)',
-    shadowColor: 'rgba(192,132,252,0.4)',
-    liquidColor: 'rgba(192,132,252,0.5)',
+    gradient: 'linear-gradient(135deg, #9175a3 0%, #6f5580 100%)',
+    shadowColor: 'rgba(111, 85, 128, 0.35)',
+    liquidColor: 'rgba(145, 117, 163, 0.55)',
     minVal: 50_000_001,
     maxVal: 100_000_000,
   },
@@ -150,9 +150,9 @@ const GACHA_TIERS: GachaTier[] = [
       '🌟 Kekayaanmu bukan keberuntungan — itu hasil kerja kerasmu!',
     ],
     emoji: '💠',
-    gradient: 'linear-gradient(135deg, #67e8f9 0%, #0e7490 100%)',
-    shadowColor: 'rgba(103,232,249,0.4)',
-    liquidColor: 'rgba(103,232,249,0.5)',
+    gradient: 'linear-gradient(135deg, #59a6ad 0%, #3a7f85 100%)',
+    shadowColor: 'rgba(58, 127, 133, 0.35)',
+    liquidColor: 'rgba(89, 166, 173, 0.55)',
     minVal: 100_000_001,
     maxVal: 500_000_000,
   },
@@ -164,9 +164,9 @@ const GACHA_TIERS: GachaTier[] = [
       '🌏 Level Sultan tercapai. Sekarang, warisan apa yang ingin kamu tinggalkan?',
     ],
     emoji: '👑',
-    gradient: 'linear-gradient(135deg, #fde68a 0%, #f59e0b 40%, #ef4444 70%, #c026d3 100%)',
-    shadowColor: 'rgba(245,158,11,0.5)',
-    liquidColor: 'rgba(253,230,138,0.6)',
+    gradient: 'linear-gradient(135deg, #b0826a 0%, #b86e7a 40%, #8e6291 70%, #5d759e 100%)',
+    shadowColor: 'rgba(184, 110, 122, 0.4)',
+    liquidColor: 'rgba(176, 130, 106, 0.6)',
     minVal: 500_000_001,
     maxVal: Infinity,
   },
@@ -224,15 +224,9 @@ export function calcCardValue(
 
 // ─── Liquid Wave Animation CSS (injected once) ────────────────────────────────
 const WAVE_CSS = `
-@keyframes _liquid_wave {
-  0%   { transform: translateX(0) translateY(0); }
-  50%  { transform: translateX(-25%) translateY(-4px); }
-  100% { transform: translateX(-50%) translateY(0); }
-}
-@keyframes _liquid_wave2 {
-  0%   { transform: translateX(0) translateY(0); }
-  50%  { transform: translateX(-25%) translateY(4px); }
-  100% { transform: translateX(-50%) translateY(0); }
+@keyframes _liquid_spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 `;
 let waveStyleInjected = false;
@@ -266,32 +260,32 @@ const LiquidFill: React.FC<{ fillPercent: number; color: string }> = ({ fillPerc
         bottom: 0, left: 0, right: 0,
         height: `${rendered * 100}%`,
         transition: 'height 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflow: 'hidden',
       }}>
-        {/* Wave 1 */}
-        <div style={{
-          position: 'absolute', top: -20, left: 0,
-          width: '200%', height: '40px',
-          background: color,
-          borderRadius: '40%',
-          animation: '_liquid_wave 3.5s linear infinite',
-          opacity: 0.8,
-        }} />
-        {/* Wave 2 (offset phase) */}
-        <div style={{
-          position: 'absolute', top: -14, left: 0,
-          width: '200%', height: '36px',
-          background: color,
-          borderRadius: '38%',
-          animation: '_liquid_wave2 4.5s linear infinite',
-          opacity: 0.5,
-        }} />
-        {/* Fill body below waves */}
+        {/* Wave 1 (Back) */}
         <div style={{
           position: 'absolute',
-          top: 20, bottom: 0, left: 0, right: 0,
+          top: '25px',
+          left: '50%',
+          width: '1200px',
+          height: '1200px',
+          marginLeft: '-600px',
           background: color,
-          opacity: 0.65,
+          borderRadius: '40%',
+          animation: '_liquid_spin 12s linear infinite',
+          opacity: 0.5,
+        }} />
+        {/* Wave 2 (Front) */}
+        <div style={{
+          position: 'absolute',
+          top: '15px',
+          left: '50%',
+          width: '1250px',
+          height: '1250px',
+          marginLeft: '-625px',
+          background: color,
+          borderRadius: '43%',
+          animation: '_liquid_spin 18s linear infinite reverse',
+          opacity: 0.8,
         }} />
       </div>
       {/* Dark vignette at bottom */}
@@ -394,36 +388,40 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
             {formatted}
           </div>
 
-          {/* Tier badge */}
-          <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur-sm mb-1.5">
-            <span>{tier.emoji}</span>
-            <span>{tier.rank}</span>
-          </div>
-
           {/* Rotating motivational message */}
           <div key={message} className="text-[11px] opacity-90 leading-snug italic font-medium animate-fadeIn mb-2">
             {message}
           </div>
 
-          {/* Next tier hint */}
-          {!isPrivateMode && (
-            nextTier ? (
-              <div className="flex flex-col gap-1">
-                <div className="h-1 rounded-sm bg-white/20 overflow-hidden">
-                  <div 
-                    className="h-full rounded-sm bg-white/75 transition-all duration-1000 ease-out"
-                    style={{ width: `${Math.round(fillPercent * 100)}%` }} 
-                  />
-                </div>
+          {/* Next tier hint & Tier badge */}
+          {nextTier ? (
+            <div className="flex flex-col gap-1.5">
+              <div className="h-1 rounded-sm bg-white/20 overflow-hidden">
+                <div 
+                  className="h-full rounded-sm bg-white/75 transition-all duration-1000 ease-out"
+                  style={{ width: `${Math.round(fillPercent * 100)}%` }} 
+                />
+              </div>
+              <div className="flex justify-between items-center">
                 <div className="text-[10px] opacity-75 font-semibold">
-                  {currencySymbol}{amountToNext.toLocaleString('id-ID')} lagi ke {nextTier.emoji} {nextTier.rank}
+                  {isPrivateMode ? '••••••••' : `${currencySymbol}${amountToNext.toLocaleString('id-ID')}`} lagi ke {nextTier.emoji} {nextTier.rank}
+                </div>
+                <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm shrink-0">
+                  <span>{tier.emoji}</span>
+                  <span>{tier.rank}</span>
                 </div>
               </div>
-            ) : (
+            </div>
+          ) : (
+            <div className="flex justify-between items-center mt-1">
               <div className="text-[10px] opacity-75 font-bold">
                 🏆 Kamu sudah di puncak! Sultan sejati!
               </div>
-            )
+              <div className="inline-flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm shrink-0">
+                <span>{tier.emoji}</span>
+                <span>{tier.rank}</span>
+              </div>
+            </div>
           )}
         </div>
       </div>

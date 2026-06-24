@@ -31,9 +31,11 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         <p className="text-sm text-on-surface-variant mb-6">{description}</p>
       )}
       {actionLabel && onAction && (
-        <Button variant="primary" onClick={onAction}>
-          {actionLabel}
-        </Button>
+        <div className="flex justify-center">
+          <Button variant="primary" onClick={onAction}>
+            {actionLabel}
+          </Button>
+        </div>
       )}
     </div>
   );

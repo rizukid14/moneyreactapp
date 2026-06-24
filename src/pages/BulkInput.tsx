@@ -1,14 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMoney } from '../contexts/MoneyContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/common/Toast';
-import OverspendReallocationModal from '../components/modals/OverspendReallocationModal';
+import { lazy, Suspense } from 'react';
+const OverspendReallocationModal = lazy(() => import('../components/modals/OverspendReallocationModal'));
 import { PageWrapper } from '../components/ui/PageWrapper';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { PremiumBadge } from '../components/common/PremiumBadge';
+import { useSpeechToText } from '../hooks/useSpeechToText';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
@@ -24,59 +26,12 @@ const BulkInput: React.FC = () => {
   
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
   const [pendingAction, setPendingAction] = useState<boolean>(false);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const speechBaseRef = useRef('');
-  const finalTranscriptRef = useRef('');
+  const { isListening, toggleListening } = useSpeechToText('\n');
 
 
 
   const handleSpeechToText = () => {
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      return;
-    }
-
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
-      return;
-    }
-
-    const recognition = new SR();
-    recognition.lang = 'id-ID';
-    recognition.interimResults = true;
-    recognition.continuous = false;
-
-    recognitionRef.current = recognition;
-    speechBaseRef.current = inputText.trim();
-    finalTranscriptRef.current = '';
-    setIsListening(true);
-
-    recognition.onresult = (event: any) => {
-      let newFinalText = '';
-      let interimText = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) newFinalText += t;
-        else interimText += t;
-      }
-      if (newFinalText) finalTranscriptRef.current += newFinalText;
-      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current} ${interimText}`.trim();
-      setInputText(combined);
-    };
-    recognition.onerror = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
-      showToast('Gagal menangkap suara.', 'warning');
-    };
-    recognition.onend = () => {
-      const combined = `${speechBaseRef.current}\n${finalTranscriptRef.current}`.trim();
-      if (combined) setInputText(combined);
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-    recognition.start();
+    toggleListening(inputText, setInputText);
   };
 
   const performSave = () => {
@@ -304,8 +259,8 @@ const BulkInput: React.FC = () => {
                   data-testid="bulk-voice-btn"
                   className={`absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 rounded-full font-label-md text-label-md transition-colors shadow-sm active:scale-95 duration-150 ${
                     isListening 
-                      ? 'bg-green-500 text-white ring-2 ring-green-600 animate-pulse' 
-                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      ? 'bg-success text-on-success ring-2 ring-success/60 animate-pulse' 
+                      : 'bg-success-container text-on-success-container hover:bg-success-container/80'
                   }`}
                 >
                   <MaterialIcon name="mic" className={`text-4xl ${isListening ? 'text-primary' : 'text-on-surface-variant'}`} />
@@ -439,15 +394,19 @@ const BulkInput: React.FC = () => {
         />
       )}
 
-      <OverspendReallocationModal
-        isOpen={reallocationModal.isOpen}
-        onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
-        onSuccess={handleReallocationSuccess}
-        deficitCategoryId={reallocationModal.deficitCategory}
-        deficitAmount={reallocationModal.deficitAmount}
-        month={reallocationModal.month}
-        year={reallocationModal.year}
-      />
+      {reallocationModal.isOpen && (
+        <Suspense fallback={null}>
+          <OverspendReallocationModal
+            isOpen={reallocationModal.isOpen}
+            onClose={() => setReallocationModal(prev => ({ ...prev, isOpen: false }))}
+            onSuccess={handleReallocationSuccess}
+            deficitCategoryId={reallocationModal.deficitCategory}
+            deficitAmount={reallocationModal.deficitAmount}
+            month={reallocationModal.month}
+            year={reallocationModal.year}
+          />
+        </Suspense>
+      )}
     </PageWrapper>
   );
 };

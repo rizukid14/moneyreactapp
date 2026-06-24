@@ -18,7 +18,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
       description: 'Antarmuka aplikasi dirombak total dengan gaya Bento Grid yang lebih bersih, segar, dan profesional.'
     },
     {
-      icon: <MaterialIcon name="receipt_long"  className="text-emerald-500"  />,
+      icon: <MaterialIcon name="receipt_long"  className="text-success"  />,
       title: 'Smart Receipt Scanner',
       description: 'Pindai struk kini jauh lebih mudah dengan desain baru, panduan interaktif, dan dukungan tarik-dan-lepas (Drag & Drop).'
     },
@@ -28,7 +28,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
       description: 'Saat menalangi biaya, Anda kini bisa menentukan rekening khusus (seperti BCA/Mandiri) untuk menerima transfer pengganti dari teman.'
     },
     {
-      icon: <MaterialIcon name="flight_takeoff"  className="text-emerald-500"  />,
+      icon: <MaterialIcon name="flight_takeoff"  className="text-success"  />,
       title: 'Bento Grid Trip Detail',
       description: 'Halaman detail perjalanan kini jauh lebih estetik dengan informasi yang dikelompokkan secara visual untuk keterbacaan maksimal.'
     },
@@ -40,7 +40,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
   ];
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 2000 }}>
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 10500 }}>
       <motion.div
         className="modal-content"
         onClick={e => e.stopPropagation()}

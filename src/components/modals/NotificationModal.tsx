@@ -291,9 +291,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
   const colorMap: Record<string, { bg: string; text: string }> = {
     primary: { bg: 'bg-primary-container', text: 'text-primary-color' },
     error: { bg: 'bg-error-container/30', text: 'text-error' },
-    success: { bg: 'bg-[#10b981]/10', text: 'text-[#10b981]' },
-    warning: { bg: 'bg-[#f59e0b]/10', text: 'text-[#f59e0b]' },
-    info: { bg: 'bg-[#3b82f6]/10', text: 'text-[#3b82f6]' },
+    success: { bg: 'bg-success/10', text: 'text-success' },
+    warning: { bg: 'bg-warning/10', text: 'text-warning' },
+    info: { bg: 'bg-primary/10', text: 'text-primary' },
   };
 
   return (
