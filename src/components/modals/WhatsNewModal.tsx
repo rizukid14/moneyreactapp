@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import MaterialIcon from '../common/MaterialIcon';
-
+import { changelogData, changelogTypeMeta } from '../../data/changelog';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -11,33 +11,17 @@ interface WhatsNewModalProps {
 const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  const features = [
-    {
-      icon: <MaterialIcon name="auto_awesome"  className="text-primary"  />,
-      title: 'Desain UI Lebih Modern',
-      description: 'Antarmuka aplikasi dirombak total dengan gaya Bento Grid yang lebih bersih, segar, dan profesional.'
-    },
-    {
-      icon: <MaterialIcon name="receipt_long"  className="text-success"  />,
-      title: 'Smart Receipt Scanner',
-      description: 'Pindai struk kini jauh lebih mudah dengan desain baru, panduan interaktif, dan dukungan tarik-dan-lepas (Drag & Drop).'
-    },
-    {
-      icon: <MaterialIcon name="account_balance_wallet"  className="text-primary"  />,
-      title: 'Rekening Penerima Split Bill',
-      description: 'Saat menalangi biaya, Anda kini bisa menentukan rekening khusus (seperti BCA/Mandiri) untuk menerima transfer pengganti dari teman.'
-    },
-    {
-      icon: <MaterialIcon name="flight_takeoff"  className="text-success"  />,
-      title: 'Bento Grid Trip Detail',
-      description: 'Halaman detail perjalanan kini jauh lebih estetik dengan informasi yang dikelompokkan secara visual untuk keterbacaan maksimal.'
-    },
-    {
-      icon: <MaterialIcon name="pie_chart"  className="text-primary"  />,
-      title: 'Penyempurnaan Statistik',
-      description: 'Grafik dan ringkasan keuangan bulanan Anda kini hadir dalam balutan desain yang lebih interaktif dan mudah dipahami.'
+  const latest = changelogData[0];
+  if (!latest) return null;
+
+  const getIconForType = (type: string) => {
+    switch (type) {
+      case 'new': return 'auto_awesome';
+      case 'improve': return 'bolt';
+      case 'fix': return 'build';
+      default: return 'info';
     }
-  ];
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{ zIndex: 10500 }}>
@@ -52,9 +36,9 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h2 style={{ fontSize: '24px', fontWeight: 800, margin: 0, background: 'var(--primary-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              What's New v2.0.0
+              What's New {latest.version}
             </h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Ekosistem desain baru yang revolusioner</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Update bulan {latest.date}</p>
           </div>
           <button onClick={onClose} className="btn-icon">
             <MaterialIcon name="close" className="text-[24px]" />
@@ -71,25 +55,36 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ isOpen, onClose }) => {
           paddingRight: '4px',
           paddingTop: '4px'
         }}>
-          {features.map((f, i) => (
-            <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-              <div style={{ 
-                padding: '12px', 
-                borderRadius: '16px', 
-                background: 'var(--bg-main)', 
-                color: 'var(--primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                {f.icon}
+          {latest.entries.map((f, i) => {
+            const [title, ...descParts] = f.text.split(': ');
+            const desc = descParts.join(': ');
+            const meta = changelogTypeMeta[f.type as keyof typeof changelogTypeMeta];
+
+            return (
+              <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                <div style={{ 
+                  padding: '12px', 
+                  borderRadius: '16px', 
+                  background: meta?.bg || 'var(--bg-main)', 
+                  color: meta?.color || 'var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <MaterialIcon name={getIconForType(f.type)} className="text-[24px]" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+                      {desc ? title : f.text}
+                    </h3>
+                    {!desc && <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: meta?.bg, color: meta?.color }}>{meta?.label}</span>}
+                  </div>
+                  {desc && <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>{desc}</p>}
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 4px', color: 'var(--text-main)' }}>{f.title}</h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>{f.description}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <button

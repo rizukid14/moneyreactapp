@@ -74,9 +74,11 @@ const BulkInput: React.FC = () => {
     });
 
     showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
-    setStage('input');
-    setInputText('');
-    setResults([]);
+    setTimeout(() => {
+      setStage('input');
+      setInputText('');
+      setResults([]);
+    }, 600);
   };
 
   const handleReallocationSuccess = () => {

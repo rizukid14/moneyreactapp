@@ -80,9 +80,15 @@ const DebtCard = React.memo<DebtCardProps>(({
 
     let shadowClass = debt.isPaid ? 'shadow-none' : isOverdue ? 'shadow-error-glow' : 'shadow-bento';
     
-    const { dragProps, swipeOffset } = useSwipeGesture({
-      onSwipeLeft: onDelete,
-      onSwipeRight: onEdit,
+    const { dragProps, swipeOffset, reset } = useSwipeGesture({
+      onSwipeLeft: () => {
+        reset();
+        onDelete();
+      },
+      onSwipeRight: () => {
+        reset();
+        onEdit();
+      },
     });
 
     return (

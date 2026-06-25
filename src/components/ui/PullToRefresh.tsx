@@ -32,8 +32,9 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
     if (!el) return;
 
     const handleTouchStart = (e: TouchEvent) => {
-      const scrollPos = window.scrollY || document.documentElement.scrollTop;
-      if (scrollPos === 0 && refreshState === 'idle') {
+      const appContainer = document.querySelector('.app-container');
+      const scrollPos = appContainer ? appContainer.scrollTop : (window.scrollY || document.documentElement.scrollTop);
+      if (scrollPos <= 0 && refreshState === 'idle') {
         startY.current = e.touches[0].clientY;
         setRefreshState('pulling');
       }

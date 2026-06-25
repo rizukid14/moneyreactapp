@@ -18,11 +18,13 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v2.0.1', date: 'Jun 2026', badge: 'Terbaru',
+    version: 'v2.1.0', date: 'Jun 2026', badge: 'Terbaru',
     entries: [
-      { type: 'improve', text: 'Aplikasi Terasa Lebih Cepat: Kami telah memperhalus perpindahan antar halaman dan tampilan agar terasa lebih ringan, responsif, dan bebas hambatan (ngelag)' },
-      { type: 'improve', text: 'Pemuatan Data Super Kilat: Menarik data riwayat kategori dan daftar saldo dari ratusan transaksi kini terasa jauh lebih instan dan instan' },
-      { type: 'fix', text: 'Peningkatan Stabilitas: Gangguan-gangguan sistem tersembunyi telah dihilangkan agar aktivitas catat-mencatat keuangan Anda tetap lancar' },
+      { type: 'improve', text: 'Aplikasi Terasa Lebih Cepat: Kami telah memperhalus perpindahan antar halaman dan mematikan lazy loading berlebih agar navigasi terasa instan dan bebas hambatan (ngelag)' },
+      { type: 'improve', text: 'Pemuatan Data Super Kilat: Menarik data dari server kini berjalan di latar belakang (background) sehingga membuka aplikasi (Splash Screen) jadi seketika tanpa menunggu sinkronisasi' },
+      { type: 'new', text: 'Tautkan ke Google: Pengguna yang awalnya mendaftar menggunakan Email & Password biasa, kini dapat menghubungkan akunnya ke Google agar login lebih praktis' },
+      { type: 'improve', text: 'Daftar Kontak Terurut: Memilih kontak pada Split Bill & Hutang kini lebih mudah karena daftar otomatis terurut sesuai abjad' },
+      { type: 'fix', text: 'Peningkatan Stabilitas: Gangguan-gangguan sistem terkait navigasi dan memori telah dihilangkan agar aktivitas catat-mencatat keuangan Anda tetap lancar' },
     ],
   },
   {

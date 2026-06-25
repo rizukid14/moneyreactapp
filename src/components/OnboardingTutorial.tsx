@@ -334,11 +334,11 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ pageKey, steps 
           variant="glass"
           padding="lg"
           key={currentStepIndex} // Force re-render for animation on step change
-          className="onboarding-tooltip-animate-in pointer-events-auto"
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          className="onboarding-tooltip-animate-in pointer-events-auto rounded-3xl shadow-bento"
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border-color)' }}
         >
           <div className="onboarding-step-indicator">
-            Step {currentStepIndex + 1} / {steps.length}
+            Langkah {currentStepIndex + 1} dari {steps.length}
           </div>
           
           <h3 className="onboarding-title">{currentStep.title}</h3>

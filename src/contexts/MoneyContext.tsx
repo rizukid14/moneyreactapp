@@ -356,10 +356,6 @@ interface MoneyContextType {
 
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
 
-// Module-level dedup guard: prevents React StrictMode double-invoking the
-// setDebts updater from generating 2 transactions for the same installment payment.
-const _paidInstallmentKeys = new Set<string>();
-
 // ─── Provider ────────────────────────────────────────────────────────────────
 export const SYSTEM_CATEGORIES: Category[] = [
   { id: 'sys-cat-debt-pay', name: 'Bayar Hutang', type: 'hutang_keluar' },
@@ -369,6 +365,9 @@ export const SYSTEM_CATEGORIES: Category[] = [
 ];
 
 export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Dedup guard: prevents React StrictMode double-invoking the setDebts updater
+  const paidInstallmentKeysRef = React.useRef(new Set<string>());
+  
   const [isReady, setIsReady] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -467,16 +466,17 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setAuthUser(u);
         const lastUid = await localDbGetSetting('last_synced_uid');
         const sessionSyncedUid = sessionStorage.getItem('cloud_synced_uid');
-        const shouldPullFirst = !sessionSyncedUid || sessionSyncedUid !== u.uid || !lastUid || lastUid !== u.uid;
-        if (!shouldPullFirst) await migrateFromIndexedDBToFirebase();
+        
+        // Block initial load ONLY if the user changed accounts on this device,
+        // or if it's the very first time they log in (lastUid is null).
+        const isNewUserOnDevice = !lastUid || lastUid !== u.uid;
 
-        // Pull jika ini akun yang berbeda dari yang terakhir login di device ini.
-        // Handles: (1) device lama dengan data stale, (2) logout → login akun berbeda.
-        // Device baru (IDB kosong) → lastUid undefined → skip (handled by IDB-first fallback).
-        if (shouldPullFirst) {
-          // Akun berbeda → pull data Firestore akun baru ke IDB.
-          // pullCollectionIntoIDB() otomatis membersihkan "zombies" (data akun lama
-          // yang tidak ada di Firestore akun baru), tidak menimpa pending_sync items.
+        if (!isNewUserOnDevice) {
+          await migrateFromIndexedDBToFirebase();
+        }
+
+        if (isNewUserOnDevice) {
+          // Akun berbeda → pull data Firestore akun baru ke IDB secara sinkron.
           setAutoCloudSync({ status: 'pulling' });
           try {
             const result = await dbForceCloudSync();
@@ -485,8 +485,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           } catch (err: any) {
             setAutoCloudSync({ status: 'error', message: err?.message || 'Gagal sinkronisasi dari cloud' });
           }
+        } else {
+          setAutoCloudSync({ status: 'idle' });
+          // Lakukan background sync jika belum sync di sesi ini, tanpa memblokir SplashScreen!
+          if (!sessionSyncedUid || sessionSyncedUid !== u.uid) {
+            dbForceCloudSync().then(() => {
+              sessionStorage.setItem('cloud_synced_uid', u.uid);
+            }).catch(console.error);
+          }
         }
-        if (!shouldPullFirst) setAutoCloudSync({ status: 'idle' });
         await localDbPutSetting('last_synced_uid', u.uid);
       } else {
         setAuthUser(null);
@@ -1026,10 +1033,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
     } else {
-      setTransactions(prev => prev.filter(tx => tx.id !== id));
+      // Delete any orphan transactions (e.g. admin fees) related to this one
+      const orphanIds = transactions.filter(t => t.relatedId === id).map(t => t.id);
+      if (orphanIds.length > 0) {
+        orphanIds.forEach(orphanId => dbDeleteTransaction(orphanId));
+      }
+      setTransactions(prev => prev.filter(tx => tx.id !== id && !orphanIds.includes(tx.id)));
       dbDeleteTransaction(id).then(refreshSyncCount);
     }
-  }, [transactions, refreshSyncCount]);
+  }, [transactions, refreshSyncCount, categories, debts]);
 
   const updateTransaction = useCallback((id: string, updatedTx: Partial<Transaction>) => {
     setTransactions(prev => prev.map(tx => {
@@ -1375,8 +1387,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       dbPutDebt(updated);
 
       const txKey = `${debtId}-${nextPaid}`;
-      if (!_paidInstallmentKeys.has(txKey)) {
-        _paidInstallmentKeys.add(txKey);
+      if (!paidInstallmentKeysRef.current.has(txKey)) {
+        paidInstallmentKeysRef.current.add(txKey);
         const today = getLocalDate();
         const time = getLocalTime();
         const amt = debt.installmentAmount || 0;
@@ -1419,8 +1431,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!debt || debt.isPaid) return;
 
     const txKey = `settle-${debtId}`;
-    if (!_paidInstallmentKeys.has(txKey)) {
-      _paidInstallmentKeys.add(txKey);
+    if (!paidInstallmentKeysRef.current.has(txKey)) {
+      paidInstallmentKeysRef.current.add(txKey);
       const today = overrideDate || getLocalDate();
       const time = overrideTime || getLocalTime();
 
@@ -1484,7 +1496,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
     dbPutDebt(updated);
     setDebts(prev => prev.map(d => d.id === debtId ? updated : d));
-  }, [debts]);
+  }, [debts, transactions, categories]);
 
   const addDebtPayment = useCallback((debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => {
     const debt = debts.find(d => d.id === debtId);

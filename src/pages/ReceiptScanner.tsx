@@ -245,6 +245,21 @@ const ReceiptScanner: React.FC = () => {
     setIsDragging(false);
   }, []);
 
+  // Prevent scrolling only when actually dragging the crop rect
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const preventScroll = (e: TouchEvent) => {
+      if (isDragging) {
+        e.preventDefault();
+      }
+    };
+
+    canvas.addEventListener('touchmove', preventScroll, { passive: false });
+    return () => canvas.removeEventListener('touchmove', preventScroll);
+  }, [isDragging]);
+
   // ── Run scan ───────────────────────────────────────────────────────────────
   const runScan = useCallback(async () => {
     const canvas = canvasRef.current;
@@ -534,7 +549,7 @@ const ReceiptScanner: React.FC = () => {
         assetId: selectedAssetId,
       });
       showToast('Transaksi berhasil disimpan!', 'success');
-      reset();
+      setTimeout(() => reset(), 600);
     } catch (e) {
       showToast('Gagal menyimpan transaksi. Silakan coba lagi.', 'error');
       console.error(e);
@@ -631,8 +646,10 @@ const ReceiptScanner: React.FC = () => {
         }
       }
 
-      setIsSplitModalOpen(false);
-      reset();
+      setTimeout(() => {
+        setIsSplitModalOpen(false);
+        reset();
+      }, 600);
     } catch (e) {
       showToast('Gagal menyimpan split bill.', 'error');
       console.error(e);
@@ -718,7 +735,7 @@ const ReceiptScanner: React.FC = () => {
     });
 
     showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
-    reset();
+    setTimeout(() => reset(), 600);
   };
 
   const handleReallocationSuccess = () => {
@@ -847,7 +864,7 @@ const ReceiptScanner: React.FC = () => {
 
       {stage === 'crop' && (
         <div className="w-full max-w-[800px] mx-auto flex flex-col gap-6">
-          <div className="bg-surface-container-low rounded-2xl overflow-hidden border border-outline-variant shadow-sm touch-none mb-24">
+          <div className="bg-surface-container-low rounded-2xl overflow-hidden border border-outline-variant shadow-sm mb-24">
             <canvas ref={canvasRef} className="w-full block" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
           </div>
           

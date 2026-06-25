@@ -898,7 +898,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       </div>
                     )}
 
-                    <div className="pt-2">
+                    <div className="pt-2 pb-[env(safe-area-inset-bottom)]">
                       {!editingTransaction || isCopyMode ? (
                         <div className="flex gap-2">
                           <Button

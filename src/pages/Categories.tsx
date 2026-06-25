@@ -5,6 +5,7 @@ import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { useToast } from '../components/common/Toast';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const Categories: React.FC = () => {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ const Categories: React.FC = () => {
   const [catTab, setCatTab] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
   const [newCatName, setNewCatName] = useState('');
   
+  // Confirm State
+  const [confirmConfig, setConfirmConfig] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
   // Edit State
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
@@ -94,9 +98,7 @@ const Categories: React.FC = () => {
   };
 
   const showConfirm = (title: string, message: string, onConfirm: () => void) => {
-    if (window.confirm(`${title}\n\n${message}`)) {
-      onConfirm();
-    }
+    setConfirmConfig({ isOpen: true, title, message, onConfirm });
   };
 
   return (
@@ -274,6 +276,16 @@ const Categories: React.FC = () => {
           </button>
         </form>
       </div>
+      <ConfirmDialog
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={() => {
+          confirmConfig.onConfirm();
+          setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+        }}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+      />
     </PageWrapper>
   );
 };

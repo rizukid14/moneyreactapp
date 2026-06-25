@@ -9,19 +9,20 @@ import LockScreen from './components/LockScreen';
 import SplashScreen from './components/SplashScreen';
 import { ToastProvider } from './components/common/Toast';
 
-// Lazy load pages for performance (bundle-dynamic-imports)
-const Transactions = lazy(() => import('./pages/Transactions'));
+import Transactions from './pages/Transactions';
+import Assets from './pages/Assets';
+import Debts from './pages/Debts';
+import Settings from './pages/Settings';
+import Categories from './pages/Categories';
+
+// Lazy load heavy or rarely used pages for performance (bundle-dynamic-imports)
 const Statistics = lazy(() => import('./pages/Statistics'));
 const ReceiptScanner = lazy(() => import('./pages/ReceiptScanner'));
 const BulkInput = lazy(() => import('./pages/BulkInput'));
-const Assets = lazy(() => import('./pages/Assets'));
-const Debts = lazy(() => import('./pages/Debts'));
-const Settings = lazy(() => import('./pages/Settings'));
 const SocialHub = lazy(() => import('./pages/SocialHub'));
 const SharedSplitBill = lazy(() => import('./pages/SharedSplitBill'));
 const Trips = lazy(() => import('./pages/Trips'));
 const TripDetail = lazy(() => import('./pages/TripDetail'));
-const Categories = lazy(() => import('./pages/Categories'));
 
 // SplashScreen is used as fallback for both initial load and lazy page loading
 

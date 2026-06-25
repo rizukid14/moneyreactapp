@@ -6,12 +6,11 @@ import { lazy, Suspense } from 'react';
 const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
 import type { CardId } from '../components/AssetSummaryCarousel';
 import OnboardingTutorial from '../components/OnboardingTutorial';
-import { Card } from '../components/ui/Card';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SectionHeader } from '../components/ui/SectionHeader';
@@ -120,15 +119,26 @@ const AssetDetailDrawer: React.FC<{
     allAssets.find(a => a.id === id)?.name || '';
 
   return (
-    <>
-      <div className="modal-overlay" onClick={onClose}>
-        <Card
-          variant="glass"
-          data-testid="asset-drawer"
-          className="modal-content"
-          onClick={e => e.stopPropagation()}
-          style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 0, margin: 0, width: '100%', maxWidth: '600px' }}
+    <AnimatePresence>
+      {asset && (
+        <motion.div 
+          className="modal-overlay" 
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
         >
+          <motion.div
+            data-testid="asset-drawer"
+            className="modal-content bg-bg-card rounded-t-[32px] sm:rounded-3xl w-full shadow-bento overflow-hidden"
+            onClick={e => e.stopPropagation()}
+            style={{ maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 0, margin: 0, width: '100%', maxWidth: '600px' }}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 400, mass: 0.5 }}
+          >
           {/* Header */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 14,
@@ -344,9 +354,10 @@ const AssetDetailDrawer: React.FC<{
               </div>
             )}
           </div>
-        </Card>
-      </div>
-    </>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
   );
 };
 
@@ -364,9 +375,15 @@ const AssetCard: React.FC<{
   onSelect: () => void;
   isHidden?: boolean;
 }> = ({ asset, balance, isPrivateMode, currencySymbol, color, Icon, stats, onEdit, onDelete, onSelect, isHidden }) => {
-  const { dragProps, swipeOffset } = useSwipeGesture({
-    onSwipeLeft: onDelete,
-    onSwipeRight: onEdit,
+  const { dragProps, swipeOffset, reset } = useSwipeGesture({
+    onSwipeLeft: () => {
+      reset();
+      onDelete();
+    },
+    onSwipeRight: () => {
+      reset();
+      onEdit();
+    },
   });
 
   const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
@@ -707,24 +724,22 @@ const Assets: React.FC = () => {
       />
 
       {/* Asset detail drawer */}
-      {selectedAsset && (
-        <AssetDetailDrawer
-          asset={selectedAsset}
-          balance={balances[selectedAsset.id] || 0}
-          transactions={transactions}
-          allAssets={assets}
-          isPrivateMode={isPrivateMode}
-          currencySymbol={currencySymbol}
-          onClose={() => setSelectedAsset(null)}
-          onEditAsset={a => { handleEdit(a); }}
-          onDeleteAsset={deleteAsset}
-          onEditTx={tx => {
-            setEditingTx(tx);
-            setSelectedAsset(null);
-            setIsTxModalOpen(true);
-          }}
-        />
-      )}
+      <AssetDetailDrawer
+        asset={selectedAsset as Asset} // Cast as we conditionally render inside or handle null
+        balance={selectedAsset ? (balances[selectedAsset.id] || 0) : 0}
+        transactions={transactions}
+        allAssets={assets}
+        isPrivateMode={isPrivateMode}
+        currencySymbol={currencySymbol}
+        onClose={() => setSelectedAsset(null)}
+        onEditAsset={a => { handleEdit(a); }}
+        onDeleteAsset={deleteAsset}
+        onEditTx={tx => {
+          setEditingTx(tx);
+          setSelectedAsset(null);
+          setIsTxModalOpen(true);
+        }}
+      />
 
       {/* Transaction edit modal from drawer */}
       {isTxModalOpen && (

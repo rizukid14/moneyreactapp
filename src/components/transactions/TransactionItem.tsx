@@ -89,9 +89,12 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
     return isIncomeLike ? 'income' : isExpenseLike ? 'expense' : 'neutral';
   };
 
-  const { dragProps, swipeOffset } = useSwipeGesture({
+  const { dragProps, swipeOffset, reset } = useSwipeGesture({
     onSwipeLeft: () => setIsConfirmOpen(true),
-    onSwipeRight: () => onEdit(tx),
+    onSwipeRight: () => {
+      reset();
+      onEdit(tx);
+    },
   });
 
   return (
@@ -134,7 +137,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
                 )}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {showDate && <span>{tx.date}</span>}
-                  {tx.time && <span className="font-bold text-primary">{tx.time} WIB</span>}
+                  {tx.time && <span className="font-bold text-primary">{tx.time.substring(0,5)} WIB</span>}
                   <span className="opacity-70">•</span>
                   <span>{tx.type !== 'transfer' ? assetName : 'Transfer'}</span>
                   {tx.note && <span className="truncate max-w-[100px] opacity-80">• {tx.note}</span>}
@@ -181,7 +184,10 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
       <ConfirmDialog
         isOpen={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
+        onClose={() => {
+          setIsConfirmOpen(false);
+          reset();
+        }}
         onConfirm={() => onDelete(tx.id, tx)}
         title="Hapus Transaksi"
         message={`Apakah Anda yakin ingin menghapus transaksi "${tx.type === 'transfer' ? 'Transfer' : categoryName}" sebesar ${formatCurrency(tx.amount, currencySymbol)}?`}

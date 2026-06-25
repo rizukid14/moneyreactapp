@@ -27,6 +27,8 @@ if (isFirebaseConfigured && getApps().length === 0) {
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+import { GoogleAuthProvider } from 'firebase/auth';
+export const googleProvider = new GoogleAuthProvider();
 
 // Messaging is only supported in certain browser contexts
 export const getMessagingInstance = async () => {

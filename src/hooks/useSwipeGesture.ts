@@ -57,6 +57,11 @@ export const useSwipeGesture = ({
     setSwipeOffset(0);
   };
 
+  const reset = () => {
+    controls.start({ x: 0, opacity: 1, transition: { type: 'spring', stiffness: 300, damping: 20 } });
+    setSwipeOffset(0);
+  };
+
   return {
     dragProps: {
       drag: 'x' as const,
@@ -68,5 +73,6 @@ export const useSwipeGesture = ({
       animate: controls,
     },
     swipeOffset,
+    reset,
   };
 };

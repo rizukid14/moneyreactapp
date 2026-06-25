@@ -43,12 +43,16 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
 
   const filteredContacts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return contacts;
-    return contacts.filter(c => {
-      const name = (c.name || '').toLowerCase();
-      const phone = (c.phone || '').toLowerCase();
-      return name.includes(q) || phone.includes(q);
-    });
+    let result = contacts;
+    if (q) {
+      result = contacts.filter(c => {
+        const name = (c.name || '').toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        return name.includes(q) || phone.includes(q);
+      });
+    }
+    // Urutkan berdasarkan nama secara alfabetis
+    return [...result].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [contacts, searchQuery]);
 
   const handleSelect = (contactName: string) => {

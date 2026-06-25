@@ -652,6 +652,7 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
    - Bayar/Cicil: Klik pada catatan untuk mengangsur sebagian atau langsung melunasinya.
    - Offset (Potong Silang): Banner potong silang otomatis di bagian atas jika ada catatan hutang dan piutang ke kontak yang sama.
    - Merge Otomatis: Pencatatan hutang/piutang ke orang yang sama otomatis digabung jika belum lunas.
+   - Daftar Kontak Terurut: Saat memilih kontak, daftar otomatis diurutkan sesuai abjad untuk mempercepat pencarian.
    - Tips Profesional: Kosongkan rekening aset saat membuat hutang agar pelunasan nanti tercatat sebagai Pengeluaran. Pilih aset jika pelunasan ingin dicatat sebagai Transfer rekening.
 `,
       budgets: `
@@ -686,6 +687,8 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
 `,
       settings: `
 9. Pengaturan & Sistem (Settings):
+   - Tautkan ke Google: Pengguna yang mendaftar menggunakan Email biasa kini dapat menghubungkan akunnya ke akun Google melalui menu Profil.
+   - Performa Instan: Pemuatan data cloud kini berjalan di latar belakang (background), sehingga splash screen terbuka seketika dan navigasi halaman bebas ngelag.
    - Struktur Menu: Akun (Profil, Keamanan PIN), Keuangan (Anggaran, Langganan, Transaksi Rutin, Tujuan Tabungan), Sosial (Kontak, Split Bills, Trips), dan Sistem (Backup/Restore JSON & Excel, Preferensi).
    - Preferensi: Ganti mata uang kustom (Rp, $, dll), ubah kartu carousel aset, dan ubah tanggal awal bulan finansial.
 `,
