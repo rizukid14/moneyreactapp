@@ -9,6 +9,7 @@ import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useSpeechToText } from '../../hooks/useSpeechToText';
 import CategorySelectModal from '../modals/CategorySelectModal';
 import AssetSelectModal from '../modals/AssetSelectModal';
+import SplitBillModal from '../modals/SplitBillModal';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -36,6 +37,9 @@ const ChatBot: React.FC = () => {
   
   const [activeSelectAssetMsgIdx, setActiveSelectAssetMsgIdx] = useState<number | null>(null);
   const [assetSelectCallback, setAssetSelectCallback] = useState<((assetId: string) => void) | null>(null);
+
+  const [splitBillModalOpen, setSplitBillModalOpen] = useState(false);
+  const [splitBillData, setSplitBillData] = useState<any>(null);
   
   const { 
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
@@ -212,7 +216,12 @@ const ChatBot: React.FC = () => {
     if (isChatOpen && messages.length === 1) {
       const { days } = getDaysToEOM();
       if (days >= 0 && days <= 5) {
-        triggerEOMReview();
+        const today = new Date();
+        const monthKey = `has_seen_eom_${today.getFullYear()}_${today.getMonth()}`;
+        if (!localStorage.getItem(monthKey)) {
+          triggerEOMReview();
+          localStorage.setItem(monthKey, 'true');
+        }
       }
     }
   }, [isChatOpen, messages.length]);
@@ -698,7 +707,7 @@ const ChatBot: React.FC = () => {
                     {renderMarkdown(msg.content)}
                   </div>
                 )}
-                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt' || msg.toolCall.name === 'create_subscription') && (
+                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt' || msg.toolCall.name === 'create_subscription' || msg.toolCall.name === 'create_split_bill') && (
                   <div style={{
                     marginTop: '8px',
                     width: '100%',
@@ -711,11 +720,12 @@ const ChatBot: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
                       <MaterialIcon name="error" className="text-[16px]" />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : msg.toolCall.name === 'create_debt' ? 'Draft Catatan Hutang' : 'Draft Langganan Baru'}
+                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : msg.toolCall.name === 'create_debt' ? 'Draft Catatan Hutang' : msg.toolCall.name === 'create_split_bill' ? 'Draft Split Bill' : 'Draft Langganan Baru'}
                       </span>
                     </div>
                     
-                    <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                    {msg.toolCall.name !== 'create_split_bill' && (
+                      <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                       {msg.toolCall.name === 'create_transaction' ? (
                         <>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1319,32 +1329,58 @@ const ChatBot: React.FC = () => {
                               outline: 'none'
                             }}
                           />
-                        </div>
-                      )}
-                    </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button 
-                        onClick={() => handleCancelTransaction(idx)}
-                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
-                      >
-                        Batal
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (msg.toolCall?.name === 'create_transaction') {
-                            handleConfirmTransaction(idx, msg.toolCall.arguments);
-                          } else if (msg.toolCall?.name === 'create_debt') {
-                            handleConfirmDebt(idx, msg.toolCall.arguments);
-                          } else {
-                            handleConfirmSubscription(idx, msg.toolCall!.arguments);
-                          }
-                        }}
-                        style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                      >
-                        <MaterialIcon name="check" className="text-[16px]" /> Konfirmasi
-                      </button>
-                    </div>
+                    {msg.toolCall.name !== 'create_split_bill' ? (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          onClick={() => handleCancelTransaction(idx)}
+                          style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Batal
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (msg.toolCall?.name === 'create_transaction') {
+                              handleConfirmTransaction(idx, msg.toolCall.arguments);
+                            } else if (msg.toolCall?.name === 'create_debt') {
+                              handleConfirmDebt(idx, msg.toolCall.arguments);
+                            } else {
+                              handleConfirmSubscription(idx, msg.toolCall!.arguments);
+                            }
+                          }}
+                          style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                        >
+                          <MaterialIcon name="check" className="text-[16px]" /> Konfirmasi
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                          Sistem mendeteksi <b>{msg.toolCall.arguments.lineItems?.length || 0} item</b> untuk dibuat Split Bill.
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSplitBillData({
+                              merchantName: msg.toolCall?.arguments.merchantName || 'Split Bill',
+                              totalAmount: msg.toolCall?.arguments.totalAmount || 0,
+                              lineItems: msg.toolCall?.arguments.lineItems || []
+                            });
+                            setSplitBillModalOpen(true);
+                            
+                            setMessages(prev => prev.map((m, mIdx) => 
+                              mIdx === idx ? { ...m, toolCall: undefined, content: '✅ Buka Modal Split Bill...' } : m
+                            ));
+                          }}
+                          style={{ width: '100%', padding: '10px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                        >
+                          <MaterialIcon name="splitscreen" className="text-[16px]" /> Buka Modal Split Bill
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -2017,6 +2053,77 @@ const ChatBot: React.FC = () => {
         </motion.div>
       )}
       </AnimatePresence>
+
+      {splitBillModalOpen && splitBillData && (
+        <SplitBillModal
+          isOpen={splitBillModalOpen}
+          onClose={() => setSplitBillModalOpen(false)}
+          merchantName={splitBillData.merchantName}
+          totalAmount={splitBillData.totalAmount}
+          date={getLocalDate()}
+          lineItems={splitBillData.lineItems}
+          assets={assets}
+          categories={categories}
+          onSave={(splits, data) => {
+            const userSplit = splits.find(s => s.id === 'me');
+            const payer = splits.find(s => s.isPayer) || splits[0];
+            const isMePayer = payer.id === 'me';
+            const selectedDate = getLocalDate();
+
+            if (isMePayer) {
+              if (userSplit && userSplit.amount > 0) {
+                addTransaction({
+                  type: 'pengeluaran',
+                  amount: userSplit.amount,
+                  categoryId: data.categoryId || 'Belanja',
+                  subCategoryId: data.subCategoryId || undefined,
+                  date: selectedDate,
+                  time: '12:00',
+                  note: splitBillData.merchantName || 'Split Bill',
+                  assetId: data.assetId,
+                });
+              }
+
+              const others = splits.filter(s => s.id !== 'me' && s.amount > 0);
+              others.forEach(person => {
+                addDebt({
+                  type: 'piutang',
+                  contact: person.contactName,
+                  description: `Split Bill: ${splitBillData.merchantName || 'Struk'}`,
+                  totalAmount: person.amount,
+                  isPaid: false,
+                  date: selectedDate,
+                  createdAt: new Date().toISOString(),
+                  paymentAssetId: data.assetId,
+                  isInstallment: false,
+                  paidInstallments: 0
+                }, 'none', data.categoryId || 'Lainnya');
+              });
+              showToast(`Split bill disimpan! (${others.length} piutang dicatat)`, 'success');
+            } else {
+              if (userSplit && userSplit.amount > 0) {
+                addDebt({
+                  type: 'hutang',
+                  contact: payer.contactName,
+                  description: `Split Bill (${splitBillData.merchantName || 'Struk'})`,
+                  totalAmount: userSplit.amount,
+                  isPaid: false,
+                  date: selectedDate,
+                  createdAt: new Date().toISOString(),
+                  paymentAssetId: data.assetId,
+                  isInstallment: false,
+                  paidInstallments: 0
+                }, 'none', data.categoryId || 'Lainnya');
+                showToast(`Catatan hutang ke ${payer.contactName} berhasil dibuat!`, 'success');
+              } else {
+                showToast(`Tidak ada tagihan untuk Anda.`, 'success');
+              }
+            }
+
+            setSplitBillModalOpen(false);
+          }}
+        />
+      )}
 
       {activeSelectCategoryMsgIdx !== null && (
         <CategorySelectModal

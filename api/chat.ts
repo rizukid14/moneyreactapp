@@ -367,7 +367,8 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
       modularRules += `
 === OCR SCANNING & SPLIT BILL RULES ===
 - Receipt Scanner: GPT-based OCR extracts merchant, date, items, tax, and service charge. Tax and service are distributed proportionally.
-- Split Bill: Distributes OCR-extracted items among contacts, generating Piutang (receivables) for others and recording a standard transaction for the user's share.
+- Split Bill by Text: If the user pastes a text containing food/items and their prices (e.g. "Nasi Goreng 25k, Es Teh 5k"), you MUST call the 'create_split_bill' tool.
+- Split Bill distributions: Distributes items among contacts, generating Piutang (receivables) for others and recording a standard transaction for the user's share.
 `;
     }
 
@@ -429,8 +430,9 @@ BEHAVIOR RULES:
 3. For help/tutorial requests, use 'get_app_help'.
 4. For transfers between assets, use 'create_transaction' with 'type': 'transfer'.
 5. For debts (hutang) or receivables (piutang), use 'create_debt'.
-6. Do NOT try to handle multiple transactions in one turn. Direct them to "Input Sekaligus" for bulk entries.
-7. Keep responses concise and in Indonesian.
+6. For split bill requests from raw text (e.g., "tolong split bill mie ayam 20rb es teh 5rb"), use 'create_split_bill'.
+7. Do NOT try to handle multiple transactions in one turn. Direct them to "Input Sekaligus" for bulk entries.
+8. Keep responses concise and in Indonesian.
 
 RECENT UI/BEHAVIOR CHANGES:
 - Asset selection in dialogs now uses AssetSelectModal across the app (AddTripExpenseModal, DebtPaymentModal, SettleUpModal).
@@ -577,6 +579,35 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
           description: "Retrieve the comprehensive user manual and tutorial for all app features.",
           parameters: { type: "object", properties: {} }
         }
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "create_split_bill",
+          description: "Parse raw text of items and prices into a structured split bill.",
+          parameters: {
+            type: "object",
+            properties: {
+              merchantName: { type: "string", description: "Inferred merchant name, or 'Split Bill' if unknown" },
+              totalAmount: { type: "number", description: "Total amount calculated" },
+              lineItems: {
+                type: "array",
+                description: "Array of items detected in the text.",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    quantity: { type: "number" },
+                    price: { type: "number", description: "Price per unit" },
+                    total: { type: "number", description: "Total for this item (quantity * price)" }
+                  },
+                  required: ["name", "quantity", "price", "total"]
+                }
+              }
+            },
+            required: ["merchantName", "totalAmount", "lineItems"]
+          }
+        }
       }
     ];
 
@@ -701,7 +732,7 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
           });
         }
 
-        if (functionName === 'create_transaction' || functionName === 'create_debt' || functionName === 'recommend_budget' || functionName === 'create_subscription') {
+        if (functionName === 'create_transaction' || functionName === 'create_debt' || functionName === 'recommend_budget' || functionName === 'create_subscription' || functionName === 'create_split_bill') {
           let parsedArgs = {};
           try {
             parsedArgs = typeof toolCall.function.arguments === 'string'
@@ -715,6 +746,8 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
             fallbackContent = "Berikut rekomendasi anggaran yang telah saya buat berdasarkan analisis keuangan bulananmu. Silakan tinjau dan terapkan jika sesuai!";
           } else if (functionName === 'create_subscription') {
             fallbackContent = "Berikut draf langganan baru yang telah saya buat. Silakan konfirmasi untuk menyimpannya!";
+          } else if (functionName === 'create_split_bill') {
+            fallbackContent = "Saya telah mendeteksi daftar tagihan dari teks Anda. Klik tombol di bawah ini untuk mengatur Split Bill-nya!";
           }
           return res.status(200).json({
             role: "assistant",

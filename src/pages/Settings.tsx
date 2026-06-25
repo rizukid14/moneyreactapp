@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +21,7 @@ import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
 import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
 import ContactModal from '../components/modals/ContactModal';
+import ContactManagerModal from '../components/modals/ContactManagerModal';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -332,7 +333,7 @@ const Settings: React.FC = () => {
   const location = useLocation();
   const { showToast } = useToast();
   const { premium, setShowUpgradeModal } = usePremium();
-  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, deleteContact, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
   const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -387,9 +388,16 @@ const Settings: React.FC = () => {
 
   // Profile Form State
   const [tempName, setTempName] = useState(user.name);
-  // ... existing state ...
   const [tempEmail, setTempEmail] = useState(user.email);
   const [tempAvatar, setTempAvatar] = useState(user.avatar || '');
+
+  useEffect(() => {
+    if (!isEditingProfile && activeModal !== 'profile') {
+      setTempName(user.name);
+      setTempEmail(user.email);
+      setTempAvatar(user.avatar || '');
+    }
+  }, [user.name, user.email, user.avatar, isEditingProfile, activeModal]);
 
   // PIN Form State
   const [newPin, setNewPin] = useState('');
@@ -411,8 +419,18 @@ const Settings: React.FC = () => {
   // Contact State
   const [editingContact, setEditingContact] = useState<string | null>(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [contactSearchQuery, setContactSearchQuery] = useState('');
+  // contactSearchQuery is moved to ContactManagerModal
   const [budgetTab, setBudgetTab] = useState<'budget' | 'goal'>('budget');
+
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(localStorage.getItem('last_cloud_sync_time'));
+  const formatLastSync = (ts: string | null) => {
+    if (!ts) return 'Belum pernah';
+    const diff = Math.floor((Date.now() - parseInt(ts)) / 60000); // minutes
+    if (diff < 1) return 'Baru saja';
+    if (diff < 60) return `${diff}m lalu`;
+    if (diff < 1440) return `${Math.floor(diff/60)}j lalu`;
+    return `${Math.floor(diff/1440)}h lalu`;
+  };
 
   const profileStats = React.useMemo(() => {
     const netWorth = assets.filter(a => !a.isDeleted).reduce((sum, a) => sum + (getAssetBalance?.(a.id) || 0), 0);
@@ -555,6 +573,7 @@ const Settings: React.FC = () => {
     e.preventDefault();
     updateUser({ name: tempName, email: tempEmail, avatar: tempAvatar });
     setActiveModal(null);
+    setIsEditingProfile(false);
   };
 
   const handleSetPin = async (e: React.FormEvent) => {
@@ -668,125 +687,10 @@ const Settings: React.FC = () => {
     switch (activeModal) {
       case 'contacts':
         return (
-          <>
-            <div className="modal-header">
-              <h2 className="subtitle">Daftar Kontak</h2>
-              <button className="close-btn" onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}><MaterialIcon name="close" className="text-base" /></button>
-            </div>
-
-            <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingBottom: '20px' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>DAFTAR KONTAK</span>
-                <button
-                  onClick={() => {
-                    setEditingContact(null);
-                    setIsContactModalOpen(true);
-                  }}
-                  style={{
-                    padding: '8px 12px', background: 'var(--bg-income)', color: 'var(--primary)',
-                    border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
-                  }}
-                >
-                  <MaterialIcon name="add" className="text-[14px]" /> Tambah
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div style={{ padding: '0 20px', marginBottom: '12px' }}>
-                <div style={{ position: 'relative' }}>
-                  <MaterialIcon name="search"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Cari kontak..."
-                    value={contactSearchQuery}
-                    onChange={e => setContactSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 40px',
-                      borderRadius: '12px',
-                      background: 'var(--bg-main)',
-                      border: '1px solid var(--border-color)',
-                      fontSize: '14px',
-                      marginBottom: 0
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* List Section */}
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {(() => {
-                  const filtered = contacts
-                    .filter(c => c.name.toLowerCase().includes(contactSearchQuery.toLowerCase()))
-                    .sort((a, b) => a.name.localeCompare(b.name));
-
-                  if (filtered.length === 0) {
-                    return (
-                      <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
-                        <div style={{ fontSize: '14px', fontWeight: 600 }}>{contactSearchQuery ? 'Tidak ada hasil' : 'Belum ada kontak'}</div>
-                        <div style={{ fontSize: '12px' }}>{contactSearchQuery ? 'Coba kata kunci lain' : 'Tambahkan kontak untuk memudahkan mencatat hutang.'}</div>
-                      </div>
-                    );
-                  }
-
-                  return filtered.map(c => (
-                    <div key={c.id} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '14px 20px',
-                      background: editingContact === c.id ? 'var(--bg-income)' : 'transparent',
-                      borderBottom: '1px solid var(--border-color)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                        <div style={{
-                          width: 40, height: 40, borderRadius: 10,
-                          background: 'var(--bg-main)', color: 'var(--text-muted)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 14, fontWeight: 700, flexShrink: 0
-                        }}>
-                          {c.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '14px' }}>{c.name}</div>
-                          {c.phone && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 2 }}>
-                              📞 {c.phone}
-                            </div>
-                          )}
-                          {c.note && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 2, fontStyle: 'italic' }}>
-                              {c.note}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => {
-                          setEditingContact(c.id);
-                          setIsContactModalOpen(true);
-                        }} className="btn-icon" style={{ color: 'var(--primary)', padding: 6 }}>
-                          <MaterialIcon name="edit" className="text-[18px]" />
-                        </button>
-                        <button onClick={() => {
-                          showConfirm(
-                            'Hapus Kontak',
-                            `Hapus kontak "${c.name}"? Catatan hutang/piutang yang menggunakan kontak ini tidak akan terhapus.`,
-                            () => deleteContact(c.id)
-                          );
-                        }} className="btn-icon" style={{ color: 'var(--danger)', padding: 6 }}>
-                          <MaterialIcon name="delete" className="text-[18px]" />
-                        </button>
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-          </>
+          <ContactManagerModal
+            isOpen={activeModal === 'contacts'}
+            onClose={() => setActiveModal(null)}
+          />
         );
 
       case 'categories':
@@ -2211,7 +2115,12 @@ const Settings: React.FC = () => {
                       )}
                     </div>
                     <button
-                      onClick={() => setIsEditingProfile(true)}
+                      onClick={() => {
+                        setTempName(user.name);
+                        setTempEmail(user.email);
+                        setTempAvatar(user.avatar || '');
+                        setIsEditingProfile(true);
+                      }}
                       className="absolute bottom-0 right-0 bg-primary text-white p-1.5 rounded-full border-2 border-white cursor-pointer hover:scale-105 transition-transform flex items-center justify-center"
                     >
                       <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -2472,7 +2381,7 @@ const Settings: React.FC = () => {
                 <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
                   <span>Cloud Sync Manual & Ekspor JSON</span>
                   <span className="flex items-center gap-1 normal-case text-[11px] font-semibold text-on-surface-variant">
-                    <MaterialIcon name="history" className="text-xs" /> Terakhir: 5m lalu
+                    <MaterialIcon name="history" className="text-xs" /> Terakhir: {formatLastSync(lastSyncTime)}
                   </span>
                 </div>
 
@@ -2492,7 +2401,7 @@ const Settings: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <button
-                    onClick={async () => { setIsPushing(true); setPushResult(null); const r = await syncData(); setPushResult(r); setIsPushing(false); }}
+                    onClick={async () => { setIsPushing(true); setPushResult(null); const r = await syncData(); setPushResult(r); setIsPushing(false); if(r.success >= 0){ const now = Date.now().toString(); localStorage.setItem('last_cloud_sync_time', now); setLastSyncTime(now); } }}
                     disabled={isPushing || pendingSyncCount === 0}
                     className="py-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm disabled:opacity-50"
                   >
@@ -2500,7 +2409,7 @@ const Settings: React.FC = () => {
                     {isPushing ? 'Menyinkron...' : `Push Data (${pendingSyncCount})`}
                   </button>
                   <button
-                    onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); }}
+                    onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); if(r.total >= 0){ const now = Date.now().toString(); localStorage.setItem('last_cloud_sync_time', now); setLastSyncTime(now); } }}
                     disabled={isPulling}
                     className="py-3 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
                   >
@@ -2649,159 +2558,23 @@ const Settings: React.FC = () => {
           </section>
 
           {/* Category Management Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
-            <div className="flex items-center justify-between border-b border-border-light pb-4">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-primary">category</span>
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+            <div className="flex items-center gap-3 border-b border-border-light pb-4">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined">category</span>
+              </div>
+              <div>
                 <h3 className="font-headline-md text-headline-md text-on-surface">Manajemen Kategori</h3>
-              </div>
-              <div className="flex bg-surface-container-low rounded-lg p-1 border border-outline-variant">
-                <button
-                  type="button"
-                  onClick={() => setCatTab('pengeluaran')}
-                  className={`px-3 py-1.5 rounded-md border-none font-bold text-xs cursor-pointer transition-all ${catTab === 'pengeluaran' ? 'bg-bg-card text-error shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
-                    }`}
-                >
-                  Pengeluaran
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCatTab('pendapatan')}
-                  className={`px-3 py-1.5 rounded-md border-none font-bold text-xs cursor-pointer transition-all ${catTab === 'pendapatan' ? 'bg-bg-card text-primary shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
-                    }`}
-                >
-                  Pendapatan
-                </button>
+                <p className="text-xs text-on-surface-variant mt-1">Tambah, edit, atau hapus kategori dan subkategori transaksi Anda.</p>
               </div>
             </div>
-
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-              {categories.filter(c => !c.isDeleted && c.type === catTab).map(c => (
-                <div key={c.id} className="border border-outline-variant rounded-xl overflow-hidden shadow-sm">
-                  <div className="flex items-center justify-between bg-surface-container-low p-4">
-                    <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-primary text-xl">
-                        {c.type === 'pengeluaran' ? 'restaurant' : 'payments'}
-                      </span>
-                      {editingCatId === c.id ? (
-                        <input
-                          type="text"
-                          value={editingCatName}
-                          onChange={e => setEditingCatName(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleUpdateCat(c.id, editingCatName);
-                            else if (e.key === 'Escape') setEditingCatId(null);
-                          }}
-                          className="px-2 py-1 text-xs border border-primary rounded bg-bg-card text-on-surface font-bold focus:outline-none"
-                          autoFocus
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span className="font-label-md font-bold text-on-surface">{c.name}</span>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      {editingCatId === c.id ? (
-                        <button onClick={() => handleUpdateCat(c.id, editingCatName)} className="p-1.5 bg-primary/10 text-primary rounded border-none cursor-pointer">
-                          <MaterialIcon name="check" className="text-sm" />
-                        </button>
-                      ) : (
-                        <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} className="p-1.5 bg-transparent text-on-surface-variant hover:text-primary rounded border-none cursor-pointer">
-                          <MaterialIcon name="edit" className="text-sm" />
-                        </button>
-                      )}
-                      <button onClick={() => showConfirm('Hapus Kategori', `Yakin ingin menghapus kategori "${c.name}"?`, () => deleteCategory(c.id))} className="p-1.5 bg-transparent text-error hover:bg-error/10 rounded border-none cursor-pointer">
-                        <MaterialIcon name="delete" className="text-sm" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-bg-card space-y-3">
-                    {c.subcategories?.filter(s => !s.isDeleted).map(sub => (
-                      <div key={sub.id} className="flex justify-between items-center px-2 py-1 hover:bg-surface-container-low rounded-lg transition-colors group">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>
-                          {editingSubCatId === sub.id ? (
-                            <input
-                              type="text"
-                              value={editingSubCatName}
-                              onChange={e => setEditingSubCatName(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') handleUpdateSubCat(c.id, sub.id, editingSubCatName);
-                                else if (e.key === 'Escape') setEditingSubCatId(null);
-                              }}
-                              className="px-2 py-0.5 text-xs border border-primary rounded bg-bg-card text-on-surface font-bold focus:outline-none"
-                              autoFocus
-                              onClick={e => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span className="text-xs font-semibold text-on-surface-variant group-hover:text-on-surface transition-colors">{sub.name}</span>
-                          )}
-                        </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {editingSubCatId === sub.id ? (
-                            <button onClick={() => handleUpdateSubCat(c.id, sub.id, editingSubCatName)} className="p-1 text-primary hover:bg-primary/10 rounded border-none cursor-pointer">
-                              <MaterialIcon name="check" className="text-xs" />
-                            </button>
-                          ) : (
-                            <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} className="p-1 text-on-surface-variant hover:text-primary rounded border-none cursor-pointer">
-                              <MaterialIcon name="edit" className="text-xs" />
-                            </button>
-                          )}
-                          <button onClick={() => showConfirm('Hapus Sub-kategori', `Yakin ingin menghapus sub-kategori "${sub.name}"?`, () => deleteSubCategory(c.id, sub.id))} className="p-1 text-on-surface-variant hover:text-error rounded border-none cursor-pointer">
-                            <MaterialIcon name="delete" className="text-xs" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    <div className="pt-2 mt-2 border-t border-outline-variant border-dashed">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Subkategori baru..."
-                          className="flex-1 px-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs focus:ring-1 focus:ring-primary focus:outline-none"
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && e.currentTarget.value) {
-                              handleAddSubCat(c.id, e.currentTarget.value);
-                              e.currentTarget.value = '';
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={e => {
-                            const input = e.currentTarget.previousSibling as HTMLInputElement;
-                            if (input && input.value) {
-                              handleAddSubCat(c.id, input.value);
-                              input.value = '';
-                            }
-                          }}
-                          className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg border-none cursor-pointer hover:opacity-90 transition-opacity"
-                        >
-                          Tambah
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Input to add categoryId */}
-            <form onSubmit={handleAddCat} className="flex gap-2 p-1.5 bg-surface-container-low rounded-xl border border-outline-variant mt-4">
-              <input
-                type="text"
-                value={newCatName}
-                onChange={e => setNewCatName(e.target.value)}
-                placeholder="Buat kategori baru..."
-                className="flex-1 px-4 py-2 bg-bg-card border border-outline-variant rounded-lg text-xs focus:ring-1 focus:ring-primary focus:outline-none"
-                required
-              />
-              <button type="submit" className="px-4 bg-primary text-white rounded-lg flex items-center justify-center border-none cursor-pointer hover:opacity-90 transition-opacity">
-                <MaterialIcon name="add" className="text-lg" />
-              </button>
-            </form>
+            <button
+              onClick={() => navigate('/categories')}
+              className="w-full py-3 px-4 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-90 border-none"
+            >
+              Buka Manajemen Kategori
+              <MaterialIcon name="arrow_forward" className="text-sm" />
+            </button>
           </section>
 
 
@@ -3021,7 +2794,7 @@ const Settings: React.FC = () => {
         {activeModal && (
           <motion.div
             className="modal-overlay"
-            onClick={() => { setActiveModal(null); setEditingContact(null); setContactSearchQuery(''); }}
+            onClick={() => { setActiveModal(null); setEditingContact(null); }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

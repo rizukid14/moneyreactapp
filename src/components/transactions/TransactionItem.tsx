@@ -73,6 +73,22 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
     </span>
   ) : categoryName;
 
+  const getAmountColor = () => {
+    if (tx.type === 'hutang_masuk') return 'text-amber-600 dark:text-amber-400';
+    if (tx.type === 'hutang_keluar') return 'text-purple-600 dark:text-purple-400';
+    if (tx.type === 'piutang_keluar') return 'text-blue-600 dark:text-blue-400';
+    if (tx.type === 'piutang_masuk') return 'text-teal-600 dark:text-teal-400';
+    return isIncomeLike ? 'text-primary-color' : isExpenseLike ? 'text-error' : 'text-on-surface';
+  };
+
+  const getIconColor = () => {
+    if (tx.type === 'hutang_masuk') return 'amber';
+    if (tx.type === 'hutang_keluar') return 'purple';
+    if (tx.type === 'piutang_keluar') return 'blue';
+    if (tx.type === 'piutang_masuk') return 'teal';
+    return isIncomeLike ? 'income' : isExpenseLike ? 'expense' : 'neutral';
+  };
+
   const { dragProps, swipeOffset } = useSwipeGesture({
     onSwipeLeft: () => setIsConfirmOpen(true),
     onSwipeRight: () => onEdit(tx),
@@ -106,7 +122,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
             left={
               <IconBlock 
                 icon={isIncomeLike ? 'work' : tx.type === 'transfer' ? 'sync_alt' : 'shopping_bag'} 
-                color={isIncomeLike ? 'income' : isExpenseLike ? 'expense' : 'neutral'}
+                color={getIconColor()}
                 size="md"
               />
             }
@@ -128,7 +144,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
             }
             right={
               <div className="flex flex-col items-end gap-1">
-                <span className={`font-bold text-sm ${isIncomeLike ? 'text-primary-color' : isExpenseLike ? 'text-error' : 'text-on-surface'}`}>
+                <span className={`font-bold text-sm ${getAmountColor()}`}>
                   {isIncomeLike ? '+' : isExpenseLike ? '-' : ''} {formatCurrency(tx.amount, currencySymbol)}
                 </span>
                 <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity lg:translate-x-2 lg:group-hover:translate-x-0">

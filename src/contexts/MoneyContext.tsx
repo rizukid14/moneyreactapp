@@ -44,7 +44,7 @@ export interface SubCategory {
 export interface Category {
   id: string;
   name: string;
-  type: 'pengeluaran' | 'pendapatan';
+  type: 'pengeluaran' | 'pendapatan' | 'hutang_keluar' | 'hutang_masuk' | 'piutang_keluar' | 'piutang_masuk';
   subcategories?: SubCategory[];
   isDeleted?: boolean;
 }
@@ -361,6 +361,13 @@ const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
 const _paidInstallmentKeys = new Set<string>();
 
 // ─── Provider ────────────────────────────────────────────────────────────────
+export const SYSTEM_CATEGORIES: Category[] = [
+  { id: 'sys-cat-debt-pay', name: 'Bayar Hutang', type: 'hutang_keluar' },
+  { id: 'sys-cat-debt-receive', name: 'Terima Pinjaman', type: 'hutang_masuk' },
+  { id: 'sys-cat-receivable-pay', name: 'Memberi Pinjaman', type: 'piutang_keluar' },
+  { id: 'sys-cat-receivable-receive', name: 'Pelunasan Piutang', type: 'piutang_masuk' }
+];
+
 export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isReady, setIsReady] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -682,12 +689,19 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setAssets(dbAssets);
       }
 
+      let finalCats = dbCats;
       if (dbCats.length === 0) {
         for (const c of DEFAULT_CATEGORIES) await dbPutCategory(c, { skipSync: true });
-        setCategories(DEFAULT_CATEGORIES);
-      } else {
-        setCategories(dbCats);
+        finalCats = [...DEFAULT_CATEGORIES];
       }
+      
+      for (const sysCat of SYSTEM_CATEGORIES) {
+        if (!finalCats.some(c => c.id === sysCat.id)) {
+          finalCats.push(sysCat);
+          await import('../lib/db').then(m => m.dbPutCategory(sysCat, { skipSync: true }));
+        }
+      }
+      setCategories([...finalCats]);
 
       setBudgets(dbBudgets);
       setDebts(dbDebts as Debt[]);
@@ -1172,8 +1186,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (newDebt.paymentAssetId) {
         _createTx({
           type: 'piutang_keluar',
-          amount: newDebt.totalAmount,
-          categoryId: 'Pinjaman & Piutang',
+          amount: newDebt.principalAmount || newDebt.totalAmount,
+          categoryId: 'sys-cat-receivable-pay',
           date,
           time,
           note: existingDebt
@@ -1189,8 +1203,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // Receive loan principal: Account balance increases (Income-like but ignored in stats)
         _createTx({
           type: 'hutang_masuk',
-          amount: newDebt.totalAmount,
-          categoryId: categoryIdName || 'Lainnya',
+          amount: newDebt.principalAmount || newDebt.totalAmount,
+          categoryId: 'sys-cat-debt-receive',
           subCategoryId: subCategoryIdName,
           date,
           time,
@@ -1204,8 +1218,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // Credit/Paylater purchase: Account balance decreases (Expense)
         _createTx({
           type: 'pengeluaran',
-          amount: newDebt.totalAmount,
-          categoryId: categoryIdName || 'Lainnya',
+          amount: newDebt.principalAmount || newDebt.totalAmount,
+          categoryId: categoryIdName || categories.find(c => c.name === 'Lainnya')?.id || '',
           subCategoryId: subCategoryIdName,
           date,
           time,
@@ -1386,7 +1400,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           _createTx({
             type: 'piutang_masuk',
             amount: amt,
-            categoryId: 'Pelunasan Piutang',
+            categoryId: 'sys-cat-receivable-receive',
             date: today,
             time,
             note,
@@ -1440,7 +1454,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             _createTx({
               type: 'hutang_keluar',
               amount: amountToRecord,
-              categoryId: 'Bayar Hutang',
+              categoryId: 'sys-cat-debt-pay',
               date: today,
               time,
               note,
@@ -1452,7 +1466,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           _createTx({
             type: 'piutang_masuk',
             amount: amountToRecord,
-            categoryId: 'Pelunasan Piutang',
+            categoryId: 'sys-cat-receivable-receive',
             date: today,
             time,
             note,
@@ -1493,7 +1507,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'hutang_keluar',
           amount,
-          categoryId: 'Bayar Hutang',
+          categoryId: 'sys-cat-debt-pay',
           date,
           time,
           note,
@@ -1505,7 +1519,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       _createTx({
         type: 'piutang_masuk',
         amount,
-        categoryId: 'Pelunasan Piutang',
+        categoryId: 'sys-cat-receivable-receive',
         date,
         time,
         note,
@@ -1539,9 +1553,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     if (debt.type === 'hutang') {
       _createTx({
-        type: 'pendapatan',
+        type: 'hutang_masuk',
         amount,
-        categoryId: 'Penerimaan dana pinjaman',
+        categoryId: 'sys-cat-debt-receive',
         date,
         time,
         note,
@@ -1550,9 +1564,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
     } else {
       _createTx({
-        type: 'pengeluaran',
+        type: 'piutang_keluar',
         amount,
-        categoryId: 'Pemberian pinjaman',
+        categoryId: 'sys-cat-receivable-pay',
         date,
         time,
         note,

@@ -1,7 +1,7 @@
 import React from 'react';
 import MaterialIcon from '../common/MaterialIcon';
 
-export type IconBlockColor = 'primary' | 'secondary' | 'income' | 'expense' | 'error' | 'success' | 'neutral';
+export type IconBlockColor = 'primary' | 'secondary' | 'income' | 'expense' | 'error' | 'success' | 'neutral' | 'amber' | 'purple' | 'blue' | 'teal';
 export type IconBlockSize = 'xs' | 'sm' | 'md' | 'lg';
 
 export interface IconBlockProps {
@@ -27,6 +27,10 @@ const COLOR_MAP: Record<IconBlockColor, { bg: string; text: string }> = {
   error:     { bg: 'bg-error-container', text: 'text-error' },
   success:   { bg: 'bg-primary-container', text: 'text-primary-color' },
   neutral:   { bg: 'bg-surface-container', text: 'text-on-surface-variant' },
+  amber:     { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400' },
+  purple:    { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
+  blue:      { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
+  teal:      { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-600 dark:text-teal-400' },
 };
 
 /**

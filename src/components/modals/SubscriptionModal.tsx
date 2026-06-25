@@ -75,12 +75,12 @@ export const SubscriptionModal: React.FC = () => {
         transition={{ type: "spring", bounce: 0, duration: 0.4 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-yellow-400 to-yellow-600 -z-10" />
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-yellow-400 to-yellow-600 z-0" />
         
-        <div className="flex justify-between items-start pt-2 px-4 pb-4 text-white">
+        <div className="relative z-10 flex justify-between items-start pt-4 px-4 pb-4 text-white">
           <div className="flex items-center gap-2 mt-2">
-            <MaterialIcon name="stars" className="text-3xl" />
-            <h2 className="text-xl font-extrabold tracking-tight">MoneyApp Premium</h2>
+            <MaterialIcon name="stars" className="text-3xl drop-shadow-sm" />
+            <h2 className="text-xl font-extrabold tracking-tight drop-shadow-sm">MoneyApp Premium</h2>
           </div>
           <button 
             onClick={() => setShowUpgradeModal(false)}
@@ -92,37 +92,67 @@ export const SubscriptionModal: React.FC = () => {
 
         <div className="p-4 flex flex-col gap-4">
           <div className="bg-surface rounded-2xl p-4 shadow-bento border border-border-color -mt-8 relative z-10">
-            <h3 className="font-bold text-on-surface mb-3">Buka Semua Fitur Eksklusif</h3>
-            <ul className="flex flex-col gap-3">
-              <li className="flex items-start gap-3">
-                <MaterialIcon name="forum" className="text-primary mt-0.5" />
-                <div>
-                  <div className="font-semibold text-sm text-on-surface">AI Chatbot Tanpa Batas</div>
-                  <div className="text-xs text-on-surface-variant">Tanya sepuasnya tentang keuanganmu</div>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <MaterialIcon name="document_scanner" className="text-primary mt-0.5" />
-                <div>
-                  <div className="font-semibold text-sm text-on-surface">Smart Receipt Scanner</div>
-                  <div className="text-xs text-on-surface-variant">Scan struk belanja tanpa batasan bulanan</div>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <MaterialIcon name="analytics" className="text-primary mt-0.5" />
-                <div>
-                  <div className="font-semibold text-sm text-on-surface">Analitik Mendalam</div>
-                  <div className="text-xs text-on-surface-variant">Akses heatmap dan laporan keuangan lanjutan</div>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <MaterialIcon name="file_download" className="text-primary mt-0.5" />
-                <div>
-                  <div className="font-semibold text-sm text-on-surface">Export Data & Zero-Based Budgeting</div>
-                  <div className="text-xs text-on-surface-variant">Fitur profesional untuk mengatur uangmu</div>
-                </div>
-              </li>
-            </ul>
+            <h3 className="font-bold text-on-surface mb-3">Perbandingan Fitur</h3>
+            <div className="overflow-hidden rounded-xl border border-outline-variant">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-surface-container-low border-b border-outline-variant">
+                  <tr>
+                    <th className="p-2.5 font-semibold text-on-surface-variant">Fitur</th>
+                    <th className="p-2.5 font-semibold text-on-surface-variant text-center border-l border-outline-variant w-16">Free</th>
+                    <th className="p-2.5 font-bold text-primary text-center border-l border-outline-variant bg-primary/10 w-20">PRO</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  <tr>
+                    <td className="p-2.5 text-on-surface flex items-center gap-2">
+                      <MaterialIcon name="forum" className="text-[14px] text-on-surface-variant" /> AI Chatbot
+                    </td>
+                    <td className="p-2.5 text-center text-on-surface-variant border-l border-outline-variant font-medium">10x/bln</td>
+                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">Unbatas</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2.5 text-on-surface flex items-center gap-2">
+                      <MaterialIcon name="document_scanner" className="text-[14px] text-on-surface-variant" /> Scan Struk
+                    </td>
+                    <td className="p-2.5 text-center text-on-surface-variant border-l border-outline-variant font-medium">3x/bln</td>
+                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">Unbatas</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2.5 text-on-surface flex items-center gap-2">
+                      <MaterialIcon name="analytics" className="text-[14px] text-on-surface-variant" /> Heatmap & Analisis
+                    </td>
+                    <td className="p-2.5 text-center text-on-surface-variant border-l border-outline-variant">
+                      <MaterialIcon name="close" className="text-error text-[14px] mx-auto" />
+                    </td>
+                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">
+                      <MaterialIcon name="check" className="text-[16px] mx-auto" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2.5 text-on-surface flex items-center gap-2">
+                      <MaterialIcon name="file_download" className="text-[14px] text-on-surface-variant" /> Export Data Json
+                    </td>
+                    <td className="p-2.5 text-center text-on-surface-variant border-l border-outline-variant">
+                      <MaterialIcon name="close" className="text-error text-[14px] mx-auto" />
+                    </td>
+                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">
+                      <MaterialIcon name="check" className="text-[16px] mx-auto" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2.5 text-on-surface flex items-center gap-2">
+                      <MaterialIcon name="ads_click" className="text-[14px] text-on-surface-variant" /> Bebas Iklan
+                    </td>
+                    <td className="p-2.5 text-center text-on-surface-variant border-l border-outline-variant">
+                      <MaterialIcon name="close" className="text-error text-[14px] mx-auto" />
+                    </td>
+                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">
+                      <MaterialIcon name="check" className="text-[16px] mx-auto" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {!premium.isPremium ? (
@@ -220,15 +250,32 @@ export const SubscriptionModal: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="bg-success-container border border-success p-4 rounded-2xl flex flex-col items-center text-center gap-2">
-              <div className="w-12 h-12 bg-success text-white rounded-full flex items-center justify-center mb-1">
-                <MaterialIcon name="check" className="text-2xl" />
+            <div className="bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-500/30 p-6 rounded-2xl flex flex-col items-center text-center gap-3 relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 text-yellow-500/10">
+                <MaterialIcon name="stars" className="text-8xl" />
               </div>
-              <h3 className="font-bold text-success text-lg">Premium Aktif</h3>
-              <p className="text-sm text-success font-medium">
-                Paket: <span className="uppercase">{premium.plan}</span><br/>
-                Berlaku hingga: {premium.expiresAt ? new Date(premium.expiresAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
+              <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-600 text-white rounded-full flex items-center justify-center mb-1 shadow-lg shadow-yellow-500/30 z-10">
+                <MaterialIcon name="workspace_premium" className="text-4xl" />
+              </div>
+              <h3 className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-amber-600 dark:from-yellow-400 dark:to-amber-400 text-2xl z-10">
+                Premium Aktif!
+              </h3>
+              <p className="text-sm text-on-surface font-medium z-10">
+                Terima kasih telah berlangganan. Semua fitur eksklusif Anda telah terbuka.
               </p>
+              
+              <div className="w-full bg-white/60 dark:bg-black/30 rounded-xl p-3 mt-2 z-10 flex flex-col gap-2 border border-yellow-500/20">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-on-surface-variant font-medium">Paket Langganan</span>
+                  <span className="font-bold text-on-surface uppercase">{premium.plan}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-on-surface-variant font-medium">Masa Berlaku</span>
+                  <span className="font-bold text-on-surface">
+                    {premium.expiresAt ? new Date(premium.expiresAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>

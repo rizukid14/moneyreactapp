@@ -38,7 +38,8 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
       setSearchQuery('');
       setTempSelected(isMultiple ? (selectedContactNames ?? []) : []);
     }
-  }, [isOpen, isMultiple, selectedContactNames]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const filteredContacts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

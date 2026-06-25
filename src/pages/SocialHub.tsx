@@ -5,7 +5,7 @@ import MaterialIcon from '../components/common/MaterialIcon';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
 import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
-import ContactModal from '../components/modals/ContactModal';
+import ContactManagerModal from '../components/modals/ContactManagerModal';
 
 const SOCIAL_FEATURES = [
   {
@@ -93,7 +93,7 @@ const SocialHub: React.FC = () => {
         isOpen={isSharedBillsOpen}
         onClose={() => setIsSharedBillsOpen(false)}
       />
-      <ContactModal
+      <ContactManagerModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
       />

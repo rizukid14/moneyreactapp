@@ -29,6 +29,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
       color: 'primary' | 'error' | 'success' | 'warning' | 'info';
       time: string;
       priority: number; // lower = higher priority
+      dateObj: Date;
     }[] = [];
 
     const now = new Date();
@@ -64,6 +65,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
         color: 'error',
         time: 'Bulan ini',
         priority: 1,
+        dateObj: now,
       });
     }
 
@@ -87,6 +89,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
         color: 'error',
         time: 'Bulan ini',
         priority: 2,
+        dateObj: now,
       });
     }
 
@@ -110,6 +113,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
         color: 'warning',
         time: 'Bulan ini',
         priority: 3,
+        dateObj: now,
       });
     }
 
@@ -130,6 +134,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
           color: 'error',
           time: `${Math.abs(diffDays)} hari lalu`,
           priority: 1,
+          dateObj: billingDate,
         });
       } else if (diffDays <= 3) {
         // Due very soon (within 3 days)
@@ -141,6 +146,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
           color: 'warning',
           time: diffDays === 0 ? 'Hari ini' : diffDays === 1 ? 'Besok' : `${diffDays} hari lagi`,
           priority: 2,
+          dateObj: billingDate,
         });
       } else if (diffDays <= 7) {
         // Due within a week
@@ -152,6 +158,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
           color: 'info',
           time: `${diffDays} hari lagi`,
           priority: 4,
+          dateObj: billingDate,
         });
       }
     });
@@ -182,6 +189,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
           color: 'error',
           time: `Telat ${Math.abs(diffDays)} hari`,
           priority: 1,
+          dateObj: dueDate,
         });
       } else if (diffDays >= 0 && diffDays <= 7 && remaining > 0) {
         notifs.push({
@@ -192,6 +200,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
           color: 'warning',
           time: diffDays === 0 ? 'Hari ini' : `${diffDays} hari lagi`,
           priority: 2,
+          dateObj: dueDate,
         });
       }
     });
@@ -224,6 +233,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
         color: 'success',
         time: 'Sekarang',
         priority: 5,
+        dateObj: now,
       });
     }
 
@@ -237,6 +247,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
         color: 'info',
         time: 'Sekarang',
         priority: 6,
+        dateObj: now,
       });
     }
 
@@ -252,6 +263,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
         color: 'error',
         time: 'Hari ini',
         priority: 7,
+        dateObj: new Date(recentLargeExpense.date),
       });
     }
 
@@ -266,6 +278,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
         color: 'success',
         time: 'Pengingat',
         priority: 8,
+        dateObj: now,
       });
     }
 
@@ -279,11 +292,12 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
         color: 'primary',
         time: 'Baru saja',
         priority: 9,
+        dateObj: now,
       });
     }
 
-    // Sort by priority (urgent first)
-    notifs.sort((a, b) => a.priority - b.priority);
+    // Sort by chronological time (newest/upcoming first)
+    notifs.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
 
     return notifs.slice(0, 15);
   }, [transactions, currencySymbol, assets, isPrivateMode, budgets, categories, startOfMonthDay, debts, subscriptions, pendingSyncCount]);

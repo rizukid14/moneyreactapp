@@ -11,7 +11,7 @@ interface ProfileMenuModalProps {
 
 export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { user, logOut } = useMoney();
+  const { user, logOut, theme, toggleTheme } = useMoney();
 
   const handleNavigate = (path: string) => {
     onClose();
@@ -68,6 +68,24 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
             <span className="text-xs text-on-surface-variant">Notifikasi, tema, dan lainnya</span>
           </div>
           <MaterialIcon name="chevron_right" className="text-xl text-on-surface-variant ml-auto" />
+        </button>
+
+        <button 
+          onClick={toggleTheme}
+          className="w-full flex items-center justify-between p-4 rounded-2xl text-on-surface hover:bg-surface-container transition-colors border-none bg-transparent cursor-pointer group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <MaterialIcon name="dark_mode" className="text-xl text-primary" />
+            </div>
+            <div className="flex flex-col items-start">
+              <span className="font-bold text-sm">Tema Gelap</span>
+              <span className="text-xs text-on-surface-variant">Ubah tampilan aplikasi</span>
+            </div>
+          </div>
+          <div className={`w-10 h-6 rounded-full relative transition-colors ${theme === 'dark' ? 'bg-primary' : 'bg-surface-variant border border-outline-variant'}`}>
+            <div className={`w-4 h-4 rounded-full absolute top-1 transition-transform ${theme === 'dark' ? 'bg-on-primary translate-x-5' : 'bg-on-surface-variant translate-x-1'}`}></div>
+          </div>
         </button>
 
         <div className="h-px bg-border-light my-2"></div>

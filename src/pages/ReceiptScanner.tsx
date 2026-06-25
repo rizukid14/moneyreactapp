@@ -385,13 +385,13 @@ const ReceiptScanner: React.FC = () => {
           !c.isDeleted
         );
         if (matchedCat) {
-          setSelectedCategory(matchedCat.name);
+          setSelectedCategory(matchedCat.id);
           if (ocrResult.suggestedSubCategory && matchedCat.subcategories) {
             const matchedSub = matchedCat.subcategories.find(s =>
               s.name.toLowerCase() === ocrResult.suggestedSubCategory!.toLowerCase() &&
               !s.isDeleted
             );
-            if (matchedSub) setSelectedSubCategory(matchedSub.name);
+            if (matchedSub) setSelectedSubCategory(matchedSub.id);
           }
         }
       }
@@ -752,7 +752,7 @@ const ReceiptScanner: React.FC = () => {
       {stage === 'upload' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
           <div className="lg:col-span-8 flex flex-col gap-stack-md">
-            <div className="bg-white rounded-xl p-6 border border-border-light shadow-sm flex flex-col h-full">
+            <div className="bg-surface-container rounded-xl p-6 border border-border-light shadow-sm flex flex-col h-full">
               <div className="mb-4">
                 <label className="font-headline-md text-headline-md block mb-1">Unggah Gambar Transaksi</label>
                 <p className="font-body-md text-body-md text-on-surface-variant">
@@ -851,9 +851,9 @@ const ReceiptScanner: React.FC = () => {
             <canvas ref={canvasRef} className="w-full block" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
           </div>
           
-          <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 p-4 pb-4 lg:pb-[max(20px,env(safe-area-inset-bottom,20px))] bg-white/90 backdrop-blur-md border-t border-outline-variant z-50">
+          <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 p-4 pb-4 lg:pb-[max(20px,env(safe-area-inset-bottom,20px))] bg-surface-container/90 backdrop-blur-md border-t border-outline-variant z-50">
             <div className="max-w-[500px] mx-auto flex gap-2 sm:gap-3">
-              <button onClick={reset} className="flex-1 py-3 px-2 sm:px-4 rounded-xl border border-outline-variant text-on-surface font-label-sm sm:font-label-md font-bold bg-white hover:bg-surface-container transition-colors cursor-pointer text-center leading-tight">
+              <button onClick={reset} className="flex-1 py-3 px-2 sm:px-4 rounded-xl border border-outline-variant text-on-surface font-label-sm sm:font-label-md font-bold bg-surface-container hover:bg-surface-container transition-colors cursor-pointer text-center leading-tight">
                 Batal
               </button>
               <button onClick={runScan} className="flex-[2] py-3 px-2 sm:px-4 rounded-xl border-none bg-primary text-white font-label-sm sm:font-label-md font-bold hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-2 shadow-md shadow-primary/30 text-center leading-tight">
@@ -884,17 +884,17 @@ const ReceiptScanner: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-10 gap-stack-lg relative">
             {/* Left Column: Receipt Visual Reference */}
             <div className="lg:col-span-4 space-y-stack-md">
-              <div className="bg-white rounded-xl border border-border-light shadow-sm overflow-hidden sticky top-24">
+              <div className="bg-surface-container rounded-xl border border-border-light shadow-sm overflow-hidden sticky top-24">
                 <div className="p-4 border-b border-border-light bg-surface-subtle flex justify-between items-center">
                   <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Preview Struk Asli</span>
                   <span className="text-[10px] bg-primary-container/20 text-primary px-2 py-0.5 rounded-full font-bold">TER-CROP</span>
                 </div>
                 <div className="p-4 bg-surface-dim/30">
-                  <div className="rounded-lg overflow-hidden border border-outline-variant bg-white flex items-center justify-center">
+                  <div className="rounded-lg overflow-hidden border border-outline-variant bg-surface-container flex items-center justify-center">
                     <img alt="Receipt preview" className="max-w-full h-auto shadow-inner" src={croppedImageUrl || previewUrl || ''}/>
                   </div>
                 </div>
-                <div className="p-4 bg-white">
+                <div className="p-4 bg-surface-container">
                   <button onClick={() => { reset(); setTimeout(() => fileInputRef.current?.click(), 100); }} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-outline-variant rounded-xl text-on-surface-variant hover:border-primary hover:text-primary transition-all font-label-md bg-transparent cursor-pointer">
                     <MaterialIcon name="camera_alt" />
                     Pindai Ulang
@@ -905,7 +905,7 @@ const ReceiptScanner: React.FC = () => {
 
             {/* Right Column: OCR Parsed Data & Itemizer */}
             <div className="lg:col-span-6 space-y-stack-md mb-24">
-              <div className="bg-white rounded-xl border border-border-light shadow-sm p-stack-lg">
+              <div className="bg-surface-container-lowest rounded-xl border border-border-light shadow-sm p-stack-lg">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="font-headline-md text-headline-md m-0">Hasil Pemindaian Struk</h2>
                   <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm border ${CONFIDENCE_BADGE[result.confidence].className}`}>
@@ -940,7 +940,7 @@ const ReceiptScanner: React.FC = () => {
 
                     <div className="col-span-full bg-surface-container-low rounded-xl p-4 flex items-center justify-between border border-primary/10">
                       <div className="flex items-center gap-4">
-                        <div className="p-3 bg-white rounded-lg border border-border-light text-primary flex items-center justify-center">
+                        <div className="p-3 bg-surface-container rounded-lg border border-border-light text-primary flex items-center justify-center">
                           <MaterialIcon name="calculate" />
                         </div>
                         <div>
@@ -951,14 +951,14 @@ const ReceiptScanner: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <button className="p-2 hover:bg-white rounded-lg transition-colors text-outline border-none bg-transparent cursor-pointer flex items-center justify-center">
+                      <button className="p-2 hover:bg-surface-container rounded-lg transition-colors text-outline border-none bg-transparent cursor-pointer flex items-center justify-center">
                         <MaterialIcon name="edit" />
                       </button>
                     </div>
 
                     <div>
                       <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Sumber Aset</label>
-                      <button onClick={() => setIsAssetModalOpen(true)} className="w-full px-4 py-3 rounded-lg border border-border-light hover:border-primary font-body-md bg-white text-left flex items-center justify-between transition-all cursor-pointer">
+                      <button onClick={() => setIsAssetModalOpen(true)} className="w-full px-4 py-3 rounded-lg border border-border-light hover:border-primary font-body-md bg-surface-container text-left flex items-center justify-between transition-all cursor-pointer">
                         <span className="truncate">{assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</span>
                         <MaterialIcon name="expand_more" className="text-outline text-[18px]" />
                       </button>
@@ -966,11 +966,11 @@ const ReceiptScanner: React.FC = () => {
 
                     <div>
                       <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Kategori</label>
-                      <button onClick={() => setIsCatModalOpen(true)} className="w-full px-4 py-3 rounded-lg border border-border-light hover:border-primary font-body-md bg-white text-left flex items-center justify-between transition-all cursor-pointer">
+                      <button onClick={() => setIsCatModalOpen(true)} className="w-full px-4 py-3 rounded-lg border border-border-light hover:border-primary font-body-md bg-surface-container text-left flex items-center justify-between transition-all cursor-pointer">
                         <div className="flex items-center gap-2 truncate">
                           <MaterialIcon name="folder" className="text-primary text-[20px]" />
                           <span className="truncate">
-                            {selectedCategory ? `${selectedCategory}${selectedSubCategory ? ` > ${selectedSubCategory}` : ''}` : 'Pilih Kategori'}
+                            {selectedCategory ? `${categories.find(c => c.id === selectedCategory)?.name || selectedCategory}${selectedSubCategory ? ` > ${categories.find(c => c.id === selectedCategory)?.subcategories?.find(s => s.id === selectedSubCategory)?.name || selectedSubCategory}` : ''}` : 'Pilih Kategori'}
                           </span>
                         </div>
                         <MaterialIcon name="expand_more" className="text-outline text-[18px]" />
@@ -1063,7 +1063,7 @@ const ReceiptScanner: React.FC = () => {
                             {result.debugLogs.map((l, i) => <div key={i}>{l}</div>)}
                           </div>
                         )}
-                        <div className="whitespace-pre-wrap text-[11px] text-on-surface-variant font-mono p-3 bg-white border border-border-light rounded-lg">
+                        <div className="whitespace-pre-wrap text-[11px] text-on-surface-variant font-mono p-3 bg-surface-container border border-border-light rounded-lg">
                           {result.rawText || "(Kosong)"}
                         </div>
                       </div>
@@ -1074,7 +1074,7 @@ const ReceiptScanner: React.FC = () => {
             </div>
             
             {/* Floating Action Footer */}
-            <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 bg-white/90 backdrop-blur-md border-t border-outline-variant px-4 lg:px-8 py-4 z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.05)] lg:pb-[calc(24px+env(safe-area-inset-bottom,0px))]">
+            <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 lg:left-64 right-0 bg-surface-container/90 backdrop-blur-md border-t border-outline-variant px-4 lg:px-8 py-4 z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.05)] lg:pb-[calc(24px+env(safe-area-inset-bottom,0px))]">
               <div className="max-w-container-max mx-auto flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <div className="hidden sm:flex items-center gap-3 text-on-surface-variant">
                   <MaterialIcon name="info" />

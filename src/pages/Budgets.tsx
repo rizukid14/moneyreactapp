@@ -68,18 +68,7 @@ const Budgets: React.FC = () => {
 
   // Maps for fast category lookups
   const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
-  const categoryNameMap = useMemo(() => {
-    const map = new Map<string, any>();
-    categories.forEach(c => {
-      if (c.type === 'pengeluaran') {
-        const key = c.name.toLowerCase();
-        if (!c.isDeleted || !map.has(key)) {
-          map.set(key, c);
-        }
-      }
-    });
-    return map;
-  }, [categories]);
+
 
   // Process Spending per category
   const spendingMap = useMemo(() => {
@@ -90,14 +79,14 @@ const Budgets: React.FC = () => {
     transactions.forEach(tx => {
       const d = new Date(tx.date);
       if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
-        const cat = tx.categoryId ? categoryNameMap.get(tx.categoryId.toLowerCase()) : undefined;
+        const cat = tx.categoryId ? (categoryMap.get(tx.categoryId) || categories.find(c => c.name.toLowerCase() === tx.categoryId?.toLowerCase())) : undefined;
         if (cat) {
           map[cat.id] = (map[cat.id] || 0) + tx.amount;
         }
       }
     });
     return map;
-  }, [transactions, selectedMonth, selectedYear, categoryNameMap, startOfMonthDay]);
+  }, [transactions, selectedMonth, selectedYear, categoryMap, startOfMonthDay]);
 
   const selectedBudgetTransactions = useMemo(() => {
     if (!selectedBudgetId) return [];
@@ -112,7 +101,7 @@ const Budgets: React.FC = () => {
 
     return transactions.filter(tx => {
       const d = new Date(tx.date);
-      return d >= periodStart && d < periodEnd && tx.type === 'pengeluaran' && tx.categoryId === cat.name;
+      return d >= periodStart && d < periodEnd && tx.type === 'pengeluaran' && (tx.categoryId === cat.id || tx.categoryId?.toLowerCase() === cat.name.toLowerCase());
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [selectedBudgetId, categoryBudgets, categories, transactions, selectedMonth, selectedYear, startOfMonthDay]);
 

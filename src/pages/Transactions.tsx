@@ -92,6 +92,7 @@ const Transactions: React.FC = () => {
   const dragStart = useRef({ x: 0, y: 0, top: 0, left: 0 });
   const hasMoved = useRef(false);
   const preventClick = useRef(false);
+  const isPointerDown = useRef(false);
 
   const snapCorner = (top: number, left: number) => {
     const w = fabsize, m = fabmargin, mb = fabmarginBottom;
@@ -111,12 +112,14 @@ const Transactions: React.FC = () => {
     const el = fabRef.current;
     if (!el) return;
     el.setPointerCapture(e.pointerId);
+    isPointerDown.current = true;
     dragStart.current = { x: e.clientX, y: e.clientY, top: fabPos.top, left: fabPos.left };
     hasMoved.current = false;
     preventClick.current = false;
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (!isPointerDown.current) return;
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
     if (!hasMoved.current && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
@@ -133,6 +136,7 @@ const Transactions: React.FC = () => {
   };
 
   const onPointerUp = () => {
+    isPointerDown.current = false;
     if (hasMoved.current) {
       setFabPos(snapCorner(fabPos.top, fabPos.left));
     }

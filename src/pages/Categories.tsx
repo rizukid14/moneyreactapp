@@ -162,18 +162,22 @@ const Categories: React.FC = () => {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  {editingCatId === c.id ? (
-                    <button onClick={() => handleUpdateCat(c.id, editingCatName)} className="p-1.5 bg-primary/10 text-primary rounded border-none cursor-pointer">
-                      <MaterialIcon name="check" className="text-sm" />
-                    </button>
-                  ) : (
-                    <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} className="p-1.5 text-on-surface-variant hover:text-primary bg-transparent rounded border-none cursor-pointer">
-                      <MaterialIcon name="edit" className="text-sm" />
-                    </button>
+                  {!c.id.startsWith('sys-cat-') && (
+                    <>
+                      {editingCatId === c.id ? (
+                        <button onClick={() => handleUpdateCat(c.id, editingCatName)} className="p-1.5 bg-primary/10 text-primary rounded border-none cursor-pointer">
+                          <MaterialIcon name="check" className="text-sm" />
+                        </button>
+                      ) : (
+                        <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} className="p-1.5 text-on-surface-variant hover:text-primary bg-transparent rounded border-none cursor-pointer">
+                          <MaterialIcon name="edit" className="text-sm" />
+                        </button>
+                      )}
+                      <button onClick={() => showConfirm('Hapus Kategori', `Yakin ingin menghapus kategori "${c.name}"?`, () => deleteCategory(c.id))} className="p-1.5 bg-transparent text-error hover:bg-error/10 rounded border-none cursor-pointer">
+                        <MaterialIcon name="delete" className="text-sm" />
+                      </button>
+                    </>
                   )}
-                  <button onClick={() => showConfirm('Hapus Kategori', `Yakin ingin menghapus kategori "${c.name}"?`, () => deleteCategory(c.id))} className="p-1.5 bg-transparent text-error hover:bg-error/10 rounded border-none cursor-pointer">
-                    <MaterialIcon name="delete" className="text-sm" />
-                  </button>
                 </div>
               </div>
 
@@ -200,50 +204,56 @@ const Categories: React.FC = () => {
                       )}
                     </div>
                     <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                      {editingSubCatId === sub.id ? (
-                        <button onClick={() => handleUpdateSubCat(c.id, sub.id, editingSubCatName)} className="p-1 text-primary hover:bg-primary/10 rounded border-none cursor-pointer">
-                          <MaterialIcon name="check" className="text-xs" />
-                        </button>
-                      ) : (
-                        <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} className="p-1 text-on-surface-variant hover:text-primary rounded border-none cursor-pointer">
-                          <MaterialIcon name="edit" className="text-xs" />
-                        </button>
+                      {!c.id.startsWith('sys-cat-') && (
+                        <>
+                          {editingSubCatId === sub.id ? (
+                            <button onClick={() => handleUpdateSubCat(c.id, sub.id, editingSubCatName)} className="p-1 text-primary hover:bg-primary/10 rounded border-none cursor-pointer">
+                              <MaterialIcon name="check" className="text-xs" />
+                            </button>
+                          ) : (
+                            <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} className="p-1 text-on-surface-variant hover:text-primary rounded border-none cursor-pointer">
+                              <MaterialIcon name="edit" className="text-xs" />
+                            </button>
+                          )}
+                          <button onClick={() => showConfirm('Hapus Sub-kategori', `Yakin ingin menghapus sub-kategori "${sub.name}"?`, () => deleteSubCategory(c.id, sub.id))} className="p-1 text-on-surface-variant hover:text-error rounded border-none cursor-pointer">
+                            <MaterialIcon name="delete" className="text-xs" />
+                          </button>
+                        </>
                       )}
-                      <button onClick={() => showConfirm('Hapus Sub-kategori', `Yakin ingin menghapus sub-kategori "${sub.name}"?`, () => deleteSubCategory(c.id, sub.id))} className="p-1 text-on-surface-variant hover:text-error rounded border-none cursor-pointer">
-                        <MaterialIcon name="delete" className="text-xs" />
-                      </button>
                     </div>
                   </div>
                 ))}
 
-                <div className="pt-2 mt-2 border-t border-outline-variant border-dashed">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Subkategori baru..."
-                      className="flex-1 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && e.currentTarget.value) {
-                          handleAddSubCat(c.id, e.currentTarget.value);
-                          e.currentTarget.value = '';
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={e => {
-                        const input = e.currentTarget.previousSibling as HTMLInputElement;
-                        if (input && input.value) {
-                          handleAddSubCat(c.id, input.value);
-                          input.value = '';
-                        }
-                      }}
-                      className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg border-none cursor-pointer hover:opacity-90 transition-opacity"
-                    >
-                      Tambah
-                    </button>
+                {!c.id.startsWith('sys-cat-') && (
+                  <div className="pt-2 mt-2 border-t border-outline-variant border-dashed">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Subkategori baru..."
+                        className="flex-1 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-sm focus:ring-1 focus:ring-primary focus:outline-none"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && e.currentTarget.value) {
+                            handleAddSubCat(c.id, e.currentTarget.value);
+                            e.currentTarget.value = '';
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={e => {
+                          const input = e.currentTarget.previousSibling as HTMLInputElement;
+                          if (input && input.value) {
+                            handleAddSubCat(c.id, input.value);
+                            input.value = '';
+                          }
+                        }}
+                        className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg border-none cursor-pointer hover:opacity-90 transition-opacity"
+                      >
+                        Tambah
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           ))}

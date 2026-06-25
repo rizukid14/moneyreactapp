@@ -759,7 +759,7 @@ const Statistics: React.FC = () => {
             </div>
 
             {/* ── 3-Month Spending Heatmap ─────────────────────────── */}
-            <PremiumGate mode="hard" showOverlay>
+            <PremiumGate mode="hard" showOverlay wrapperClassName="col-span-1 md:col-span-12">
               {(() => {
                 const allCells = heatmapData.flatMap(m => m.cells);
                 const activeDays = allCells.filter(c => c.amount >= 1000).length;

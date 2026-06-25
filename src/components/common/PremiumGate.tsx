@@ -8,9 +8,10 @@ interface PremiumGateProps {
   children: ReactNode;
   fallback?: ReactNode;
   showOverlay?: boolean;
+  wrapperClassName?: string;
 }
 
-export const PremiumGate: React.FC<PremiumGateProps> = ({ feature, mode = 'soft', children, fallback, showOverlay = true }) => {
+export const PremiumGate: React.FC<PremiumGateProps> = ({ feature, mode = 'soft', children, fallback, showOverlay = true, wrapperClassName = '' }) => {
   const { premium, checkQuota, setShowUpgradeModal } = usePremium();
 
   if (premium.isPremium) {
@@ -34,7 +35,7 @@ export const PremiumGate: React.FC<PremiumGateProps> = ({ feature, mode = 'soft'
   }
 
   return (
-    <div className="relative rounded-2xl overflow-hidden border border-border-color bg-surface group w-full h-full min-h-[200px]">
+    <div className={`relative rounded-3xl overflow-hidden border border-border-color bg-surface group w-full h-full min-h-[200px] ${wrapperClassName}`}>
       <div className="absolute inset-0 bg-surface/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
         <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-yellow-400 to-yellow-600 flex items-center justify-center text-white mb-3 shadow-lg">
           <MaterialIcon name={feature ? 'bolt' : 'lock'} className="text-2xl" />
@@ -54,7 +55,7 @@ export const PremiumGate: React.FC<PremiumGateProps> = ({ feature, mode = 'soft'
           Upgrade Sekarang
         </button>
       </div>
-      <div className="opacity-30 pointer-events-none select-none blur-[2px] p-4 h-full">
+      <div className="opacity-30 pointer-events-none select-none blur-[2px] h-full">
         {children}
       </div>
     </div>

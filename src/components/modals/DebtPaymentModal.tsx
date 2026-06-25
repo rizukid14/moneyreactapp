@@ -80,6 +80,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
       onClose={onClose}
       title={`Bayar ${isHutang ? 'Hutang' : 'Piutang'}`}
     >
+      <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '4px' }}>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
                 Sisa Tagihan:
@@ -217,6 +218,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 {isFullSettle ? <MaterialIcon name="check" className="text-[18px]" /> : <MaterialIcon name="swap_horiz" className="text-[18px]" />}
                 {isFullSettle ? 'Konfirmasi Pelunasan' : 'Konfirmasi Pembayaran Cicilan'}
               </Button>
+      </div>
     </Modal>
   );
 };
