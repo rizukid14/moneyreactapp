@@ -112,6 +112,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const signature = req.headers['x-lynk-signature'] as string | undefined;
 
     if (signature) {
+        console.log('--- RAW PAYLOAD DUMP ---');
+        console.log(rawBody);
+        console.log('------------------------');
         if (!verifySignature(rawBody, signature, merchantKey)) {
             console.warn('Invalid Lynk.id signature');
             return res.status(401).json({ error: 'Invalid signature' });
