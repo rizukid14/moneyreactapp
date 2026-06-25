@@ -70,24 +70,27 @@ export const config = {
  * Lynk.id sends a HMAC-SHA256 signature in the `x-lynk-signature` header,
  * generated using the Merchant Key from your Lynk.id dashboard.
  */
-function verifySignature(payload: string, signature: string, merchantKey: string): boolean {
+function verifySignature(payloadStr: string, signature: string, merchantKey: string): { valid: boolean, expected: string, rawString: string } {
     try {
-        const expected = crypto.createHmac('sha256', merchantKey).update(payload, 'utf8').digest('hex');
+        const payload = JSON.parse(payloadStr);
+        const data = payload.data || {};
+        const msgData = data.message_data || {};
         
-        console.log(`[LynkID Signature Debug]`);
-        console.log(`- Received Signature : ${signature}`);
-        console.log(`- Expected Signature : ${expected}`);
-        console.log(`- Payload Length     : ${payload.length}`);
+        const grandTotal = msgData.totals?.grandTotal ?? '';
+        const refId = msgData.refId ?? '';
+        const message_id = data.message_id ?? '';
         
-        if (Buffer.byteLength(signature, 'utf8') !== Buffer.byteLength(expected, 'utf8')) {
-            console.warn('[LynkID Signature Debug] Signature length mismatch');
-            return false;
+        const rawString = `${grandTotal}${refId}${message_id}${merchantKey}`;
+        const expected = crypto.createHash('sha256').update(rawString).digest('hex');
+        
+        let valid = false;
+        if (Buffer.byteLength(signature, 'utf8') === Buffer.byteLength(expected, 'utf8')) {
+            valid = crypto.timingSafeEqual(Buffer.from(signature, 'utf8'), Buffer.from(expected, 'utf8'));
         }
         
-        return crypto.timingSafeEqual(Buffer.from(signature, 'utf8'), Buffer.from(expected, 'utf8'));
+        return { valid, expected, rawString };
     } catch (e) {
-        console.error('[LynkID Signature Debug] Verification error:', e);
-        return false;
+        return { valid: false, expected: '', rawString: '' };
     }
 }
 
@@ -112,23 +115,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const signature = req.headers['x-lynk-signature'] as string | undefined;
 
     if (signature) {
-        console.log('--- RAW PAYLOAD DUMP ---');
-        console.log(rawBody);
-        console.log('------------------------');
+        const sigCheck = verifySignature(rawBody, signature, merchantKey);
         
-        let expectedSig = '';
-        try {
-            expectedSig = crypto.createHmac('sha256', merchantKey).update(rawBody, 'utf8').digest('hex');
-        } catch(e) {}
-        
-        if (!verifySignature(rawBody, signature, merchantKey)) {
+        if (!sigCheck.valid) {
             console.warn('Invalid Lynk.id signature');
             return res.status(401).json({ 
                 error: 'Invalid signature',
                 debug_info: {
                     received: signature,
-                    expected: expectedSig,
-                    payload_dump: rawBody
+                    expected: sigCheck.expected,
+                    hashed_string: sigCheck.rawString
                 }
             });
         }
