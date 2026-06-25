@@ -76,6 +76,9 @@ const AssetDetailDrawer: React.FC<{
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const { showToast } = useToast();
   const { categories } = useMoney();
+  
+  if (!asset) return null;
+
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
 

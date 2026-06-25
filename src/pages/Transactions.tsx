@@ -144,6 +144,14 @@ const Transactions: React.FC = () => {
     hasMoved.current = false;
   };
 
+  useEffect(() => {
+    const handleResize = () => {
+      setFabPos(prev => snapCorner(prev.top, prev.left));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const onClickFab = () => {
     if (!preventClick.current) {
       setIsChatOpen(true);
@@ -408,7 +416,8 @@ const Transactions: React.FC = () => {
     const today = new Date();
     const day = today.getDay();
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const startOfWeek = new Date(new Date().setDate(diff));
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(diff);
     startOfWeek.setHours(0, 0, 0, 0);
 
     return transactions
@@ -416,6 +425,32 @@ const Transactions: React.FC = () => {
       .filter(tx => new Date(tx.date) >= startOfWeek)
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [transactions]);
+
+  const lastWeekWeeklyExpense = useMemo(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    
+    const startOfThisWeek = new Date(today);
+    startOfThisWeek.setDate(diff);
+    startOfThisWeek.setHours(0, 0, 0, 0);
+
+    const startOfLastWeek = new Date(startOfThisWeek);
+    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+    return transactions
+      .filter(tx => tx.type === 'pengeluaran')
+      .filter(tx => {
+        const txDate = new Date(tx.date);
+        return txDate >= startOfLastWeek && txDate < startOfThisWeek;
+      })
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [transactions]);
+
+  const weeklyExpenseChangePct = useMemo(() => {
+    if (lastWeekWeeklyExpense === 0) return 0;
+    return ((weeklyExpense - lastWeekWeeklyExpense) / lastWeekWeeklyExpense) * 100;
+  }, [weeklyExpense, lastWeekWeeklyExpense]);
 
   // Dynamic breakdown for Liquid Balance
   const liquidBreakdown = useMemo(() => {
@@ -886,7 +921,7 @@ const Transactions: React.FC = () => {
 
               <div className="mt-2.5 relative z-10 space-y-3">
                 <div>
-                  <h2 className="text-3xl md:text-4xl font-bold text-on-surface tracking-tight truncate">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(totalLiquidBalance, currencySymbol)}</h2>
+                  <h2 className="text-2xl font-bold text-on-surface truncate">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(totalLiquidBalance, currencySymbol)}</h2>
                   <div className="mt-0.5">
                     <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${liquidChangePct >= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
                       <MaterialIcon name={liquidChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
@@ -971,7 +1006,7 @@ const Transactions: React.FC = () => {
                 </div>
 
                 {/* Detailed Breakdown Items */}
-                <div className="mt-3 pt-2.5 border-t border-border-light flex flex-col gap-1 text-[11px] text-on-surface-variant">
+                <div className="mt-3 pt-2.5 border-t border-border-light flex flex-col gap-1 text-xs text-on-surface-variant">
                   <div className="flex justify-between items-center">
                     <span className="flex items-center gap-1 font-medium">
                       <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0"></span>
@@ -1019,82 +1054,8 @@ const Transactions: React.FC = () => {
               </div>
             </div>
 
-            {/* Income Card (4 cols) */}
-            <div
-              className="col-span-1 md:col-span-4 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between cursor-pointer group hover:-translate-y-1 transition-all"
-              onClick={() => handleAdd('pendapatan')}
-            >
-              <div className="flex justify-between items-center">
-                <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pemasukan Bulan Ini</span>
-                <div className="w-8 h-8 rounded-lg bg-income flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                  <MaterialIcon name="trending_up" className="text-primary-color text-base" />
-                </div>
-              </div>
-              <div className="mt-2.5">
-                <div>
-                  <h2 className="text-2xl font-bold text-primary-color truncate">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(monthlyIncome, currencySymbol)}</h2>
-                  <div className="mt-0.5">
-                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${incomeChangePct >= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Dari bulan lalu">
-                      <MaterialIcon name={incomeChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
-                      {Math.abs(incomeChangePct).toFixed(1)}% vs bulan lalu
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-2.5 border-t border-border-light flex flex-col gap-1 text-[11px] text-on-surface-variant">
-                  <div className="flex justify-between">
-                    <span>Frekuensi:</span>
-                    <span className="font-semibold text-on-surface">{incomeDetails.count} Kali</span>
-                  </div>
-                  <div className="flex justify-between truncate">
-                    <span>Sumber Utama:</span>
-                    <span className="font-semibold text-on-surface truncate" title={incomeDetails.topCategory || 'N/A'}>
-                      {incomeDetails.topCategory ? `${incomeDetails.topCategory}` : 'Belum ada'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Expense Card (4 cols) */}
-            <div
-              className="col-span-1 md:col-span-4 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between cursor-pointer group hover:-translate-y-1 transition-all"
-              onClick={() => handleAdd('pengeluaran')}
-            >
-              <div className="flex justify-between items-center">
-                <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Pengeluaran Mingguan</span>
-                <div className="w-8 h-8 rounded-lg bg-expense flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                  <MaterialIcon name="trending_down" className="text-error text-base" />
-                </div>
-              </div>
-              <div className="mt-2.5">
-                <div>
-                  <h2 className="text-2xl font-bold text-error truncate">{isPrivateMode ? `${currencySymbol} ••••••••` : formatCurrency(weeklyExpense, currencySymbol)}</h2>
-                  <div className="mt-0.5">
-                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${expenseChangePct <= 0 ? 'bg-primary-container/20 text-primary-color' : 'bg-error-container/20 text-error'}`} title="Total bulanan vs bulan lalu">
-                      <MaterialIcon name={expenseChangePct >= 0 ? 'arrow_upward' : 'arrow_downward'} className="text-[10px] font-bold" />
-                      {Math.abs(expenseChangePct).toFixed(1)}% vs bulan lalu
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-2.5 border-t border-border-light flex flex-col gap-1 text-[11px] text-on-surface-variant">
-                  <div className="flex justify-between">
-                    <span>Rerata Harian:</span>
-                    <span className="font-semibold text-on-surface">{formatCurrency(weeklyExpenseDetails.dailyAverage, currencySymbol)}</span>
-                  </div>
-                  <div className="flex justify-between truncate">
-                    <span>Pos Terbesar:</span>
-                    <span className="font-semibold text-on-surface truncate" title={weeklyExpenseDetails.topCategory || 'N/A'}>
-                      {weeklyExpenseDetails.topCategory ? `${weeklyExpenseDetails.topCategory}` : 'Belum ada'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Insight Card (Spans 4 cols, compact design matching the row) */}
-            <div className="col-span-1 md:col-span-4 bg-surface-container p-5 rounded-3xl border border-outline-variant flex flex-col justify-between relative overflow-hidden group">
+            {/* AI Insight Card (Spans 12 cols to fill remaining width) */}
+            <div className="col-span-1 md:col-span-12 bg-surface-container p-5 rounded-3xl border border-outline-variant flex flex-col justify-between relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-24 h-24 bg-primary opacity-10 rounded-full blur-xl -translate-y-1/2 -translate-x-1/2 group-hover:opacity-20 transition-opacity"></div>
 
               <div className="flex justify-between items-start relative z-10">
@@ -1378,8 +1339,6 @@ const Transactions: React.FC = () => {
         <OnboardingTutorial
           pageKey="transactions"
           steps={[
-            { targetSelector: '[data-tour="income-card"]', title: '💰 Catat Pemasukan', description: 'Tap kartu ini untuk menambahkan pemasukan seperti gaji, bonus, atau pendapatan lain.' },
-            { targetSelector: '[data-tour="expense-card"]', title: '💸 Catat Pengeluaran', description: 'Tap kartu ini untuk mencatat pengeluaran harian kamu dengan cepat.' },
             { targetSelector: '[data-tour="ai-scanner"]', title: '🤖 Scanner AI Cerdas', description: 'Pindai struk belanja dengan kamera atau ketik banyak transaksi sekaligus dengan bantuan AI.', onBeforeShow: () => handleCloseModal() },
           ]}
         />
