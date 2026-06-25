@@ -115,9 +115,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log('--- RAW PAYLOAD DUMP ---');
         console.log(rawBody);
         console.log('------------------------');
+        
+        let expectedSig = '';
+        try {
+            expectedSig = crypto.createHmac('sha256', merchantKey).update(rawBody, 'utf8').digest('hex');
+        } catch(e) {}
+        
         if (!verifySignature(rawBody, signature, merchantKey)) {
             console.warn('Invalid Lynk.id signature');
-            return res.status(401).json({ error: 'Invalid signature' });
+            return res.status(401).json({ 
+                error: 'Invalid signature',
+                debug_info: {
+                    received: signature,
+                    expected: expectedSig,
+                    payload_dump: rawBody
+                }
+            });
         }
     } else {
         // Fallback or Test Ping mode
