@@ -201,12 +201,23 @@ const Transactions: React.FC = () => {
     return asset.isDeleted ? `${asset.name} (Dihapus)` : asset.name;
   }, [assetMap]);
 
-  const handleDelete = useCallback((id: string) => {
-    const tx = transactions.find(t => t.id === id);
-    if (!tx) return;
+  const handleDelete = useCallback((id: string, tx?: Transaction) => {
+    const target = tx || transactions.find(t => t.id === id);
+    if (!target) return;
     deleteTransaction(id);
-    // Add logic here to optionally undo, or let showToast handle it if added back
-  }, [transactions, deleteTransaction]);
+    showToast(
+      'Transaksi berhasil dihapus',
+      'success',
+      {
+        label: 'BATAL',
+        onClick: () => {
+          const { id: _, ...rest } = target;
+          addTransaction(rest);
+          showToast('Transaksi dikembalikan', 'info');
+        },
+      },
+    );
+  }, [transactions, deleteTransaction, addTransaction, showToast]);
 
   const handleCopy = useCallback((tx: Transaction) => {
     setEditingTransaction(tx);

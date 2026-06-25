@@ -16,7 +16,7 @@ const TYPE_CLASSES: Record<StatusBadgeType, string> = {
   neutral:  'bg-surface-container text-on-surface-variant',
   success:  'bg-primary-container/20 text-primary-color',
   danger:   'bg-error-container/20 text-error',
-  warning:  'bg-surface-container text-on-surface-variant',
+  warning:  'bg-warning/20 text-warning',
   info:     'bg-primary-container/20 text-primary',
 };
 
@@ -25,6 +25,7 @@ const DEFAULT_ICONS: Partial<Record<StatusBadgeType, string>> = {
   negative: 'arrow_downward',
   success:  'check_circle',
   danger:   'error',
+  warning:  'warning',
 };
 
 /**

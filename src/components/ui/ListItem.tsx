@@ -2,7 +2,7 @@ import React from 'react';
 
 export interface ListItemProps {
   left?: React.ReactNode;
-  title: string;
+  title: React.ReactNode;
   subtitle?: React.ReactNode;
   right?: React.ReactNode;
   onClick?: () => void;

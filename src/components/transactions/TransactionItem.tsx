@@ -3,6 +3,15 @@ import { motion } from 'framer-motion';
 import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { useMoney } from '../../contexts/MoneyContext';
 import type { Transaction } from '../../contexts/MoneyContext';
+
+/** Simple string hash for deterministic color mapping */
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
 import ConfirmDialog from '../common/ConfirmDialog';
 import MaterialIcon from '../common/MaterialIcon';
 import { ListItem } from '../ui/ListItem';
@@ -14,7 +23,7 @@ interface TransactionItemProps {
   assetName?: string;
   fromAssetName?: string;
   toAssetName?: string;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, tx?: Transaction) => void;
   onEdit: (tx: Transaction) => void;
   onCopy?: (tx: Transaction) => void;
   showDate?: boolean;
@@ -52,6 +61,17 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
     categoryName = TX_TYPE_LABELS[tx.type] || 'Transaksi';
   }
   const subCategoryName = category?.subcategories?.find(s => s.id === tx.subCategoryId)?.name || tx.subCategoryId;
+  // Deterministic color from category ID for the dot
+  const CATEGORY_COLORS = ['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#06B6D4','#F97316','#84CC16','#6366F1'];
+  const categoryColor = category
+    ? CATEGORY_COLORS[Math.abs(hashCode(category.id)) % CATEGORY_COLORS.length]
+    : '#94A3B8';
+  const categoryDot = tx.type !== 'transfer' && category ? (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: categoryColor }}></span>
+      {categoryName}
+    </span>
+  ) : categoryName;
 
   const { dragProps, swipeOffset } = useSwipeGesture({
     onSwipeLeft: () => setIsConfirmOpen(true),
@@ -90,7 +110,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
                 size="md"
               />
             }
-            title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : categoryName}
+            title={tx.type === 'transfer' ? `${fromAssetName} → ${toAssetName}` : categoryDot}
             subtitle={
               <div className="flex flex-col gap-0.5">
                 {tx.type !== 'transfer' && subCategoryName && (
@@ -146,7 +166,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
       <ConfirmDialog
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
-        onConfirm={() => onDelete(tx.id)}
+        onConfirm={() => onDelete(tx.id, tx)}
         title="Hapus Transaksi"
         message={`Apakah Anda yakin ingin menghapus transaksi "${tx.type === 'transfer' ? 'Transfer' : categoryName}" sebesar ${formatCurrency(tx.amount, currencySymbol)}?`}
       />
