@@ -91,13 +91,7 @@ function verifySignature(payload: string, signature: string, merchantKey: string
     }
 }
 
-async function getRawBody(req: VercelRequest): Promise<string> {
-    const chunks: any[] = [];
-    for await (const chunk of req) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-    }
-    return Buffer.concat(chunks).toString('utf8');
-}
+import getRawBodyLib from 'raw-body';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
@@ -111,7 +105,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Capture the exact raw body string BEFORE any JSON parsing
-    const rawBody = await getRawBody(req);
+    const rawBodyBuffer = await getRawBodyLib(req);
+    const rawBody = rawBodyBuffer.toString('utf8');
     
     // ── Signature verification ──────────────────────────────────────────
     const signature = req.headers['x-lynk-signature'] as string | undefined;
