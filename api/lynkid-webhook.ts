@@ -73,8 +73,20 @@ export const config = {
 function verifySignature(payload: string, signature: string, merchantKey: string): boolean {
     try {
         const expected = crypto.createHmac('sha256', merchantKey).update(payload, 'utf8').digest('hex');
+        
+        console.log(`[LynkID Signature Debug]`);
+        console.log(`- Received Signature : ${signature}`);
+        console.log(`- Expected Signature : ${expected}`);
+        console.log(`- Payload Length     : ${payload.length}`);
+        
+        if (Buffer.byteLength(signature, 'utf8') !== Buffer.byteLength(expected, 'utf8')) {
+            console.warn('[LynkID Signature Debug] Signature length mismatch');
+            return false;
+        }
+        
         return crypto.timingSafeEqual(Buffer.from(signature, 'utf8'), Buffer.from(expected, 'utf8'));
-    } catch {
+    } catch (e) {
+        console.error('[LynkID Signature Debug] Verification error:', e);
         return false;
     }
 }
