@@ -59,14 +59,32 @@ const initializeAdmin = () => {
     }
 };
 
+export const config = {
+    api: {
+        bodyParser: false,
+    },
+};
+
 /**
  * Verify the Lynk.id webhook signature.
  * Lynk.id sends a HMAC-SHA256 signature in the `x-lynk-signature` header,
  * generated using the Merchant Key from your Lynk.id dashboard.
  */
 function verifySignature(payload: string, signature: string, merchantKey: string): boolean {
-    const expected = crypto.createHmac('sha256', merchantKey).update(payload).digest('hex');
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    try {
+        const expected = crypto.createHmac('sha256', merchantKey).update(payload, 'utf8').digest('hex');
+        return crypto.timingSafeEqual(Buffer.from(signature, 'utf8'), Buffer.from(expected, 'utf8'));
+    } catch {
+        return false;
+    }
+}
+
+async function getRawBody(req: VercelRequest): Promise<string> {
+    const chunks: any[] = [];
+    for await (const chunk of req) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    }
+    return Buffer.concat(chunks).toString('utf8');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -74,29 +92,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // ── Signature verification ──────────────────────────────────────────
-    const signature = req.headers['x-lynk-signature'] as string | undefined;
     const merchantKey = process.env.LYNKID_MERCHANT_KEY;
-
     if (!merchantKey) {
         console.error('Missing LYNKID_MERCHANT_KEY environment variable');
         return res.status(500).json({ error: 'Server misconfigured' });
     }
 
+    // Capture the exact raw body string BEFORE any JSON parsing
+    const rawBody = await getRawBody(req);
+    
+    // ── Signature verification ──────────────────────────────────────────
+    const signature = req.headers['x-lynk-signature'] as string | undefined;
+
     if (signature) {
-        const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-        try {
-            if (!verifySignature(rawBody, signature, merchantKey)) {
-                console.warn('Invalid Lynk.id signature');
-                return res.status(401).json({ error: 'Invalid signature' });
-            }
-        } catch (e) {
-            console.warn('Signature verification failed:', e);
-            return res.status(401).json({ error: 'Signature verification error' });
+        if (!verifySignature(rawBody, signature, merchantKey)) {
+            console.warn('Invalid Lynk.id signature');
+            return res.status(401).json({ error: 'Invalid signature' });
         }
     } else {
-        // Fallback: if no signature header, check a simple shared token
+        // Fallback or Test Ping mode
         const token = req.headers['x-webhook-token'];
+        let payloadObj: any = {};
+        try { payloadObj = JSON.parse(rawBody); } catch (e) {}
+
+        // If it's just a test event from Lynk.id, allow it to pass for testing purposes
+        if (payloadObj.event === 'test' || payloadObj.event === 'ping') {
+            console.log('[LynkID] Received test/ping event from dashboard');
+            return res.status(200).json({ status: 'success', message: 'Test connection successful' });
+        }
+
         if (token !== merchantKey) {
             console.warn('Unauthorized webhook attempt (no signature, token mismatch)');
             return res.status(401).json({ error: 'Unauthorized' });
@@ -107,7 +131,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         initializeAdmin();
         const db = admin.firestore();
 
-        const payload = req.body;
+        // Now we can safely parse the body for processing
+        let payload: any;
+        try {
+            payload = JSON.parse(rawBody);
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid JSON payload' });
+        }
 
         // ── Validate event type ─────────────────────────────────────────
         if (!payload || payload.event !== 'payment.received') {
