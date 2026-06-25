@@ -238,7 +238,7 @@ const Transactions: React.FC = () => {
     setIsModalOpen(true);
   }, []);
 
-  const { groups, monthlyIncome, monthlyExpense, hasMore } = useMemo(() => {
+  const { groups, monthlyExpense, hasMore } = useMemo(() => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
@@ -412,45 +412,6 @@ const Transactions: React.FC = () => {
       .reduce((sum, a) => sum + getAssetBalance(a.id), 0);
   }, [assets, getAssetBalance]);
 
-  const weeklyExpense = useMemo(() => {
-    const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(diff);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    return transactions
-      .filter(tx => tx.type === 'pengeluaran')
-      .filter(tx => new Date(tx.date) >= startOfWeek)
-      .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [transactions]);
-
-  const lastWeekWeeklyExpense = useMemo(() => {
-    const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    
-    const startOfThisWeek = new Date(today);
-    startOfThisWeek.setDate(diff);
-    startOfThisWeek.setHours(0, 0, 0, 0);
-
-    const startOfLastWeek = new Date(startOfThisWeek);
-    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-    return transactions
-      .filter(tx => tx.type === 'pengeluaran')
-      .filter(tx => {
-        const txDate = new Date(tx.date);
-        return txDate >= startOfLastWeek && txDate < startOfThisWeek;
-      })
-      .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [transactions]);
-
-  const weeklyExpenseChangePct = useMemo(() => {
-    if (lastWeekWeeklyExpense === 0) return 0;
-    return ((weeklyExpense - lastWeekWeeklyExpense) / lastWeekWeeklyExpense) * 100;
-  }, [weeklyExpense, lastWeekWeeklyExpense]);
 
   // Dynamic breakdown for Liquid Balance
   const liquidBreakdown = useMemo(() => {
@@ -509,99 +470,7 @@ const Transactions: React.FC = () => {
     };
   }, [assets, getAssetBalance]);
 
-  // Dynamic details for Income Card
-  const incomeDetails = useMemo(() => {
-    const vM = viewDate.getMonth();
-    const vY = viewDate.getFullYear();
 
-    const incomeTxs = transactions.filter(tx => {
-      if (tx.type !== 'pendapatan') return false;
-      const txD = new Date(tx.date);
-      if (startOfMonthDay > 1) {
-        const start = new Date(vY, vM - 1, startOfMonthDay);
-        const end = new Date(vY, vM, startOfMonthDay - 1);
-        return txD >= start && txD <= end;
-      }
-      return txD.getMonth() === vM && txD.getFullYear() === vY;
-    });
-
-    const count = incomeTxs.length;
-
-    const catSums: Record<string, number> = {};
-    incomeTxs.forEach(tx => {
-      catSums[tx.categoryId || ''] = (catSums[tx.categoryId || ''] || 0) + tx.amount;
-    });
-
-    let topCategory = '';
-    let topAmount = 0;
-    Object.entries(catSums).forEach(([cat, amt]) => {
-      if (amt > topAmount) {
-        topAmount = amt;
-        topCategory = cat;
-      }
-    });
-
-    return {
-      count,
-      topCategory: categoryMap.get(topCategory)?.name || topCategory,
-      topAmount
-    };
-  }, [transactions, viewDate, startOfMonthDay]);
-
-  // Dynamic details for Weekly Expense Card
-  const weeklyExpenseDetails = useMemo(() => {
-    const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const startOfWeek = new Date(new Date().setDate(diff));
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const weeklyTxs = transactions
-      .filter(tx => tx.type === 'pengeluaran')
-      .filter(tx => new Date(tx.date) >= startOfWeek);
-
-    const count = weeklyTxs.length;
-    const currentDayOfWeek = day === 0 ? 7 : day;
-    const dailyAverage = weeklyExpense / currentDayOfWeek;
-
-    const catSums: Record<string, number> = {};
-    weeklyTxs.forEach(tx => {
-      catSums[tx.categoryId || ''] = (catSums[tx.categoryId || ''] || 0) + tx.amount;
-    });
-
-    let topCategory = '';
-    let topAmount = 0;
-    Object.entries(catSums).forEach(([cat, amt]) => {
-      if (amt > topAmount) {
-        topAmount = amt;
-        topCategory = cat;
-      }
-    });
-
-    return {
-      count,
-      dailyAverage,
-      topCategory: categoryMap.get(topCategory)?.name || topCategory
-    };
-  }, [transactions, weeklyExpense]);
-
-  // Previous Period Calculations for Percentage Comparisons (using startOfMonthDay preference)
-  const prevPeriodRange = useMemo(() => {
-    const vM = viewDate.getMonth();
-    const vY = viewDate.getFullYear();
-    let start: Date;
-    let end: Date;
-    if (startOfMonthDay > 1) {
-      start = new Date(vY, vM - 2, startOfMonthDay);
-      end = new Date(vY, vM - 1, startOfMonthDay - 1);
-    } else {
-      start = new Date(vY, vM - 1, 1);
-      end = new Date(vY, vM, 0);
-    }
-    const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
-    const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
-    return { startStr, endStr };
-  }, [viewDate, startOfMonthDay]);
 
   const prevPeriodEndStr = useMemo(() => {
     const vM = viewDate.getMonth();
@@ -650,19 +519,6 @@ const Transactions: React.FC = () => {
       }, 0);
   }, [assets, transactions, prevPeriodEndStr]);
 
-  const lastMonthMonthlyIncome = useMemo(() => {
-    return transactions.filter(tx => {
-      if (tx.type !== 'pendapatan') return false;
-      return tx.date >= prevPeriodRange.startStr && tx.date <= prevPeriodRange.endStr;
-    }).reduce((sum, tx) => sum + tx.amount, 0);
-  }, [transactions, prevPeriodRange]);
-
-  const lastMonthMonthlyExpense = useMemo(() => {
-    return transactions.filter(tx => {
-      if (tx.type !== 'pengeluaran') return false;
-      return tx.date >= prevPeriodRange.startStr && tx.date <= prevPeriodRange.endStr;
-    }).reduce((sum, tx) => sum + tx.amount, 0);
-  }, [transactions, prevPeriodRange]);
 
   const liquidChangePct = useMemo(() => {
     if (lastMonthTotalLiquidBalance === 0) return 0;
@@ -674,15 +530,19 @@ const Transactions: React.FC = () => {
     return ((savingsAndInvestments - lastMonthSavingsAndInvestments) / lastMonthSavingsAndInvestments) * 100;
   }, [savingsAndInvestments, lastMonthSavingsAndInvestments]);
 
-  const incomeChangePct = useMemo(() => {
-    if (lastMonthMonthlyIncome === 0) return 0;
-    return ((monthlyIncome - lastMonthMonthlyIncome) / lastMonthMonthlyIncome) * 100;
-  }, [monthlyIncome, lastMonthMonthlyIncome]);
+  const weeklyExpense = useMemo(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
 
-  const expenseChangePct = useMemo(() => {
-    if (lastMonthMonthlyExpense === 0) return 0;
-    return ((monthlyExpense - lastMonthMonthlyExpense) / lastMonthMonthlyExpense) * 100;
-  }, [monthlyExpense, lastMonthMonthlyExpense]);
+    return transactions
+      .filter(tx => tx.type === 'pengeluaran')
+      .filter(tx => new Date(tx.date) >= startOfWeek)
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [transactions]);
 
   const aiInsightData = useMemo(() => {
     const vM = viewDate.getMonth();
