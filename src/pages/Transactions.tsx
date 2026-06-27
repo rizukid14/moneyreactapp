@@ -766,7 +766,7 @@ const Transactions: React.FC = () => {
           />
 
           {/* Hero Summary Section - Bento Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
+          <section data-tour="tx-summary" className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
 
             {/* Main Balance Card (Spans 6 cols on desktop, vertical compact stack) */}
             <div className="col-span-1 md:col-span-6 bg-bg-card p-5 rounded-3xl shadow-bento flex flex-col justify-between relative overflow-hidden group">
@@ -978,6 +978,7 @@ const Transactions: React.FC = () => {
                 onClick={() => handleAdd('pengeluaran')}
                 className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant rounded-full hover:bg-primary-container hover:text-on-primary-container transition-all whitespace-nowrap cursor-pointer"
                 data-testid="transaction-add-fab"
+                data-tour="tx-add"
               >
                 <MaterialIcon name="add" className="text-sm" />
                 <span className="font-label-md text-label-md">Tambah Baru</span>
@@ -991,7 +992,7 @@ const Transactions: React.FC = () => {
             {/* Left: Transaction List (60%) */}
             <div className="lg:w-[60%] space-y-6">
               <div className="bg-bg-card rounded-3xl shadow-bento overflow-hidden">
-                <div className="px-4 pt-4 pb-4 border-b border-border-light flex flex-col gap-4">
+                <div data-tour="tx-filter" className="px-4 pt-4 pb-4 border-b border-border-light flex flex-col gap-4">
                   <SearchInput
                     value={searchQuery}
                     onChange={setSearchQuery}
@@ -1099,6 +1100,7 @@ const Transactions: React.FC = () => {
                   onClick={() => navigate('/scan')}
                   className="border-2 border-dashed border-outline-variant rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-3 hover:bg-surface-container transition-colors cursor-pointer group"
                   data-testid="ai-scanner"
+                  data-tour="ai-scanner"
                 >
                   <div className="w-14 h-14 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                     <MaterialIcon name="document_scanner" className="text-3xl" />
@@ -1199,7 +1201,10 @@ const Transactions: React.FC = () => {
         <OnboardingTutorial
           pageKey="transactions"
           steps={[
-            { targetSelector: '[data-tour="ai-scanner"]', title: '🤖 Scanner AI Cerdas', description: 'Pindai struk belanja dengan kamera atau ketik banyak transaksi sekaligus dengan bantuan AI.', onBeforeShow: () => handleCloseModal() },
+            { targetSelector: '[data-tour="tx-summary"]', title: '📊 Ringkasan Finansial', description: 'Pantau total saldo aset, tabungan, dan insight AI bulananmu di sini.', onBeforeShow: () => handleCloseModal() },
+            { targetSelector: '[data-tour="tx-filter"]', title: '🔍 Pencarian & Filter', description: 'Gunakan fitur ini untuk mencari transaksi spesifik atau mengelompokkan berdasarkan tanggal atau kategori.' },
+            { targetSelector: '[data-tour="tx-add"]', title: '➕ Tambah Transaksi', description: 'Gunakan tombol ini untuk mencatat pemasukan, pengeluaran, atau transfer manual.' },
+            { targetSelector: '[data-tour="ai-scanner"]', title: '🤖 Scanner AI Cerdas', description: 'Pindai struk belanja dengan kamera atau ketik banyak transaksi sekaligus dengan bantuan AI.' },
           ]}
         />
       </PageWrapper>

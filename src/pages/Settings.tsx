@@ -195,11 +195,11 @@ export const ALL_STATS_VIEWS = [
   { id: 'all', label: 'Ringkasan Umum', description: 'Analisis semua aset' },
   { id: 'cash_bank', label: 'Kas & Bank', description: 'Analisis tunai & rekening' },
   { id: 'investment', label: 'Investasi & Tabungan', description: 'Analisis aset produktif' },
-  { id: 'goals', label: 'Tabungan', description: 'Progres target impian' },
-  { id: 'subs', label: 'Langganan', description: 'Biaya rutin bulanan' },
-  { id: 'health', label: 'Kesehatan Finansial', description: 'Skor kesehatan finansial' },
-  { id: 'forecast', label: 'Proyeksi Kas', description: 'Prediksi saldo 90 hari ke depan' },
-  { id: 'detailed_analysis', label: 'Analisis Detail', description: 'Heatmap & Grafik Kategori' },
+  { id: 'goals', label: 'Tabungan', description: 'Progres target impian', pro: true },
+  { id: 'subs', label: 'Langganan', description: 'Biaya rutin bulanan', pro: true },
+  { id: 'health', label: 'Kesehatan Finansial', description: 'Skor kesehatan finansial', pro: true },
+  { id: 'forecast', label: 'Proyeksi Kas', description: 'Prediksi saldo 90 hari ke depan', pro: true },
+  { id: 'detailed_analysis', label: 'Analisis Detail', description: 'Heatmap & Grafik Kategori', pro: true },
 ];
 
 interface StatsViewSettingsProps {
@@ -275,7 +275,12 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
             >
               <MaterialIcon name="drag_indicator" className="text-[16px]" />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {def.label}
+                  {(def as any).pro && (
+                    <span className="px-1.5 py-0.5 rounded bg-primary-container text-primary-color text-[9px] font-extrabold uppercase tracking-wider">PRO</span>
+                  )}
+                </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -318,7 +323,12 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
           >
             <MaterialIcon name="add" className="text-[14px]" />
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{def.label}</div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {def.label}
+                {(def as any).pro && (
+                  <span className="px-1.5 py-0.5 rounded bg-primary-container text-primary-color text-[9px] font-extrabold uppercase tracking-wider">PRO</span>
+                )}
+              </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
             </div>
           </button>
@@ -1875,7 +1885,9 @@ const Settings: React.FC = () => {
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{rt.note || rt.categoryId}</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>
+                            {rt.note || categories.find(c => c.id === rt.categoryId)?.name || rt.categoryId}
+                          </div>
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                             {freqLabel} • Mulai {new Date(rt.startDate).toLocaleDateString('id-ID')}
                             {rt.endDate && ` • Sampai ${new Date(rt.endDate).toLocaleDateString('id-ID')}`}
@@ -2036,7 +2048,7 @@ const Settings: React.FC = () => {
         <div className="flex-1 flex flex-col gap-8 w-full">
 
           {/* Profile Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+          <section data-tour="settings-profile" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
             {isEditingProfile ? (
               <form onSubmit={handleUpdateProfile} className="space-y-4">
                 <div className="flex items-center gap-4">
@@ -2202,7 +2214,7 @@ const Settings: React.FC = () => {
           </section>
 
           {/* Preferensi Finansial & Mata Uang Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-5">
+          <section data-tour="settings-preferences" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-5">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">tune</span>
               <h3 className="font-headline-md text-headline-md text-on-surface">Preferensi Finansial</h3>
@@ -2214,6 +2226,7 @@ const Settings: React.FC = () => {
                 <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Dompet Utama</label>
                 <button
                   type="button"
+                  data-tour="pref-default-wallet"
                   onClick={() => setIsAssetSelectOpen(true)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors text-left"
                 >
@@ -2231,6 +2244,7 @@ const Settings: React.FC = () => {
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Awal Siklus Bulanan (Gajian)</label>
                 <select
+                  data-tour="pref-financial-cycle"
                   value={startOfMonthDay}
                   onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
                   className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
@@ -2246,6 +2260,7 @@ const Settings: React.FC = () => {
                 <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Simbol Mata Uang</label>
                 <input
                   type="text"
+                  data-tour="pref-currency"
                   value={currencySymbol}
                   onChange={(e) => setCurrencySymbol(e.target.value)}
                   className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
@@ -2442,7 +2457,7 @@ const Settings: React.FC = () => {
         <div className="flex-1 flex flex-col gap-8 w-full">
 
           {/* Budgeting Mode Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+          <section data-tour="pref-budget-mode" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">track_changes</span>
               <h3 className="font-headline-md text-headline-md text-on-surface">Mode Budgeting</h3>
@@ -2594,7 +2609,7 @@ const Settings: React.FC = () => {
           </section>
 
           {/* Sistem & Preferensi Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+          <section data-tour="settings-menu" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">settings_applications</span>
               <h3 className="font-headline-md text-headline-md text-on-surface">Sistem &amp; Preferensi</h3>
@@ -2863,13 +2878,13 @@ const Settings: React.FC = () => {
       <OnboardingTutorial
         pageKey="settings"
         steps={[
-          { targetSelector: '[data-tour="settings-profile"]', title: '👤 Profil Kamu', description: 'Atur nama, email, dan avatar kamu di sini.' },
-          { targetSelector: '[data-tour="settings-preferences"]', title: '⚙️ Preferensi Aplikasi', description: 'Atur opsi kustomisasi seperti mata uang default, budgeting, dan siklus bulanan di sini.', onBeforeShow: () => setActiveModal(null) },
-          { targetSelector: '[data-tour="pref-default-wallet"]', title: '💳 Dompet Utama', description: 'Pilih dompet default yang akan terpilih secara otomatis saat membuat transaksi baru.', onBeforeShow: () => handleMenuClick('preferences') },
+          { targetSelector: '[data-tour="settings-profile"]', title: '👤 Profil Kamu', description: 'Atur nama, email, dan avatar kamu di sini.', onBeforeShow: () => setActiveModal(null) },
+          { targetSelector: '[data-tour="settings-preferences"]', title: '⚙️ Preferensi Aplikasi', description: 'Atur opsi kustomisasi seperti mata uang default, budgeting, dan siklus bulanan di sini.' },
+          { targetSelector: '[data-tour="pref-default-wallet"]', title: '💳 Dompet Utama', description: 'Pilih dompet default yang akan terpilih secara otomatis saat membuat transaksi baru.' },
           { targetSelector: '[data-tour="pref-financial-cycle"]', title: '📅 Siklus Finansial', description: 'Atur tanggal gajian atau awal siklus keuangan bulananmu.' },
           { targetSelector: '[data-tour="pref-currency"]', title: '💱 Mata Uang', description: 'Ubah simbol mata uang (seperti Rp, $, dll.) sesuai keinginanmu.' },
           { targetSelector: '[data-tour="pref-budget-mode"]', title: '🎯 Metode Budgeting', description: 'Pilih gaya budgeting: Reguler atau Zero-Based (ZBB).' },
-          { targetSelector: '[data-tour="settings-menu"]', title: '🛠️ Pengaturan Lainnya', description: 'Temukan berbagai pengaturan lainnya mulai dari kategori, backup data, hingga mengulang tutorial.', onBeforeShow: () => setActiveModal(null) }
+          { targetSelector: '[data-tour="settings-menu"]', title: '🛠️ Pengaturan Lainnya', description: 'Temukan berbagai pengaturan lainnya mulai dari kategori, backup data, hingga mengulang tutorial.' }
         ]}
       />
     </PageWrapper>

@@ -14,7 +14,7 @@ interface ProfileMenuModalProps {
 
 export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { user, logOut, theme, toggleTheme } = useMoney();
+  const { user, theme, toggleTheme } = useMoney();
   const { showToast } = useToast();
   const [isLinking, setIsLinking] = React.useState(false);
 
@@ -44,9 +44,16 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
     navigate(path);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     onClose();
-    logOut();
+    try {
+      await auth.signOut();
+      showToast('Berhasil keluar dari akun', 'success');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Logout error', error);
+      showToast('Gagal keluar dari akun', 'error');
+    }
   };
 
   return (

@@ -631,6 +631,7 @@ const Statistics: React.FC = () => {
                       <div 
                         className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-1 sm:px-2 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm w-full" 
                         onClick={() => setIsDatePickerOpen(true)}
+                        data-tour="month-nav"
                       >
                         <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
                           <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="prev-month-btn">

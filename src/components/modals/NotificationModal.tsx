@@ -2,9 +2,6 @@ import React, { useMemo } from 'react';
 import { useMoney } from '../../contexts/MoneyContext';
 import { Modal } from '../ui/Modal';
 import MaterialIcon from '../common/MaterialIcon';
-import { formatCurrency } from '../../lib/utils';
-import { isPrincipalTx } from '../../lib/utils';
-import { isFirebaseConfigured } from '../../lib/firebase';
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -13,330 +10,157 @@ interface NotificationModalProps {
 
 export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, onClose }) => {
   const {
-    assets, transactions, currencySymbol, isPrivateMode,
-    budgets, categories, startOfMonthDay,
-    debts, subscriptions, pendingSyncCount,
+    notifications,
+    markNotifAsRead,
+    deleteNotif,
+    clearAllNotifs,
+    pendingSyncCount,
   } = useMoney();
 
-  const fmt = (v: number) => isPrivateMode ? '••••' : formatCurrency(v, currencySymbol);
+  // Create a combined list of persistent notifications + real-time system notifications (like cloud sync)
+  const displayNotifs = useMemo(() => {
+    let combined = [...notifications];
 
-  const notifications = useMemo(() => {
-    const notifs: {
-      id: string;
-      title: string;
-      message: string;
-      icon: string;
-      color: 'primary' | 'error' | 'success' | 'warning' | 'info';
-      time: string;
-      priority: number; // lower = higher priority
-      dateObj: Date;
-    }[] = [];
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    // ── 1. Overbudget Notifications ──────────────────────────────────────
-    const periodStart = new Date(currentYear, currentMonth - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
-    const periodEnd = new Date(currentYear, currentMonth + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
-
-    const spendingMap: Record<string, number> = { total: 0 };
-    transactions.forEach(tx => {
-      const d = new Date(tx.date);
-      if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
-        spendingMap.total += tx.amount;
-        const cat = categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
-        if (cat) spendingMap[cat.id] = (spendingMap[cat.id] || 0) + tx.amount;
-      }
-    });
-
-    const currentMonthBudgets = budgets.filter(b => b.month === currentMonth && b.year === currentYear);
-
-    // Global budget overbudget
-    const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
-    if (globalBudget && spendingMap.total > globalBudget.limit) {
-      const over = spendingMap.total - globalBudget.limit;
-      notifs.push({
-        id: 'overbudget-global',
-        title: 'Anggaran Bulanan Terlampaui',
-        message: `Total pengeluaranmu telah melebihi anggaran bulanan sebesar ${fmt(over)}. Segera kurangi pengeluaran agar tidak membengkak.`,
-        icon: 'warning',
-        color: 'error',
-        time: 'Bulan ini',
-        priority: 1,
-        dateObj: now,
-      });
-    }
-
-    // Category budget overbudget
-    const categoryBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
-    const overbudgetCategories: string[] = [];
-    categoryBudgets.forEach(b => {
-      const spent = spendingMap[b.categoryId!] || 0;
-      if (spent > b.limit) {
-        const cat = categories.find(c => c.id === b.categoryId);
-        if (cat) overbudgetCategories.push(cat.name);
-      }
-    });
-
-    if (overbudgetCategories.length > 0) {
-      notifs.push({
-        id: 'overbudget-categories',
-        title: `${overbudgetCategories.length} Kategori Melebihi Anggaran`,
-        message: `Kategori ${overbudgetCategories.slice(0, 3).join(', ')}${overbudgetCategories.length > 3 ? ` dan ${overbudgetCategories.length - 3} lainnya` : ''} sudah melewati batas anggaran.`,
-        icon: 'account_balance_wallet',
-        color: 'error',
-        time: 'Bulan ini',
-        priority: 2,
-        dateObj: now,
-      });
-    }
-
-    // Near budget warning (75-100%)
-    const warningCategories: string[] = [];
-    categoryBudgets.forEach(b => {
-      const spent = spendingMap[b.categoryId!] || 0;
-      const pct = b.limit > 0 ? (spent / b.limit) * 100 : 0;
-      if (pct >= 75 && pct <= 100) {
-        const cat = categories.find(c => c.id === b.categoryId);
-        if (cat) warningCategories.push(cat.name);
-      }
-    });
-
-    if (warningCategories.length > 0) {
-      notifs.push({
-        id: 'budget-warning',
-        title: 'Anggaran Hampir Habis',
-        message: `Kategori ${warningCategories.slice(0, 3).join(', ')}${warningCategories.length > 3 ? ` dan ${warningCategories.length - 3} lainnya` : ''} sudah memakai lebih dari 75% anggaran.`,
-        icon: 'trending_up',
-        color: 'warning',
-        time: 'Bulan ini',
-        priority: 3,
-        dateObj: now,
-      });
-    }
-
-    // ── 2. Subscription Billing Notifications ────────────────────────────
-    const activeSubs = subscriptions.filter(s => s.isActive);
-    activeSubs.forEach(sub => {
-      if (!sub.nextBillingDate) return;
-      const billingDate = new Date(sub.nextBillingDate);
-      const diffDays = Math.ceil((billingDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (diffDays < 0) {
-        // Overdue / expired
-        notifs.push({
-          id: `sub-overdue-${sub.id}`,
-          title: `Langganan ${sub.name} Jatuh Tempo`,
-          message: `Tagihan ${fmt(sub.amount)} untuk ${sub.name} sudah lewat ${Math.abs(diffDays)} hari sejak ${billingDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}. Pastikan pembayaran sudah dilakukan.`,
-          icon: 'credit_card_off',
-          color: 'error',
-          time: `${Math.abs(diffDays)} hari lalu`,
-          priority: 1,
-          dateObj: billingDate,
-        });
-      } else if (diffDays <= 3) {
-        // Due very soon (within 3 days)
-        notifs.push({
-          id: `sub-soon-${sub.id}`,
-          title: `${sub.name} Akan Ditagih`,
-          message: `Langganan ${sub.name} sebesar ${fmt(sub.amount)} akan ditagih ${diffDays === 0 ? 'hari ini' : diffDays === 1 ? 'besok' : `dalam ${diffDays} hari`}.`,
-          icon: 'credit_card',
-          color: 'warning',
-          time: diffDays === 0 ? 'Hari ini' : diffDays === 1 ? 'Besok' : `${diffDays} hari lagi`,
-          priority: 2,
-          dateObj: billingDate,
-        });
-      } else if (diffDays <= 7) {
-        // Due within a week
-        notifs.push({
-          id: `sub-upcoming-${sub.id}`,
-          title: `Tagihan ${sub.name} Mendekat`,
-          message: `Tagihan ${fmt(sub.amount)} untuk ${sub.name} jatuh tempo dalam ${diffDays} hari (${billingDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}).`,
-          icon: 'schedule',
-          color: 'info',
-          time: `${diffDays} hari lagi`,
-          priority: 4,
-          dateObj: billingDate,
-        });
-      }
-    });
-
-    // ── 3. Debt Overdue & Due Soon Notifications ─────────────────────────
-    const activeDebts = debts.filter(d => !d.isPaid);
-
-    activeDebts.forEach(d => {
-      if (!d.dueDate) return;
-      const dueDate = new Date(d.dueDate);
-      const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const isHutang = d.type === 'hutang';
-      const label = isHutang ? 'Hutang' : 'Piutang';
-
-      // Calculate remaining
-      const history = transactions.filter(t => t.relatedId === d.id);
-      const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
-      }, 0);
-      const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
-
-      if (diffDays < 0 && remaining > 0) {
-        notifs.push({
-          id: `debt-overdue-${d.id}`,
-          title: `${label} ke ${d.contact} Jatuh Tempo`,
-          message: `${label} sebesar ${fmt(remaining)} sudah lewat ${Math.abs(diffDays)} hari dari tanggal jatuh tempo. ${isHutang ? 'Segera lakukan pembayaran.' : 'Segera ingatkan kontak terkait.'}`,
-          icon: isHutang ? 'trending_down' : 'trending_up',
-          color: 'error',
-          time: `Telat ${Math.abs(diffDays)} hari`,
-          priority: 1,
-          dateObj: dueDate,
-        });
-      } else if (diffDays >= 0 && diffDays <= 7 && remaining > 0) {
-        notifs.push({
-          id: `debt-due-soon-${d.id}`,
-          title: `${label} ${d.contact} Segera Jatuh Tempo`,
-          message: `${label} sebesar ${fmt(remaining)} akan jatuh tempo ${diffDays === 0 ? 'hari ini' : `dalam ${diffDays} hari`} (${dueDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}).`,
-          icon: isHutang ? 'trending_down' : 'trending_up',
-          color: 'warning',
-          time: diffDays === 0 ? 'Hari ini' : `${diffDays} hari lagi`,
-          priority: 2,
-          dateObj: dueDate,
-        });
-      }
-    });
-
-    // ── 4. Debt Offset Potential Notifications ───────────────────────────
-    const contactMap: Record<string, { h: number; p: number }> = {};
-    activeDebts.forEach(d => {
-      const history = transactions.filter(t => t.relatedId === d.id);
-      const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
-      }, 0);
-      const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
-      if (remaining <= 0) return;
-
-      if (!contactMap[d.contact]) contactMap[d.contact] = { h: 0, p: 0 };
-      if (d.type === 'hutang') contactMap[d.contact].h += remaining;
-      else contactMap[d.contact].p += remaining;
-    });
-
-    const offsetContacts = Object.entries(contactMap)
-      .filter(([_, vals]) => vals.h > 0 && vals.p > 0);
-
-    if (offsetContacts.length > 0) {
-      const totalOffset = offsetContacts.reduce((sum, [_, v]) => sum + Math.min(v.h, v.p), 0);
-      notifs.push({
-        id: 'debt-offset',
-        title: 'Potong Silang Tersedia',
-        message: `Ada ${offsetContacts.length} kontak (${offsetContacts.map(([name]) => name).join(', ')}) yang memiliki hutang & piutang aktif. Potensi offset ${fmt(totalOffset)}.`,
-        icon: 'sync_alt',
-        color: 'success',
-        time: 'Sekarang',
-        priority: 5,
-        dateObj: now,
-      });
-    }
-
-    // ── 5. Cloud Sync Pending Notifications ──────────────────────────────
-    if (isFirebaseConfigured && pendingSyncCount > 0) {
-      notifs.push({
-        id: 'cloud-sync',
+    // Real-time: Cloud Sync
+    if (pendingSyncCount > 0) {
+      combined.unshift({
+        id: 'sys-cloud-sync',
         title: 'Data Belum Dicadangkan',
-        message: `${pendingSyncCount} perubahan data tersimpan lokal dan belum disinkronkan ke cloud. Buka Pengaturan untuk melakukan sinkronisasi.`,
+        message: `${pendingSyncCount} perubahan data tersimpan lokal dan belum disinkronkan ke cloud. Buka Pengaturan untuk sinkronisasi.`,
         icon: 'cloud_upload',
         color: 'info',
-        time: 'Sekarang',
-        priority: 6,
-        dateObj: now,
+        createdAt: new Date().toISOString(),
+        isRead: false,
       });
     }
 
-    // ── 6. Large Expense Detected ────────────────────────────────────────
-    const recentLargeExpense = transactions.find(tx => tx.type === 'pengeluaran' && tx.amount >= 500000);
-    if (recentLargeExpense) {
-      const categoryName = categories.find(c => c.id === recentLargeExpense.categoryId)?.name || recentLargeExpense.categoryId;
-      notifs.push({
-        id: 'large-expense',
-        title: 'Pengeluaran Besar Terdeteksi',
-        message: `Kamu mencatat pengeluaran sebesar ${fmt(recentLargeExpense.amount)} untuk kategori ${categoryName}. Jangan lupa tetap berhemat!`,
-        icon: 'warning',
-        color: 'error',
-        time: 'Hari ini',
-        priority: 7,
-        dateObj: new Date(recentLargeExpense.date),
-      });
+    return combined;
+  }, [notifications, pendingSyncCount]);
+
+  const unreadCount = displayNotifs.filter(n => !n.isRead).length;
+
+  const handleClose = () => {
+    // Tandai semua dibaca ketika ditutup
+    displayNotifs.forEach(n => {
+      if (!n.isRead && !n.id.startsWith('sys-')) {
+        markNotifAsRead(n.id);
+      }
+    });
+    onClose();
+  };
+
+  const getRelativeTime = (isoString: string) => {
+    const d = new Date(isoString);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diff === 0) {
+      const hours = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60));
+      if (hours === 0) return 'Baru saja';
+      return `${hours} jam lalu`;
     }
-
-    // ── 7. Cash Reminder ─────────────────────────────────────────────────
-    const cashAssets = assets.filter(a => a.type === 'Cash' && !a.isDeleted);
-    if (cashAssets.length > 0) {
-      notifs.push({
-        id: 'cash-reminder',
-        title: 'Catat Pengeluaran Tunai',
-        message: 'Sudahkah kamu mencatat semua pengeluaran tunaimu hari ini? Pastikan saldo dompetmu cocok dengan catatan.',
-        icon: 'account_balance_wallet',
-        color: 'success',
-        time: 'Pengingat',
-        priority: 8,
-        dateObj: now,
-      });
-    }
-
-    // ── 8. AI Insight (static) ───────────────────────────────────────────
-    if (transactions.length >= 10) {
-      notifs.push({
-        id: 'ai-insight',
-        title: 'Insight AI Tersedia',
-        message: 'AI telah menganalisis pengeluaran mingguanmu. Lihat insight terbarumu di halaman Home.',
-        icon: 'auto_awesome',
-        color: 'primary',
-        time: 'Baru saja',
-        priority: 9,
-        dateObj: now,
-      });
-    }
-
-    // Sort by chronological time (newest/upcoming first)
-    notifs.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
-
-    return notifs.slice(0, 15);
-  }, [transactions, currencySymbol, assets, isPrivateMode, budgets, categories, startOfMonthDay, debts, subscriptions, pendingSyncCount]);
-
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    primary: { bg: 'bg-primary-container', text: 'text-primary-color' },
-    error: { bg: 'bg-error-container/30', text: 'text-error' },
-    success: { bg: 'bg-success/10', text: 'text-success' },
-    warning: { bg: 'bg-warning/10', text: 'text-warning' },
-    info: { bg: 'bg-primary/10', text: 'text-primary' },
+    if (diff === 1) return 'Kemarin';
+    if (diff <= 7) return `${diff} hari lalu`;
+    
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Notifikasi" maxWidth="450px">
-      <div className="flex flex-col gap-3 pb-4">
-        {notifications.length === 0 ? (
-          <div className="text-center py-12 text-on-surface-variant">
-            <MaterialIcon name="notifications_off" className="text-5xl opacity-30 mb-3" />
-            <p className="font-label-md text-label-md">Belum ada notifikasi baru.</p>
+    <Modal isOpen={isOpen} onClose={handleClose} title="Notifikasi" maxWidth="max-w-md">
+      <div className="flex flex-col h-[70vh]">
+        {/* Header Actions */}
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {unreadCount > 0 ? `${unreadCount} Belum dibaca` : 'Semua telah dibaca'}
+            </span>
           </div>
-        ) : (
-          notifications.map(n => {
-            const colors = colorMap[n.color] || colorMap.primary;
-            return (
-              <div key={n.id} className="bg-surface-container p-4 rounded-2xl border border-outline-variant/30 flex gap-4 items-start cursor-pointer hover:bg-surface-container-high transition-colors group">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform ${colors.bg} ${colors.text}`}>
-                  <MaterialIcon name={n.icon} className="text-lg" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-1">
-                    <h4 className="font-bold text-sm text-on-surface line-clamp-1">{n.title}</h4>
-                    <span className="text-[10px] font-bold text-on-surface-variant whitespace-nowrap ml-2 bg-surface-container-highest px-2 py-0.5 rounded-full">{n.time}</span>
-                  </div>
-                  <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-2 mt-1">{n.message}</p>
-                </div>
+          {notifications.length > 0 && (
+            <button
+              onClick={clearAllNotifs}
+              className="text-sm font-medium text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 transition-colors"
+            >
+              <MaterialIcon name="delete_sweep" className="text-lg" />
+              Bersihkan
+            </button>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {displayNotifs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-70 mt-10">
+              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                <MaterialIcon name="notifications_off" className="text-4xl text-gray-400" />
               </div>
+              <div>
+                <p className="text-gray-600 dark:text-gray-400 font-medium">Belum ada notifikasi</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Kamu akan melihat pemberitahuan penting di sini.</p>
+              </div>
+            </div>
+          ) : (
+            displayNotifs.map((notif) => {
+              const colors = {
+                primary: 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400',
+                error: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400',
+                success: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400',
+                warning: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400',
+                info: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',
+              };
+
+              const borders = {
+                primary: 'border-primary-100 dark:border-primary-900/30',
+                error: 'border-red-100 dark:border-red-900/30',
+                success: 'border-green-100 dark:border-green-900/30',
+                warning: 'border-amber-100 dark:border-amber-900/30',
+                info: 'border-blue-100 dark:border-blue-900/30',
+              };
+
+              return (
+                <div 
+                  key={notif.id} 
+                  className={`relative p-4 rounded-2xl border transition-all duration-200 group ${notif.isRead ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700/50 opacity-80' : `bg-white dark:bg-gray-800 shadow-sm ${borders[notif.color as keyof typeof borders]} shadow-${notif.color}-500/5`}`}
+                >
+                  {!notif.isRead && (
+                    <div className={`absolute top-4 left-0 w-1 h-8 rounded-r bg-${notif.color}-500`} />
+                  )}
+                  
+                  <div className="flex gap-4">
+                    <div className={`shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${colors[notif.color as keyof typeof colors]}`}>
+                      <MaterialIcon name={notif.icon} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <h4 className={`font-semibold truncate pr-4 ${notif.isRead ? 'text-gray-700 dark:text-gray-300' : 'text-gray-900 dark:text-white'}`}>
+                          {notif.title}
+                        </h4>
+                        <span className="text-xs font-medium text-gray-400 dark:text-gray-500 shrink-0 whitespace-nowrap bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded-full">
+                          {getRelativeTime(notif.createdAt)}
+                        </span>
+                      </div>
+                      <p className={`text-sm leading-relaxed ${notif.isRead ? 'text-gray-500 dark:text-gray-400' : 'text-gray-600 dark:text-gray-300'}`}>
+                        {notif.message}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!notif.id.startsWith('sys-') && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotif(notif.id);
+                      }}
+                      className="absolute bottom-3 right-3 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                      title="Hapus notifikasi"
+                    >
+                      <MaterialIcon name="close" className="text-lg" />
+                    </button>
+                  )}
+                </div>
             );
           })
         )}
+      </div>
       </div>
     </Modal>
   );

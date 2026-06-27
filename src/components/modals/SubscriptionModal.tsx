@@ -9,6 +9,7 @@ export const SubscriptionModal: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'semi-annual' | 'yearly'>('monthly');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
   // Auto-generate code when modal opens if one doesn't exist
   useEffect(() => {
@@ -108,14 +109,14 @@ export const SubscriptionModal: React.FC = () => {
                       <MaterialIcon name="forum" className="text-[14px] text-on-surface-variant" /> AI Chatbot
                     </td>
                     <td className="p-2.5 text-center text-on-surface-variant border-l border-outline-variant font-medium">10x/bln</td>
-                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">Unbatas</td>
+                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">Unlimited</td>
                   </tr>
                   <tr>
                     <td className="p-2.5 text-on-surface flex items-center gap-2">
                       <MaterialIcon name="document_scanner" className="text-[14px] text-on-surface-variant" /> Scan Struk
                     </td>
                     <td className="p-2.5 text-center text-on-surface-variant border-l border-outline-variant font-medium">3x/bln</td>
-                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">Unbatas</td>
+                    <td className="p-2.5 text-center text-primary font-bold border-l border-outline-variant bg-primary/5">Unlimited</td>
                   </tr>
                   <tr>
                     <td className="p-2.5 text-on-surface flex items-center gap-2">
@@ -155,7 +156,7 @@ export const SubscriptionModal: React.FC = () => {
             </div>
           </div>
 
-          {!premium.isPremium ? (
+          {!premium.isPremium || isUpgrading ? (
             <>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -247,6 +248,14 @@ export const SubscriptionModal: React.FC = () => {
                   <MaterialIcon name="refresh" className={isRefreshing ? 'animate-spin' : ''} />
                   Cek Status Premium
                 </button>
+                {premium.isPremium && isUpgrading && (
+                  <button
+                    onClick={() => setIsUpgrading(false)}
+                    className="w-full py-3 bg-surface text-on-surface-variant border border-outline-variant rounded-xl font-bold text-sm hover:bg-surface-container transition-colors"
+                  >
+                    Batal Upgrade
+                  </button>
+                )}
               </div>
             </>
           ) : (
@@ -275,6 +284,15 @@ export const SubscriptionModal: React.FC = () => {
                     {premium.expiresAt ? new Date(premium.expiresAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
                   </span>
                 </div>
+              </div>
+              <div className="w-full mt-3 z-10 relative">
+                <button
+                  onClick={() => { setIsUpgrading(true); if (!activationCode) regenerateCode(); }}
+                  className="w-full py-3 bg-white/50 hover:bg-white/70 dark:bg-black/30 dark:hover:bg-black/50 text-yellow-800 dark:text-yellow-200 border border-yellow-500/30 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  <MaterialIcon name="upgrade" />
+                  Perpanjang / Upgrade Paket
+                </button>
               </div>
             </div>
           )}

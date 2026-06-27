@@ -84,7 +84,12 @@ const formatRupiah = (amount: number) => {
     }).format(amount);
 };
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    const authHeader = req.headers.authorization;
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
     try {
         initializeAdmin();
         const db = admin.firestore();

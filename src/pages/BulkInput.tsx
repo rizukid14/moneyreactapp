@@ -17,7 +17,7 @@ const BulkInput: React.FC = () => {
   const location = useLocation();
   const { addTransaction, assets, categories, currencySymbol, validateTransactionBudget, zbbMode } = useMoney();
   const { parseData, isParsing, error, setError } = useBulkParseAI();
-  const { checkQuota, incrementQuota, setShowUpgradeModal } = usePremium();
+  const { checkQuota, updatePremiumDataFromServer, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
 
   const [stage, setStage] = useState<'input' | 'results'>('input');
@@ -103,10 +103,12 @@ const BulkInput: React.FC = () => {
     }
 
     const activeAssets = assets.filter(a => !a.isDeleted);
-    const parsed = await parseData({ text, categories, assets: activeAssets });
-    if (parsed && parsed.length > 0) {
-      await incrementQuota('bulk');
-      const augmented = parsed.map(tx => {
+    const parsedData = await parseData({ text, categories, assets: activeAssets });
+    if (parsedData?.quotaUsed !== undefined) {
+      await updatePremiumDataFromServer('bulk', parsedData.quotaUsed, parsedData.isPremium);
+    }
+    if (parsedData && parsedData.transactions && parsedData.transactions.length > 0) {
+      const augmented = parsedData.transactions.map(tx => {
         const mapAsset = (assetName: string | undefined, defaultId = '') => {
           if (!assetName) return defaultId;
           const lowerName = assetName.toLowerCase();
@@ -158,7 +160,7 @@ const BulkInput: React.FC = () => {
 
       setResults(augmented);
       setStage('results');
-    } else if (parsed && parsed.length === 0) {
+    } else if (parsedData?.transactions && parsedData.transactions.length === 0) {
       showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
     }
   }, [inputText, assets, categories, parseData, showToast]);

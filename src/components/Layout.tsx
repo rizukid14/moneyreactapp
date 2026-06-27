@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
+import { usePremium } from '../contexts/PremiumContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { changelogData } from '../data/changelog';
 import ChatBot from './chatbot/ChatBot';
@@ -11,15 +12,18 @@ import ProfileMenuModal from './modals/ProfileMenuModal';
 import WhatsNewModal from './modals/WhatsNewModal';
 
 const Layout: React.FC = () => {
-  const { user, theme, toggleTheme, setIsChatOpen, transactions, budgets, debts, subscriptions, pendingSyncCount } = useMoney();
+  const { user, theme, toggleTheme, setIsChatOpen, unreadNotifCount } = useMoney();
+  const { premium } = usePremium();
   const { setTutorialActive } = useOnboarding();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  // Compute User Plan
+  const planLabel = premium.isPremium ? 'Pro Plan' : 'Free Plan';
 
   // Show WhatsNewModal on version update; block onboarding until dismissed
   useEffect(() => {
@@ -42,40 +46,8 @@ const Layout: React.FC = () => {
     setTutorialActive(false, null);
   };
 
-  // Compute a hash of notification-relevant state to detect new notifications
-  const notifStateHash = `${transactions.length}-${debts.length}-${budgets.length}-${subscriptions.length}-${pendingSyncCount}`;
-
-  useEffect(() => {
-    try {
-      const lastViewedTimeStr = localStorage.getItem('notifications-last-viewed-time');
-      const lastViewedHashStr = localStorage.getItem('notifications-last-viewed-hash');
-      
-      if (!lastViewedTimeStr) {
-        setHasUnreadNotifs(true);
-        return;
-      }
-      if (lastViewedHashStr && lastViewedHashStr !== notifStateHash) {
-        setHasUnreadNotifs(true);
-        return;
-      }
-      if (Date.now() - parseInt(lastViewedTimeStr, 10) > 24 * 60 * 60 * 1000) {
-        setHasUnreadNotifs(true);
-        return;
-      }
-      setHasUnreadNotifs(false);
-    } catch (e) {
-      setHasUnreadNotifs(true);
-    }
-  }, [notifStateHash]);
-
-
   const openNotifications = () => {
     setIsNotifOpen(true);
-    setHasUnreadNotifs(false);
-    try {
-      localStorage.setItem('notifications-last-viewed-time', Date.now().toString());
-      localStorage.setItem('notifications-last-viewed-hash', notifStateHash);
-    } catch (e) {}
   };
 
   const location = useLocation();
@@ -139,8 +111,10 @@ const Layout: React.FC = () => {
             className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors relative border-none bg-transparent cursor-pointer shrink-0"
           >
             <span className="material-symbols-outlined">notifications</span>
-            {hasUnreadNotifs && (
-              <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+            {unreadNotifCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-error text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-surface">
+                {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+              </span>
             )}
           </button>
           
@@ -150,7 +124,7 @@ const Layout: React.FC = () => {
           >
             <div className="flex flex-col items-end min-w-0">
               <span className="font-label-md text-label-sm text-on-surface truncate">{user.name}</span>
-              <span className="text-[10px] text-on-surface-variant truncate">Pro Plan</span>
+              <span className="text-[10px] text-on-surface-variant truncate">{planLabel}</span>
             </div>
             {user.avatar ? (
               <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-border-light shrink-0 object-cover" />

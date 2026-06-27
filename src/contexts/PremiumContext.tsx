@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { dbGetSetting, dbPutSetting } from '../lib/db';
+import { dbGetSetting, dbPutSetting, localDbPutSetting } from '../lib/db';
 import { useMoney } from './MoneyContext';
 import { isFirebaseConfigured } from '../lib/firebase';
 
@@ -36,7 +36,7 @@ interface PremiumContextType {
   showUpgradeModal: boolean;
   setShowUpgradeModal: (show: boolean) => void;
   checkQuota: (feature: keyof typeof FREE_QUOTA_LIMITS) => { allowed: boolean; used: number; limit: number };
-  incrementQuota: (feature: keyof typeof FREE_QUOTA_LIMITS) => Promise<void>;
+  updatePremiumDataFromServer: (feature: keyof typeof FREE_QUOTA_LIMITS, newValue: number, newIsPremium?: boolean) => Promise<void>;
   refreshPremiumStatus: () => Promise<void>;
   activationCode: string | null;
   regenerateCode: () => Promise<string>;
@@ -162,20 +162,30 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
   };
 
-  const incrementQuota = async (feature: keyof typeof FREE_QUOTA_LIMITS) => {
-    if (premium.isPremium) return; // Don't track quota for premium users
-    
+  const updatePremiumDataFromServer = async (feature: keyof typeof FREE_QUOTA_LIMITS, newValue: number, newIsPremium?: boolean) => {
+    // 1. Update quota state
     const newQuota = {
       ...quota,
-      [feature]: (quota[feature] || 0) + 1,
+      [feature]: newValue,
     };
-    
     setQuota(newQuota);
     
     try {
-      await dbPutSetting(getQuotaKey(), newQuota);
+      // 2. Save quota to IndexedDB purely locally (NO SYNC to Firestore)
+      await localDbPutSetting(getQuotaKey(), newQuota);
     } catch (e) {
-      console.error('Failed to save quota:', e);
+      console.error('Failed to save quota locally:', e);
+    }
+
+    // 3. Update premium state if it was downgraded by server
+    if (newIsPremium === false && premium.isPremium === true) {
+      const updatedPremium = { ...premium, isPremium: false, plan: null as any };
+      setPremium(updatedPremium);
+      try {
+        await localDbPutSetting('premium', updatedPremium);
+      } catch (e) {
+        console.error('Failed to save premium locally:', e);
+      }
     }
   };
 
@@ -186,7 +196,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       showUpgradeModal,
       setShowUpgradeModal,
       checkQuota,
-      incrementQuota,
+      updatePremiumDataFromServer,
       refreshPremiumStatus,
       activationCode,
       regenerateCode,

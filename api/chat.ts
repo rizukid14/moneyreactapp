@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { verifyAuth, checkAndConsumeQuota } from './_admin';
 
 let openai: OpenAI | null = null;
 
@@ -22,6 +23,19 @@ export const config = {
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  const user = await verifyAuth(req, res);
+  if (!user) return;
+
+  let quotaResult: any = null;
+  try {
+    quotaResult = await checkAndConsumeQuota(user.uid, 'chat');
+    if (!quotaResult.allowed) {
+      return res.status(403).json(quotaResult);
+    }
+  } catch (e: any) {
+    return res.status(e.status || 500).json({ message: e.message });
   }
 
   try {
@@ -731,7 +745,9 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
 
           return res.status(200).json({
             role: "assistant",
-            content: helpContent
+            content: helpContent,
+            quotaUsed: quotaResult?.quotaUsed,
+            isPremium: quotaResult?.isPremium
           });
         }
 
@@ -758,7 +774,9 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
             toolCall: {
               name: functionName,
               arguments: parsedArgs
-            }
+            },
+            quotaUsed: quotaResult?.quotaUsed,
+            isPremium: quotaResult?.isPremium
           });
         }
       }
@@ -767,7 +785,9 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
     // Normal text response
     return res.status(200).json({
       role: "assistant",
-      content: message.content
+      content: message.content,
+      quotaUsed: quotaResult?.quotaUsed,
+      isPremium: quotaResult?.isPremium
     });
 
   } catch (error: any) {

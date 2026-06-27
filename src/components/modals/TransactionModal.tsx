@@ -30,10 +30,11 @@ interface TransactionModalProps {
   editingTransaction?: Transaction | null;
   isCopyMode?: boolean;
   initialType?: Transaction['type'];
+  initialAssetId?: string;
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({
-  isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType
+  isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType, initialAssetId
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
   const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode } = useMoney();
@@ -51,8 +52,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [assetSelectingField, setAssetSelectingField] = useState<'assetId' | 'fromAssetId' | 'toAssetId'>('assetId');
-  const [assetId, setAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
-  const [fromAssetId, setFromAssetId] = useState(defaultAssetId || activeAssets[0]?.id || '');
+  const [assetId, setAssetId] = useState(initialAssetId || defaultAssetId || activeAssets[0]?.id || '');
+  const [fromAssetId, setFromAssetId] = useState(initialAssetId || defaultAssetId || activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
   const [goalId, setGoalId] = useState<string | undefined>(undefined);
 
@@ -129,8 +130,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setTime(draft.time || getLocalTime());
         setNote(draft.note || '');
         setDescription(draft.description || '');
-        setAssetId(draft.assetId || defaultAssetId || activeAssets[0]?.id || '');
-        setFromAssetId(draft.fromAssetId || defaultAssetId || activeAssets[0]?.id || '');
+        setAssetId(initialAssetId || draft.assetId || defaultAssetId || activeAssets[0]?.id || '');
+        setFromAssetId(initialAssetId || draft.fromAssetId || defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(draft.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
         setIsRecurring(draft.isRecurring || false);
         setFrequency(draft.frequency || 'monthly');
@@ -144,8 +145,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setTime(getLocalTime());
         setNote('');
         setDescription('');
-        setAssetId(defaultAssetId || activeAssets[0]?.id || '');
-        setFromAssetId(defaultAssetId || activeAssets[0]?.id || '');
+        setAssetId(initialAssetId || defaultAssetId || activeAssets[0]?.id || '');
+        setFromAssetId(initialAssetId || defaultAssetId || activeAssets[0]?.id || '');
+        // Keep current assetIds unless we specifically want to clear them, 
+        // but prefer initialAssetId if available.
+        if (initialAssetId) {
+          setAssetId(initialAssetId);
+          setFromAssetId(initialAssetId);
+        }
         setToAssetId(activeAssets[1]?.id || activeAssets[0]?.id || '');
         setGoalId(undefined);
         setIsRecurring(false);
@@ -167,8 +174,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setDate(draft.date || getLocalDate());
         setTime(draft.time || getLocalTime());
         setNote(draft.note || '');
-        setAssetId(draft.assetId || defaultAssetId || activeAssets[0]?.id || '');
-        setFromAssetId(draft.fromAssetId || defaultAssetId || activeAssets[0]?.id || '');
+        setAssetId(initialAssetId || draft.assetId || defaultAssetId || activeAssets[0]?.id || '');
+        setFromAssetId(initialAssetId || draft.fromAssetId || defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(draft.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
       } else {
         setAmount('');

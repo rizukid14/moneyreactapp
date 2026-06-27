@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { verifyAuth, checkAndConsumeQuota } from './_admin';
 
 let openai: OpenAI | null = null;
 
@@ -22,6 +23,19 @@ export const config = {
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  const user = await verifyAuth(req, res);
+  if (!user) return; // verifyAuth handles the response if unauthorized
+
+  let quotaResult: any = null;
+  try {
+    quotaResult = await checkAndConsumeQuota(user.uid, 'scan');
+    if (!quotaResult.allowed) {
+      return res.status(403).json(quotaResult);
+    }
+  } catch (e: any) {
+    return res.status(e.status || 500).json({ message: e.message });
   }
 
   try {
@@ -99,6 +113,9 @@ export default async function handler(req: any, res: any) {
     const text = response.choices[0].message.content;
     const parsedData = JSON.parse(text || '{}');
     parsedData.rawText = "Optimized via OpenAI (High Detail)";
+    
+    parsedData.quotaUsed = quotaResult?.quotaUsed;
+    parsedData.isPremium = quotaResult?.isPremium;
 
     return res.status(200).json(parsedData);
   } catch (error: any) {

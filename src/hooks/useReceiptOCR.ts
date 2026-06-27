@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getLocalDate } from '../lib/utils';
 import { resizeImage, blobToBase64 } from '../lib/imageUtils';
+import { auth } from '../lib/firebase';
 
 export interface LineItem {
   name: string;
@@ -23,6 +24,8 @@ export interface OCRResult {
   taxAmount?: number;
   serviceAmount?: number;
   discountAmount?: number;
+  quotaUsed?: number;
+  isPremium?: boolean;
   confidence: 'high' | 'medium' | 'low';
   debugLogs?: string[];
 }
@@ -74,10 +77,13 @@ export const useReceiptOCR = () => {
       
       let response;
       try {
+        const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+        
         response = await fetch('/api/scan', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({ 
             image: base64,
@@ -172,6 +178,8 @@ export const useReceiptOCR = () => {
         taxAmount: tax,
         serviceAmount: service,
         discountAmount: discount,
+        quotaUsed: result.quotaUsed,
+        isPremium: result.isPremium,
         confidence: result.confidence || 'medium',
         debugLogs: logs
       };

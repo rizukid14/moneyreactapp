@@ -78,10 +78,12 @@ const initializeAdmin = () => {
     }
 };
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
-    // Basic security to ensure this is only triggered by Vercel Cron or authorized request
-    // Optional: Vercel sends a specific header `x-vercel-cron` we could verify
-    
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    const authHeader = req.headers.authorization;
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
     try {
         initializeAdmin();
         const db = admin.firestore();
@@ -146,8 +148,8 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
                             id: txId,
                             type: rt.type,
                             amount: rt.amount,
-                            category: rt.category,
-                            subCategory: rt.subCategory || null,
+                            categoryId: rt.categoryId || null,
+                            subCategoryId: rt.subCategoryId || null,
                             assetId: rt.assetId || null,
                             fromAssetId: rt.fromAssetId || null,
                             toAssetId: rt.toAssetId || null,
@@ -159,7 +161,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
                         batch.set(db.collection('users').doc(uid).collection('transactions').doc(txId), newTx);
                         hasChanges = true;
                         totalGenerated++;
-                        userGeneratedDetails.push(`${rt.note || rt.category}: Rp${rt.amount.toLocaleString('id-ID')}`);
+                        userGeneratedDetails.push(`${rt.note || rt.categoryId}: Rp${rt.amount.toLocaleString('id-ID')}`);
                     }
 
                     latestProcessed = txDate;

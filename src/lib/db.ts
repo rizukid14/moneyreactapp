@@ -7,7 +7,7 @@ import { generateId } from './utils';
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_NAME = 'moneyapp_db';
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 export interface SyncItem {
   id: string;
@@ -33,6 +33,7 @@ export interface MoneyAppDB {
   trip_expenses: { key: string; value: any };
   monthly_incomes: { key: string; value: any };
   budget_reallocations: { key: string; value: any };
+  notifications: { key: string; value: any };
 }
 
 let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
@@ -56,6 +57,7 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('trip_expenses')) db.createObjectStore('trip_expenses', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('monthly_incomes')) db.createObjectStore('monthly_incomes', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('budget_reallocations')) db.createObjectStore('budget_reallocations', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('notifications')) db.createObjectStore('notifications', { keyPath: 'id' });
       },
     });
   }
@@ -92,6 +94,7 @@ export const localDbGetAllBudgets = async (): Promise<any[]> => (await getDB()).
 export const localDbGetAllGoals = async (): Promise<Goal[]> => (await getDB()).getAll('goals');
 export const localDbGetSetting = async (key: string) => (await getDB()).get('settings', key);
 export const localDbPutSetting = async (key: string, value: any) => (await getDB()).put('settings', value, key);
+export const localDbGetAllNotifications = async (): Promise<any[]> => (await getDB()).getAll('notifications');
 
 // ─── FIRESTORE (Cloud Sync) ──────────────────────────────────────────────────
 const getUid = () => {
@@ -209,6 +212,7 @@ export const dbForceCloudSync = async (): Promise<{ total: number }> => {
       ['trip_expenses', 'trip_expenses'],
       ['monthly_incomes', 'monthly_incomes'],
       ['budget_reallocations', 'budget_reallocations'],
+      ['notifications', 'notifications'],
     ];
 
     for (const [fsCol, idbStore] of collections) {
@@ -864,4 +868,40 @@ export const dbDeleteBudgetReallocation = async (id: string) => {
   deleteDoc(doc(firestore, 'users', getUid(), 'budget_reallocations', id))
     .then(() => removePendingSync(id))
     .catch(() => { });
+};
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+export const dbGetAllNotifications = async (): Promise<any[]> => {
+  const db = await getDB();
+  return db.getAll('notifications');
+};
+
+export const dbPutNotification = async (item: any) => {
+  const db = await getDB();
+  await db.put('notifications', item);
+  await recordPendingSync({ id: item.id, collection: 'notifications', operation: 'PUT', data: item });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  setDoc(doc(firestore, 'users', getUid(), 'notifications', item.id), sanitizeForFirestore(item))
+    .then(() => removePendingSync(item.id))
+    .catch(() => { });
+};
+
+export const dbDeleteNotification = async (id: string) => {
+  const db = await getDB();
+  await db.delete('notifications', id);
+  await recordPendingSync({ id, collection: 'notifications', operation: 'DELETE' });
+
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  deleteDoc(doc(firestore, 'users', getUid(), 'notifications', id))
+    .then(() => removePendingSync(id))
+    .catch(() => { });
+};
+
+export const dbClearAllNotifications = async () => {
+  const db = await getDB();
+  const all = await db.getAllKeys('notifications');
+  for (const id of all) {
+    await dbDeleteNotification(id as string);
+  }
 };

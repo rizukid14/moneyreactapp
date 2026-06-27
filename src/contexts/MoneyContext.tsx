@@ -15,6 +15,7 @@ import {
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
   dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync, localDbGetSetting, localDbPutSetting,
+  dbGetAllNotifications, dbPutNotification, dbDeleteNotification, dbClearAllNotifications
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -226,6 +227,16 @@ export interface Subscription {
   recurringTransactionId?: string;
 }
 
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  icon: string;
+  color: 'success' | 'warning' | 'error' | 'info' | 'primary';
+  createdAt: string; // ISO string
+  isRead: boolean;
+}
+
 // ─── Default seed data ───────────────────────────────────────────────────────
 const DEFAULT_ASSET: Asset = { id: 'default-1', name: 'Dompet Tunai', type: 'Cash', initialBalance: 0 };
 
@@ -245,6 +256,8 @@ const DEFAULT_USER: UserProfile = { name: 'Pengguna MoneyApp', email: 'pengguna@
 // ─── Context type ────────────────────────────────────────────────────────────
 interface MoneyContextType {
   isReady: boolean;
+  notifications: NotificationItem[];
+  unreadNotifCount: number;
   assets: Asset[];
   transactions: Transaction[];
   categories: Category[];
@@ -305,6 +318,9 @@ interface MoneyContextType {
   addDebtPrincipal: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   offsetDebt: (contactName: string, customDate?: string) => void;
   getAssetBalance: (assetId: string) => number;
+  markNotifAsRead: (id: string) => void;
+  deleteNotif: (id: string) => void;
+  clearAllNotifs: () => void;
   updateUser: (user: UserProfile) => void;
   setAppPin: (newPin: string | null) => Promise<void>;
   unlockApp: (enteredPin: string) => Promise<boolean>;
@@ -418,6 +434,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [monthlyIncome, setMonthlyIncomeState] = useState<number>(0);
   const [monthlyIncomes, setMonthlyIncomes] = useState<MonthlyIncome[]>([]);
   const [budgetReallocations, setBudgetReallocations] = useState<BudgetReallocation[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  
+  const unreadNotifCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
+
   const applySettingsToState = useCallback((s: Record<string, any>, options?: { lockAppOnPin?: boolean }) => {
     if (s.user) setUser(s.user);
     // PIN: hanya lock app jika dipanggil dari bootstrap (saat app baru buka)
@@ -515,7 +535,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       // Load all data from IndexedDB
       const [
-        dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals, dbRecurring, dbContacts, dbSubs, dbTrips, dbTripExpenses, dbMonthlyIncomes, dbReallocations
+        dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals, dbRecurring, dbContacts, dbSubs, dbTrips, dbTripExpenses, dbMonthlyIncomes, dbReallocations, dbNotifications
       ] = await Promise.all([
         dbGetAllAssets(),
         dbGetAllTransactions(),
@@ -530,6 +550,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         dbGetAllTripExpenses(),
         dbGetAllMonthlyIncomes(),
         dbGetAllBudgetReallocations(),
+        dbGetAllNotifications(),
       ]);
 
       const hasMigratedV1_0_18 = localStorage.getItem('migrated_v1_0_18_debts');
@@ -718,6 +739,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setTripExpenses(dbTripExpenses as TripExpense[]);
       setMonthlyIncomes(dbMonthlyIncomes as MonthlyIncome[]);
       setBudgetReallocations(dbReallocations as BudgetReallocation[]);
+      setNotifications(dbNotifications as NotificationItem[]);
 
       // Load settings
       let profile = await dbGetSetting('user') as UserProfile | undefined;
@@ -2126,9 +2148,230 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const deleteBudgetReallocation = useCallback((id: string) => {
-    setBudgetReallocations(prev => prev.filter(m => m.id !== id));
+    setBudgetReallocations(prev => prev.filter(r => r.id !== id));
     dbDeleteBudgetReallocation(id);
   }, []);
+
+  const markNotifAsRead = useCallback((id: string) => {
+    setNotifications(prev => prev.map(n => {
+      if (n.id === id) {
+        const updated = { ...n, isRead: true };
+        dbPutNotification(updated);
+        return updated;
+      }
+      return n;
+    }));
+  }, []);
+
+  const deleteNotif = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    dbDeleteNotification(id);
+    
+    try {
+      const dismissed = JSON.parse(localStorage.getItem('dismissedNotifIds') || '[]');
+      if (!dismissed.includes(id)) {
+        dismissed.push(id);
+        if (dismissed.length > 500) dismissed.shift();
+        localStorage.setItem('dismissedNotifIds', JSON.stringify(dismissed));
+      }
+    } catch (e) {}
+  }, []);
+
+  const clearAllNotifs = useCallback(() => {
+    setNotifications(prev => {
+      try {
+        const dismissed = JSON.parse(localStorage.getItem('dismissedNotifIds') || '[]');
+        prev.forEach(n => {
+          if (!dismissed.includes(n.id)) dismissed.push(n.id);
+        });
+        const recentDismissed = dismissed.slice(-500);
+        localStorage.setItem('dismissedNotifIds', JSON.stringify(recentDismissed));
+      } catch (e) {}
+      return [];
+    });
+    dbClearAllNotifications();
+  }, []);
+  // ─── Automated Notification Generator ─────────────────────────────────────
+  useEffect(() => {
+    if (!isReady || !user) return;
+
+    const timer = setTimeout(() => {
+      let newNotifs: Omit<NotificationItem, 'isRead'>[] = [];
+      const now = new Date();
+      const fmt = (n: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+      
+      const addNotif = (notif: Omit<NotificationItem, 'isRead'>) => {
+        try {
+          const dismissedIds = JSON.parse(localStorage.getItem('dismissedNotifIds') || '[]');
+          if (!notifications.some(n => n.id === notif.id) && !dismissedIds.includes(notif.id)) {
+            newNotifs.push(notif);
+          }
+        } catch (e) {
+          if (!notifications.some(n => n.id === notif.id)) {
+            newNotifs.push(notif);
+          }
+        }
+      };
+
+      // 1. Budget Warning
+      budgets.forEach(b => {
+        const m = b.month;
+        const y = b.year;
+        if (m !== now.getMonth() + 1 || y !== now.getFullYear()) return;
+
+        let spent = 0;
+        transactions.forEach(t => {
+          if (t.type === 'pengeluaran' && t.categoryId === b.categoryId) {
+            const txDate = new Date(t.date);
+            if (txDate.getMonth() + 1 === m && txDate.getFullYear() === y) spent += t.amount;
+          }
+        });
+
+        const pct = b.limit > 0 ? (spent / b.limit) * 100 : 0;
+        if (pct >= 75) {
+          const cat = categories.find(c => c.id === b.categoryId);
+          if (cat) {
+            addNotif({
+              id: `budget-warning-${cat.id}-${y}-${m}`,
+              title: 'Anggaran Hampir Habis',
+              message: `Kategori ${cat.name} sudah memakai ${Math.round(pct)}% dari anggaran bulan ini.`,
+              icon: 'trending_up',
+              color: 'warning',
+              createdAt: now.toISOString()
+            });
+          }
+        }
+      });
+
+      // 2. Large Expense (>= 500,000)
+      transactions.forEach(tx => {
+        if (tx.type === 'pengeluaran' && tx.amount >= 500000) {
+          const cat = categories.find(c => c.id === tx.categoryId);
+          addNotif({
+            id: `large-expense-${tx.id}`,
+            title: 'Pengeluaran Besar Terdeteksi',
+            message: `Kamu mencatat pengeluaran sebesar ${fmt(tx.amount)} untuk kategori ${cat?.name || 'Lainnya'}.`,
+            icon: 'warning',
+            color: 'error',
+            createdAt: new Date(tx.date).toISOString()
+          });
+        }
+      });
+
+      // 3. Subscriptions
+      subscriptions.filter(s => s.isActive).forEach(sub => {
+        if (!sub.nextBillingDate) return;
+        const bDate = new Date(sub.nextBillingDate);
+        const diffDays = Math.ceil((bDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const cycleId = sub.nextBillingDate;
+
+        if (diffDays < 0) {
+          addNotif({
+            id: `sub-overdue-${sub.id}-${cycleId}`,
+            title: `Langganan ${sub.name} Jatuh Tempo`,
+            message: `Tagihan ${fmt(sub.amount)} untuk ${sub.name} sudah lewat ${Math.abs(diffDays)} hari.`,
+            icon: 'credit_card_off',
+            color: 'error',
+            createdAt: bDate.toISOString()
+          });
+        } else if (diffDays <= 7) {
+          addNotif({
+            id: `sub-soon-${sub.id}-${cycleId}`,
+            title: `Langganan ${sub.name} Mendekat`,
+            message: `Tagihan ${fmt(sub.amount)} akan ditagih dalam ${diffDays === 0 ? 'hari ini' : diffDays + ' hari'}.`,
+            icon: 'credit_card',
+            color: 'warning',
+            createdAt: now.toISOString()
+          });
+        }
+      });
+
+      // 4. Debts
+      debts.filter(d => !d.isPaid).forEach(d => {
+        if (!d.dueDate) return;
+        const dDate = new Date(d.dueDate);
+        const diffDays = Math.ceil((dDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const isHutang = d.type === 'hutang';
+        const label = isHutang ? 'Hutang' : 'Piutang';
+        
+        const history = transactions.filter(t => t.relatedId === d.id);
+        const paidAmt = history.reduce((sum, tx) => isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0), 0);
+        const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
+
+        if (remaining <= 0) return;
+
+        if (diffDays < 0) {
+          addNotif({
+            id: `debt-overdue-${d.id}`,
+            title: `${label} ke ${d.contact} Jatuh Tempo`,
+            message: `${label} sebesar ${fmt(remaining)} sudah lewat dari tanggal jatuh tempo.`,
+            icon: isHutang ? 'trending_down' : 'trending_up',
+            color: 'error',
+            createdAt: dDate.toISOString()
+          });
+        } else if (diffDays <= 7) {
+          addNotif({
+            id: `debt-soon-${d.id}`,
+            title: `${label} ${d.contact} Segera Jatuh Tempo`,
+            message: `${label} sebesar ${fmt(remaining)} akan jatuh tempo dalam ${diffDays === 0 ? 'hari ini' : diffDays + ' hari'}.`,
+            icon: isHutang ? 'trending_down' : 'trending_up',
+            color: 'warning',
+            createdAt: now.toISOString()
+          });
+        }
+      });
+
+      // 5. Goals Achieved
+      goals.forEach(g => {
+        const linkedTxs = transactions.filter(tx => tx.goalId === g.id);
+        const total = linkedTxs.reduce((sum, tx) => {
+          if (tx.type === 'pendapatan') return sum + tx.amount;
+          if (tx.type === 'transfer') return sum + tx.amount;
+          if (tx.type === 'pengeluaran') return sum - tx.amount;
+          return sum;
+        }, 0);
+        const currentAmount = Math.max(0, total);
+
+        if (currentAmount >= g.targetAmount) {
+          addNotif({
+            id: `goal-achieved-${g.id}`,
+            title: 'Target Tabungan Tercapai!',
+            message: `Selamat! Target "${g.name}" sudah terkumpul 100%.`,
+            icon: 'emoji_events',
+            color: 'success',
+            createdAt: now.toISOString()
+          });
+        }
+      });
+
+      // 6. AI Insight
+      if (transactions.length >= 10) {
+        const weekStr = `${now.getFullYear()}-W${Math.floor(now.getDate() / 7)}`;
+        addNotif({
+          id: `ai-insight-${weekStr}`,
+          title: 'Insight AI Mingguan Tersedia',
+          message: 'AI telah menganalisis pengeluaran terbarumu. Lihat insight di halaman Home.',
+          icon: 'auto_awesome',
+          color: 'primary',
+          createdAt: now.toISOString()
+        });
+      }
+
+      if (newNotifs.length > 0) {
+        const toSave = newNotifs.map(n => ({ ...n, isRead: false }));
+        setNotifications(prev => {
+          const combined = [...toSave, ...prev];
+          // Sort descending by createdAt
+          combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          return combined;
+        });
+        toSave.forEach(n => dbPutNotification(n));
+      }
+
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [isReady, transactions, budgets, debts, subscriptions, goals, categories, notifications]);
 
   const validateTransactionBudget = useCallback((tx: Partial<Transaction>) => {
     if (budgetMode !== 'zero-based' || zbbMode !== 'strict') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
@@ -2235,7 +2478,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     budgetMode, setBudgetMode, zbbMode, setZbbMode, monthlyIncome, setMonthlyIncome,
     monthlyIncomes, setMonthIncome, deleteMonthIncome,
     budgetReallocations, addBudgetReallocation, deleteBudgetReallocation,
-    moveBudgetMoney, validateTransactionBudget, recoverUnknownCategories
+    moveBudgetMoney, validateTransactionBudget, recoverUnknownCategories,
+    notifications, unreadNotifCount, markNotifAsRead, deleteNotif, clearAllNotifs
   }), [
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
     recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
@@ -2256,7 +2500,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     budgetMode, setBudgetMode, zbbMode, setZbbMode, monthlyIncome, setMonthlyIncome,
     monthlyIncomes, setMonthIncome, deleteMonthIncome,
     budgetReallocations, addBudgetReallocation, deleteBudgetReallocation,
-    moveBudgetMoney, validateTransactionBudget, recoverUnknownCategories
+    moveBudgetMoney, validateTransactionBudget, recoverUnknownCategories,
+    notifications, unreadNotifCount, markNotifAsRead, deleteNotif, clearAllNotifs
   ]);
 
   // Show splash screen while checking auth state or loading data

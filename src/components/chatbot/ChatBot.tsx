@@ -10,6 +10,7 @@ import { useSpeechToText } from '../../hooks/useSpeechToText';
 import CategorySelectModal from '../modals/CategorySelectModal';
 import AssetSelectModal from '../modals/AssetSelectModal';
 import SplitBillModal from '../modals/SplitBillModal';
+import { auth } from '../../lib/firebase';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -48,7 +49,7 @@ const ChatBot: React.FC = () => {
     startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription,
     addRecurringTransaction
   } = useMoney();
-  const { checkQuota, incrementQuota, setShowUpgradeModal } = usePremium();
+  const { checkQuota, updatePremiumDataFromServer, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -132,9 +133,13 @@ const ChatBot: React.FC = () => {
     const { startDateStr, endDateStr } = getCurrentFinancialMonthDates();
 
     try {
+      const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Tolong berikan evaluasi dan nasihat akhir bulan saya berdasarkan transaksi dari tanggal ${startDateStr} sampai ${endDateStr}.` }],
           categories: categories.filter(c => !c.isDeleted),
@@ -196,7 +201,9 @@ const ChatBot: React.FC = () => {
         { role: 'assistant', content: `Halo! Karena hari ini mendekati akhir bulan finansialmu (${dateStr}), saya telah menganalisis keuangan bulananmu secara otomatis:` },
         { role: 'assistant', content: data.content }
       ]);
-      await incrementQuota('chat');
+      if (data.quotaUsed !== undefined) {
+        await updatePremiumDataFromServer('chat', data.quotaUsed, data.isPremium);
+      }
 
     } catch (error) {
       console.error(error);
@@ -246,9 +253,13 @@ const ChatBot: React.FC = () => {
     const { startDateStr, endDateStr } = getCurrentFinancialMonthDates();
 
     try {
+      const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
           categories: categories.filter(c => !c.isDeleted),
@@ -315,7 +326,9 @@ const ChatBot: React.FC = () => {
         content: data.content,
         toolCall: data.toolCall
       }]);
-      await incrementQuota('chat');
+      if (data.quotaUsed !== undefined) {
+        await updatePremiumDataFromServer('chat', data.quotaUsed, data.isPremium);
+      }
 
     } catch (error) {
       console.error(error);

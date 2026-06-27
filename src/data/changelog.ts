@@ -18,7 +18,15 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v2.1.0', date: 'Jun 2026', badge: 'Terbaru',
+    version: 'v2.1.1', date: 'Jun 2026', badge: 'Terbaru',
+    entries: [
+      { type: 'improve', text: 'Pembaruan Keamanan Premium: Kami memperketat sistem validasi status Premium untuk mencegah celah manipulasi tanggal perangkat (Date Spoofing) dan Bypass Kuota.' },
+      { type: 'improve', text: 'Stabilitas Server AI: Menambahkan batas toleransi Firebase (*Graceful Degradation*) agar aplikasi tidak crash saat terjadi lonjakan trafik penggunaan fitur AI.' },
+      { type: 'fix', text: 'Perbaikan Sistem Notifikasi: Mengatasi isu di mana notifikasi yang sudah dihapus sering muncul kembali.' },
+    ]
+  },
+  {
+    version: 'v2.1.0', date: 'Jun 2026',
     entries: [
       { type: 'improve', text: 'Aplikasi Terasa Lebih Cepat: Kami telah memperhalus perpindahan antar halaman dan mematikan lazy loading berlebih agar navigasi terasa instan dan bebas hambatan (ngelag)' },
       { type: 'improve', text: 'Pemuatan Data Super Kilat: Menarik data dari server kini berjalan di latar belakang (background) sehingga membuka aplikasi (Splash Screen) jadi seketika tanpa menunggu sinkronisasi' },

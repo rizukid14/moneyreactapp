@@ -35,7 +35,7 @@ const ReceiptScanner: React.FC = () => {
   const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId, validateTransactionBudget, zbbMode } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, progress: mutasiProgress, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
-  const { checkQuota, incrementQuota, setShowUpgradeModal } = usePremium();
+  const { checkQuota, updatePremiumDataFromServer, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
@@ -296,10 +296,12 @@ const ReceiptScanner: React.FC = () => {
     const activeAssets = assets.filter(a => !a.isDeleted);
 
     if (scanMode === 'mutasi') {
-      const parsed = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets, defaultAssetId: contextDefaultAssetId || undefined });
-      if (parsed && parsed.length > 0) {
-        await incrementQuota('bulk');
-        const augmented = parsed.map(tx => {
+      const parsedData = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets, defaultAssetId: contextDefaultAssetId || undefined });
+      if (parsedData?.quotaUsed !== undefined) {
+        await updatePremiumDataFromServer('bulk', parsedData.quotaUsed, parsedData.isPremium);
+      }
+      if (parsedData && parsedData.transactions && parsedData.transactions.length > 0) {
+        const augmented = parsedData.transactions.map(tx => {
           const mapAsset = (assetName: string | undefined, defaultId = '') => {
             if (!assetName) return defaultId;
             const matched = activeAssets.find(a => a.name.toLowerCase().includes(assetName.toLowerCase()) || assetName.toLowerCase().includes(a.name.toLowerCase()));
@@ -348,7 +350,7 @@ const ReceiptScanner: React.FC = () => {
         setMutasiResults(augmented);
         setStage('results');
       } else {
-        setError('Tidak ada transaksi yang berhasil dikenali.');
+        showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
         setStage('crop');
       }
       return;
@@ -356,13 +358,15 @@ const ReceiptScanner: React.FC = () => {
 
     const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets, contextDefaultAssetId || undefined);
 
+    if (ocrResult?.quotaUsed !== undefined) {
+      await updatePremiumDataFromServer('scan', ocrResult.quotaUsed, ocrResult.isPremium);
+    }
     if (ocrResult) {
-      await incrementQuota('scan');
       if (ocrResult.amount === 0) {
         if (ocrResult.rawText.trim().length === 0) {
-          setError('AI tidak berhasil membaca teks apapun. Pastikan foto cukup terang.');
+          showToast('AI tidak berhasil membaca teks apapun. Pastikan foto cukup terang.', 'warning');
         } else {
-          setError('Teks terbaca, tapi tidak menemukan nominal Total.');
+          showToast('Teks terbaca, tapi tidak menemukan nominal Total.', 'warning');
         }
       }
 

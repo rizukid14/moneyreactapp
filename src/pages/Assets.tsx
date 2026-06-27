@@ -71,18 +71,14 @@ const AssetDetailDrawer: React.FC<{
   onEditAsset: (a: Asset) => void;
   onDeleteAsset: (id: string) => void;
   onEditTx: (tx: Transaction) => void;
-}> = ({ asset, balance, transactions, allAssets, isPrivateMode, currencySymbol, onClose, onEditAsset, onDeleteAsset, onEditTx }) => {
+  onAddTx: () => void;
+}> = ({ asset, balance, transactions, allAssets, isPrivateMode, currencySymbol, onClose, onEditAsset, onDeleteAsset, onEditTx, onAddTx }) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const { showToast } = useToast();
   const { categories } = useMoney();
-  
-  if (!asset) return null;
-
-  const Icon = getIconForType(asset.type);
-  const color = getColorForType(asset.type);
-
   const assetTxs = useMemo(() => {
+    if (!asset) return [];
     return transactions
       .filter(tx => {
         const isRelated = tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id;
@@ -102,9 +98,10 @@ const AssetDetailDrawer: React.FC<{
         return true;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, asset.id, filterType]);
+  }, [transactions, asset?.id, filterType]);
 
   const stats = useMemo(() => {
+    if (!asset) return { income: 0, expense: 0, count: 0 };
     let simpleIncome = 0, simpleExpense = 0;
     const allRelated = transactions.filter(tx => tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id);
     allRelated.forEach(tx => {
@@ -114,9 +111,13 @@ const AssetDetailDrawer: React.FC<{
       if (isIncomeLike || (tx.type === 'transfer' && tx.toAssetId === asset.id)) simpleIncome += tx.amount;
       if (isExpenseLike || (tx.type === 'transfer' && tx.fromAssetId === asset.id)) simpleExpense += tx.amount;
     });
-
     return { income: simpleIncome, expense: simpleExpense, count: allRelated.length };
-  }, [transactions, asset.id]);
+  }, [transactions, asset?.id]);
+
+  if (!asset) return null;
+
+  const Icon = getIconForType(asset.type);
+  const color = getColorForType(asset.type);
 
   const getAssetName = (id?: string) =>
     allAssets.find(a => a.id === id)?.name || '';
@@ -278,6 +279,35 @@ const AssetDetailDrawer: React.FC<{
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-main)' }}>{stats.count}</div>
               </div>
+            </div>
+            
+            <div style={{ marginTop: 16 }}>
+              <button
+                onClick={onAddTx}
+                style={{
+                  width: '100%',
+                  background: 'var(--primary)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '12px 16px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  boxShadow: '0 4px 12px var(--primary-glow)',
+                  transition: 'transform 0.2s ease, opacity 0.2s ease'
+                }}
+                onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
+                onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <MaterialIcon name="add" className="text-lg" />
+                Tambah Transaksi
+              </button>
             </div>
           </div>
 
@@ -739,7 +769,10 @@ const Assets: React.FC = () => {
         onDeleteAsset={deleteAsset}
         onEditTx={tx => {
           setEditingTx(tx);
-          setSelectedAsset(null);
+          setIsTxModalOpen(true);
+        }}
+        onAddTx={() => {
+          setEditingTx(null);
           setIsTxModalOpen(true);
         }}
       />
@@ -755,6 +788,7 @@ const Assets: React.FC = () => {
             updateTransaction={updateTransaction}
             deleteTransaction={deleteTransaction}
             editingTransaction={editingTx}
+            initialAssetId={selectedAsset?.id}
           />
         </Suspense>
       )}

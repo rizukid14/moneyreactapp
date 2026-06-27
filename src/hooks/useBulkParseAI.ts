@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getLocalDate } from '../lib/utils';
 import { resizeImage, blobToBase64 } from '../lib/imageUtils';
+import { auth } from '../lib/firebase';
 
 export interface ParsedTransaction {
   id: string; // temporary id for frontend listing
@@ -39,7 +40,7 @@ export const useBulkParseAI = () => {
     categories?: any[];
     assets?: any[];
     defaultAssetId?: string
-  }): Promise<ParsedTransaction[] | null> => {
+  }): Promise<{ transactions: ParsedTransaction[], quotaUsed?: number, isPremium?: boolean } | null> => {
     setIsParsing(true);
     setError(null);
     setProgress(0);
@@ -63,10 +64,13 @@ export const useBulkParseAI = () => {
 
       let response;
       try {
+        const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+
         response = await fetch('/api/bulk-parse', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             text: text || '',
@@ -124,7 +128,11 @@ export const useBulkParseAI = () => {
       });
 
       setProgress(100);
-      return mappedTransactions;
+      return {
+        transactions: mappedTransactions,
+        quotaUsed: result.quotaUsed,
+        isPremium: result.isPremium
+      };
 
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan saat analisa teks.');
