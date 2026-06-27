@@ -685,7 +685,18 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             );
                           })()}
 
-                          <MaterialIcon name="swap_horiz" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const temp = fromAssetId;
+                              setFromAssetId(toAssetId);
+                              setToAssetId(temp);
+                            }}
+                            className="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container"
+                            title="Tukar Aset"
+                          >
+                            <MaterialIcon name="swap_horiz" />
+                          </button>
 
                           {/* To Asset Button */}
                           {(() => {
