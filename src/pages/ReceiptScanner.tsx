@@ -349,8 +349,10 @@ const ReceiptScanner: React.FC = () => {
 
         setMutasiResults(augmented);
         setStage('results');
-      } else {
+      } else if (parsedData && parsedData.transactions && parsedData.transactions.length === 0) {
         showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
+        setStage('crop');
+      } else {
         setStage('crop');
       }
       return;
