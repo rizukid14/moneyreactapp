@@ -124,8 +124,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       const draft = allDrafts[targetType];
       if (draft) {
         setAmount(draft.amount || '');
-        setCategoryId(draft.category || '');
-        setSubCategoryId(draft.subCategory || '');
+        setCategoryId(draft.categoryId || '');
+        setSubCategoryId(draft.subCategoryId || '');
         setDate(draft.date || getLocalDate());
         setTime(draft.time || getLocalTime());
         setNote(draft.note || '');
@@ -136,6 +136,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setIsRecurring(draft.isRecurring || false);
         setFrequency(draft.frequency || 'monthly');
         setRecurringEndDate(draft.recurringEndDate || '');
+        setGoalId(draft.goalId);
       } else {
         // Reset to defaults for this type
         setAmount('');
@@ -169,11 +170,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       const draft = allDrafts[type];
       if (draft) {
         setAmount(draft.amount || '');
-        setCategoryId(draft.category || '');
-        setSubCategoryId(draft.subCategory || '');
+        setCategoryId(draft.categoryId || '');
+        setSubCategoryId(draft.subCategoryId || '');
         setDate(draft.date || getLocalDate());
         setTime(draft.time || getLocalTime());
         setNote(draft.note || '');
+        setDescription(draft.description || '');
         setAssetId(initialAssetId || draft.assetId || defaultAssetId || activeAssets[0]?.id || '');
         setFromAssetId(initialAssetId || draft.fromAssetId || defaultAssetId || activeAssets[0]?.id || '');
         setToAssetId(draft.toAssetId || activeAssets[1]?.id || activeAssets[0]?.id || '');
@@ -365,19 +367,23 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         });
       }
 
-      // Clear draft for this type after success
-      setAllDrafts(prev => {
-        const next = { ...prev };
-        delete next[type];
-        localStorage.setItem('tx_drafts', JSON.stringify(next));
-        return next;
-      });
+      // Clear draft for this type after success - explicitly read and write to bypass any state delays
+      const savedStr = localStorage.getItem('tx_drafts');
+      if (savedStr) {
+        try {
+          const savedObj = JSON.parse(savedStr);
+          delete savedObj[type];
+          localStorage.setItem('tx_drafts', JSON.stringify(savedObj));
+          setAllDrafts(savedObj);
+        } catch (e) {}
+      }
 
       // Reset local fields immediately so reopening doesn't flash old data
       setAmount('');
       setCategoryId('');
       setSubCategoryId('');
       setNote('');
+      setDescription('');
       setIsRecurring(false);
       setGoalId(undefined);
       setAdminFee('');
