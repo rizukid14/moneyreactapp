@@ -20,19 +20,20 @@ export const changelogData: ChangelogVersion[] = [
   {
     version: 'v2.1.1', date: 'Jun 2026', badge: 'Terbaru',
     entries: [
-      { type: 'improve', text: 'Pembaruan Keamanan Premium: Kami memperketat sistem validasi status Premium untuk mencegah celah manipulasi tanggal perangkat (Date Spoofing) dan Bypass Kuota.' },
-      { type: 'improve', text: 'Stabilitas Server AI: Menambahkan batas toleransi Firebase (*Graceful Degradation*) agar aplikasi tidak crash saat terjadi lonjakan trafik penggunaan fitur AI.' },
-      { type: 'fix', text: 'Perbaikan Sistem Notifikasi: Mengatasi isu di mana notifikasi yang sudah dihapus sering muncul kembali.' },
+      { type: 'new', text: 'Tombol Tukar Aset: Kini Anda dapat menukar (swap) posisi Asset Asal dan Asset Tujuan dengan satu klik saat membuat transaksi Transfer.' },
+      { type: 'fix', text: 'Pesan Error Scanner Lebih Jelas: Jika proses pindai struk gagal, aplikasi kini akan menampilkan alasan yang tepat (misalnya Kuota Habis) alih-alih pesan gagal yang membingungkan.' },
+      { type: 'fix', text: 'Perbaikan Form Tambah Transaksi: Form kini dibersihkan dengan sempurna tanpa menyisakan nominal transaksi sebelumnya ketika Anda ingin mencatat transaksi baru.' },
+      { type: 'fix', text: 'Notifikasi Lebih Rapi: Mengatasi masalah di mana notifikasi pengumuman yang sudah ditutup terkadang muncul kembali.' },
     ]
   },
   {
     version: 'v2.1.0', date: 'Jun 2026',
     entries: [
-      { type: 'improve', text: 'Aplikasi Terasa Lebih Cepat: Kami telah memperhalus perpindahan antar halaman dan mematikan lazy loading berlebih agar navigasi terasa instan dan bebas hambatan (ngelag)' },
-      { type: 'improve', text: 'Pemuatan Data Super Kilat: Menarik data dari server kini berjalan di latar belakang (background) sehingga membuka aplikasi (Splash Screen) jadi seketika tanpa menunggu sinkronisasi' },
-      { type: 'new', text: 'Tautkan ke Google: Pengguna yang awalnya mendaftar menggunakan Email & Password biasa, kini dapat menghubungkan akunnya ke Google agar login lebih praktis' },
-      { type: 'improve', text: 'Daftar Kontak Terurut: Memilih kontak pada Split Bill & Hutang kini lebih mudah karena daftar otomatis terurut sesuai abjad' },
-      { type: 'fix', text: 'Peningkatan Stabilitas: Gangguan-gangguan sistem terkait navigasi dan memori telah dihilangkan agar aktivitas catat-mencatat keuangan Anda tetap lancar' },
+      { type: 'improve', text: 'Aplikasi Terasa Lebih Cepat: Kami telah memperhalus perpindahan antar halaman agar navigasi terasa instan dan bebas hambatan (ngelag).' },
+      { type: 'improve', text: 'Pemuatan Data Super Kilat: Proses sinkronisasi kini berjalan hening di latar belakang sehingga Anda bisa langsung menggunakan aplikasi seketika tanpa layar tunggu (loading) yang lama.' },
+      { type: 'new', text: 'Tautkan ke Google: Pengguna yang awalnya mendaftar menggunakan Email & Password biasa, kini dapat menghubungkan akunnya ke Google agar login lebih praktis.' },
+      { type: 'improve', text: 'Daftar Kontak Terurut: Memilih kontak pada Split Bill & Hutang kini lebih mudah karena daftar otomatis terurut sesuai abjad.' },
+      { type: 'fix', text: 'Peningkatan Stabilitas: Aktivitas catat-mencatat keuangan Anda kini berjalan lebih lancar tanpa kendala visual.' },
     ],
   },
   {
