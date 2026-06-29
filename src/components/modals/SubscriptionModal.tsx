@@ -18,6 +18,13 @@ export const SubscriptionModal: React.FC = () => {
     }
   }, [showUpgradeModal, activationCode, regenerateCode]);
 
+  // Always refresh premium status from cloud when modal opens
+  useEffect(() => {
+    if (showUpgradeModal) {
+      refreshPremiumStatus().catch(e => console.error(e));
+    }
+  }, [showUpgradeModal]);
+
   if (!showUpgradeModal) return null;
 
   const userEmail = auth.currentUser?.email || '';
@@ -62,7 +69,11 @@ export const SubscriptionModal: React.FC = () => {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await refreshPremiumStatus();
+    const result = await refreshPremiumStatus();
+    if (result.wasClaimed || result.statusChanged) {
+      setIsUpgrading(false);
+      // Optional: you could add a toast here
+    }
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
@@ -225,6 +236,13 @@ export const SubscriptionModal: React.FC = () => {
                   >
                     <MaterialIcon name={copied ? 'check' : 'content_copy'} />
                   </button>
+                  <button
+                    onClick={() => regenerateCode()}
+                    className="p-3 rounded-xl bg-surface-container-highest text-on-surface border border-outline-variant cursor-pointer hover:bg-surface-container transition-colors flex-shrink-0"
+                    title="Buat kode baru"
+                  >
+                    <MaterialIcon name="refresh" />
+                  </button>
                 </div>
                 {copied && (
                   <p className="text-xs text-primary font-bold text-center">✓ Kode disalin ke clipboard!</p>
@@ -287,7 +305,15 @@ export const SubscriptionModal: React.FC = () => {
               </div>
               <div className="w-full mt-3 z-10 relative">
                 <button
-                  onClick={() => { setIsUpgrading(true); if (!activationCode) regenerateCode(); }}
+                  onClick={async () => {
+                    setIsUpgrading(true);
+                    setIsRefreshing(true);
+                    const res = await refreshPremiumStatus();
+                    if (res.wasClaimed || res.statusChanged) {
+                       setIsUpgrading(false);
+                    }
+                    setIsRefreshing(false);
+                  }}
                   className="w-full py-3 bg-white/50 hover:bg-white/70 dark:bg-black/30 dark:hover:bg-black/50 text-yellow-800 dark:text-yellow-200 border border-yellow-500/30 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
                 >
                   <MaterialIcon name="upgrade" />

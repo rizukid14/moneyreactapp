@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { verifyAuth, checkAndConsumeQuota } from './_admin';
+import { verifyAuth, checkAndConsumeQuota } from './_admin.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,

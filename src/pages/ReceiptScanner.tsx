@@ -342,7 +342,7 @@ const ReceiptScanner: React.FC = () => {
             asset: matchedAssetId,
             fromAsset: matchedFromAssetId,
             toAsset: matchedToAssetId,
-            categoryId: matchedCategoryId || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? categories.find(c => c.name === 'Lainnya' && c.type === 'pengeluaran')?.id || '' : categories.find(c => c.name === 'Lain-lain' && c.type === 'pendapatan')?.id || ''),
+            categoryId: matchedCategoryId || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '' : categories.find(c => c.type === 'pendapatan' && !c.isDeleted)?.id || ''),
             subCategoryId: matchedSubCategoryId || ''
           };
         });
@@ -710,7 +710,7 @@ const ReceiptScanner: React.FC = () => {
           amount: tx.amount,
           date: tx.date,
           note: tx.note || 'Transfer',
-          categoryId: 'Transfer',
+          categoryId: undefined,
           fromAssetId: finalFrom,
           toAssetId: finalTo
         });

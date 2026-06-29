@@ -13,7 +13,6 @@ import Transactions from './pages/Transactions';
 import Assets from './pages/Assets';
 import Debts from './pages/Debts';
 import Settings from './pages/Settings';
-import Categories from './pages/Categories';
 
 // Lazy load heavy or rarely used pages for performance (bundle-dynamic-imports)
 const Statistics = lazy(() => import('./pages/Statistics'));
@@ -77,7 +76,6 @@ const AppContent: React.FC = () => {
             </Route>
             <Route path="/shared-split/:id" element={<SharedSplitBill />} />
             <Route path="/shared-split-bill/:id" element={<SharedSplitBill />} />
-            <Route path="/categories" element={<Categories />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

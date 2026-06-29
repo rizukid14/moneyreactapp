@@ -12,6 +12,7 @@ import { lazy, Suspense } from 'react';
 const OverspendReallocationModal = lazy(() => import('./OverspendReallocationModal'));
 import CurrencyInput from '../common/CurrencyInput';
 import ConfirmDialog from '../common/ConfirmDialog';
+import { SYS_CAT } from '../../contexts/MoneyContext';
 import { useTransactionPresets } from '../../hooks/useTransactionPresets';
 import { Modal } from '../ui/Modal';
 import { TabBar } from '../ui/TabBar';
@@ -37,7 +38,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType, initialAssetId
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode } = useMoney();
+  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode, startOfMonthDay } = useMoney();
   const { showToast } = useToast();
   const [type, setType] = useState<Transaction['type']>('pengeluaran');
   const [amount, setAmount] = useState('');
@@ -108,7 +109,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
       // Initialize admin fee state for transfers
       if (editingTransaction.type === 'transfer') {
-        const feeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin')?.id);
+        const feeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.categoryId === SYS_CAT.ADMIN_FEE);
         if (feeTx) {
           setAdminFee(feeTx.amount.toLocaleString('id-ID'));
           setAdminFeeTarget(feeTx.assetId === editingTransaction.toAssetId ? 'receiver' : 'sender');
@@ -209,28 +210,39 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const budgetAlerts = useMemo(() => {
     if (type !== 'pengeluaran' || !amount) return [];
     const txDate = new Date(date || new Date());
-    const txMonth = txDate.getMonth();
-    const txYear = txDate.getFullYear();
+    let txMonth = txDate.getMonth();
+    let txYear = txDate.getFullYear();
+    const sDay = startOfMonthDay || 1;
+    
+    if (sDay > 1) {
+      if (txDate.getDate() >= sDay) {
+        txMonth++;
+        if (txMonth > 11) {
+          txMonth = 0;
+          txYear++;
+        }
+      }
+    }
+    
     const txAmount = Number(amount.replace(/\./g, ''));
     if (!txAmount) return [];
+
+    const periodStart = new Date(txYear, txMonth - (sDay > 1 ? 1 : 0), sDay);
+    const periodEnd = new Date(txYear, txMonth + (sDay > 1 ? 0 : 1), sDay);
 
     // Current month spending (excluding editing transaction itself)
     const existingSpend = transactions.reduce((acc, tx) => {
       if (tx.id === editingTransaction?.id) return acc;
+      if (tx.type !== 'pengeluaran') return acc;
       const d = new Date(tx.date);
-      if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return acc;
-      return { ...acc, total: acc.total + tx.amount };
+      if (d >= periodStart && d < periodEnd) {
+        acc.total += tx.amount;
+        const cat = categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
+                    categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
+        if (cat) acc[cat.id] = (acc[cat.id] || 0) + tx.amount;
+      }
+      return acc;
     }, { total: 0 } as Record<string, number>);
-
-    // Also track by category
-    transactions.forEach(tx => {
-      if (tx.id === editingTransaction?.id) return;
-      const d = new Date(tx.date);
-      if (d.getMonth() !== txMonth || d.getFullYear() !== txYear || tx.type !== 'pengeluaran') return;
-      const cat = categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
-                  categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
-      if (cat) existingSpend[cat.id] = (existingSpend[cat.id] || 0) + tx.amount;
-    });
 
     const alerts: { label: string; over: number }[] = [];
     const monthBudgets = budgets.filter(b => b.month === txMonth && b.year === txYear);
@@ -264,7 +276,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }
 
     return alerts;
-  }, [type, amount, date, categoryId, budgets, transactions, categories, editingTransaction]);
+  }, [type, amount, date, categoryId, budgets, transactions, categories, editingTransaction, startOfMonthDay]);
   const handleRawAmountChange = (val: string) => {
     setAmount(val);
   };
@@ -316,7 +328,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       // Handle admin fee for edited transfer
       if (type === 'transfer') {
         const adminFeeAmount = Number(adminFee.replace(/\./g, ''));
-        const existingFeeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin')?.id);
+        const existingFeeTx = transactions.find(t => t.relatedId === editingTransaction.id && t.categoryId === SYS_CAT.ADMIN_FEE);
         const feeAssetId = adminFeeTarget === 'sender' ? fromAssetId : toAssetId;
         const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
         const feeNote = `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`;
@@ -337,7 +349,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           addTransaction({
             type: 'pengeluaran',
             amount: adminFeeAmount,
-            categoryId: categories.find(c => c.name === 'Biaya Admin' && !c.isDeleted)?.id || '',
+            categoryId: SYS_CAT.ADMIN_FEE,
             date,
             time,
             note: feeNote,
@@ -358,7 +370,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         addTransaction({
           type: 'pengeluaran',
           amount: adminFeeAmount,
-          categoryId: categories.find(c => c.name === 'Biaya Admin' && !c.isDeleted)?.id || '',
+          categoryId: SYS_CAT.ADMIN_FEE,
           date,
           time,
           note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
@@ -431,7 +443,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     // If deleting a transfer, also remove linked admin fee transactions.
     if (editingTransaction.type === 'transfer') {
       transactions
-        .filter(t => t.relatedId === editingTransaction.id && t.categoryId === categories.find(c => c.name === 'Biaya Admin')?.id)
+        .filter(t => t.relatedId === editingTransaction.id && t.categoryId === SYS_CAT.ADMIN_FEE)
         .forEach(t => deleteTransaction(t.id));
     }
 
@@ -495,52 +507,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     />
                   )}
 
-                  {!editingTransaction && mergedPresets.length > 0 && (
-                    <details className="group border border-outline-variant/60 rounded-2xl p-3.5 bg-surface-container-low transition-all" open>
-                      <summary className="flex justify-between items-center font-bold text-[11px] text-on-surface-variant uppercase tracking-wider cursor-pointer list-none select-none">
-                        <span>Preset Kebiasaan</span>
-                        <span className="material-symbols-outlined text-sm transition-transform group-open:rotate-180">expand_more</span>
-                      </summary>
-                      <div className="mt-3 flex gap-2 overflow-x-auto pb-1.5 custom-scrollbar">
-                        {mergedPresets.map(preset => {
-                          const pinned = isPinned(preset);
-                          return (
-                            <div
-                              key={preset.id}
-                              className={`flex-shrink-0 rounded-xl p-2.5 min-w-[150px] border transition-all ${
-                                pinned 
-                                  ? 'border-primary bg-primary-container/20' 
-                                  : 'border-outline-variant/60 bg-bg-card'
-                              }`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => applyHabitPreset(preset)}
-                                className="bg-transparent border-none cursor-pointer text-left w-full p-0 flex flex-col gap-0.5"
-                              >
-                                <div className="text-xs font-bold text-on-surface truncate">
-                                  {preset.label}
-                                </div>
-                                <div className="text-[10px] text-on-surface-variant font-medium">
-                                  {currencySymbol}{preset.amount.toLocaleString('id-ID')}
-                                </div>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => togglePin(preset)}
-                                className={`mt-2 bg-transparent border-none text-[10px] font-bold cursor-pointer p-0 transition-colors ${
-                                  pinned ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
-                                }`}
-                              >
-                                {pinned ? 'Unpin' : 'Pin'}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </details>
-                  )}
-
                   <div key={type} className="flex flex-col gap-4 animate-in fade-in duration-150">
                     <div className="flex gap-2">
                       <CurrencyInput
@@ -569,35 +535,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
                     {type !== 'transfer' ? (
                       <>
-                        <button
-                          type="button"
-                          data-testid="tx-category-select"
-                          onClick={() => setIsCategoryModalOpen(true)}
-                          style={{
-                            width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
-                            border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            cursor: 'pointer', color: categoryId ? 'var(--text-main)' : 'var(--text-muted)'
-                          }}
-                          data-tour="modal-category"
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <MaterialIcon name="folder" className="text-[18px]" />
-                            <span style={{ fontSize: '14px', fontWeight: categoryId ? 700 : 500 }}>
-                              {categoryId ? (() => {
-                                const cat = categories.find(c => c.id === categoryId);
-                                const catName = cat?.name || categoryId;
-                                if (subCategoryId) {
-                                  const subName = cat?.subcategories?.find(s => s.id === subCategoryId)?.name || subCategoryId;
-                                  return `${catName}  >  ${subName}`;
-                                }
-                                return catName;
-                              })() : '-- Pilih Kategori --'}
-                            </span>
-                          </div>
-                          <MaterialIcon name="chevron_right" className="text-[18px]" />
-                        </button>
-
                         {/* Asset selector button */}
                         {(() => {
                           const selectedAsset = assets.find(a => a.id === assetId);
@@ -628,32 +565,37 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           );
                         })()}
 
-                        {/* Goal Selector */}
-                        {goals.length > 0 && (
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
-                              Hubungkan ke Tabungan (Opsional)
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => setIsGoalModalOpen(true)}
-                              style={{
-                                width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
-                                border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <MaterialIcon name="track_changes" className="text-[18px]" />
-                                <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
-                                  {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
-                                </span>
-                              </div>
-                              <MaterialIcon name="chevron_right" className="text-[18px]" />
-                            </button>
+                        {/* Category selector button */}
+                        <button
+                          type="button"
+                          data-testid="tx-category-select"
+                          onClick={() => setIsCategoryModalOpen(true)}
+                          style={{
+                            width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
+                            border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            cursor: 'pointer', color: categoryId ? 'var(--text-main)' : 'var(--text-muted)'
+                          }}
+                          data-tour="modal-category"
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <MaterialIcon name="folder" className="text-[18px]" />
+                            <span style={{ fontSize: '14px', fontWeight: categoryId ? 700 : 500 }}>
+                              {categoryId ? (() => {
+                                const cat = categories.find(c => c.id === categoryId);
+                                const catName = cat?.name || categoryId;
+                                if (subCategoryId) {
+                                  const subName = cat?.subcategories?.find(s => s.id === subCategoryId)?.name || subCategoryId;
+                                  return `${catName}  >  ${subName}`;
+                                }
+                                return catName;
+                              })() : '-- Pilih Kategori --'}
+                            </span>
                           </div>
-                        )}
+                          <MaterialIcon name="chevron_right" className="text-[18px]" />
+                        </button>
+
+
                       </>
                     ) : (
                       <>
@@ -726,32 +668,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                           })()}
                         </div>
 
-                        {/* Goal Selector (within transfer) */}
-                        {goals.length > 0 && (
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
-                              Hubungkan ke Tabungan (Opsional)
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => setIsGoalModalOpen(true)}
-                              style={{
-                                width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
-                                border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <MaterialIcon name="track_changes" className="text-[18px]" />
-                                <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
-                                  {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
-                                </span>
-                              </div>
-                              <MaterialIcon name="chevron_right" className="text-[18px]" />
-                            </button>
-                          </div>
-                        )}
+
 
                         {/* Admin Fee Section */}
                         <div style={{
@@ -833,6 +750,33 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         }}
                       />
                     </div>
+
+                    {/* Goal Selector (Moved Below Notes) */}
+                    {goals.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                          Hubungkan ke Tabungan (Opsional)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsGoalModalOpen(true)}
+                          style={{
+                            width: '100%', padding: '14px 16px', background: goalId ? 'var(--bg-income)' : 'var(--bg-card-solid)',
+                            border: `2px solid ${goalId ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 'var(--radius-sm)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            cursor: 'pointer', color: goalId ? 'var(--text-main)' : 'var(--text-muted)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <MaterialIcon name="track_changes" className="text-[18px]" />
+                            <span style={{ fontSize: '14px', fontWeight: goalId ? 700 : 500 }}>
+                              {goals.find(g => g.id === goalId)?.name || '-- Pilih Target Tabungan --'}
+                            </span>
+                          </div>
+                          <MaterialIcon name="chevron_right" className="text-[18px]" />
+                        </button>
+                      </div>
+                    )}
 
                     {!editingTransaction && (
                       <div style={{

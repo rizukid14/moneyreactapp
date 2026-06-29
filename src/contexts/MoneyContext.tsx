@@ -373,11 +373,25 @@ interface MoneyContextType {
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
 
 // ─── Provider ────────────────────────────────────────────────────────────────
+export const SYS_CAT = {
+  ADMIN_FEE: 'sys-cat-admin-fee',
+  BALANCE_ADJ: 'sys-cat-balance-adj',
+  DEBT_PAY: 'sys-cat-debt-pay',
+  DEBT_RECEIVE: 'sys-cat-debt-receive',
+  RECEIVABLE_PAY: 'sys-cat-receivable-pay',
+  RECEIVABLE_RECEIVE: 'sys-cat-receivable-receive',
+  TRIP: 'sys-cat-trip-expense',
+  TRIP_SUB: 'sys-sub-trip'
+} as const;
+
 export const SYSTEM_CATEGORIES: Category[] = [
   { id: 'sys-cat-debt-pay', name: 'Bayar Hutang', type: 'hutang_keluar' },
   { id: 'sys-cat-debt-receive', name: 'Terima Pinjaman', type: 'hutang_masuk' },
   { id: 'sys-cat-receivable-pay', name: 'Memberi Pinjaman', type: 'piutang_keluar' },
-  { id: 'sys-cat-receivable-receive', name: 'Pelunasan Piutang', type: 'piutang_masuk' }
+  { id: 'sys-cat-receivable-receive', name: 'Pelunasan Piutang', type: 'piutang_masuk' },
+  { id: 'sys-cat-admin-fee', name: 'Biaya Admin', type: 'pengeluaran' },
+  { id: 'sys-cat-balance-adj', name: 'Koreksi Saldo', type: 'pengeluaran' },
+  { id: 'sys-cat-trip-expense', name: 'Liburan & Perjalanan', type: 'pengeluaran', subcategories: [{ id: 'sys-sub-trip', name: 'Biaya Trip', isDeleted: false }] },
 ];
 
 export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -642,6 +656,74 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           console.log('Category ID migration completed.');
         }
         localStorage.setItem('migrated_categoryId_ids_v3', 'true');
+      }
+
+      // ─── Category ID Migration (Phase 2 - Fix strings in categoryId) ──────────
+      const hasMigratedCatIdPhase2 = localStorage.getItem('migrated_categoryId_phase2');
+      if (!hasMigratedCatIdPhase2 && (dbTxs.length > 0 || dbRecurring.length > 0)) {
+        console.log('Running Category ID migration Phase 2...');
+        let needsMigration2 = false;
+
+        const fixCategoryId = (item: any) => {
+          if (!item.categoryId || item.categoryId.startsWith('sys-cat-')) return item;
+          // Check if categoryId is actually a name
+          const isIdValid = dbCats.some(c => c.id === item.categoryId) || SYSTEM_CATEGORIES.some(c => c.id === item.categoryId);
+          if (isIdValid) return item;
+
+          let newId = item.categoryId;
+          let newSubId = item.subCategoryId;
+
+          if (item.categoryId === 'Transfer') newId = undefined;
+          else if (item.categoryId === 'Koreksi Saldo') newId = SYS_CAT.BALANCE_ADJ;
+          else if (item.categoryId === 'Biaya Admin') newId = SYS_CAT.ADMIN_FEE;
+          else if (item.categoryId === 'Liburan & Perjalanan') {
+            newId = SYS_CAT.TRIP;
+            if (item.subCategoryId === 'Biaya Trip') newSubId = SYS_CAT.TRIP_SUB;
+          } else {
+            // Find category by name
+            const matchCat = dbCats.find(c => c.name.toLowerCase() === item.categoryId?.toLowerCase() && c.type === item.type);
+            if (matchCat) {
+              newId = matchCat.id;
+              if (item.subCategoryId) {
+                const matchSub = matchCat.subcategories?.find(s => s.name.toLowerCase() === item.subCategoryId?.toLowerCase());
+                if (matchSub) newSubId = matchSub.id;
+              }
+            } else if (item.type !== 'transfer') {
+              // Create shadow category
+              const shadow = {
+                id: `cat-migrated-p2-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                name: item.categoryId,
+                type: item.type as any,
+                subcategories: [],
+                isDeleted: true
+              };
+              dbCats.push(shadow);
+              import('../lib/db').then(m => m.dbPutCategory(shadow));
+              newId = shadow.id;
+            }
+          }
+
+          if (newId !== item.categoryId || newSubId !== item.subCategoryId) {
+            needsMigration2 = true;
+            return { ...item, categoryId: newId, subCategoryId: newSubId };
+          }
+          return item;
+        };
+
+        const migratedTxs2 = dbTxs.map(fixCategoryId) as Transaction[];
+        const migratedRec2 = dbRecurring.map(fixCategoryId) as RecurringTransaction[];
+
+        if (needsMigration2) {
+          const mDb = await import('../lib/db');
+          await Promise.all([
+            ...migratedTxs2.map(tx => mDb.dbPutTransaction(tx)),
+            ...migratedRec2.map(r => mDb.dbPutRecurringTransaction(r))
+          ]);
+          migratedTxs2.forEach((tx, i) => { dbTxs[i] = tx; });
+          migratedRec2.forEach((r, i) => { dbRecurring[i] = r; });
+          console.log('Category ID migration Phase 2 completed.');
+        }
+        localStorage.setItem('migrated_categoryId_phase2', 'true');
       }
 
       // ─── Recovery of "unknown" categories from Firestore ────────────────
@@ -1024,9 +1106,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       dbDeleteTransaction(id).then(refreshSyncCount);
 
       // --- Sync with Trip Expense & Related Debts ---
-      const cat = categories.find(c => c.id === txToDelete.categoryId);
-      const isTripExpense = cat?.name === 'Liburan & Perjalanan' &&
-                            cat.subcategories?.find(s => s.id === txToDelete.subCategoryId)?.name === 'Biaya Trip';
+      const isTripExpense = txToDelete.categoryId === SYS_CAT.TRIP && txToDelete.subCategoryId === SYS_CAT.TRIP_SUB;
       if (isTripExpense) {
         const expenseId = txToDelete.relatedId;
         if (expenseId) {
@@ -1253,7 +1333,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'pengeluaran',
           amount: newDebt.principalAmount || newDebt.totalAmount,
-          categoryId: categoryIdName || categories.find(c => c.name === 'Lainnya')?.id || '',
+          categoryId: categoryIdName || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '',
           subCategoryId: subCategoryIdName,
           date,
           time,
@@ -1421,7 +1501,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           _createTx({
             type: 'transfer',
             amount: amt,
-            categoryId: 'Transfer',
+            categoryId: undefined,
             date: today,
             time,
             note,
@@ -1476,7 +1556,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             _createTx({
               type: 'transfer',
               amount: amountToRecord,
-              categoryId: 'Transfer',
+              categoryId: undefined,
               date: today,
               time,
               note,
@@ -1529,7 +1609,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         _createTx({
           type: 'transfer',
           amount,
-          categoryId: 'Transfer',
+          categoryId: undefined,
           date,
           time,
           note,

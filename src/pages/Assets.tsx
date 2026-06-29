@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
+import { SYS_CAT } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
 import { lazy, Suspense } from 'react';
 const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
@@ -359,7 +360,7 @@ const AssetDetailDrawer: React.FC<{
                         <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {tx.type === 'transfer'
                             ? `Transfer → ${getAssetName(tx.toAssetId)}`
-                            : (categories?.find((c: any) => c.id === tx.categoryId)?.name || 'Kategori Dihapus')}
+                            : (tx.categoryId === SYS_CAT.BALANCE_ADJ ? 'Koreksi Saldo' : (categories?.find((c: any) => c.id === tx.categoryId)?.name || 'Kategori Dihapus'))}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                           {tx.date}

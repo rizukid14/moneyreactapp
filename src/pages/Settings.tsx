@@ -8,9 +8,11 @@ import { PremiumGate } from '../components/common/PremiumGate';
 import { setupPushNotifications } from '../lib/notifications';
 import { validateFileSecure } from '../lib/fileValidation';
 import { downloadSampleExcel, parseExcelFile, extractExcelHeaders, type ImportResult } from '../lib/excelImport';
+import { exportAllDataToExcel } from '../lib/excelExport';
 import ExcelMappingModal from '../components/modals/ExcelMappingModal';
 import { BudgetManagement } from '../components/BudgetManagement';
 import { GoalManagement } from '../components/GoalManagement';
+import CategoryManagerModal from '../components/modals/CategoryManagerModal';
 
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
@@ -347,6 +349,7 @@ const Settings: React.FC = () => {
   const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
 
   // Deep linking: open modal based on navigation state
   React.useEffect(() => {
@@ -616,81 +619,6 @@ const Settings: React.FC = () => {
     );
   };
 
-  const handleAddCat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCatName.trim()) return;
-
-    // Validation: Check if name already exists (case-insensitive, within the same type)
-    const isDuplicate = categories.some(c =>
-      c.type === catTab &&
-      c.name.toLowerCase() === newCatName.trim().toLowerCase()
-    );
-
-    if (isDuplicate) {
-      showToast('Nama kategori sudah ada!', 'warning');
-      return;
-    }
-
-    addCategory({ name: newCatName.trim(), type: catTab });
-    setNewCatName('');
-  };
-
-  const handleUpdateCat = (id: string, name: string) => {
-    if (!name.trim()) return;
-
-    // Validation: Check if name already exists (case-insensitive, within the same type)
-    const isDuplicate = categories.some(c =>
-      c.type === catTab &&
-      c.name.toLowerCase() === name.trim().toLowerCase() &&
-      c.id !== id
-    );
-
-    if (isDuplicate) {
-      showToast('Nama kategori sudah ada!', 'warning');
-      return;
-    }
-
-    updateCategory(id, name.trim());
-    setEditingCatId(null);
-  };
-
-  const handleAddSubCat = (catId: string, name: string) => {
-    if (!name.trim()) return;
-    const cat = categories.find(c => c.id === catId);
-    if (!cat) return;
-
-    const isDuplicate = cat.subcategories?.some(s =>
-      s.name.toLowerCase() === name.trim().toLowerCase()
-    );
-
-    if (isDuplicate) {
-      showToast('Nama sub-kategori sudah ada!', 'warning');
-      return;
-    }
-
-    addSubCategory(catId, name.trim());
-    setNewSubCatName('');
-  };
-
-  const handleUpdateSubCat = (catId: string, subId: string, name: string) => {
-    if (!name.trim()) return;
-    const cat = categories.find(c => c.id === catId);
-    if (!cat) return;
-
-    const isDuplicate = cat.subcategories?.some(s =>
-      s.name.toLowerCase() === name.trim().toLowerCase() &&
-      s.id !== subId
-    );
-
-    if (isDuplicate) {
-      showToast('Nama sub-kategori sudah ada!', 'warning');
-      return;
-    }
-
-    updateSubCategory(catId, subId, name.trim());
-    setEditingSubCatId(null);
-  };
-
   const { recurringTransactions, deleteRecurringTransaction, updateRecurringTransaction } = useMoney();
 
   const renderModalContent = () => {
@@ -703,208 +631,6 @@ const Settings: React.FC = () => {
           />
         );
 
-      case 'categories':
-        const filteredCats = categories.filter(c => !c.isDeleted && c.type === catTab);
-        return (
-          <>
-            <div className="modal-header">
-              <h2 className="subtitle">Kategori</h2>
-              <button className="close-btn" onClick={() => setActiveModal(null)}><MaterialIcon name="close" className="text-base" /></button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px' }}>
-              <button
-                type="button"
-                onClick={() => setCatTab('pengeluaran')}
-                style={{
-                  flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
-                  background: catTab === 'pengeluaran' ? 'var(--bg-card)' : 'transparent',
-                  color: catTab === 'pengeluaran' ? 'var(--danger)' : 'var(--text-muted)',
-                  boxShadow: catTab === 'pengeluaran' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                }}
-              >
-                Pengeluaran
-              </button>
-              <button
-                type="button"
-                onClick={() => setCatTab('pendapatan')}
-                style={{
-                  flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontWeight: 600, fontSize: '13px',
-                  background: catTab === 'pendapatan' ? 'var(--bg-card)' : 'transparent',
-                  color: catTab === 'pendapatan' ? 'var(--primary)' : 'var(--text-muted)',
-                  boxShadow: catTab === 'pendapatan' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                }}
-              >
-                Pendapatan
-              </button>
-            </div>
-
-            <div style={{
-              display: 'flex',
-              height: '400px',
-              border: '1px solid var(--border-color)',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              marginBottom: '16px',
-              background: 'var(--bg-main)'
-            }}>
-              {/* Left Panel: Categories */}
-              <div style={{
-                flex: 1,
-                borderRight: '1px solid var(--border-color)',
-                overflowY: 'auto',
-                padding: '8px 0'
-              }}>
-                {filteredCats.map(c => {
-                  const isActive = expandedCat === c.id;
-                  return (
-                    <div
-                      key={c.id}
-                      onClick={() => setExpandedCat(c.id)}
-                      style={{
-                        padding: '12px 16px',
-                        cursor: 'pointer',
-                        background: isActive ? 'var(--bg-card)' : 'transparent',
-                        borderLeft: `4px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {editingCatId === c.id ? (
-                        <input
-                          type="text"
-                          value={editingCatName}
-                          onChange={e => setEditingCatName(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleUpdateCat(c.id, editingCatName);
-                            else if (e.key === 'Escape') setEditingCatId(null);
-                          }}
-                          onClick={e => e.stopPropagation()}
-                          autoFocus
-                          style={{ margin: 0, padding: '4px 8px', fontSize: '13px', background: 'var(--bg-main)', border: '1px solid var(--primary)', borderRadius: '6px', width: '100%' }}
-                        />
-                      ) : (
-                        <>
-                          <span style={{ fontSize: '14px', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--text-main)' : 'var(--text-muted)' }}>{c.name}</span>
-                          <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
-                            <button onClick={() => { setEditingCatId(c.id); setEditingCatName(c.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                              <MaterialIcon name="edit" className="text-[12px]" />
-                            </button>
-                            <button onClick={() => showConfirm('Hapus Kategori', `Hapus "${c.name}"?`, () => deleteCategory(c.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                              <MaterialIcon name="delete" className="text-[12px]" />
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Right Panel: Sub-categories */}
-              <div style={{
-                flex: 1.2,
-                overflowY: 'auto',
-                background: 'var(--bg-card-solid)',
-                display: 'flex',
-                flexDirection: 'column'
-              }}>
-                {expandedCat ? (
-                  <>
-                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.05)' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        Sub-kategori: {categories.find(c => c.id === expandedCat)?.name}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
-                      {(categories.find(c => c.id === expandedCat)?.subcategories || []).filter(sub => !sub.isDeleted).map(sub => (
-                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border-color)' }}>
-                          {editingSubCatId === sub.id ? (
-                            <input
-                              type="text"
-                              value={editingSubCatName}
-                              onChange={e => setEditingSubCatName(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') handleUpdateSubCat(expandedCat, sub.id, editingSubCatName);
-                                else if (e.key === 'Escape') setEditingSubCatId(null);
-                              }}
-                              autoFocus
-                              style={{ margin: 0, padding: '4px 8px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--primary)', borderRadius: '6px', width: '100%' }}
-                            />
-                          ) : (
-                            <>
-                              <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{sub.name}</span>
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                <button onClick={() => { setEditingSubCatId(sub.id); setEditingSubCatName(sub.name); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-                                  <MaterialIcon name="edit" className="text-[12px]" />
-                                </button>
-                                <button onClick={() => showConfirm('Hapus Sub-kategori', `Hapus "${sub.name}"?`, () => deleteSubCategory(expandedCat, sub.id))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
-                                  <MaterialIcon name="delete" className="text-[12px]" />
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {/* Add Sub-categoryId Input */}
-                    <div style={{ padding: '12px', borderTop: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.1)' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input
-                          type="text"
-                          value={newSubCatName}
-                          onChange={e => setNewSubCatName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleAddSubCat(expandedCat, newSubCatName); }}
-                          placeholder="Tambah sub..."
-                          style={{ flex: 1, marginBottom: 0, padding: '8px 12px', fontSize: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                        />
-                        <button onClick={() => handleAddSubCat(expandedCat, newSubCatName)} className="btn btn-primary" style={{ padding: '0 12px', margin: 0, borderRadius: '8px' }}>
-                          <MaterialIcon name="add" className="text-[16px]" />
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
-                    Pilih kategori di kiri untuk mengelola sub-kategori.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <form onSubmit={handleAddCat} style={{
-              display: 'flex',
-              gap: '8px',
-              padding: '6px',
-              background: 'rgba(0,0,0,0.1)',
-              borderRadius: '12px',
-              border: '1px solid var(--border-color)',
-              marginTop: '8px'
-            }}>
-              <input
-                type="text"
-                value={newCatName}
-                onChange={e => setNewCatName(e.target.value)}
-                placeholder="Buat kategori baru..."
-                style={{
-                  flex: 1,
-                  marginBottom: 0,
-                  padding: '10px 14px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  fontSize: '14px'
-                }}
-                required
-              />
-              <button type="submit" className="btn btn-primary" style={{ width: '50px', padding: 0, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }}>
-                <MaterialIcon name="add" className="text-[22px]" />
-              </button>
-            </form>
-          </>
-        );
       case 'subscriptions':
         const totalMonthly = subscriptions
           .filter(s => s.isActive)
@@ -1020,6 +746,7 @@ const Settings: React.FC = () => {
             </div>
           </>
         );
+
       case 'preferences':
         return (
           <>
@@ -1668,8 +1395,6 @@ const Settings: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* Hidden inputs handled in parent to keep render clean */}
           </>
         );
 
@@ -2271,15 +1996,6 @@ const Settings: React.FC = () => {
             </div>
           </section>
 
-
-
-
-
-
-
-
-
-
           {/* Tata Letak Dashboard Card */}
           <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
             <div className="flex items-center gap-3">
@@ -2332,7 +2048,6 @@ const Settings: React.FC = () => {
             />
           </section>
 
-
           {/* Excel Import & Cloud Backup Card */}
           <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
             <div className="flex items-center gap-3">
@@ -2340,15 +2055,7 @@ const Settings: React.FC = () => {
               <h3 className="font-headline-md text-headline-md text-on-surface">Data &amp; Sinkronisasi</h3>
             </div>
 
-            <div>
-              <button
-                onClick={downloadSampleExcel}
-                className="text-primary font-label-md flex items-center gap-2 hover:underline border-none bg-transparent cursor-pointer pl-0"
-              >
-                <span className="material-symbols-outlined">download_for_offline</span>
-                Unduh Template Excel
-              </button>
-            </div>
+
 
             <div
               onClick={() => excelImportRef.current?.click()}
@@ -2362,6 +2069,8 @@ const Settings: React.FC = () => {
                 <p className="font-body-md text-on-surface-variant mt-0.5">(.xlsx, .xls, .csv)</p>
               </div>
             </div>
+
+
 
             {excelResult && (
               <div className={`p-4 rounded-xl border text-xs leading-relaxed ${excelResult.errors.length > 0 ? 'bg-error-container/10 border-error/20 text-error' : 'bg-primary-container/10 border-primary/20 text-primary'
@@ -2446,6 +2155,32 @@ const Settings: React.FC = () => {
                     className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
                   >
                     <MaterialIcon name="upload" className="text-sm" /> {isImporting ? 'Memproses...' : 'Restore JSON'}
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <button
+                    onClick={() => {
+                      if (!premium.isPremium) {
+                        setShowUpgradeModal(true);
+                        return;
+                      }
+                      exportAllDataToExcel({ transactions, assets, categories });
+                    }}
+                    className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    {!premium.isPremium ? (
+                      <MaterialIcon name="workspace_premium" className="text-[14px] text-warning" />
+                    ) : (
+                      <MaterialIcon name="download" className="text-[14px]" />
+                    )}
+                    Ekspor Excel (.xlsx)
+                  </button>
+                  <button
+                    onClick={downloadSampleExcel}
+                    className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <MaterialIcon name="download" className="text-sm" /> Unduh Template Excel
                   </button>
                 </div>
               </PremiumGate>
@@ -2584,7 +2319,7 @@ const Settings: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate('/categories')}
+              onClick={() => setShowCategoryManager(true)}
               className="w-full py-3 px-4 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-90 border-none"
             >
               Buka Manajemen Kategori
@@ -2828,6 +2563,11 @@ const Settings: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <CategoryManagerModal
+        isOpen={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+      />
 
       {/* Global Confirmation Dialog */}
       <ConfirmDialog

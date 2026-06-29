@@ -32,6 +32,8 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
     if (!el) return;
 
     const handleTouchStart = (e: TouchEvent) => {
+      if (document.body.style.overflow === 'hidden') return;
+      
       const appContainer = document.querySelector('.app-container');
       const scrollPos = appContainer ? appContainer.scrollTop : (window.scrollY || document.documentElement.scrollTop);
       if (scrollPos <= 0 && refreshState === 'idle') {

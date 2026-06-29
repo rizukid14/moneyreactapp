@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { verifyAuth, checkAndConsumeQuota } from './_admin';
+import { verifyAuth, checkAndConsumeQuota } from './_admin.js';
 
 let openai: OpenAI | null = null;
 

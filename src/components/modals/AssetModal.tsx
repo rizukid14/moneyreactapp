@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SYS_CAT } from '../../contexts/MoneyContext';
 
 import { getLocalDate } from '../../lib/utils';
 import type { Asset, AssetType, Transaction } from '../../contexts/MoneyContext';
@@ -97,7 +98,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
           addTransaction({
             type: difference > 0 ? 'pendapatan' : 'pengeluaran',
             amount: Math.abs(difference),
-            categoryId: 'Koreksi Saldo',
+            categoryId: SYS_CAT.BALANCE_ADJ,
             date: getLocalDate(),
             note: 'Penyesuaian saldo manual',
             assetId: editingAsset.id

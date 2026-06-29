@@ -358,7 +358,7 @@ const ChatBot: React.FC = () => {
           amount: Number(toolArgs.amount),
           date: toolArgs.date || getLocalDate(),
           note: toolArgs.note || 'Transfer via AI Chat',
-          categoryId: 'Transfer',
+          categoryId: undefined,
           fromAssetId: fromId,
           toAssetId: toId,
         });
@@ -585,7 +585,7 @@ const ChatBot: React.FC = () => {
         amount: Number(tf.amount),
         date: getLocalDate(),
         note: tf.reason || `Transfer Rekomendasi AI`,
-        categoryId: 'Transfer',
+        categoryId: undefined,
         fromAssetId: tf.fromAssetId,
         toAssetId: tf.toAssetId,
       });

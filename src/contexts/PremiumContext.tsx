@@ -37,7 +37,7 @@ interface PremiumContextType {
   setShowUpgradeModal: (show: boolean) => void;
   checkQuota: (feature: keyof typeof FREE_QUOTA_LIMITS) => { allowed: boolean; used: number; limit: number };
   updatePremiumDataFromServer: (feature: keyof typeof FREE_QUOTA_LIMITS, newValue: number, newIsPremium?: boolean) => Promise<void>;
-  refreshPremiumStatus: () => Promise<void>;
+  refreshPremiumStatus: () => Promise<{ wasClaimed: boolean, statusChanged: boolean }>;
   activationCode: string | null;
   regenerateCode: () => Promise<string>;
 }
@@ -143,8 +143,52 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [isReady, autoCloudSync.status, loadPremiumData, loadActivationCode]);
 
-  const refreshPremiumStatus = async () => {
+  const refreshPremiumStatus = async (): Promise<{ wasClaimed: boolean, statusChanged: boolean }> => {
+    let wasClaimed = false;
+    let statusChanged = false;
+    
+    try {
+      if (isFirebaseConfigured) {
+        const { auth, db: firestore } = await import('../lib/firebase');
+        if (auth.currentUser) {
+          const { doc, getDoc } = await import('firebase/firestore');
+          const uid = auth.currentUser.uid;
+          
+          // Check if activation code still exists on cloud
+          const codeRef = doc(firestore, 'users', uid, 'settings', 'premiumActivationCode');
+          const codeSnap = await getDoc(codeRef);
+          if (!codeSnap.exists()) {
+            // Consumed by Lynk.id webhook! Clear local ghost code.
+            const localCode = await dbGetSetting('premiumActivationCode');
+            if (localCode) {
+              await dbPutSetting('premiumActivationCode', '');
+              setActivationCode(null);
+              wasClaimed = true;
+            }
+          }
+
+          // Check latest premium status on cloud
+          const premiumRef = doc(firestore, 'users', uid, 'settings', 'premium');
+          const premiumSnap = await getDoc(premiumRef);
+          if (premiumSnap.exists()) {
+            const freshPremium = premiumSnap.data().value as PremiumState;
+            // Compare with existing to know if it changed
+            const existingPremium = await dbGetSetting('premium') as PremiumState | undefined;
+            if (!existingPremium || existingPremium.expiresAt !== freshPremium.expiresAt || existingPremium.isPremium !== freshPremium.isPremium) {
+              await dbPutSetting('premium', freshPremium);
+              setPremium(freshPremium);
+              statusChanged = true;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch live premium status from cloud:', e);
+    }
     await loadPremiumData();
+    await loadActivationCode();
+    
+    return { wasClaimed, statusChanged };
   };
 
   const checkQuota = (feature: keyof typeof FREE_QUOTA_LIMITS) => {

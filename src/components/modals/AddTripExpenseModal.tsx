@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import AssetSelectModal from './AssetSelectModal';
-import { useMoney, type Trip, type TripExpense, type TripExpenseSplit } from '../../contexts/MoneyContext';
+import { useMoney, type Trip, type TripExpense, type TripExpenseSplit, SYS_CAT } from '../../contexts/MoneyContext';
 import { useReceiptOCR } from '../../hooks/useReceiptOCR';
 import { generateId, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
@@ -305,8 +305,8 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
           addTransaction({
             type: 'pengeluaran',
             amount: myAmount,
-            categoryId: 'Liburan & Perjalanan',
-            subCategoryId: 'Biaya Trip',
+            categoryId: SYS_CAT.TRIP,
+            subCategoryId: SYS_CAT.TRIP_SUB,
             date: expenseData.date,
             time: getLocalTime(),
             note: `[Trip: ${trip.name}] ${description}`,

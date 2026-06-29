@@ -239,7 +239,7 @@ export async function parseExcelFile(
       rows.push({ 
         type: 'transfer', 
         amount, 
-        categoryId: 'Transfer', 
+        categoryId: undefined,
         date: dateStr, 
         note, 
         fromAssetId: fromAsset?.id || '', 
@@ -255,8 +255,8 @@ export async function parseExcelFile(
       rows.push({
         type: type as any,
         amount,
-        categoryId: cat ? cat.name : (type === 'pengeluaran' ? 'Lain-lain' : 'Pemasukan Lainnya'),
-        subCategoryId: subCat ? subCat.name : undefined,
+        categoryId: cat ? cat.id : '',
+        subCategoryId: subCat ? subCat.id : undefined,
         date: dateStr,
         note,
         assetId: asset?.id || '',
