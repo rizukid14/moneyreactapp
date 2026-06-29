@@ -345,7 +345,7 @@ const Settings: React.FC = () => {
   const location = useLocation();
   const { showToast } = useToast();
   const { premium, setShowUpgradeModal } = usePremium();
-  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, addCategory, deleteCategory, updateCategory, addSubCategory, deleteSubCategory, updateSubCategory, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
   const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -418,17 +418,6 @@ const Settings: React.FC = () => {
   const [pinError, setPinError] = useState('');
 
   // Category State
-  const [catTab, setCatTab] = useState<'pengeluaran' | 'pendapatan'>('pengeluaran');
-  const [newCatName, setNewCatName] = useState('');
-  const [expandedCat, setExpandedCat] = useState<string | null>(null);
-  const [newSubCatName, setNewSubCatName] = useState('');
-
-  // Category & SubcategoryId Edit State
-  const [editingCatId, setEditingCatId] = useState<string | null>(null);
-  const [editingCatName, setEditingCatName] = useState('');
-  const [editingSubCatId, setEditingSubCatId] = useState<string | null>(null);
-  const [editingSubCatName, setEditingSubCatName] = useState('');
-
   // Contact State
   const [editingContact, setEditingContact] = useState<string | null>(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -2165,7 +2154,7 @@ const Settings: React.FC = () => {
                         setShowUpgradeModal(true);
                         return;
                       }
-                      exportAllDataToExcel({ transactions, assets, categories });
+                      exportAllDataToExcel({ transactions, assets: assets.map(a => ({ ...a, balance: getAssetBalance?.(a.id) || 0 })), categories });
                     }}
                     className="py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
                   >

@@ -10,8 +10,6 @@ import { formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import { MONTH_NAMES } from '../lib/constants';
-import { usePremium } from '../contexts/PremiumContext';
-
 import { ALL_STATS_VIEWS } from './Settings';
 import { PremiumGate } from '../components/common/PremiumGate';
 import { PageWrapper } from '../components/ui/PageWrapper';
@@ -44,7 +42,6 @@ const Statistics: React.FC = () => {
     currencySymbol, startOfMonthDay, theme, chartStyle,
     statsCarouselCards, defaultStatsView
   } = useMoney();
-  const { premium, setShowUpgradeModal } = usePremium();
   const [detailModalProps, setDetailModalProps] = useState<{
     isOpen: boolean;
     title: string;
@@ -93,7 +90,7 @@ const Statistics: React.FC = () => {
   // Create Map for O(1) category lookup
   const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
 
-  const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights, dailyExpenseChart, heatmapData, statsTransactions } = useMemo((): {
+  const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights, dailyExpenseChart, heatmapData } = useMemo((): {
     chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
     currentMonthIncome: number; currentMonthExpense: number;
     prevMonthIncome: number; prevMonthExpense: number;
@@ -108,7 +105,6 @@ const Statistics: React.FC = () => {
     };
     dailyExpenseChart: { day: number; label: string; amount: number; income: number }[];
     heatmapData: { name: string; year: number; firstDow: number; cells: { date: string; day: number; amount: number; level: number }[] }[];
-    statsTransactions: any[];
   } => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
@@ -347,7 +343,6 @@ const Statistics: React.FC = () => {
       insights: insightsData,
       dailyExpenseChart: buildDailyChart(),
       heatmapData: buildHeatmap(),
-      statsTransactions,
     };
 
     function buildDailyChart() {

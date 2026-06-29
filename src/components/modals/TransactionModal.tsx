@@ -13,7 +13,6 @@ const OverspendReallocationModal = lazy(() => import('./OverspendReallocationMod
 import CurrencyInput from '../common/CurrencyInput';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { SYS_CAT } from '../../contexts/MoneyContext';
-import { useTransactionPresets } from '../../hooks/useTransactionPresets';
 import { Modal } from '../ui/Modal';
 import { TabBar } from '../ui/TabBar';
 import { Input } from '../ui/Input';
@@ -81,15 +80,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategoryId: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategoryId: null, deficitAmount: 0, month: 0, year: 0 });
   const [pendingTxData, setPendingTxData] = useState<any>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const { pinnedPresets, habitPresets, togglePin, isPinned } = useTransactionPresets();
-  const mergedPresets = React.useMemo(() => {
-    const t = type === 'transfer' ? 'transfer' : type;
-    const currentHabits = habitPresets.filter((p: any) => p.type === t);
-    const currentPinned = pinnedPresets.filter((p: any) => p.type === t);
-    
-    const unpinnedHabits = currentHabits.filter((h: any) => !isPinned(h));
-    return [...currentPinned, ...unpinnedHabits].slice(0, 8); // show up to 8
-  }, [type, pinnedPresets, habitPresets, isPinned]);
 
   // ─── Draft Logic ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -453,18 +443,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     onClose();
   };
 
-  const applyHabitPreset = (preset: any) => {
-    setAmount(preset.amount.toLocaleString('id-ID'));
-    if (preset.type === 'transfer') {
-      setFromAssetId(preset.fromAssetId || fromAssetId);
-      setToAssetId(preset.toAssetId || toAssetId);
-    } else {
-      setCategoryId(preset.categoryId || '');
-      setSubCategoryId(preset.subCategoryId || '');
-      if (preset.assetId) setAssetId(preset.assetId);
-    }
-    setNote(preset.note || '');
-  };
 
   const isFormValid = useMemo(() => {
     const rawAmount = Number(amount.replace(/\./g, ''));

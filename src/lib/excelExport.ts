@@ -2,9 +2,13 @@ import * as XLSX from 'xlsx';
 import type { Transaction, Asset, Category } from '../contexts/MoneyContext';
 import { MONTH_NAMES } from './constants';
 
+export interface AssetWithBalance extends Asset {
+  balance: number;
+}
+
 export interface ExportDataParams {
   transactions: Transaction[];
-  assets: Asset[];
+  assets: AssetWithBalance[];
   categories: Category[];
   currentMonthIncome: number;
   currentMonthExpense: number;
@@ -27,7 +31,7 @@ export const exportMonthDataToExcel = ({
   const year = viewDate.getFullYear();
 
   // Helper for Category Name
-  const getCategoryName = (id: string, type: 'pengeluaran' | 'pendapatan' | 'transfer', subId?: string) => {
+  const getCategoryName = (id: string, type: string, subId?: string) => {
     if (type === 'transfer') return 'Transfer';
     const cat = categories.find(c => c.id === id) || categories.find(c => c.name === id);
     if (!cat) return 'Lainnya';
@@ -60,7 +64,7 @@ export const exportMonthDataToExcel = ({
   const categoryTotals: Record<string, { name: string; type: string; total: number }> = {};
   transactions.forEach(tx => {
     if (tx.type === 'transfer') return;
-    const catName = getCategoryName(tx.categoryId, tx.type);
+    const catName = getCategoryName(tx.categoryId || '', tx.type);
     const key = `${tx.type}-${catName}`;
     if (!categoryTotals[key]) {
       categoryTotals[key] = { name: catName, type: tx.type === 'pengeluaran' ? 'Pengeluaran' : 'Pemasukan', total: 0 };
@@ -90,7 +94,7 @@ export const exportMonthDataToExcel = ({
     .map(tx => [
       `${tx.date} ${tx.time || ''}`.trim(),
       tx.type === 'pengeluaran' ? 'Pengeluaran' : tx.type === 'pendapatan' ? 'Pemasukan' : 'Transfer',
-      getCategoryName(tx.categoryId, tx.type, tx.subCategoryId),
+      getCategoryName(tx.categoryId || '', tx.type, tx.subCategoryId),
       tx.assetId ? getAssetName(tx.assetId) : (tx.fromAssetId ? getAssetName(tx.fromAssetId) : '-'),
       tx.toAssetId ? getAssetName(tx.toAssetId) : '-',
       tx.note || '',
@@ -123,7 +127,7 @@ export const exportMonthDataToExcel = ({
 
 export interface ExportAllParams {
   transactions: Transaction[];
-  assets: Asset[];
+  assets: AssetWithBalance[];
   categories: Category[];
 }
 
@@ -135,7 +139,7 @@ export const exportAllDataToExcel = ({
   const wb = XLSX.utils.book_new();
 
   // Helper for Category Name
-  const getCategoryName = (id: string, type: 'pengeluaran' | 'pendapatan' | 'transfer', subId?: string) => {
+  const getCategoryName = (id: string, type: string, subId?: string) => {
     if (type === 'transfer') return 'Transfer';
     const cat = categories.find(c => c.id === id) || categories.find(c => c.name === id);
     if (!cat) return 'Lainnya';
@@ -163,7 +167,7 @@ export const exportAllDataToExcel = ({
     .map(tx => [
       `${tx.date} ${tx.time || ''}`.trim(),
       tx.type === 'pengeluaran' ? 'Pengeluaran' : tx.type === 'pendapatan' ? 'Pemasukan' : 'Transfer',
-      getCategoryName(tx.categoryId, tx.type, tx.subCategoryId),
+      getCategoryName(tx.categoryId || '', tx.type, tx.subCategoryId),
       tx.assetId ? getAssetName(tx.assetId) : (tx.fromAssetId ? getAssetName(tx.fromAssetId) : '-'),
       tx.toAssetId ? getAssetName(tx.toAssetId) : '-',
       tx.note || '',
