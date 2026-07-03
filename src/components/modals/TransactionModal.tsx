@@ -482,35 +482,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         { id: 'pendapatan', label: 'Pendapatan', 'data-testid': 'tx-type-pendapatan' },
                         { id: 'transfer', label: 'Transfer', 'data-testid': 'tx-type-transfer' }
                       ]}
+                      activeStyle={type === 'pengeluaran' ? { backgroundColor: 'var(--danger)', color: 'var(--on-danger)' } : type === 'pendapatan' ? { backgroundColor: 'var(--success)', color: 'var(--on-success)' } : { backgroundColor: 'var(--surface-container-highest)', color: 'var(--on-surface)' }}
                     />
                   )}
 
                   <div key={type} className="flex flex-col gap-4 animate-in fade-in duration-150">
-                    <div className="flex gap-2">
-                      <CurrencyInput
-                        data-testid="tx-amount-input"
-                        ref={amountRef}
-                        required
-                        placeholder={`Nominal (${currencySymbol})`}
-                        value={amount}
-                        onChange={handleRawAmountChange}
-                        style={{ flex: 1, marginBottom: 0 }}
-                        data-tour="modal-amount"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setIsCalculatorOpen(true)}
-                        style={{
-                          width: '48px', height: '48px', borderRadius: '12px',
-                          background: 'var(--bg-income)', border: '1px solid var(--primary-glow)',
-                          color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer', flexShrink: 0
-                        }}
-                      >
-                        <MaterialIcon name="calculate" className="text-[20px]" />
-                      </button>
-                    </div>
-
                     {type !== 'transfer' ? (
                       <>
                         {/* Asset selector button */}
@@ -526,7 +502,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               }}
                               style={{
                                 width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
-                                border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                                border: !assetId ? '2px solid var(--danger)' : '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 cursor: 'pointer', color: selectedAsset ? 'var(--text-main)' : 'var(--text-muted)'
                               }}
@@ -542,38 +518,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             </button>
                           );
                         })()}
-
-                        {/* Category selector button */}
-                        <button
-                          type="button"
-                          data-testid="tx-category-select"
-                          onClick={() => setIsCategoryModalOpen(true)}
-                          style={{
-                            width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
-                            border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            cursor: 'pointer', color: categoryId ? 'var(--text-main)' : 'var(--text-muted)'
-                          }}
-                          data-tour="modal-category"
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <MaterialIcon name="folder" className="text-[18px]" />
-                            <span style={{ fontSize: '14px', fontWeight: categoryId ? 700 : 500 }}>
-                              {categoryId ? (() => {
-                                const cat = categories.find(c => c.id === categoryId);
-                                const catName = cat?.name || categoryId;
-                                if (subCategoryId) {
-                                  const subName = cat?.subcategories?.find(s => s.id === subCategoryId)?.name || subCategoryId;
-                                  return `${catName}  >  ${subName}`;
-                                }
-                                return catName;
-                              })() : '-- Pilih Kategori --'}
-                            </span>
-                          </div>
-                          <MaterialIcon name="chevron_right" className="text-[18px]" />
-                        </button>
-
-
                       </>
                     ) : (
                       <>
@@ -591,7 +535,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 }}
                                 style={{
                                   flex: 1, padding: '12px 14px', background: 'var(--bg-card-solid)',
-                                  border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                                  border: !fromAssetId ? '2px solid var(--danger)' : '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
                                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                   cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
                                 }}
@@ -631,7 +575,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 }}
                                 style={{
                                   flex: 1, padding: '12px 14px', background: 'var(--bg-card-solid)',
-                                  border: '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                                  border: !toAssetId ? '2px solid var(--danger)' : '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
                                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                   cursor: 'pointer', color: asset ? 'var(--text-main)' : 'var(--text-muted)'
                                 }}
@@ -645,9 +589,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             );
                           })()}
                         </div>
-
-
-
+                        
                         {/* Admin Fee Section */}
                         <div style={{
                           padding: '10px 12px', borderRadius: '10px',
@@ -700,13 +642,70 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     )}
 
                     <div className="flex gap-2">
+                      <CurrencyInput
+                        data-testid="tx-amount-input"
+                        ref={amountRef}
+                        required
+                        placeholder={`Nominal (${currencySymbol})`}
+                        value={amount}
+                        onChange={handleRawAmountChange}
+                        style={{ flex: 1, height: '48px', padding: '12px 14px', marginBottom: 0, border: (!amount || Number(amount.replace(/\./g, '')) <= 0) ? '2px solid var(--danger)' : undefined }}
+                        data-tour="modal-amount"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsCalculatorOpen(true)}
+                        style={{
+                          width: '48px', height: '48px', borderRadius: '12px',
+                          background: 'var(--bg-income)', border: '1px solid var(--primary-glow)',
+                          color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', flexShrink: 0
+                        }}
+                      >
+                        <MaterialIcon name="calculate" className="text-[20px]" />
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
                       <div className="flex-1">
-                        <Input data-testid="tx-date-input" type="date" required value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0 }} />
+                        <Input data-testid="tx-date-input" type="date" required value={date} onChange={e => setDate(e.target.value)} style={{ marginBottom: 0, borderColor: !date ? 'var(--danger)' : undefined, borderWidth: !date ? '2px' : undefined }} />
                       </div>
                       <div className="w-[110px]">
-                        <Input type="time" required value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0 }} />
+                        <Input type="time" required value={time} onChange={e => setTime(e.target.value)} style={{ marginBottom: 0, borderColor: !time ? 'var(--danger)' : undefined, borderWidth: !time ? '2px' : undefined }} />
                       </div>
                     </div>
+
+                    {type !== 'transfer' && (
+                      <button
+                        type="button"
+                        data-testid="tx-category-select"
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        style={{
+                          width: '100%', padding: '14px 16px', background: 'var(--bg-card-solid)',
+                          border: !categoryId ? '2px solid var(--danger)' : '2px solid var(--border-color)', borderRadius: 'var(--radius-sm)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          cursor: 'pointer', color: categoryId ? 'var(--text-main)' : 'var(--text-muted)'
+                        }}
+                        data-tour="modal-category"
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <MaterialIcon name="folder" className="text-[18px]" />
+                          <span style={{ fontSize: '14px', fontWeight: categoryId ? 700 : 500 }}>
+                            {categoryId ? (() => {
+                              const cat = categories.find(c => c.id === categoryId);
+                              const catName = cat?.name || categoryId;
+                              if (subCategoryId) {
+                                const subName = cat?.subcategories?.find(s => s.id === subCategoryId)?.name || subCategoryId;
+                                return `${catName}  >  ${subName}`;
+                              }
+                              return catName;
+                            })() : '-- Pilih Kategori --'}
+                          </span>
+                        </div>
+                        <MaterialIcon name="chevron_right" className="text-[18px]" />
+                      </button>
+                    )}
+
                     <Input data-testid="tx-note-input" type="text" placeholder="Catatan opsional" value={note} onChange={e => setNote(e.target.value)} data-tour="modal-note" style={{ marginBottom: 0 }} />
                     
                     <div className="flex flex-col gap-1.5">
