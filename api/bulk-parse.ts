@@ -70,7 +70,7 @@ export default async function handler(req: any, res: any) {
     - type: "pengeluaran", "pendapatan", or "transfer"
     - amount: numeric value (int)
     - date: YYYY-MM-DD (fallback to ${dateContext})
-    - note: concise description
+    - note: concise description. CRITICAL: For merchant names, extract ONLY the real entity name. IGNORE generic transaction titles (e.g., QRIS payments, TopUps, Debit Transactions, Transfer) and masked card numbers. If no specific name is found, use a concise description of the transaction.
     - category: best match from available categories (leave empty if transfer).
     - subCategory: best match if a subcategory is identified.
     - asset: best match for payment method from [${assetList}] (for pengeluaran/pendapatan). ${defaultAssetHint ? `If not clearly mentioned, use "${defaultAsset.name}" as the default asset.` : ""}
