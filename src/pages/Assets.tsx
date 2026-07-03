@@ -36,7 +36,7 @@ const getIconForType = (type: AssetType): string => {
 
 const getColorForType = (type: AssetType): IconBlockColor => {
   switch (type) {
-    case 'Cash': return 'secondary';
+    case 'Cash': return 'primary';
     case 'Bank Account': return 'primary';
     case 'Credit Card': return 'error';
     case 'eWallet': return 'success';

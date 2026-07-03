@@ -80,6 +80,24 @@ const Transactions: React.FC = () => {
   const [bulkInputText, setBulkInputText] = useState('');
   const { isListening, toggleListening } = useSpeechToText('\n');
 
+  const [showQuickScrollFab, setShowQuickScrollFab] = useState(true);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const section = document.getElementById('input-cepat-section');
+      if (section) {
+        if (window.scrollY > section.offsetTop - 300) {
+          setShowQuickScrollFab(false);
+        } else {
+          setShowQuickScrollFab(true);
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const fabsize = 56;
   const fabmargin = 20;
   const fabmarginBottom = 88;
@@ -87,6 +105,18 @@ const Transactions: React.FC = () => {
     top: window.innerHeight - fabsize - fabmarginBottom,
     left: window.innerWidth - fabsize - fabmargin,
   }));
+
+  useEffect(() => {
+    const handleResize = () => {
+      setFabPos({
+        top: window.innerHeight - fabsize - fabmarginBottom,
+        left: window.innerWidth - fabsize - fabmargin,
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [isFabDragging, setIsFabDragging] = useState(false);
   const fabRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef({ x: 0, y: 0, top: 0, left: 0 });
@@ -1133,7 +1163,7 @@ const Transactions: React.FC = () => {
           </section>
 
           {/* Presets Section */}
-          <section className="space-y-4">
+          <section id="input-cepat-section" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-headline-md text-headline-md text-on-surface">Input Cepat</h3>
               <button onClick={() => setIsPresetManagerOpen(true)} className="text-primary font-label-md text-label-md hover:underline bg-transparent border-none cursor-pointer">Edit Presets</button>
@@ -1380,6 +1410,25 @@ const Transactions: React.FC = () => {
           ]}
         />
       </PageWrapper>
+
+      {/* Quick Scroll to Input Cepat FAB */}
+      {showQuickScrollFab && (
+        <div className="lg:hidden fixed bottom-[85px] left-0 w-full flex justify-center z-[90] pointer-events-none">
+          <button
+            onClick={() => {
+              const section = document.getElementById('input-cepat-section');
+              if (section) {
+                const y = section.getBoundingClientRect().top + window.scrollY - 80;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+              }
+            }}
+            className="pointer-events-auto flex items-center justify-center gap-1 px-3 py-1.5 bg-primary text-on-primary rounded-full shadow-lg border-none cursor-pointer hover:bg-primary/90 transition-all text-[10px] font-bold tracking-wide animate-in slide-in-from-bottom-5 fade-in duration-300"
+          >
+            <MaterialIcon name="arrow_downward" className="text-[14px]" />
+            Input Cepat
+          </button>
+        </div>
+      )}
 
       {/* Draggable MoneyBot FAB */}
       <div

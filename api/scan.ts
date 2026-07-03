@@ -41,7 +41,13 @@ export default async function handler(req: any, res: any) {
     const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
 
     const prompt = `You are a receipt parser. Extract receipt data and return ONLY a valid JSON object with these fields:
-    - merchantName: string (store/restaurant name, empty string if not found)
+    - merchantName: string (The actual store, merchant, or target name. 
+      CRITICAL: Extract ONLY the real entity name. 
+      - MUST IGNORE generic transaction titles or prefixes (e.g., QRIS payments, E-Wallet TopUps, Debit Transactions, Transfer).
+      - MUST IGNORE payment method names, virtual cards, or masked card numbers.
+      - Extract only the core merchant or recipient name.
+      - If no specific merchant name is found, return an empty string "". Do NOT hallucinate.
+    )
     - amount: number (final TOTAL paid by customer, including all taxes and fees. Use 0 if not found.)
     - date: string (YYYY-MM-DD format, use today if not visible)
     - time: string (HH:mm format, extraction from receipt, use current time if not visible)

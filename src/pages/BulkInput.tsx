@@ -18,6 +18,10 @@ const BulkInput: React.FC = () => {
   const { showToast } = useToast();
 
   const [stage, setStage] = useState<'input' | 'results'>('input');
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const [inputText, setInputText] = useState('');
   const [results, setResults] = useState<ParsedTransaction[]>([]);
   

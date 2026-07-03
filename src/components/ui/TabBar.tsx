@@ -4,6 +4,8 @@ export interface Tab {
   id: string;
   label: string;
   'data-testid'?: string;
+  activeClassName?: string;
+  activeStyle?: React.CSSProperties;
 }
 
 export interface TabBarProps {
@@ -28,9 +30,10 @@ export const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onChange, cla
             onClick={() => onChange(tab.id)}
             className={`flex-1 px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap cursor-pointer border-none outline-none ${
               isActive 
-                ? 'bg-primary text-white shadow-sm' 
+                ? (tab.activeClassName || 'bg-primary text-white shadow-sm')
                 : 'bg-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-subtle'
             }`}
+            style={isActive && tab.activeStyle ? tab.activeStyle : undefined}
           >
             {tab.label}
           </button>

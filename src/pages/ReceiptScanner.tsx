@@ -81,6 +81,15 @@ const ReceiptScanner: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      document.getElementById('root')?.scrollTo({ top: 0, behavior: 'instant' });
+      document.body.scrollTo({ top: 0, behavior: 'instant' });
+    }, 50);
+  }, []);
+
   // Check for shared image files from PWA Share Target
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -914,18 +923,18 @@ const ReceiptScanner: React.FC = () => {
                       <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Tanggal</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-outline"><MaterialIcon name="calendar_today" className="text-[20px]" /></span>
-                        <input className="w-full pl-12 pr-4 py-3 rounded-lg border border-border-light focus:ring-2 focus:ring-primary/20 focus:border-primary font-body-md outline-none transition-all" type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+                        <input className="w-full pl-12 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary/20 focus:border-primary font-body-md outline-none transition-all" style={{ borderColor: !selectedDate ? 'var(--danger)' : 'var(--border-color)', borderWidth: !selectedDate ? '2px' : '1px' }} type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
                       </div>
                     </div>
                     <div>
                       <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Waktu</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-outline"><MaterialIcon name="schedule" className="text-[20px]" /></span>
-                        <input className="w-full pl-12 pr-4 py-3 rounded-lg border border-border-light focus:ring-2 focus:ring-primary/20 focus:border-primary font-body-md outline-none transition-all" type="time" value={selectedTime} onChange={e => setSelectedTime(e.target.value)} />
+                        <input className="w-full pl-12 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary/20 focus:border-primary font-body-md outline-none transition-all" style={{ borderColor: !selectedTime ? 'var(--danger)' : 'var(--border-color)', borderWidth: !selectedTime ? '2px' : '1px' }} type="time" value={selectedTime} onChange={e => setSelectedTime(e.target.value)} />
                       </div>
                     </div>
 
-                    <div className="col-span-full bg-surface-container-low rounded-xl p-4 flex items-center justify-between border border-primary/10">
+                    <div className="col-span-full bg-surface-container-low rounded-xl p-4 flex items-center justify-between border" style={{ borderColor: (!editableAmount || Number(editableAmount) <= 0) ? 'var(--danger)' : 'var(--primary-glow)', borderWidth: (!editableAmount || Number(editableAmount) <= 0) ? '2px' : '1px' }}>
                       <div className="flex items-center gap-4">
                         <div className="p-3 bg-white rounded-lg border border-border-light text-primary flex items-center justify-center">
                           <MaterialIcon name="calculate" />
@@ -945,7 +954,7 @@ const ReceiptScanner: React.FC = () => {
 
                     <div>
                       <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Sumber Aset</label>
-                      <button onClick={() => setIsAssetModalOpen(true)} className="w-full px-4 py-3 rounded-lg border border-border-light hover:border-primary font-body-md bg-white text-left flex items-center justify-between transition-all cursor-pointer">
+                      <button onClick={() => setIsAssetModalOpen(true)} className="w-full px-4 py-3 rounded-lg border hover:border-primary font-body-md bg-white text-left flex items-center justify-between transition-all cursor-pointer" style={{ borderColor: !selectedAssetId ? 'var(--danger)' : 'var(--border-color)', borderWidth: !selectedAssetId ? '2px' : '1px' }}>
                         <span className="truncate">{assets.find(a => a.id === selectedAssetId)?.name || 'Pilih Rekening'}</span>
                         <MaterialIcon name="expand_more" className="text-outline text-[18px]" />
                       </button>
@@ -953,7 +962,7 @@ const ReceiptScanner: React.FC = () => {
 
                     <div>
                       <label className="font-label-sm text-label-sm text-on-surface-variant mb-2 block uppercase">Kategori</label>
-                      <button onClick={() => setIsCatModalOpen(true)} className="w-full px-4 py-3 rounded-lg border border-border-light hover:border-primary font-body-md bg-white text-left flex items-center justify-between transition-all cursor-pointer">
+                      <button onClick={() => setIsCatModalOpen(true)} className="w-full px-4 py-3 rounded-lg border hover:border-primary font-body-md bg-white text-left flex items-center justify-between transition-all cursor-pointer" style={{ borderColor: !selectedCategory ? 'var(--danger)' : 'var(--border-color)', borderWidth: !selectedCategory ? '2px' : '1px' }}>
                         <div className="flex items-center gap-2 truncate">
                           <MaterialIcon name="folder" className="text-primary text-[20px]" />
                           <span className="truncate">

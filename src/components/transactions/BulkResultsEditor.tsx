@@ -217,7 +217,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
             </div>
 
             {/* Bento Block: Amount & Date */}
-            <div style={{ background: 'var(--bg-main)', borderRadius: '16px', padding: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ background: 'var(--bg-main)', borderRadius: '16px', padding: '16px', border: (!item.amount || item.amount <= 0) ? '2px solid var(--danger)' : '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Nominal</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '20px', fontWeight: 800, color: item.type === 'pengeluaran' ? 'var(--danger)' : 'var(--success)' }}>{currencySymbol}</span>
@@ -237,7 +237,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                   type="date"
                   value={item.date}
                   onChange={(e) => updateResult(item.id, 'date', e.target.value)}
-                  style={{ width: '100%', fontSize: '13px', fontWeight: 700, padding: 0, border: 'none', background: 'transparent', margin: 0, color: 'var(--text-main)', outline: 'none' }}
+                  style={{ width: '100%', fontSize: '13px', fontWeight: 700, padding: 0, border: !item.date ? '2px solid var(--danger)' : 'none', borderRadius: !item.date ? '4px' : '0', background: 'transparent', margin: 0, color: 'var(--text-main)', outline: 'none' }}
                 />
               </div>
             </div>
@@ -259,14 +259,14 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
               {item.type !== 'transfer' ? (
                 <>
                   {!isMutation && (
-                    <button onClick={() => openModal('asset', item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                    <button onClick={() => openModal('asset', item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: (!item.asset && !batchAssetId) ? '2px solid var(--danger)' : '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
                       <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Rekening</span>
                       <span style={{ fontSize: '12px', fontWeight: 800, color: item.asset ? 'var(--text-main)' : 'var(--text-muted)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {getAssetLabel(item.asset)}
                       </span>
                     </button>
                   )}
-                  <button onClick={() => openModal('category', item.id)} style={{ gridColumn: isMutation ? '1 / -1' : 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                  <button onClick={() => openModal('category', item.id)} style={{ gridColumn: isMutation ? '1 / -1' : 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: (!item.categoryId) ? '2px solid var(--danger)' : '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Kategori</span>
                     <span style={{ fontSize: '12px', fontWeight: 800, color: item.category ? 'var(--text-main)' : 'var(--text-muted)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {getCategoryLabel(item)}
@@ -277,7 +277,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                 <>
                   {isMutation ? (
                     <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
-                      <button onClick={() => openModal(item.fromAsset && item.fromAsset !== batchAssetId ? 'fromAsset' : 'toAsset', item.id)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                      <button onClick={() => openModal(item.fromAsset && item.fromAsset !== batchAssetId ? 'fromAsset' : 'toAsset', item.id)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: (!item.fromAsset || !item.toAsset) ? '2px solid var(--danger)' : '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
                         <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Lawan Transaksi</span>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {getAssetLabel(item.fromAsset && item.fromAsset !== batchAssetId ? item.fromAsset : item.toAsset, 'Pilih Rekening')}
@@ -310,13 +310,13 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                     </div>
                   ) : (
                     <>
-                      <button onClick={() => openModal('fromAsset', item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                      <button onClick={() => openModal('fromAsset', item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: !item.fromAsset ? '2px solid var(--danger)' : '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
                         <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Dari Rekening</span>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: item.fromAsset ? 'var(--text-main)' : 'var(--text-muted)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {getAssetLabel(item.fromAsset)}
                         </span>
                       </button>
-                      <button onClick={() => openModal('toAsset', item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                      <button onClick={() => openModal('toAsset', item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: !item.toAsset ? '2px solid var(--danger)' : '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
                         <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Ke Rekening</span>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: item.toAsset ? 'var(--text-main)' : 'var(--text-muted)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {getAssetLabel(item.toAsset)}
