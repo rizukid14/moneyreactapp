@@ -84,6 +84,15 @@ const ReceiptScanner: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      document.getElementById('root')?.scrollTo({ top: 0, behavior: 'instant' });
+      document.body.scrollTo({ top: 0, behavior: 'instant' });
+    }, 50);
+  }, []);
+
   // Check for shared image files from PWA Share Target
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
