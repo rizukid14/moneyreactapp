@@ -11,9 +11,10 @@ export interface TabBarProps {
   activeTabId: string;
   onChange: (id: string) => void;
   className?: string;
+  activeStyle?: React.CSSProperties;
 }
 
-export const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onChange, className = '' }) => {
+export const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onChange, className = '', activeStyle }) => {
   return (
     <div 
       className={`flex bg-surface-container rounded-lg p-1 overflow-x-auto hide-scrollbar border border-outline-variant ${className}`}
@@ -26,9 +27,12 @@ export const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onChange, cla
             data-testid={tab['data-testid']}
             type="button"
             onClick={() => onChange(tab.id)}
+            style={isActive && activeStyle ? activeStyle : undefined}
             className={`flex-1 px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap cursor-pointer border-none outline-none ${
-              isActive 
+              isActive && !activeStyle
                 ? 'bg-primary text-white shadow-sm' 
+                : isActive && activeStyle 
+                ? 'shadow-sm'
                 : 'bg-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-subtle'
             }`}
           >
