@@ -6,8 +6,24 @@ import { query, where, orderBy } from 'firebase/firestore';
 import { generateId } from './utils';
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
-const DB_NAME = 'moneyapp_db';
 const DB_VERSION = 11;
+
+let activeWorkspaceId: string | null = null;
+
+export const setSyncWorkspace = async (workspaceId: string | null) => {
+  if (activeWorkspaceId === workspaceId) return;
+  activeWorkspaceId = workspaceId;
+  
+  if (dbPromise) {
+    const db = await dbPromise;
+    db.close();
+    dbPromise = null;
+  }
+};
+
+export const getSyncWorkspace = () => activeWorkspaceId;
+
+const getDbName = () => activeWorkspaceId ? `moneyapp_db_family_${activeWorkspaceId}` : 'moneyapp_db';
 
 export interface SyncItem {
   id: string;
@@ -40,7 +56,7 @@ let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
 
 const getDB = () => {
   if (!dbPromise) {
-    dbPromise = openDB<MoneyAppDB>(DB_NAME, DB_VERSION, {
+    dbPromise = openDB<MoneyAppDB>(getDbName(), DB_VERSION, {
       upgrade(db) {
         if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('transactions')) db.createObjectStore('transactions', { keyPath: 'id' });
@@ -102,6 +118,13 @@ const getUid = () => {
   return auth.currentUser.uid;
 };
 
+export const getWorkspacePath = (collectionName: string) => {
+  if (activeWorkspaceId) {
+    return `families/${activeWorkspaceId}/${collectionName}`;
+  }
+  return `users/${getUid()}/${collectionName}`;
+};
+
 const sanitizeForFirestore = (obj: any): any => {
   if (obj === undefined) return null;
   if (obj === null || typeof obj !== 'object') return obj;
@@ -156,7 +179,7 @@ export const mergeData = <T extends { id?: string | number }>(cloud: T[], local:
  * Pulls a full collection from Firestore and writes every document into IDB.
  */
 export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: string, idbStoreName?: string): Promise<T[]> => {
-  const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), colName)), 10000);
+  const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath(colName))), 10000);
   const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as T));
   const db = await getDB();
   const store = idbStoreName || colName;
@@ -220,7 +243,7 @@ export const dbForceCloudSync = async (): Promise<{ total: number }> => {
       total += items.length;
     }
     // Settings: pull all setting docs from the settings sub-collection
-    const settingsSnap = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'settings')), 10000);
+    const settingsSnap = await withTimeout(getDocs(collection(firestore, getWorkspacePath('settings'))), 10000);
     for (const d of settingsSnap.docs) {
       const val = d.data().value;
       if (val !== undefined) {
@@ -241,7 +264,7 @@ export const dbGetAllAssets = async (): Promise<Asset[]> => {
   // IDB-first: only hit Firestore when IDB is empty (new device / first login)
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'assets')));
+    const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('assets'))));
     const cloud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
     // Populate IDB so next open costs 0 reads
     const db = await getDB();
@@ -258,7 +281,7 @@ export const dbPutAsset = async (asset: Asset, options?: { skipSync?: boolean })
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
   // Background attempt
-  setDoc(doc(firestore, 'users', getUid(), 'assets', asset.id), sanitizeForFirestore(asset))
+  setDoc(doc(collection(firestore, getWorkspacePath('assets')), asset.id), sanitizeForFirestore(asset))
     .then(() => removePendingSync(asset.id))
     .catch(() => { });
 };
@@ -269,7 +292,7 @@ export const dbDeleteAsset = async (id: string) => {
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
   // Background attempt
-  deleteDoc(doc(firestore, 'users', getUid(), 'assets', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('assets')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -284,7 +307,7 @@ export const dbGetAllTransactions = async (): Promise<Transaction[]> => {
   // IDB-first: transactions are the most expensive collection — never re-read from cloud unnecessarily
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'transactions')), 10000);
+    const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('transactions'))), 10000);
     const cloud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
     const db = await getDB();
     for (const item of cloud) await db.put('transactions', item);
@@ -298,7 +321,7 @@ export const dbPutTransaction = async (tx: Transaction) => {
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
   // Background attempt
-  setDoc(doc(firestore, 'users', getUid(), 'transactions', tx.id), sanitizeForFirestore(tx))
+  setDoc(doc(collection(firestore, getWorkspacePath('transactions')), tx.id), sanitizeForFirestore(tx))
     .then(() => removePendingSync(tx.id))
     .catch(() => { });
 };
@@ -309,7 +332,7 @@ export const dbDeleteTransaction = async (id: string) => {
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
   // Background attempt
-  deleteDoc(doc(firestore, 'users', getUid(), 'transactions', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('transactions')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -320,7 +343,7 @@ export const dbGetAllCategories = async (): Promise<Category[]> => {
   // IDB-first
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'categories')));
+    const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('categories'))));
     const cloud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
     const db = await getDB();
     for (const item of cloud) await db.put('categories', item);
@@ -335,7 +358,7 @@ export const dbPutCategory = async (cat: Category, options?: { skipSync?: boolea
   await recordPendingSync({ id: cat.id, collection: 'categories', operation: 'PUT', data: cat });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'categories', cat.id), sanitizeForFirestore(cat))
+  setDoc(doc(collection(firestore, getWorkspacePath('categories')), cat.id), sanitizeForFirestore(cat))
     .then(() => removePendingSync(cat.id))
     .catch(() => { });
 };
@@ -345,7 +368,7 @@ export const dbDeleteCategory = async (id: string) => {
   await recordPendingSync({ id, collection: 'categories', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'categories', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('categories')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -381,7 +404,7 @@ export const dbGetAllDebts = async (): Promise<any[]> => {
   // IDB-first
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'debts')));
+    const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('debts'))));
     const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     const db = await getDB();
     for (const item of cloud) await db.put('debts', item);
@@ -394,7 +417,7 @@ export const dbPutDebt = async (d: any) => {
   await recordPendingSync({ id: d.id, collection: 'debts', operation: 'PUT', data: d });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'debts', d.id), sanitizeForFirestore(d))
+  setDoc(doc(collection(firestore, getWorkspacePath('debts')), d.id), sanitizeForFirestore(d))
     .then(() => removePendingSync(d.id))
     .catch(() => { });
 };
@@ -404,7 +427,7 @@ export const dbDeleteDebt = async (id: string) => {
   await recordPendingSync({ id, collection: 'debts', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'debts', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('debts')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -415,7 +438,7 @@ export const dbGetAllRecurringTransactions = async (): Promise<any[]> => {
   // IDB-first
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'recurring_transactions')));
+    const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('recurring_transactions'))));
     const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     const db = await getDB();
     for (const item of cloud) await db.put('recurring_transactions', item);
@@ -448,7 +471,7 @@ export const dbGetAllContacts = async (): Promise<Contact[]> => {
   const local = await (await getDB()).getAll('contacts');
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'contacts')));
+    const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('contacts'))));
     const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Contact));
     const db = await getDB();
     for (const item of cloud) await db.put('contacts', item);
@@ -461,7 +484,7 @@ export const dbPutContact = async (contact: Contact) => {
   await recordPendingSync({ id: contact.id, collection: 'contacts', operation: 'PUT', data: contact });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'contacts', contact.id), sanitizeForFirestore(contact))
+  setDoc(doc(collection(firestore, getWorkspacePath('contacts')), contact.id), sanitizeForFirestore(contact))
     .then(() => removePendingSync(contact.id))
     .catch(() => { });
 };
@@ -471,7 +494,7 @@ export const dbDeleteContact = async (id: string) => {
   await recordPendingSync({ id, collection: 'contacts', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'contacts', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('contacts')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -481,7 +504,7 @@ export const dbGetAllSubscriptions = async (): Promise<any[]> => {
   const local = await (await getDB()).getAll('subscriptions');
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'subscriptions')));
+    const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('subscriptions'))));
     const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     const db = await getDB();
     for (const item of cloud) await db.put('subscriptions', item);
@@ -494,7 +517,7 @@ export const dbPutSubscription = async (sub: any) => {
   await recordPendingSync({ id: sub.id, collection: 'subscriptions', operation: 'PUT', data: sub });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'subscriptions', sub.id), sanitizeForFirestore(sub))
+  setDoc(doc(collection(firestore, getWorkspacePath('subscriptions')), sub.id), sanitizeForFirestore(sub))
     .then(() => removePendingSync(sub.id))
     .catch(() => { });
 };
@@ -504,7 +527,7 @@ export const dbDeleteSubscription = async (id: string) => {
   await recordPendingSync({ id, collection: 'subscriptions', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'subscriptions', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('subscriptions')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -514,7 +537,7 @@ export const dbGetAllGoals = async (): Promise<Goal[]> => {
   const local = await localDbGetAllGoals();
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const snapshot = await withTimeout(getDocs(collection(firestore, 'users', getUid(), 'goals')));
+    const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('goals'))));
     const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Goal));
     const db = await getDB();
     for (const item of cloud) await db.put('goals', item);
@@ -527,7 +550,7 @@ export const dbPutGoal = async (goal: Goal) => {
   await recordPendingSync({ id: goal.id, collection: 'goals', operation: 'PUT', data: goal });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'goals', goal.id), sanitizeForFirestore(goal))
+  setDoc(doc(collection(firestore, getWorkspacePath('goals')), goal.id), sanitizeForFirestore(goal))
     .then(() => removePendingSync(goal.id))
     .catch(() => { });
 };
@@ -537,7 +560,7 @@ export const dbDeleteGoal = async (id: string) => {
   await recordPendingSync({ id, collection: 'goals', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'goals', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('goals')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -559,7 +582,7 @@ export const dbGetSetting = async (key: string) => {
   // (covers new device / first login scenario)
   if (local !== undefined || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const docSnap = await withTimeout(getDoc(doc(firestore, 'users', getUid(), 'settings', key)));
+    const docSnap = await withTimeout(getDoc(doc(collection(firestore, getWorkspacePath('settings')), key)));
     const cloud = docSnap.exists() ? docSnap.data().value : undefined;
     // Cache into IDB so next read costs nothing
     if (cloud !== undefined) await (await getDB()).put('settings', cloud, key);
@@ -572,7 +595,7 @@ export const dbPutSetting = async (key: string, value: any) => {
   await recordPendingSync({ id: `setting-${key}`, collection: 'settings', operation: 'PUT', data: { key, value } });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'settings', key), { value: sanitizeForFirestore(value) })
+  setDoc(doc(collection(firestore, getWorkspacePath('settings')), key), { value: sanitizeForFirestore(value) })
     .then(() => removePendingSync(`setting-${key}`))
     .catch(() => { });
 };
@@ -582,7 +605,7 @@ export const dbDeleteSetting = async (key: string) => {
   await recordPendingSync({ id: `setting-${key}`, collection: 'settings', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'settings', key))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('settings')), key))
     .then(() => removePendingSync(`setting-${key}`))
     .catch(() => { });
 };
@@ -626,10 +649,10 @@ export const dbSyncPendingItems = async (): Promise<{ success: number; failed: n
       if (item.operation === 'PUT') {
         const path = item.collection === 'settings' ? ['settings', item.id.replace('setting-', '')] : [item.collection, item.id];
         const data = item.collection === 'settings' ? { value: item.data?.value !== undefined ? item.data.value : item.data } : item.data;
-        await withTimeout(setDoc(doc(firestore, 'users', getUid(), path[0], path[1]), sanitizeForFirestore(data)));
+        await withTimeout(setDoc(doc(collection(firestore, getWorkspacePath(path[0])), path[1]), sanitizeForFirestore(data)));
       } else if (item.operation === 'DELETE') {
         const path = item.collection === 'settings' ? ['settings', item.id.replace('setting-', '')] : [item.collection, item.id];
-        await withTimeout(deleteDoc(doc(firestore, 'users', getUid(), path[0], path[1])));
+        await withTimeout(deleteDoc(doc(collection(firestore, getWorkspacePath(path[0])), path[1])));
       }
       await db.delete('pending_sync', item.id);
       success++;
@@ -770,7 +793,7 @@ export const dbPutTrip = async (trip: any) => {
   await recordPendingSync({ id: trip.id, collection: 'trips', operation: 'PUT', data: trip });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'trips', trip.id), sanitizeForFirestore(trip))
+  setDoc(doc(collection(firestore, getWorkspacePath('trips')), trip.id), sanitizeForFirestore(trip))
     .then(() => removePendingSync(trip.id))
     .catch(() => { });
 };
@@ -781,7 +804,7 @@ export const dbDeleteTrip = async (id: string) => {
   await recordPendingSync({ id, collection: 'trips', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'trips', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('trips')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -798,7 +821,7 @@ export const dbPutTripExpense = async (expense: any) => {
   await recordPendingSync({ id: expense.id, collection: 'trip_expenses', operation: 'PUT', data: expense });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'trip_expenses', expense.id), sanitizeForFirestore(expense))
+  setDoc(doc(collection(firestore, getWorkspacePath('trip_expenses')), expense.id), sanitizeForFirestore(expense))
     .then(() => removePendingSync(expense.id))
     .catch(() => { });
 };
@@ -809,7 +832,7 @@ export const dbDeleteTripExpense = async (id: string) => {
   await recordPendingSync({ id, collection: 'trip_expenses', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'trip_expenses', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('trip_expenses')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -826,7 +849,7 @@ export const dbPutMonthlyIncome = async (item: any) => {
   await recordPendingSync({ id: item.id, collection: 'monthly_incomes', operation: 'PUT', data: item });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'monthly_incomes', item.id), sanitizeForFirestore(item))
+  setDoc(doc(collection(firestore, getWorkspacePath('monthly_incomes')), item.id), sanitizeForFirestore(item))
     .then(() => removePendingSync(item.id))
     .catch(() => { });
 };
@@ -837,7 +860,7 @@ export const dbDeleteMonthlyIncome = async (id: string) => {
   await recordPendingSync({ id, collection: 'monthly_incomes', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'monthly_incomes', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('monthly_incomes')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -854,7 +877,7 @@ export const dbPutBudgetReallocation = async (item: any) => {
   await recordPendingSync({ id: item.id, collection: 'budget_reallocations', operation: 'PUT', data: item });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'budget_reallocations', item.id), sanitizeForFirestore(item))
+  setDoc(doc(collection(firestore, getWorkspacePath('budget_reallocations')), item.id), sanitizeForFirestore(item))
     .then(() => removePendingSync(item.id))
     .catch(() => { });
 };
@@ -865,7 +888,7 @@ export const dbDeleteBudgetReallocation = async (id: string) => {
   await recordPendingSync({ id, collection: 'budget_reallocations', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'budget_reallocations', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('budget_reallocations')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };
@@ -882,7 +905,7 @@ export const dbPutNotification = async (item: any) => {
   await recordPendingSync({ id: item.id, collection: 'notifications', operation: 'PUT', data: item });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(firestore, 'users', getUid(), 'notifications', item.id), sanitizeForFirestore(item))
+  setDoc(doc(collection(firestore, getWorkspacePath('notifications')), item.id), sanitizeForFirestore(item))
     .then(() => removePendingSync(item.id))
     .catch(() => { });
 };
@@ -893,7 +916,7 @@ export const dbDeleteNotification = async (id: string) => {
   await recordPendingSync({ id, collection: 'notifications', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(firestore, 'users', getUid(), 'notifications', id))
+  deleteDoc(doc(collection(firestore, getWorkspacePath('notifications')), id))
     .then(() => removePendingSync(id))
     .catch(() => { });
 };

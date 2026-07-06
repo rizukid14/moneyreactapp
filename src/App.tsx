@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { MoneyProvider, useMoney } from './contexts/MoneyContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
 import { PremiumProvider } from './contexts/PremiumContext';
+import { FamilyProvider } from './contexts/FamilyContext';
 import { SubscriptionModal } from './components/modals/SubscriptionModal';
 import Layout from './components/Layout';
 import LockScreen from './components/LockScreen';
@@ -86,14 +87,16 @@ const AppContent: React.FC = () => {
 function App() {
   return (
     <ToastProvider>
-      <MoneyProvider>
-        <PremiumProvider>
-          <OnboardingProvider>
-            <AppContent />
-            <SubscriptionModal />
-          </OnboardingProvider>
-        </PremiumProvider>
-      </MoneyProvider>
+      <FamilyProvider>
+        <MoneyProvider>
+          <PremiumProvider>
+            <OnboardingProvider>
+              <AppContent />
+              <SubscriptionModal />
+            </OnboardingProvider>
+          </PremiumProvider>
+        </MoneyProvider>
+      </FamilyProvider>
     </ToastProvider>
   );
 }

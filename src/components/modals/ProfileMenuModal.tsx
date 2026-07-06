@@ -6,6 +6,7 @@ import { useMoney } from '../../contexts/MoneyContext';
 import { auth, googleProvider } from '../../lib/firebase';
 import { linkWithPopup } from 'firebase/auth';
 import { useToast } from '../common/Toast';
+import WorkspaceSwitcher from '../WorkspaceSwitcher';
 
 interface ProfileMenuModalProps {
   isOpen: boolean;
@@ -73,8 +74,11 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
         <h3 className="font-headline-md text-headline-md text-on-surface">{user.name}</h3>
         <p className="text-sm text-on-surface-variant font-medium">Pro Plan Member</p>
       </div>
+      <div className="w-full px-4 mb-4 mt-2">
+        <WorkspaceSwitcher isMobile={true} />
+      </div>
 
-      <div className="flex flex-col gap-2 pb-2">
+      <div className="flex flex-col gap-2 pb-2 px-2">
         <button 
           onClick={() => handleNavigate('/settings')}
           className="w-full flex items-center gap-4 p-4 rounded-2xl text-on-surface hover:bg-surface-container transition-colors border-none bg-transparent cursor-pointer group"

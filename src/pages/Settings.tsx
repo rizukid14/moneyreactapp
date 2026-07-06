@@ -12,6 +12,7 @@ import { exportAllDataToExcel } from '../lib/excelExport';
 import ExcelMappingModal from '../components/modals/ExcelMappingModal';
 import { BudgetManagement } from '../components/BudgetManagement';
 import { GoalManagement } from '../components/GoalManagement';
+import { FamilyManagement } from '../components/FamilyManagement';
 import CategoryManagerModal from '../components/modals/CategoryManagerModal';
 
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -343,6 +344,24 @@ const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onCh
 const Settings: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab') === 'family') {
+      setTimeout(() => {
+        const el = document.getElementById('family-management');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Highlight effect
+          el.style.transition = 'box-shadow 0.5s';
+          el.style.boxShadow = '0 0 0 4px var(--primary-container)';
+          setTimeout(() => el.style.boxShadow = '', 2000);
+        }
+      }, 500);
+    }
+  }, [location]);
+
+  // Auth context for manual sync
   const { showToast } = useToast();
   const { premium, setShowUpgradeModal } = usePremium();
   const { user, updateUser, pin, setAppPin, lockApp, categories, assets, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
@@ -1895,6 +1914,8 @@ const Settings: React.FC = () => {
               </>
             )}
           </section>
+
+          <FamilyManagement />
 
           {/* Security Card */}
           <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">

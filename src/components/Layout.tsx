@@ -10,6 +10,7 @@ import AddActionMenu from './modals/AddActionMenu';
 import NotificationModal from './modals/NotificationModal';
 import ProfileMenuModal from './modals/ProfileMenuModal';
 import WhatsNewModal from './modals/WhatsNewModal';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 const Layout: React.FC = () => {
   const { user, theme, toggleTheme, setIsChatOpen, unreadNotifCount } = useMoney();
@@ -148,6 +149,8 @@ const Layout: React.FC = () => {
           </div>
           <span className="font-headline-lg-mobile text-lg text-on-surface">MoneyApp</span>
         </div>
+        
+        <WorkspaceSwitcher />
         
         <div className="px-4 py-4 border-b border-border-light">
           <button 
