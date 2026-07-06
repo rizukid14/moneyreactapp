@@ -46,6 +46,10 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
     setResults(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
+  const updateMultipleResults = (id: string, updates: Partial<ParsedTransaction>) => {
+    setResults(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+  };
+
   const deleteResult = (id: string) => {
     setResults(prev => prev.filter(item => item.id !== id));
   };
@@ -278,18 +282,36 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                 <>
                   {isMutation ? (
                     <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
-                      <button onClick={() => openModal(item.fromAsset && item.fromAsset !== batchAssetId ? 'fromAsset' : 'toAsset', item.id)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                      <button onClick={() => openModal(item.fromAsset === batchAssetId ? 'toAsset' : 'fromAsset', item.id)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
                         <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Lawan Transaksi</span>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-main)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {getAssetLabel(item.fromAsset && item.fromAsset !== batchAssetId ? item.fromAsset : item.toAsset, 'Pilih Rekening')}
+                          {getAssetLabel(item.fromAsset === batchAssetId ? item.toAsset : item.fromAsset, 'Pilih Rekening')}
                         </span>
                       </button>
                       <button 
                         onClick={() => {
-                          const currentFrom = item.fromAsset;
-                          const currentTo = item.toAsset;
-                          updateResult(item.id, 'fromAsset', currentTo);
-                          updateResult(item.id, 'toAsset', currentFrom);
+                          let currentFrom = item.fromAsset;
+                          let currentTo = item.toAsset;
+
+                          if (currentFrom === batchAssetId) {
+                            // Currently 'Keluar', change to 'Masuk'
+                            currentFrom = currentTo;
+                            currentTo = batchAssetId;
+                          } else if (currentTo === batchAssetId) {
+                            // Currently 'Masuk', change to 'Keluar'
+                            currentTo = currentFrom;
+                            currentFrom = batchAssetId;
+                          } else {
+                            // Neither is batchAssetId. It is currently acting as 'Masuk' (since fromAsset !== batchAssetId).
+                            // Change it to 'Keluar' and enforce batchAssetId.
+                            currentTo = currentFrom;
+                            currentFrom = batchAssetId;
+                          }
+
+                          updateMultipleResults(item.id, {
+                            fromAsset: currentFrom,
+                            toAsset: currentTo
+                          });
                         }}
                         style={{ 
                           padding: '10px', 

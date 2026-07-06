@@ -24,6 +24,7 @@ import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
 import SplashScreen from '../components/SplashScreen';
 import { getLocalDate, getLocalTime, generateId, isPrincipalTx, hashPin } from '../lib/utils';
+import { startDeltaListeners, stopDeltaListeners } from '../lib/deltaSync';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 export type BudgetMode = 'regular' | 'zero-based';
@@ -48,6 +49,9 @@ export interface Category {
   type: 'pengeluaran' | 'pendapatan' | 'hutang_keluar' | 'hutang_masuk' | 'piutang_keluar' | 'piutang_masuk';
   subcategories?: SubCategory[];
   isDeleted?: boolean;
+  updatedAt?: number;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Asset {
@@ -58,6 +62,9 @@ export interface Asset {
   isHidden?: boolean;
   isDeleted?: boolean;
   accountNumber?: string;
+  updatedAt?: number;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Budget {
@@ -97,6 +104,10 @@ export interface Debt {
   sourceAssetId?: string;        // DEPRECATED - prefer paymentAssetId for simplicity; added for schema compatibility if needed
   tripId?: string; // Link to trip
   relatedId?: string; // General link to related items (e.g. TripExpense)
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Goal {
@@ -108,6 +119,10 @@ export interface Goal {
   assetId?: string;
   isCompleted: boolean;
   recurringTransactionId?: string;
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface TripMember {
@@ -137,6 +152,10 @@ export interface TripExpense {
   items?: TripExpenseItem[];
   date: string;
   createdAt: string;
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Trip {
@@ -150,6 +169,10 @@ export interface Trip {
   paidSettlements?: string[];
   settlementPaidAmounts?: Record<string, number>;
   createdAt: string;
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface MonthlyIncome {
@@ -159,6 +182,10 @@ export interface MonthlyIncome {
   amount: number;
   isLocked: boolean;
   createdAt: number;
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface BudgetReallocation {
@@ -169,6 +196,10 @@ export interface BudgetReallocation {
   toCategoryId: string | 'unassigned';
   amount: number;
   date: string; // ISO String
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Transaction {
@@ -186,6 +217,10 @@ export interface Transaction {
   toAssetId?: string;
   relatedId?: string; // Links to Debt.id, etc.
   goalId?: string; // Links to Goal.id
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Contact {
@@ -193,6 +228,10 @@ export interface Contact {
   name: string;
   phone?: string;
   note?: string;
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface RecurringTransaction {
@@ -211,6 +250,10 @@ export interface RecurringTransaction {
   endDate?: string;          // YYYY-MM-DD (Optional stop date)
   isActive: boolean;
   goalId?: string;
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Subscription {
@@ -225,6 +268,10 @@ export interface Subscription {
   isActive: boolean;
   note?: string;
   recurringTransactionId?: string;
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface NotificationItem {
@@ -235,6 +282,10 @@ export interface NotificationItem {
   color: 'success' | 'warning' | 'error' | 'info' | 'primary';
   createdAt: string; // ISO string
   isRead: boolean;
+  updatedAt?: number;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 // ─── Default seed data ───────────────────────────────────────────────────────
@@ -925,10 +976,218 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
       console.log('----------------------------');
 
+      // ─── Migration: Add updatedAt to existing documents ───
+      const hasMigratedUpdatedAt = localStorage.getItem('migrated_updatedAt_v2');
+      if (!hasMigratedUpdatedAt && isFirebaseConfigured && auth.currentUser) {
+        console.log('Migrating existing documents to add updatedAt...');
+        try {
+          const now = Date.now();
+          const toEnrich = (items: any[]) => items.filter(i => !i.updatedAt).map(i => ({ ...i, updatedAt: now }));
+          
+          const enrichedAssets = toEnrich(dbAssets);
+          const enrichedTxs = toEnrich(dbTxs);
+          const enrichedCats = toEnrich(dbCats);
+          const enrichedBudgets = toEnrich(dbBudgets);
+          const enrichedDebts = toEnrich(dbDebts);
+          const enrichedGoals = toEnrich(dbGoals);
+          const enrichedRecurring = toEnrich(dbRecurring);
+          const enrichedContacts = toEnrich(dbContacts);
+          const enrichedSubs = toEnrich(dbSubs);
+          const enrichedTrips = toEnrich(dbTrips);
+          const enrichedTripExpenses = toEnrich(dbTripExpenses);
+          const enrichedMonthlyIncomes = toEnrich(dbMonthlyIncomes);
+          const enrichedReallocations = toEnrich(dbReallocations);
+          const enrichedNotifications = toEnrich(dbNotifications);
+
+          const promises: Promise<any>[] = [];
+          const { dbPutAsset, dbPutTransaction, dbPutCategory, dbPutDebt, dbPutGoal, dbPutRecurringTransaction, dbPutContact, dbPutSubscription, dbPutTrip, dbPutTripExpense, dbPutMonthlyIncome, dbPutBudgetReallocation, dbPutNotification, dbPutSetting } = await import('../lib/db');
+          
+          enrichedAssets.forEach(a => promises.push(dbPutAsset(a)));
+          enrichedTxs.forEach(t => promises.push(dbPutTransaction(t)));
+          enrichedCats.forEach(c => promises.push(dbPutCategory(c)));
+          enrichedDebts.forEach(d => promises.push(dbPutDebt(d)));
+          enrichedGoals.forEach(g => promises.push(dbPutGoal(g)));
+          enrichedRecurring.forEach(r => promises.push(dbPutRecurringTransaction(r)));
+          enrichedContacts.forEach(c => promises.push(dbPutContact(c)));
+          enrichedSubs.forEach(s => promises.push(dbPutSubscription(s)));
+          enrichedTrips.forEach(t => promises.push(dbPutTrip(t)));
+          enrichedTripExpenses.forEach(te => promises.push(dbPutTripExpense(te)));
+          enrichedMonthlyIncomes.forEach(mi => promises.push(dbPutMonthlyIncome(mi)));
+          enrichedReallocations.forEach(r => promises.push(dbPutBudgetReallocation(r)));
+          enrichedNotifications.forEach(n => promises.push(dbPutNotification(n)));
+          
+          if (enrichedBudgets.length > 0) {
+            const finalBudgets = dbBudgets.map(b => enrichedBudgets.find(eb => eb.id === b.id) || b);
+            promises.push(dbPutSetting('budgets', finalBudgets));
+          }
+          
+          if (promises.length > 0) {
+            await Promise.all(promises);
+            console.log(`Enriched ${promises.length} documents with updatedAt metadata.`);
+          }
+          localStorage.setItem('migrated_updatedAt_v2', 'true');
+        } catch (e) {
+          console.error('Failed to migrate updatedAt:', e);
+        }
+      }
+
       setIsReady(true);
     };
     bootstrap();
   }, [authChecked, authUser?.uid]);
+
+  // ─── Real-Time Delta Listeners Effect ───
+  useEffect(() => {
+    if (!isReady || !isFirebaseConfigured || !authUser) return;
+
+    const handleDocChange = async (colName: string, data: any, changeType: 'added' | 'modified' | 'removed') => {
+      console.log(`[DeltaSync] Received change: ${colName} - ${changeType}`, data);
+      
+      const { getDB } = await import('../lib/db');
+      const db = await getDB();
+      
+      // Update IndexedDB
+      if (data.isDeleted) {
+        await db.delete(colName as any, data.id);
+      } else {
+        await db.put(colName as any, data);
+      }
+
+      // Update React State
+      if (data.isDeleted) {
+        switch (colName) {
+          case 'transactions':
+            setTransactions(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'assets':
+            setAssets(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'categories':
+            setCategories(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'debts':
+            setDebts(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'goals':
+            setGoals(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'contacts':
+            setContacts(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'subscriptions':
+            setSubscriptions(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'trips':
+            setTrips(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'trip_expenses':
+            setTripExpenses(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'monthly_incomes':
+            setMonthlyIncomes(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'budget_reallocations':
+            setBudgetReallocations(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'notifications':
+            setNotifications(prev => prev.filter(x => x.id !== data.id));
+            break;
+          case 'recurring_transactions':
+            setRecurringTransactions(prev => prev.filter(x => x.id !== data.id));
+            break;
+        }
+      } else {
+        const updateState = <T extends { id: string }>(setFn: React.Dispatch<React.SetStateAction<T[]>>) => {
+          setFn(prev => {
+            const idx = prev.findIndex(x => x.id === data.id);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = data;
+              return next;
+            }
+            return [data, ...prev];
+          });
+        };
+
+        const updateStateAppend = <T extends { id: string }>(setFn: React.Dispatch<React.SetStateAction<T[]>>) => {
+          setFn(prev => {
+            const idx = prev.findIndex(x => x.id === data.id);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = data;
+              return next;
+            }
+            return [...prev, data];
+          });
+        };
+
+        switch (colName) {
+          case 'transactions':
+            updateState(setTransactions);
+            break;
+          case 'assets':
+            updateStateAppend(setAssets);
+            break;
+          case 'categories':
+            updateStateAppend(setCategories);
+            break;
+          case 'debts':
+            updateState(setDebts);
+            break;
+          case 'goals':
+            updateStateAppend(setGoals);
+            break;
+          case 'contacts':
+            updateStateAppend(setContacts);
+            break;
+          case 'subscriptions':
+            updateStateAppend(setSubscriptions);
+            break;
+          case 'trips':
+            updateStateAppend(setTrips);
+            break;
+          case 'trip_expenses':
+            updateState(setTripExpenses);
+            break;
+          case 'monthly_incomes':
+            updateStateAppend(setMonthlyIncomes);
+            break;
+          case 'budget_reallocations':
+            updateStateAppend(setBudgetReallocations);
+            break;
+          case 'notifications':
+            updateState(setNotifications);
+            break;
+          case 'recurring_transactions':
+            updateStateAppend(setRecurringTransactions);
+            break;
+          case 'settings':
+            const freshSettings = { [data.id]: data.value };
+            applySettingsToState(freshSettings, { lockAppOnPin: false });
+            break;
+        }
+      }
+    };
+
+    import('../lib/db').then(({ getWorkspacePath, getSyncWorkspace }) => {
+      const activeWorkspaceId = getSyncWorkspace();
+      startDeltaListeners(activeWorkspaceId, getWorkspacePath, handleDocChange);
+
+      const onVisChange = () => {
+        if (document.hidden) {
+          stopDeltaListeners();
+        } else {
+          startDeltaListeners(activeWorkspaceId, getWorkspacePath, handleDocChange);
+        }
+      };
+      document.addEventListener('visibilitychange', onVisChange);
+
+      return () => {
+        stopDeltaListeners();
+        document.removeEventListener('visibilitychange', onVisChange);
+      };
+    });
+  }, [isReady, authUser?.uid]);
 
   // ─── Apply theme ────────────────────────────────────────────────────────
   useEffect(() => {

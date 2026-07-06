@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import MaterialIcon from './MaterialIcon';
 
@@ -29,7 +30,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     info: { icon: 'help', color: 'text-primary', bg: 'bg-primary', bgLight: 'bg-primary/10', border: 'border-primary/20', shadow: 'shadow-primary/20' }
   }[type];
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -39,6 +40,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.1 }}
           onClick={onClose}
+          style={{ touchAction: 'none' }}
+          data-modal="true"
         >
           <motion.div
             className={`w-[90%] max-w-[360px] p-6 text-center rounded-[24px] bg-bg-card relative overflow-hidden shadow-bento border-2 ${cfg.border}`}
@@ -87,7 +90,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

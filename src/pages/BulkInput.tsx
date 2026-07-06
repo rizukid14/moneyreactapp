@@ -242,7 +242,7 @@ const BulkInput: React.FC = () => {
       {stage === 'input' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
           <div className="lg:col-span-8 flex flex-col gap-stack-md">
-            <div className="bg-white rounded-xl p-6 border border-border-light shadow-sm flex flex-col h-full">
+            <div className="bg-bg-card rounded-xl p-6 border border-border-light shadow-sm flex flex-col h-full">
               <div className="mb-4">
                 <label className="font-headline-md text-headline-md block mb-1">Tempel Log Transaksi</label>
                 <p className="font-body-md text-body-md text-on-surface-variant">
@@ -319,10 +319,10 @@ const BulkInput: React.FC = () => {
               
               <div className="mt-8 pt-6 border-t border-outline-variant">
                 <h3 className="font-label-md text-label-md font-bold text-on-surface-variant uppercase mb-4">Contoh Format</h3>
-                <div className="bg-white rounded-lg p-3 text-sm font-mono text-on-secondary-container border border-outline-variant/50 mb-3 italic">
+                <div className="bg-surface-container-highest rounded-lg p-3 text-sm font-mono text-on-surface border border-outline-variant/50 mb-3 italic">
                   "Beli kopi 25rb di Starbucks pake Kartu Kredit sore tadi"
                 </div>
-                <div className="bg-white rounded-lg p-3 text-sm font-mono text-on-secondary-container border border-outline-variant/50 italic">
+                <div className="bg-surface-container-highest rounded-lg p-3 text-sm font-mono text-on-surface border border-outline-variant/50 italic">
                   "Transfer 1jt ke Mama dari BCA untuk bulanan"
                 </div>
               </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import MaterialIcon from '../common/MaterialIcon';
 
 export interface ModalProps {
@@ -19,14 +20,39 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) onClose();
     };
+
+    const toggleScrollLock = (lock: boolean) => {
+      const elements = [
+        document.body,
+        document.querySelector('.app-container') as HTMLElement,
+        document.querySelector('.main-content') as HTMLElement
+      ];
+
+      elements.forEach(el => {
+        if (el) {
+          el.style.overflow = lock ? 'hidden' : '';
+          el.style.overscrollBehavior = lock ? 'none' : '';
+        }
+      });
+    };
+
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      const currentCount = parseInt(document.body.getAttribute('data-modal-count') || '0', 10);
+      document.body.setAttribute('data-modal-count', String(currentCount + 1));
+      toggleScrollLock(true);
       document.addEventListener('keydown', handleEscape);
-    } else {
-      document.body.style.overflow = 'auto';
     }
+
     return () => {
-      document.body.style.overflow = 'auto';
+      if (isOpen) {
+        const currentCount = parseInt(document.body.getAttribute('data-modal-count') || '0', 10);
+        const newCount = Math.max(0, currentCount - 1);
+        document.body.setAttribute('data-modal-count', String(newCount));
+        
+        if (newCount === 0) {
+          toggleScrollLock(false);
+        }
+      }
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen, onClose]);
@@ -39,15 +65,17 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center px-0 pb-0 pt-10 sm:p-6 lg:p-8 bg-black/45 backdrop-blur-sm transition-opacity duration-200"
       onClick={handleOverlayClick}
+      style={{ touchAction: 'none' }}
       data-testid={dataTestId || testId}
+      data-modal="true"
     >
       <div
-        className={`bg-bg-card rounded-t-[32px] rounded-b-none sm:rounded-3xl w-full shadow-bento overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[90vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 sm:duration-200 ${!maxWidth ? 'sm:max-w-lg' : ''}`}
-        style={maxWidth ? { maxWidth } : undefined}
+        className={`relative bg-bg-card rounded-t-[32px] rounded-b-none sm:rounded-3xl w-full shadow-bento overflow-hidden flex flex-col max-h-[88vh] sm:max-h-[90vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 sm:duration-200 ${!maxWidth ? 'sm:max-w-lg' : ''}`}
+        style={{ touchAction: 'auto', ...(maxWidth ? { maxWidth } : {}) }}
         ref={contentRef}
       >
         {/* Mobile Pull Handle */}
@@ -79,10 +107,11 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             </button>
           </div>
         </div>
-        <div className="p-6 overflow-y-auto flex flex-col gap-4">
+        <div className="p-6 overflow-y-auto overscroll-contain flex flex-col gap-4">
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

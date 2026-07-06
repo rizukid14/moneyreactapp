@@ -32,6 +32,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
     if (!el) return;
 
     const handleTouchStart = (e: TouchEvent) => {
+      if ((e.target as HTMLElement).closest('[data-modal="true"]')) return;
       if (document.body.style.overflow === 'hidden') return;
       
       const appContainer = document.querySelector('.app-container');

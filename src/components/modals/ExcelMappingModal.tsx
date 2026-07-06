@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import MaterialIcon from '../common/MaterialIcon';
 import { useToast } from '../common/Toast';
@@ -50,14 +51,19 @@ const ExcelMappingModal: React.FC<ExcelMappingModalProps> = ({ isOpen, onClose, 
     onConfirm(mapping);
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+        style={{ touchAction: 'none' }}
+        data-modal="true"
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           className="bg-white dark:bg-surface-container-low w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+          style={{ touchAction: 'auto' }}
         >
           <div className="p-5 border-b border-border-light flex justify-between items-center bg-surface-container-lowest">
             <h2 className="font-headline-sm font-bold text-on-surface">Pemetaan Kolom Excel</h2>
@@ -109,7 +115,8 @@ const ExcelMappingModal: React.FC<ExcelMappingModalProps> = ({ isOpen, onClose, 
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { collection, doc, getDocs, setDoc, updateDoc, arrayUnion, query, where } from 'firebase/firestore';
 import { auth, db as firestore, isFirebaseConfigured } from '../lib/firebase';
-import { setSyncWorkspace, dbGetSetting, dbPutSetting } from '../lib/db';
+import { setSyncWorkspace, dbPutSetting } from '../lib/db';
 
 export interface Family {
   id: string;
@@ -50,12 +50,14 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const unsubscribe = auth.onAuthStateChanged(async (user) => {
         if (user) {
           await loadFamilies(user.uid);
-          const savedWorkspace = await dbGetSetting('activeWorkspaceId');
-          if (savedWorkspace) {
-            await switchWorkspace(savedWorkspace);
-          } else {
-            setIsLoading(false);
+          // Use localStorage strictly to avoid cross-db contamination
+          let savedWorkspace = localStorage.getItem('activeWorkspaceId');
+
+          if (savedWorkspace && savedWorkspace !== 'null') {
+            setActiveWorkspaceId(savedWorkspace);
+            await setSyncWorkspace(savedWorkspace);
           }
+          setIsLoading(false);
         } else {
           setFamilies([]);
           setActiveWorkspaceId(null);
@@ -134,7 +136,15 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const switchWorkspace = async (workspaceId: string | null) => {
     setIsLoading(true);
     setActiveWorkspaceId(workspaceId);
-    await dbPutSetting('activeWorkspaceId', workspaceId);
+    
+    if (workspaceId) {
+      localStorage.setItem('activeWorkspaceId', workspaceId);
+    } else {
+      localStorage.removeItem('activeWorkspaceId');
+      // Force clear the IDB setting as well so fallback doesn't trigger
+      await dbPutSetting('activeWorkspaceId', null);
+    }
+    
     await setSyncWorkspace(workspaceId);
     
     // Force a full re-sync from cloud for this new workspace

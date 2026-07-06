@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import MaterialIcon from '../common/MaterialIcon';
@@ -21,7 +22,7 @@ const AddActionMenu: React.FC<AddActionMenuProps> = ({ isOpen, onClose, onOpenCh
     navigate(`/?action=add-tx&type=${type}`);
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -32,6 +33,8 @@ const AddActionMenu: React.FC<AddActionMenuProps> = ({ isOpen, onClose, onOpenCh
             transition={{ duration: 0.2 }}
             className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[2000]"
             onClick={onClose}
+            style={{ touchAction: 'none' }}
+            data-modal="true"
           />
           <div className="fixed inset-0 z-[2010] pointer-events-none flex lg:left-64 items-end lg:items-center justify-center pb-24 lg:pb-0 px-4">
             <motion.div
@@ -40,6 +43,7 @@ const AddActionMenu: React.FC<AddActionMenuProps> = ({ isOpen, onClose, onOpenCh
               exit={{ opacity: 0, y: 100, scale: 0.95 }}
               transition={{ type: "spring", bounce: 0.3, duration: 0.4 }}
               className="pointer-events-auto w-full lg:w-96 bg-surface-container-lowest rounded-3xl p-6 shadow-2xl border border-border-light flex flex-col gap-4"
+              style={{ touchAction: 'auto' }}
             >
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-headline-sm text-headline-sm text-on-surface">Tambah Transaksi Baru</h3>
@@ -113,7 +117,8 @@ const AddActionMenu: React.FC<AddActionMenuProps> = ({ isOpen, onClose, onOpenCh
           </div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
