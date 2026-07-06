@@ -212,6 +212,8 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
   };
 
   const handleMarkAsPaid = async (t: any, idx: number, assetId: string, actualAmount?: number) => {
+    if (isProcessing) return;
+    
     if (!assetId) {
       showToast('Pilih sumber dana terlebih dahulu!', 'warning');
       return;

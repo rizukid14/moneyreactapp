@@ -32,6 +32,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
   const [modalState, setModalState] = useState<ModalState>({ type: null, itemId: null });
   const [batchAssetId, setBatchAssetId] = useState(initialAssetId || '');
   const [isGlobalAssetModalOpen, setIsGlobalAssetModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
 
   // Sync with initialAssetId if it changes
@@ -372,26 +373,33 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
         <button
           className="btn btn-primary flex items-center justify-center w-full sm:w-auto px-4 sm:px-10 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base min-w-0 sm:min-w-[240px] leading-tight text-center"
           onClick={() => {
+            if (isSubmitting) return;
+            setIsSubmitting(true);
             const selected = results.filter(r => r.selected);
             if (selected.length === 0) {
               showToast('Pilih minimal satu transaksi terlebih dahulu', 'warning');
+              setIsSubmitting(false);
               return;
             }
             if (isMutation && !batchAssetId) {
               showToast('Pilih rekening asal terlebih dahulu', 'warning');
+              setIsSubmitting(false);
               return;
             }
             const invalid = selected.filter(r => !r.amount || (r.type !== 'transfer' && !r.categoryId));
             if (invalid.length > 0) {
               showToast(`${invalid.length} transaksi belum memiliki nominal atau kategori lengkap`, 'warning');
+              setIsSubmitting(false);
               return;
             }
             onSave(batchAssetId);
+            setTimeout(() => setIsSubmitting(false), 1000);
           }}
+          disabled={isSubmitting}
           data-testid="bulk-save-btn"
-          style={{ boxShadow: '0 6px 20px var(--primary-glow)' }}
+          style={{ boxShadow: '0 6px 20px var(--primary-glow)', opacity: isSubmitting ? 0.7 : 1 }}
         >
-          Simpan Transaksi Terpilih
+          {isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi Terpilih'}
         </button>
       </div>
 

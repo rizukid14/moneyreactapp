@@ -81,6 +81,7 @@ const ReceiptScanner: React.FC = () => {
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -502,10 +503,16 @@ const ReceiptScanner: React.FC = () => {
   };
 
   const handleSaveMain = () => {
-    if (!result) return;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
+    if (!result) {
+      setIsSubmitting(false);
+      return;
+    }
     const finalAmount = parseInt(editableAmount) || 0;
-    if (finalAmount <= 0) { showToast('Isi nominal terlebih dahulu', 'warning'); return; }
-    if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); return; }
+    if (finalAmount <= 0) { showToast('Isi nominal terlebih dahulu', 'warning'); setIsSubmitting(false); return; }
+    if (!selectedAssetId) { showToast('Pilih rekening terlebih dahulu', 'warning'); setIsSubmitting(false); return; }
 
     if (zbbMode === 'strict' && selectedType === 'pengeluaran') {
       const validation = validateTransactionBudget({
@@ -523,6 +530,7 @@ const ReceiptScanner: React.FC = () => {
           month: new Date(selectedDate).getMonth(),
           year: new Date(selectedDate).getFullYear()
         });
+        setIsSubmitting(false);
         return;
       }
     }
@@ -555,10 +563,14 @@ const ReceiptScanner: React.FC = () => {
         assetId: selectedAssetId,
       });
       showToast('Transaksi berhasil disimpan!', 'success');
-      setTimeout(() => reset(), 600);
+      setTimeout(() => {
+        setIsSubmitting(false);
+        reset();
+      }, 600);
     } catch (e) {
       showToast('Gagal menyimpan transaksi. Silakan coba lagi.', 'error');
       console.error(e);
+      setIsSubmitting(false);
     }
   };
 
@@ -1104,10 +1116,10 @@ const ReceiptScanner: React.FC = () => {
                   <span className="font-label-md">Pastikan rincian item sudah sesuai dengan struk asli.</span>
                 </div>
                 <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
-                  <button onClick={handleSaveMain} className="flex-1 sm:flex-none px-3 sm:px-6 py-3 rounded-xl border border-primary text-primary font-label-sm sm:font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer font-bold leading-tight flex items-center justify-center text-center">
+                  <button disabled={isSubmitting} onClick={handleSaveMain} className="flex-1 sm:flex-none px-3 sm:px-6 py-3 rounded-xl border border-primary text-primary font-label-sm sm:font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer font-bold leading-tight flex items-center justify-center text-center">
                     Simpan Langsung
                   </button>
-                  <button onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 rounded-xl bg-primary text-on-primary font-label-sm sm:font-label-md hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30 cursor-pointer font-bold border-none leading-tight text-center">
+                  <button disabled={isSubmitting} onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 rounded-xl bg-primary text-on-primary font-label-sm sm:font-label-md hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30 cursor-pointer font-bold border-none leading-tight text-center">
                     <MaterialIcon name="group" />
                     Split Bill
                   </button>

@@ -26,6 +26,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
   const [name, setName] = useState('');
   const [subcategories, setSubcategories] = useState<SubCategory[]>([]);
   const [newSubName, setNewSubName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (editingCategory) {
@@ -49,7 +50,13 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
+    if (!name.trim()) {
+      setIsSubmitting(false);
+      return;
+    }
 
     // Validation: Check if name already exists (case-insensitive, within the same type)
     const duplicate = existingCategories.find(c => 
@@ -77,6 +84,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
         }
       }
       showToast('Nama kategori sudah ada!', 'warning');
+      setIsSubmitting(false);
       return;
     }
 
@@ -88,11 +96,13 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
       updateCategory(editingCategory.id, name.trim());
     } else {
       addCategory({
-        name: name.trim(),
         type,
+        name: name.trim(),
         subcategories
       });
     }
+    
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -178,7 +188,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
                 </div>
               )}
 
-        <Button variant="primary" type="submit" fullWidth style={{ height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 800 }}>
+        <Button disabled={isSubmitting} variant="primary" type="submit" fullWidth style={{ height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 800 }}>
           <MaterialIcon name="save" className="text-[20px]" />
           {editingCategory ? 'Simpan Perubahan' : 'Simpan Kategori'}
         </Button>

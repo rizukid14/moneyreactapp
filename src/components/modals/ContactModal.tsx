@@ -16,6 +16,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, editingCon
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (editingContact) {
@@ -31,7 +32,13 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, editingCon
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
+    if (!name.trim()) {
+      setIsSubmitting(false);
+      return;
+    }
 
     if (editingContact) {
       updateContact(editingContact.id, {
@@ -48,6 +55,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, editingCon
     }
     
     onSuccess?.(name.trim());
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -102,6 +110,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, editingCon
         </div>
 
         <button 
+          disabled={isSubmitting}
           type="submit"
           className="btn btn-primary"
           style={{ width: '100%', padding: '16px', borderRadius: '16px', fontWeight: 800, fontSize: '16px', marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}

@@ -33,6 +33,7 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
   const [note, setNote] = useState('');
   const [lastOpen, setLastOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   React.useEffect(() => {
     if (isOpen && !lastOpen) {
@@ -50,10 +51,17 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
   };
 
   const handleConfirm = () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     const numAmount = Number(amount);
-    if (numAmount <= 0) return;
+    if (numAmount <= 0) {
+      setIsSubmitting(false);
+      return;
+    }
 
     onConfirm(numAmount, selectedAssetId, date, time, note);
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -127,6 +135,7 @@ const DebtAddPrincipalModal: React.FC<DebtAddPrincipalModalProps> = ({
               </div>
 
               <Button
+                disabled={isSubmitting}
                 variant="primary"
                 onClick={handleConfirm}
                 fullWidth

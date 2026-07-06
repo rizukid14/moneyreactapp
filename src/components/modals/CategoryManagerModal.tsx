@@ -28,6 +28,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
   const [editingSubCatName, setEditingSubCatName] = useState('');
 
   const [confirmConfig, setConfirmConfig] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const sortedCategories = useMemo(() => {
     return categories
@@ -52,40 +53,58 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
 
   const handleAddCat = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
     if (!newCatName.trim()) return;
+    setIsSubmitting(true);
+    
     const isDuplicate = categories.some(c => c.type === catTab && c.name.toLowerCase() === newCatName.trim().toLowerCase());
-    if (isDuplicate) { showToast('Nama kategori sudah ada!', 'warning'); return; }
+    if (isDuplicate) { showToast('Nama kategori sudah ada!', 'warning'); setIsSubmitting(false); return; }
     addCategory({ name: newCatName.trim(), type: catTab });
     setNewCatName('');
+    setTimeout(() => setIsSubmitting(false), 1000);
   };
 
   const handleUpdateCat = (id: string, name: string) => {
+    if (isSubmitting) return;
     if (!name.trim()) return;
+    setIsSubmitting(true);
+    
     const isDuplicate = categories.some(c => c.type === catTab && c.name.toLowerCase() === name.trim().toLowerCase() && c.id !== id);
-    if (isDuplicate) { showToast('Nama kategori sudah ada!', 'warning'); return; }
+    if (isDuplicate) { showToast('Nama kategori sudah ada!', 'warning'); setIsSubmitting(false); return; }
     updateCategory(id, name.trim());
     setEditingCatId(null);
+    setTimeout(() => setIsSubmitting(false), 1000);
   };
 
   const handleAddSubCat = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
     if (!newSubCatName.trim() || !activeCategoryId) return;
+    setIsSubmitting(true);
+    
     const cat = categories.find(c => c.id === activeCategoryId);
-    if (!cat) return;
+    if (!cat) { setIsSubmitting(false); return; }
     const isDuplicate = cat.subcategories?.some(s => s.name.toLowerCase() === newSubCatName.trim().toLowerCase());
-    if (isDuplicate) { showToast('Nama sub-kategori sudah ada!', 'warning'); return; }
+    if (isDuplicate) { showToast('Nama sub-kategori sudah ada!', 'warning'); setIsSubmitting(false); return; }
     addSubCategory(activeCategoryId, newSubCatName.trim());
     setNewSubCatName('');
+    setTimeout(() => setIsSubmitting(false), 1000);
   };
 
   const handleUpdateSubCat = (catId: string, subId: string, name: string) => {
+    if (isSubmitting) return;
     if (!name.trim()) return;
+    setIsSubmitting(true);
+    
     const cat = categories.find(c => c.id === catId);
-    if (!cat) return;
+    if (!cat) { setIsSubmitting(false); return; }
     const isDuplicate = cat.subcategories?.some(s => s.name.toLowerCase() === name.trim().toLowerCase() && s.id !== subId);
-    if (isDuplicate) { showToast('Nama sub-kategori sudah ada!', 'warning'); return; }
+    if (isDuplicate) { showToast('Nama sub-kategori sudah ada!', 'warning'); setIsSubmitting(false); return; }
     updateSubCategory(catId, subId, name.trim());
     setEditingSubCatId(null);
+    setTimeout(() => setIsSubmitting(false), 1000);
   };
 
   const showConfirm = (title: string, message: string, onConfirm: () => void) => {
@@ -168,7 +187,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
                               style={{ margin: 0 }}
                             />
                             <div className="flex gap-1 shrink-0 justify-end" onClick={e => e.stopPropagation()}>
-                              <button onClick={() => handleUpdateCat(cat.id, editingCatName)} className="flex-1 2xl:flex-none flex justify-center items-center" style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '10px' }}>
+                              <button disabled={isSubmitting} onClick={() => handleUpdateCat(cat.id, editingCatName)} className="flex-1 2xl:flex-none flex justify-center items-center" style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '10px' }}>
                                 <MaterialIcon name="check" className="text-[18px]" />
                               </button>
                               <button onClick={() => setEditingCatId(null)} className="flex-1 2xl:flex-none flex justify-center items-center" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', borderRadius: '6px', cursor: 'pointer', padding: '10px' }}>
@@ -208,7 +227,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
                       fullWidth
                       required
                     />
-                    <Button type="submit" variant="primary" className="h-12 w-full 2xl:w-auto px-4 m-0 shrink-0 flex justify-center items-center">
+                    <Button disabled={isSubmitting} type="submit" variant="primary" className="h-12 w-full 2xl:w-auto px-4 m-0 shrink-0 flex justify-center items-center">
                       <MaterialIcon name="add" className="text-[20px]" />
                     </Button>
                   </div>
@@ -252,7 +271,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
                                 style={{ margin: 0 }}
                               />
                               <div className="flex gap-1 shrink-0 justify-end" onClick={e => e.stopPropagation()}>
-                                <button onClick={() => handleUpdateSubCat(activeCategoryObj.id, sub.id, editingSubCatName)} className="flex-1 2xl:flex-none flex justify-center items-center" style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '10px' }}>
+                                <button disabled={isSubmitting} onClick={() => handleUpdateSubCat(activeCategoryObj.id, sub.id, editingSubCatName)} className="flex-1 2xl:flex-none flex justify-center items-center" style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '10px' }}>
                                   <MaterialIcon name="check" className="text-[18px]" />
                                 </button>
                                 <button onClick={() => setEditingSubCatId(null)} className="flex-1 2xl:flex-none flex justify-center items-center" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', borderRadius: '6px', cursor: 'pointer', padding: '10px' }}>
@@ -293,7 +312,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
                             fullWidth
                             required
                           />
-                          <Button type="submit" variant="primary" className="h-12 w-full 2xl:w-auto px-4 m-0 shrink-0 flex justify-center items-center">
+                          <Button disabled={isSubmitting} type="submit" variant="primary" className="h-12 w-full 2xl:w-auto px-4 m-0 shrink-0 flex justify-center items-center">
                             <MaterialIcon name="add" className="text-[20px]" />
                           </Button>
                         </div>

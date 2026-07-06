@@ -30,6 +30,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
   const [limit, setLimit] = useState('');
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (editingBudget) {
@@ -45,10 +46,14 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     const numericLimit = Number(limit.replace(/\./g, ''));
     
     if (numericLimit <= 0) {
       showToast('Limit anggaran harus lebih dari 0.', 'warning');
+      setIsSubmitting(false);
       return;
     }
 
@@ -77,6 +82,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
     } else {
       addBudget(budgetData);
     }
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -165,7 +171,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                   Anda akan diperingatkan jika pengeluaran mendekati atau melebihi batas ini.
                 </p>
 
-                <Button type="submit" variant="primary" style={{ width: '100%', height: '56px', borderRadius: '16px', fontWeight: 800 }}>
+                <Button disabled={isSubmitting} type="submit" variant="primary" style={{ width: '100%', height: '56px', borderRadius: '16px', fontWeight: 800 }}>
                   {editingBudget ? 'Simpan Perubahan' : 'Mulai Anggaran'}
                 </Button>
               </form>

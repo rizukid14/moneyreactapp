@@ -36,6 +36,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
   const [itemAssignments, setItemAssignments] = useState<Record<number, string[]>>({});
   const [showOCRUI, setShowOCRUI] = useState(false);
   const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [taxAmount, setTaxAmount] = useState(0);
   const [serviceAmount, setServiceAmount] = useState(0);
@@ -247,12 +248,21 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
   };
 
   const handleSave = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     const totalAmount = parseInt(amount.replace(/\D/g, '')) || 0;
-    if (!description.trim() || isNaN(totalAmount) || totalAmount <= 0) return;
+    if (!description.trim() || isNaN(totalAmount) || totalAmount <= 0) {
+      setIsSubmitting(false);
+      return;
+    }
 
     let splits: TripExpenseSplit[] = [];
     if (!isCustomSplit) {
-      if (splitMemberIds.length === 0) return;
+      if (splitMemberIds.length === 0) {
+        setIsSubmitting(false);
+        return;
+      }
       const share = Math.floor(totalAmount / splitMemberIds.length);
       const remainder = totalAmount - (share * splitMemberIds.length);
       splits = splitMemberIds.map((id, idx) => ({
@@ -271,6 +281,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       const sum = splits.reduce((s, x) => s + x.amount, 0);
       if (Math.abs(sum - totalAmount) > 0.1) {
         showToast(`Total pembagian kustom (${sum.toLocaleString('id-ID')}) tidak sama dengan jumlah pengeluaran (${totalAmount.toLocaleString('id-ID')})!`, 'warning');
+        setIsSubmitting(false);
         return;
       }
     }
@@ -358,6 +369,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       }
     }
 
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -587,6 +599,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
             </div>
 
             <button
+              disabled={isSubmitting}
               onClick={handleSave}
               className="btn btn-primary"
               style={{ width: '100%', padding: '16px', borderRadius: '16px', fontWeight: 800, fontSize: '16px', marginTop: '12px' }}

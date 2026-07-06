@@ -37,6 +37,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   const [isFullSettle, setIsFullSettle] = useState(true);
   const [lastOpen, setLastOpen] = useState(false);
   const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   React.useEffect(() => {
     if (isOpen && !lastOpen) {
@@ -65,11 +66,19 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   };
 
   const handleConfirm = () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     const numAmount = Number(amount);
-    if (numAmount <= 0) return;
+    if (numAmount <= 0) {
+      setIsSubmitting(false);
+      return;
+    }
 
     const finalNote = note || (isFullSettle ? `Pelunasan ${isHutang ? 'Hutang' : 'Piutang'}` : `Cicilan ${isHutang ? 'Hutang' : 'Piutang'}`);
     onConfirm(numAmount, selectedAssetId, date, time, finalNote, isFullSettle);
+    
+    setTimeout(() => setIsSubmitting(false), 1000);
   };
 
   const fmt = (n: number) => formatCurrency(n, currencySymbol);
@@ -208,6 +217,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               />
 
               <Button
+                disabled={isSubmitting}
                 variant={isHutang ? 'danger' : 'primary'}
                 onClick={handleConfirm}
                 fullWidth

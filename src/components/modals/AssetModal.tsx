@@ -36,6 +36,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
   const [isHidden, setIsHidden] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (editingAsset) {
@@ -66,7 +67,10 @@ const AssetModal: React.FC<AssetModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
     if (!name.trim()) return;
+    setIsSubmitting(true);
 
     // Validation: Check if name already exists (case-insensitive)
     const isDuplicate = existingAssets.some(a =>
@@ -77,6 +81,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
 
     if (isDuplicate) {
       showToast('Nama rekening sudah ada!', 'warning');
+      setIsSubmitting(false);
       return;
     }
 
@@ -108,6 +113,8 @@ const AssetModal: React.FC<AssetModalProps> = ({
     } else {
       addAsset(assetData);
     }
+    
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -251,7 +258,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
                     </Button>
                   )}
 
-                  <Button variant="primary" data-testid="asset-submit-btn" type="submit" style={{ 
+                  <Button disabled={isSubmitting} variant="primary" data-testid="asset-submit-btn" type="submit" style={{ 
                     flex: 1, height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                     boxShadow: '0 8px 24px var(--primary-glow)', margin: 0
                   }}>

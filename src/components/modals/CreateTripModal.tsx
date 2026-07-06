@@ -19,6 +19,7 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [members, setMembers] = useState<TripMember[]>([{ id: 'me', name: 'Me' }]);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (editingTrip) {
@@ -53,7 +54,13 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
   };
 
   const handleSave = () => {
-    if (!name.trim()) return;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
+    if (!name.trim()) {
+      setIsSubmitting(false);
+      return;
+    }
     const tripData = {
       name: name.trim(),
       startDate,
@@ -67,6 +74,7 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
     } else {
       addTrip(tripData);
     }
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -176,6 +184,7 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
             />
 
             <button 
+              disabled={isSubmitting}
               onClick={handleSave}
               className="btn btn-primary"
               style={{ width: '100%', padding: '16px', borderRadius: '16px', fontWeight: 800, fontSize: '16px', marginTop: '12px' }}

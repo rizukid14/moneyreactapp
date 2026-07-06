@@ -58,6 +58,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [splitMethod, setSplitMethod] = useState<'equal' | 'custom' | 'items'>('equal');
   const [itemAssignments, setItemAssignments] = useState<Record<number, string[]>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -255,18 +256,24 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const difference = totalAmount - totalSplit;
 
   const handleSave = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     if (splits.length === 0) {
       showToast('Tambahkan minimal 1 orang untuk split bill', 'warning');
+      setIsSubmitting(false);
       return;
     }
 
     if (Math.abs(difference) > 0) {
       showToast(`Total split (${currencySymbol}${totalSplit.toLocaleString('id-ID')}) tidak sama dengan total tagihan (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`, 'warning');
+      setIsSubmitting(false);
       return;
     }
 
     if (!selectedAssetId) {
       showToast('Pilih rekening terlebih dahulu', 'warning');
+      setIsSubmitting(false);
       return;
     }
 
@@ -302,6 +309,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       categoryId: selectedCategoryId,
       subCategoryId: selectedSubCategoryId
     });
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -937,7 +945,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
             variant="primary"
             onClick={handleSave}
             style={{ flex: 2 }}
-            disabled={splits.length === 0 || Math.abs(difference) !== 0}
+            disabled={splits.length === 0 || Math.abs(difference) !== 0 || isSubmitting}
           >
             Simpan Split Bill
           </Button>

@@ -56,6 +56,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [fromAssetId, setFromAssetId] = useState(initialAssetId || defaultAssetId || activeAssets[0]?.id || '');
   const [toAssetId, setToAssetId] = useState(activeAssets[1]?.id || activeAssets[0]?.id || '');
   const [goalId, setGoalId] = useState<string | undefined>(undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Recurring state
   const [isRecurring, setIsRecurring] = useState(false);
@@ -273,8 +274,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     if (type !== 'transfer' && !categoryId) {
       showToast('Silakan pilih kategori terlebih dahulu.', 'warning');
+      setIsSubmitting(false);
       return;
     }
 
@@ -304,11 +309,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           month: new Date(date).getMonth(),
           year: new Date(date).getFullYear()
         });
+        setIsSubmitting(false);
         return; // Intercept and wait for reallocation
       }
     }
 
     performSave(txData);
+    setTimeout(() => setIsSubmitting(false), 1000);
   };
 
   const performSave = (txData: any) => {
@@ -422,7 +429,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const handleReallocationSuccess = () => {
     setReallocationModal({ isOpen: false, deficitCategoryId: null, deficitAmount: 0, month: 0, year: 0 });
     if (pendingTxData) {
+      setIsSubmitting(true);
       performSave(pendingTxData);
+      setTimeout(() => setIsSubmitting(false), 1000);
       setPendingTxData(null);
     }
   };
@@ -852,7 +861,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             variant="outline"
                             data-testid="tx-submit-continue-btn"
                             onClick={() => { submitActionRef.current = 'continue'; }}
-                            disabled={!isFormValid}
+                            disabled={!isFormValid || isSubmitting}
                             fullWidth
                           >
                             Simpan & Lanjut
@@ -862,7 +871,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             variant="primary"
                             data-testid="tx-submit-btn"
                             onClick={() => { submitActionRef.current = 'close'; }}
-                            disabled={!isFormValid}
+                            disabled={!isFormValid || isSubmitting}
                             fullWidth
                           >
                             {isCopyMode ? 'Simpan Salinan' : 'Simpan & Tutup'}
@@ -886,7 +895,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             variant="primary"
                             data-testid="tx-submit-btn"
                             onClick={() => { submitActionRef.current = 'close'; }}
-                            disabled={!isFormValid}
+                            disabled={!isFormValid || isSubmitting}
                             fullWidth
                           >
                             Simpan Perubahan

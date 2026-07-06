@@ -23,10 +23,17 @@ export const PresetManagerModal: React.FC<PresetManagerModalProps> = ({ isOpen, 
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [note, setNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const handleSaveManual = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!label.trim()) return;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
+    if (!label.trim()) {
+      setIsSubmitting(false);
+      return;
+    }
     
     addManualPreset({
       type,
@@ -40,6 +47,7 @@ export const PresetManagerModal: React.FC<PresetManagerModalProps> = ({ isOpen, 
     setLabel('');
     setAmount('');
     setNote('');
+    setTimeout(() => setIsSubmitting(false), 1000);
     setActiveTab('pinned');
   };
 
@@ -210,7 +218,7 @@ export const PresetManagerModal: React.FC<PresetManagerModalProps> = ({ isOpen, 
               />
             </div>
 
-            <button type="submit" className="w-full py-3 bg-primary text-on-primary rounded-full font-bold mt-4 hover:bg-primary-dark transition-colors">
+            <button disabled={isSubmitting} type="submit" className="w-full py-3 bg-primary text-on-primary rounded-full font-bold mt-4 hover:bg-primary-dark transition-colors">
               Simpan Preset Manual
             </button>
           </form>

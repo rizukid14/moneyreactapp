@@ -45,6 +45,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   // Hutang recording mode (new)
   const [hutangMode, setHutangMode]               = useState<'none' | 'cash' | 'credit'>('none');
   const [createdAt, setCreatedAt]                 = useState(new Date().toISOString().split('T')[0]);
+  const [isSubmitting, setIsSubmitting]           = useState(false);
 
   const activeAssets = assets.filter(a => !a.isDeleted);
 
@@ -136,6 +137,9 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     const calcPrincipal = parseNum(principalAmount);
     const calcInterestAmt = hasInterest 
       ? (interestType === 'fixed' ? parseNum(interestAmount) : Math.round(calcPrincipal * (Number(interestRate) / 100))) 
@@ -169,6 +173,8 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       type === 'hutang' && hutangMode === 'credit' ? creditCatName : undefined,
       type === 'hutang' && hutangMode === 'credit' ? creditSubCatName : undefined,
     );
+    
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -499,6 +505,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
 
           <Button
             data-testid="debt-submit-btn"
+            disabled={isSubmitting}
             type="submit"
             variant={type === 'hutang' ? 'danger' : 'success'}
             fullWidth

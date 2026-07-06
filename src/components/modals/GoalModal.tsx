@@ -31,6 +31,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
   const [assetId, setAssetId] = useState<string | undefined>(undefined);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Auto Tabungan State
   const [isAutoTabungan, setIsAutoTabungan] = useState(false);
@@ -63,15 +64,20 @@ const GoalModal: React.FC<GoalModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     const numericAmount = Number(targetAmount.replace(/\./g, ''));
     
     if (numericAmount <= 0) {
       showToast('Target dana harus lebih dari 0.', 'warning');
+      setIsSubmitting(false);
       return;
     }
 
     if (!name.trim()) {
       showToast('Nama tabungan tidak boleh kosong.', 'warning');
+      setIsSubmitting(false);
       return;
     }
 
@@ -108,6 +114,8 @@ const GoalModal: React.FC<GoalModalProps> = ({
         }
       }
     }
+    
+    setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
 
@@ -308,7 +316,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
                   </>
                 )}
 
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                <button disabled={isSubmitting} type="submit" className="btn btn-primary" style={{ width: '100%' }}>
                   {editingGoal ? 'Simpan Perubahan' : 'Buat Target Tabungan'}
                 </button>
               </form>
