@@ -271,10 +271,16 @@ export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: 
     const localKeys = await (db as any).getAllKeys(store);
 
     for (const key of localKeys) {
-      if (!cloudKeys.has(key as string)) {
-        const pending = await db.get('pending_sync', key as string);
+      const keyStr = key as string;
+      // Prevent deleting system categories and default asset
+      if (keyStr.startsWith('sys-cat-') || keyStr.startsWith('sys-sub-') || keyStr === 'default-1') {
+        continue;
+      }
+
+      if (!cloudKeys.has(keyStr)) {
+        const pending = await db.get('pending_sync', keyStr);
         if (!pending || pending.operation !== 'PUT') {
-          await (db as any).delete(store, key as string);
+          await (db as any).delete(store, keyStr);
         }
       }
     }

@@ -842,9 +842,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setSubscriptions(dbSubs);
 
 
-      // Seed defaults if DB is empty
+       // Seed defaults if DB is empty
+      const isFamily = typeof window !== 'undefined' && localStorage.getItem('activeWorkspaceId') !== null;
       if (dbAssets.length === 0) {
-        await dbPutAsset(DEFAULT_ASSET, { skipSync: true });
+        await dbPutAsset(DEFAULT_ASSET, { skipSync: !isFamily });
         setAssets([DEFAULT_ASSET]);
       } else {
         setAssets(dbAssets);
@@ -852,14 +853,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       let finalCats = dbCats;
       if (dbCats.length === 0) {
-        for (const c of DEFAULT_CATEGORIES) await dbPutCategory(c, { skipSync: true });
+        for (const c of DEFAULT_CATEGORIES) await dbPutCategory(c, { skipSync: !isFamily });
         finalCats = [...DEFAULT_CATEGORIES];
       }
       
       for (const sysCat of SYSTEM_CATEGORIES) {
         if (!finalCats.some(c => c.id === sysCat.id)) {
           finalCats.push(sysCat);
-          await import('../lib/db').then(m => m.dbPutCategory(sysCat, { skipSync: true }));
+          await import('../lib/db').then(m => m.dbPutCategory(sysCat, { skipSync: !isFamily }));
         }
       }
       setCategories([...finalCats]);
