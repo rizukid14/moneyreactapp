@@ -215,7 +215,16 @@ export const FamilyManagement: React.FC = () => {
   };
 
   return (
-    <section id="family-management" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+    <section id="family-management" className="relative bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+      {isSubmitting && (
+        <div className="absolute inset-0 bg-surface/65 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-xl">
+          <div className="flex flex-col items-center gap-3 p-6 bg-surface-container rounded-2xl shadow-lg border border-outline-variant">
+            <MaterialIcon name="progress_activity" className="text-3xl text-primary animate-spin" />
+            <p className="text-sm font-bold text-on-surface">Memproses...</p>
+            <p className="text-xs text-on-surface-variant">Harap tunggu beberapa saat</p>
+          </div>
+        </div>
+      )}
       <PremiumGate mode="hard">
         <div>
           <h3 className="font-headline-sm text-lg text-on-surface flex items-center gap-2">
@@ -538,6 +547,7 @@ export const FamilyManagement: React.FC = () => {
       <Modal 
         isOpen={isDeleteModalOpen} 
         onClose={() => {
+          if (isSubmitting) return;
           setIsDeleteModalOpen(false);
           setDeleteConfirmText('');
         }}
@@ -561,7 +571,8 @@ export const FamilyManagement: React.FC = () => {
               placeholder="Ketik nama keluarga"
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
-              className="w-full p-3 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-error"
+              disabled={isSubmitting}
+              className="w-full p-3 rounded-xl border border-outline-variant bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-error disabled:opacity-50"
             />
           </div>
           
@@ -571,7 +582,8 @@ export const FamilyManagement: React.FC = () => {
                 setIsDeleteModalOpen(false);
                 setDeleteConfirmText('');
               }}
-              className="flex-1 py-2.5 bg-surface-variant text-on-surface-variant font-bold text-xs rounded-xl hover:bg-surface-container border-none cursor-pointer"
+              disabled={isSubmitting}
+              className="flex-1 py-2.5 bg-surface-variant text-on-surface-variant font-bold text-xs rounded-xl hover:bg-surface-container border-none cursor-pointer disabled:opacity-50"
             >
               Batal
             </button>
@@ -580,8 +592,12 @@ export const FamilyManagement: React.FC = () => {
               disabled={isSubmitting || deleteConfirmText.trim() !== (currentFamily || families.find(f => f.id === activeWorkspaceId))?.name}
               className="flex-[1.5] py-2.5 bg-error text-white font-bold text-xs rounded-xl hover:opacity-90 disabled:opacity-50 transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
             >
-              <MaterialIcon name="delete_forever" className="text-sm" />
-              Hapus Permanen
+              {isSubmitting ? (
+                <MaterialIcon name="progress_activity" className="text-sm animate-spin" />
+              ) : (
+                <MaterialIcon name="delete_forever" className="text-sm" />
+              )}
+              {isSubmitting ? 'Menghapus...' : 'Hapus Permanen'}
             </button>
           </div>
         </div>
