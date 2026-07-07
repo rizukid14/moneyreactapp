@@ -177,14 +177,18 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                             boxShadow: isActive ? '0 2px 10px rgba(0,0,0,0.02)' : 'none'
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                            <div style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)', flexShrink: 0 }}>
                               {isActive ? <MaterialIcon name="folder_open" className="text-[18px]" /> : <MaterialIcon name="folder" className="text-[18px]" />}
                             </div>
                             <span style={{
                               fontSize: '14px',
                               fontWeight: isActive ? 700 : 500,
-                              color: isActive ? 'var(--text-main)' : 'var(--text-muted)'
+                              color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              minWidth: 0
                             }}>
                               {cat.name}
                             </span>
@@ -257,10 +261,19 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
                               cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--border-color)',
                             }}
                           >
-                            <span style={{ fontSize: '14px', fontWeight: isSubActive ? 700 : 500, color: isSubActive ? 'var(--primary)' : 'var(--text-main)' }}>
+                            <span style={{ 
+                              fontSize: '14px', 
+                              fontWeight: isSubActive ? 700 : 500, 
+                              color: isSubActive ? 'var(--primary)' : 'var(--text-main)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1,
+                              marginRight: '8px'
+                            }}>
                               {sub.name}
                             </span>
-                            {isSubActive && <MaterialIcon name="check" className="text-[16px]" />}
+                            {isSubActive && <span style={{ flexShrink: 0 }}><MaterialIcon name="check" className="text-[16px]" /></span>}
                           </button>
                         );
                       })}
