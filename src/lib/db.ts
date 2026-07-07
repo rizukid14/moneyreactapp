@@ -9,7 +9,8 @@ import { getDeltaLastSyncTimestamp, setDeltaLastSyncTimestamp } from './deltaSyn
 // ─── DB Schema ────────────────────────────────────────────────────────────────
 const DB_VERSION = 11;
 
-let activeWorkspaceId: string | null = null;
+let activeWorkspaceId: string | null = typeof window !== 'undefined' ? localStorage.getItem('activeWorkspaceId') : null;
+if (activeWorkspaceId === 'null') activeWorkspaceId = null;
 
 export const setSyncWorkspace = async (workspaceId: string | null) => {
   if (activeWorkspaceId === workspaceId) return;
