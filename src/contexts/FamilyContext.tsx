@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { collection, doc, getDocs, setDoc, updateDoc, arrayUnion, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, query, where } from 'firebase/firestore';
 import { auth, db as firestore, isFirebaseConfigured } from '../lib/firebase';
 import { setSyncWorkspace, dbPutSetting } from '../lib/db';
 
@@ -20,6 +20,11 @@ interface FamilyContextProps {
   createFamily: (name: string) => Promise<void>;
   joinFamily: (joinCode: string) => Promise<void>;
   switchWorkspace: (workspaceId: string | null) => Promise<void>;
+  editFamilyName: (familyId: string, newName: string) => Promise<void>;
+  leaveFamily: (familyId: string) => Promise<void>;
+  removeMember: (familyId: string, memberUid: string) => Promise<void>;
+  transferOwnership: (familyId: string, newOwnerUid: string) => Promise<void>;
+  deleteFamily: (familyId: string) => Promise<void>;
 }
 
 const FamilyContext = createContext<FamilyContextProps>({
@@ -30,6 +35,11 @@ const FamilyContext = createContext<FamilyContextProps>({
   createFamily: async () => {},
   joinFamily: async () => {},
   switchWorkspace: async () => {},
+  editFamilyName: async () => {},
+  leaveFamily: async () => {},
+  removeMember: async () => {},
+  transferOwnership: async () => {},
+  deleteFamily: async () => {},
 });
 
 export const useFamily = () => useContext(FamilyContext);
@@ -133,6 +143,92 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     await switchWorkspace(familyDoc.id);
   };
 
+  const editFamilyName = async (familyId: string, newName: string) => {
+    if (!auth.currentUser) throw new Error("Not authenticated");
+    const family = families.find(f => f.id === familyId);
+    if (!family) throw new Error("Family tidak ditemukan");
+    if (family.ownerId !== auth.currentUser.uid) throw new Error("Hanya pemilik keluarga yang bisa mengubah nama");
+
+    await updateDoc(doc(firestore, 'families', familyId), { name: newName });
+    setFamilies(prev => prev.map(f => f.id === familyId ? { ...f, name: newName } : f));
+  };
+
+  const transferOwnership = async (familyId: string, newOwnerUid: string) => {
+    if (!auth.currentUser) throw new Error("Not authenticated");
+    const family = families.find(f => f.id === familyId);
+    if (!family) throw new Error("Family tidak ditemukan");
+    if (family.ownerId !== auth.currentUser.uid) throw new Error("Hanya pemilik keluarga yang bisa mentransfer kepemilikan");
+    if (!family.members.includes(newOwnerUid)) throw new Error("Pemilik baru harus terdaftar sebagai anggota keluarga");
+
+    await updateDoc(doc(firestore, 'families', familyId), { ownerId: newOwnerUid });
+    setFamilies(prev => prev.map(f => f.id === familyId ? { ...f, ownerId: newOwnerUid } : f));
+  };
+
+  const leaveFamily = async (familyId: string) => {
+    if (!auth.currentUser) throw new Error("Not authenticated");
+    const uid = auth.currentUser.uid;
+    const family = families.find(f => f.id === familyId);
+    if (!family) throw new Error("Family tidak ditemukan");
+    if (family.ownerId === uid) throw new Error("Pemilik tidak bisa keluar. Harap transfer kepemilikan terlebih dahulu.");
+
+    await updateDoc(doc(firestore, 'families', familyId), {
+      members: arrayRemove(uid)
+    });
+
+    if (activeWorkspaceId === familyId) {
+      await switchWorkspace(null);
+    } else {
+      setFamilies(prev => prev.filter(f => f.id !== familyId));
+    }
+  };
+
+  const removeMember = async (familyId: string, memberUid: string) => {
+    if (!auth.currentUser) throw new Error("Not authenticated");
+    const family = families.find(f => f.id === familyId);
+    if (!family) throw new Error("Family tidak ditemukan");
+    if (family.ownerId !== auth.currentUser.uid) throw new Error("Hanya pemilik keluarga yang bisa mengeluarkan anggota");
+    if (memberUid === auth.currentUser.uid) throw new Error("Anda tidak bisa mengeluarkan diri sendiri");
+
+    await updateDoc(doc(firestore, 'families', familyId), {
+      members: arrayRemove(memberUid)
+    });
+    setFamilies(prev => prev.map(f => f.id === familyId ? { ...f, members: f.members.filter(m => m !== memberUid) } : f));
+  };
+
+  const deleteFamily = async (familyId: string) => {
+    if (!auth.currentUser) throw new Error("Not authenticated");
+    const family = families.find(f => f.id === familyId);
+    if (!family) throw new Error("Family tidak ditemukan");
+    if (family.ownerId !== auth.currentUser.uid) throw new Error("Hanya pemilik keluarga yang bisa menghapus keluarga");
+
+    // Cleanup sub-collections
+    const collectionsToCleanup = [
+      'transactions', 'assets', 'categories', 'debts', 'recurring_transactions', 
+      'contacts', 'subscriptions', 'goals', 'trips', 'trip_expenses', 
+      'monthly_incomes', 'budget_reallocations', 'notifications', 'settings'
+    ];
+
+    for (const col of collectionsToCleanup) {
+      try {
+        const colRef = collection(firestore, `families/${familyId}/${col}`);
+        const snapshot = await getDocs(colRef);
+        const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+        await Promise.all(deletePromises);
+      } catch (e) {
+        console.error(`Failed to clean up family subcollection: ${col}`, e);
+      }
+    }
+
+    // Delete the family doc itself
+    await deleteDoc(doc(firestore, 'families', familyId));
+
+    if (activeWorkspaceId === familyId) {
+      await switchWorkspace(null);
+    } else {
+      setFamilies(prev => prev.filter(f => f.id !== familyId));
+    }
+  };
+
   const switchWorkspace = async (workspaceId: string | null) => {
     setIsLoading(true);
     setActiveWorkspaceId(workspaceId);
@@ -163,7 +259,12 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       isLoading,
       createFamily,
       joinFamily,
-      switchWorkspace
+      switchWorkspace,
+      editFamilyName,
+      leaveFamily,
+      removeMember,
+      transferOwnership,
+      deleteFamily
     }}>
       {children}
     </FamilyContext.Provider>
