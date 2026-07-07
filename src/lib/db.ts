@@ -180,6 +180,15 @@ export const getWorkspacePath = (collectionName: string) => {
   return `users/${getUid()}/${collectionName}`;
 };
 
+const USER_SPECIFIC_SETTINGS = ['premium', 'premiumActivationCode', 'user', 'pin', 'theme'];
+
+export const getSettingPath = (key: string) => {
+  if (USER_SPECIFIC_SETTINGS.includes(key)) {
+    return `users/${getUid()}/settings`;
+  }
+  return getWorkspacePath('settings');
+};
+
 const sanitizeForFirestore = (obj: any): any => {
   if (obj === undefined) return null;
   if (obj === null || typeof obj !== 'object') return obj;
@@ -551,7 +560,7 @@ export const dbGetSetting = async (key: string) => {
   // (covers new device / first login scenario)
   if (local !== undefined || !isFirebaseConfigured || !auth.currentUser) return local;
   try {
-    const docSnap = await withTimeout(getDoc(doc(collection(firestore, getWorkspacePath('settings')), key)));
+    const docSnap = await withTimeout(getDoc(doc(collection(firestore, getSettingPath(key)), key)));
     const cloud = docSnap.exists() ? docSnap.data().value : undefined;
     // Cache into IDB so next read costs nothing
     if (cloud !== undefined) await (await getDB()).put('settings', cloud, key);
@@ -575,7 +584,7 @@ export const dbPutSetting = async (key: string, value: any) => {
   await recordPendingSync({ id: `setting-${key}`, collection: 'settings', operation: 'PUT', data: meta });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  setDoc(doc(collection(firestore, getWorkspacePath('settings')), key), sanitizeForFirestore({
+  setDoc(doc(collection(firestore, getSettingPath(key)), key), sanitizeForFirestore({
     value,
     updatedAt: meta.updatedAt,
     updatedBy: meta.updatedBy
@@ -589,7 +598,7 @@ export const dbDeleteSetting = async (key: string) => {
   await recordPendingSync({ id: `setting-${key}`, collection: 'settings', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;
-  deleteDoc(doc(collection(firestore, getWorkspacePath('settings')), key))
+  deleteDoc(doc(collection(firestore, getSettingPath(key)), key))
     .then(() => removePendingSync(`setting-${key}`))
     .catch(() => { });
 };
@@ -639,10 +648,12 @@ export const dbSyncPendingItems = async (): Promise<{ success: number; failed: n
               updatedBy: item.data?.updatedBy
             } 
           : item.data;
-        await withTimeout(setDoc(doc(collection(firestore, getWorkspacePath(path[0])), path[1]), sanitizeForFirestore(data)));
+        const colPath = item.collection === 'settings' ? getSettingPath(path[1]) : getWorkspacePath(path[0]);
+        await withTimeout(setDoc(doc(collection(firestore, colPath), path[1]), sanitizeForFirestore(data)));
       } else if (item.operation === 'DELETE') {
         const path = item.collection === 'settings' ? ['settings', item.id.replace('setting-', '')] : [item.collection, item.id];
-        await withTimeout(deleteDoc(doc(collection(firestore, getWorkspacePath(path[0])), path[1])));
+        const colPath = item.collection === 'settings' ? getSettingPath(path[1]) : getWorkspacePath(path[0]);
+        await withTimeout(deleteDoc(doc(collection(firestore, colPath), path[1])));
       }
       await db.delete('pending_sync', item.id);
       success++;
