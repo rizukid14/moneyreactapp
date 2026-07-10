@@ -1782,6 +1782,16 @@ const Settings: React.FC = () => {
         {/* Kolom Kiri */}
         <div className="flex-1 flex flex-col gap-8 w-full">
 
+          {/* Logout Card */}
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm">
+            <button
+              onClick={() => showConfirm('Keluar Akun', 'Apakah Anda yakin ingin keluar dari akun ini?', () => logOut(), 'warning', 'Ya, Keluar')}
+              className="w-full py-3 bg-error/10 hover:bg-error/20 border border-error/20 text-error font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            >
+              <MaterialIcon name="logout" className="text-sm" /> Logout dari Akun
+            </button>
+          </section>
+
           {/* Profile Card */}
           <section data-tour="settings-profile" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
             {isEditingProfile ? (
@@ -2437,12 +2447,6 @@ const Settings: React.FC = () => {
               <div className="text-[10px] opacity-75">MoneyApp v2.0.0 • Dibuat dengan ❤️ by Dappal</div>
             </div>
 
-            <button
-              onClick={() => showConfirm('Keluar Akun', 'Apakah Anda yakin ingin keluar dari akun ini?', () => logOut(), 'warning', 'Ya, Keluar')}
-              className="w-full py-3 bg-error/10 hover:bg-error/20 border border-error/20 text-error font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-            >
-              <MaterialIcon name="logout" className="text-sm" /> Logout
-            </button>
           </section>
         </div>
       </div>
