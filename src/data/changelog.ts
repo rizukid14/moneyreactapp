@@ -18,7 +18,16 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v2.1.1', date: 'Jun 2026', badge: 'Terbaru',
+    version: 'v2.3.0', date: 'Jul 2026', badge: 'Terbaru',
+    entries: [
+      { type: 'new', text: 'Toko Penukaran Poin (Rewards Store): Tukarkan poin streak login harian Anda langsung di dalam aplikasi untuk ditukar dengan token scan struk, sesi AI Chat, bulk input, atau akses Premium (1 hari hingga 1 bulan).' },
+      { type: 'new', text: 'Login Streak Harian: Dapatkan poin reward setiap hari dengan melakukan login beruntun. Multiplier bonus akan meningkat setiap 3 hari berturut-turut.' },
+      { type: 'new', text: 'Weekend Lucky Draw: Di hari Sabtu & Minggu, dapatkan peluang bonus multiplier poin login yang lebih besar (hingga 10x!). Pantau banner info weekend yang muncul setiap Jumat sore.' },
+      { type: 'improve', text: 'Perbaikan Keandalan Profil: Memperbaiki bug sinkronisasi data profil pengguna agar pengaturan kustomisasi tersimpan dengan aman di database.' }
+    ]
+  },
+  {
+    version: 'v2.1.1', date: 'Jun 2026',
     entries: [
       { type: 'new', text: 'Tombol Tukar Aset: Kini Anda dapat menukar (swap) posisi Asset Asal dan Asset Tujuan dengan satu klik saat membuat transaksi Transfer.' },
       { type: 'fix', text: 'Pesan Error Scanner Lebih Jelas: Jika proses pindai struk gagal, aplikasi kini akan menampilkan alasan yang tepat (misalnya Kuota Habis) alih-alih pesan gagal yang membingungkan.' },

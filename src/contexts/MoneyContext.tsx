@@ -35,6 +35,9 @@ export interface UserProfile {
   avatar?: string;
   dailyReminder?: boolean;
   weeklyReport?: boolean;
+  lastLoginDate?: string;
+  loginStreak?: number;
+  rewardPoints?: number;
 }
 
 export interface SubCategory {
@@ -302,7 +305,7 @@ const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-8', name: 'Investasi', type: 'pendapatan', subcategories: [] },
 ];
 
-const DEFAULT_USER: UserProfile = { name: 'Pengguna MoneyApp', email: 'pengguna@email.com' };
+const DEFAULT_USER: UserProfile = { name: 'Pengguna MoneyApp', email: 'pengguna@email.com', loginStreak: 0, rewardPoints: 0 };
 
 // ─── Context type ────────────────────────────────────────────────────────────
 interface MoneyContextType {
@@ -891,6 +894,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const u = auth.currentUser;
         if (!profile || profile.name === 'Pengguna MoneyApp' || profile.email === 'pengguna@email.com') {
           profile = {
+            ...profile,
             name: u.displayName || profile?.name || 'Pengguna MoneyApp',
             email: u.email || profile?.email || '',
             avatar: u.photoURL || profile?.avatar || ''

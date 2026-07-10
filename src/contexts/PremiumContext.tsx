@@ -40,6 +40,7 @@ interface PremiumContextType {
   refreshPremiumStatus: () => Promise<{ wasClaimed: boolean, statusChanged: boolean }>;
   activationCode: string | null;
   regenerateCode: () => Promise<string>;
+  redeemReward: (type: 'premium_1d' | 'premium_3d' | 'premium_7d' | 'premium_30d' | 'scan_3' | 'chat_5' | 'bulk_1', pointCost: number) => Promise<{ success: boolean; error?: string }>;
 }
 
 const PremiumContext = createContext<PremiumContextType | undefined>(undefined);
@@ -53,7 +54,7 @@ export const usePremium = () => {
 };
 
 export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { isReady, autoCloudSync } = useMoney(); // Wait for MoneyProvider to be ready
+  const { isReady, autoCloudSync, user, updateUser } = useMoney(); // Wait for MoneyProvider to be ready
   const [premium, setPremium] = useState<PremiumState>({
     isPremium: false,
     plan: null,
@@ -233,6 +234,62 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  const redeemReward = useCallback(async (
+    type: 'premium_1d' | 'premium_3d' | 'premium_7d' | 'premium_30d' | 'scan_3' | 'chat_5' | 'bulk_1',
+    pointCost: number
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'User tidak ditemukan' };
+    const currentPoints = user.rewardPoints || 0;
+    if (currentPoints < pointCost) {
+      return { success: false, error: 'Poin tidak cukup' };
+    }
+
+    // Deduct points
+    const updatedUser = {
+      ...user,
+      rewardPoints: currentPoints - pointCost,
+    };
+
+    // Apply the reward
+    if (type.startsWith('premium_')) {
+      const days = parseInt(type.split('_')[1], 10);
+      const now = new Date();
+      let currentExpiry = premium.expiresAt ? new Date(premium.expiresAt) : null;
+      
+      // If already premium and not expired, extend from existing expiry date
+      let newExpiryDate = new Date();
+      if (premium.isPremium && currentExpiry && currentExpiry > now) {
+        newExpiryDate = new Date(currentExpiry.getTime());
+      }
+      newExpiryDate.setDate(newExpiryDate.getDate() + days);
+
+      const newPremiumState: PremiumState = {
+        isPremium: true,
+        plan: 'monthly', // compatibility with existing UI
+        activatedAt: now.toISOString(),
+        expiresAt: newExpiryDate.toISOString(),
+      };
+
+      setPremium(newPremiumState);
+      await dbPutSetting('premium', newPremiumState);
+    } else if (type.startsWith('scan_') || type.startsWith('chat_') || type.startsWith('bulk_')) {
+      const parts = type.split('_');
+      const limitKey = parts[0] as keyof QuotaState;
+      const amount = parseInt(parts[1], 10);
+      
+      const newQuota = {
+        ...quota,
+        [limitKey]: Math.max(0, (quota[limitKey] || 0) - amount),
+      };
+      
+      setQuota(newQuota);
+      await localDbPutSetting(getQuotaKey(), newQuota);
+    }
+
+    updateUser(updatedUser);
+    return { success: true };
+  }, [user, updateUser, premium, quota]);
+
   return (
     <PremiumContext.Provider value={{
       premium,
@@ -244,6 +301,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshPremiumStatus,
       activationCode,
       regenerateCode,
+      redeemReward,
     }}>
       {children}
     </PremiumContext.Provider>

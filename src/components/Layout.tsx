@@ -11,6 +11,8 @@ import NotificationModal from './modals/NotificationModal';
 import ProfileMenuModal from './modals/ProfileMenuModal';
 import WhatsNewModal from './modals/WhatsNewModal';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { useLoginStreak } from '../hooks/useLoginStreak';
+import StreakRewardModal from './modals/StreakRewardModal';
 
 const Layout: React.FC = () => {
   const { user, theme, toggleTheme, setIsChatOpen, unreadNotifCount } = useMoney();
@@ -22,6 +24,43 @@ const Layout: React.FC = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  const { 
+    showRewardModal, 
+    setShowRewardModal, 
+    earnedPoints, 
+    basePoints, 
+    multiplier, 
+    milestoneBonus, 
+    isWeekend, 
+    currentStreak 
+  } = useLoginStreak();
+
+  const [showWeekendBanner, setShowWeekendBanner] = useState(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const hour = now.getHours();
+    const isFridayEvening = day === 5 && hour >= 17;
+    const isWeekend = day === 6 || day === 0;
+    
+    if (isFridayEvening || isWeekend) {
+      const dismissed = localStorage.getItem('dismissedWeekendBanner');
+      const fridayDate = new Date(now.getTime() - ((day === 0 ? 2 : day === 6 ? 1 : 0) * 24 * 60 * 60 * 1000));
+      const fridayStr = fridayDate.toISOString().split('T')[0];
+      if (dismissed === fridayStr) return false;
+      return true;
+    }
+    return false;
+  });
+
+  const handleDismissWeekendBanner = () => {
+    setShowWeekendBanner(false);
+    const now = new Date();
+    const day = now.getDay();
+    const fridayDate = new Date(now.getTime() - ((day === 0 ? 2 : day === 6 ? 1 : 0) * 24 * 60 * 60 * 1000));
+    const fridayStr = fridayDate.toISOString().split('T')[0];
+    localStorage.setItem('dismissedWeekendBanner', fridayStr);
+  };
 
   // Compute User Plan
   const planLabel = premium.isPremium ? 'Pro Plan' : 'Free Plan';
@@ -247,6 +286,17 @@ const Layout: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="lg:pl-64 pt-16 min-h-screen pb-24 lg:pb-0">
+        {showWeekendBanner && (
+          <div className="bg-gradient-to-r from-yellow-500 to-amber-600 text-white px-4 py-3 text-xs md:text-sm font-bold flex justify-between items-center z-30 relative shadow-md">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🌟</span>
+              <span><strong>Weekend Lucky Boost!</strong> Hari Sabtu & Minggu peluang bonus multiplier 2x-10x lebih tinggi!</span>
+            </div>
+            <button onClick={handleDismissWeekendBanner} className="p-1 bg-white/20 hover:bg-white/30 rounded-full border-none text-white cursor-pointer flex items-center justify-center shrink-0 ml-4">
+              <span className="material-symbols-outlined text-[14px]">close</span>
+            </button>
+          </div>
+        )}
         <Outlet />
       </main>
 
@@ -344,6 +394,17 @@ const Layout: React.FC = () => {
       <WhatsNewModal
         isOpen={showWhatsNew}
         onClose={handleCloseWhatsNew}
+      />
+
+      <StreakRewardModal 
+        isOpen={showRewardModal} 
+        onClose={() => setShowRewardModal(false)}
+        earnedPoints={earnedPoints}
+        currentStreak={currentStreak}
+        basePoints={basePoints}
+        multiplier={multiplier}
+        milestoneBonus={milestoneBonus}
+        isWeekend={isWeekend}
       />
     </div>
   );

@@ -11,6 +11,7 @@ import { downloadSampleExcel, parseExcelFile, extractExcelHeaders, type ImportRe
 import { exportAllDataToExcel } from '../lib/excelExport';
 import ExcelMappingModal from '../components/modals/ExcelMappingModal';
 import { BudgetManagement } from '../components/BudgetManagement';
+import RewardsStoreModal from '../components/modals/RewardsStoreModal';
 import { GoalManagement } from '../components/GoalManagement';
 import { FamilyManagement } from '../components/FamilyManagement';
 import CategoryManagerModal from '../components/modals/CategoryManagerModal';
@@ -369,6 +370,7 @@ const Settings: React.FC = () => {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showRewardsStore, setShowRewardsStore] = useState(false);
 
   // Deep linking: open modal based on navigation state
   React.useEffect(() => {
@@ -1905,6 +1907,30 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Rewards & Streak Card */}
+                <div className="flex gap-3">
+                  <div className="flex-1 bg-surface-container rounded-xl p-3 border border-border-light flex flex-col items-center justify-center text-center">
+                    <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Streak Login</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-lg">🔥</span>
+                      <span className="text-base font-black text-on-surface">{user.loginStreak || 0} Hari</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowRewardsStore(true)}
+                    className="flex-1 bg-surface-container hover:bg-surface-container-high rounded-xl p-3 border border-border-light flex flex-col items-center justify-center text-center relative overflow-hidden transition-colors cursor-pointer text-on-surface"
+                  >
+                    <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Poin Reward</span>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-lg text-yellow-500 material-symbols-outlined">monetization_on</span>
+                      <span className="text-base font-black text-on-surface">{user.rewardPoints || 0}</span>
+                    </div>
+                    <span className="text-[9px] text-primary font-bold flex items-center gap-0.5">
+                      Tukar Poin <span className="material-symbols-outlined text-[10px] font-bold">chevron_right</span>
+                    </span>
+                  </button>
+                </div>
+
                 <button
                   onClick={() => setIsEditingProfile(true)}
                   className="w-full py-2.5 rounded-lg border border-primary text-primary font-label-md hover:bg-primary-fixed transition-colors cursor-pointer"
@@ -2636,6 +2662,10 @@ const Settings: React.FC = () => {
           { targetSelector: '[data-tour="pref-budget-mode"]', title: '🎯 Metode Budgeting', description: 'Pilih gaya budgeting: Reguler atau Zero-Based (ZBB).' },
           { targetSelector: '[data-tour="settings-menu"]', title: '🛠️ Pengaturan Lainnya', description: 'Temukan berbagai pengaturan lainnya mulai dari kategori, backup data, hingga mengulang tutorial.' }
         ]}
+      />
+      <RewardsStoreModal
+        isOpen={showRewardsStore}
+        onClose={() => setShowRewardsStore(false)}
       />
     </PageWrapper>
   );
