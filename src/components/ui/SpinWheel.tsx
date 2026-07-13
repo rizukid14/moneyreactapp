@@ -84,7 +84,11 @@ export default function SpinWheel({ multiplier, isWeekend, onComplete }: SpinWhe
         initial={{ rotate: 0 }}
         animate={{ rotate: rotation }}
         transition={{ duration: 3.5, ease: [0.2, 0.8, 0.2, 1] }}
-        onAnimationComplete={onComplete}
+        onAnimationComplete={() => {
+          if (rotation > 0) {
+            onComplete();
+          }
+        }}
       >
         {/* Render text for each slice */}
         {slices.map((slice, i) => {

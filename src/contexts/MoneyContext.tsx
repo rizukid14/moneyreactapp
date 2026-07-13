@@ -2332,8 +2332,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const logOut = useCallback(async () => {
     if (isFirebaseConfigured) {
       sessionStorage.removeItem('cloud_synced_uid');
+      sessionStorage.removeItem('lastStreakCheckDate');
       setAutoCloudSync({ status: 'idle' });
       await signOut(auth);
+      
+      const { dbClearAllData } = await import('../lib/db');
+      await dbClearAllData();
+      
+      // Force reload the app so React state is completely wiped
+      window.location.href = '/';
     }
   }, []);
 

@@ -16,7 +16,7 @@ interface ProfileMenuModalProps {
 
 export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const { user, theme, toggleTheme } = useMoney();
+  const { user, theme, toggleTheme, logOut } = useMoney();
   const { showToast } = useToast();
   const [isLinking, setIsLinking] = React.useState(false);
   const [showRewardsStore, setShowRewardsStore] = React.useState(false);
@@ -50,9 +50,10 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
   const handleLogout = async () => {
     onClose();
     try {
-      await auth.signOut();
+      await logOut();
       showToast('Berhasil keluar dari akun', 'success');
-      setTimeout(() => window.location.reload(), 1000);
+      // logOut() in MoneyContext handles the reload, but just in case:
+      // setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
       console.error('Logout error', error);
       showToast('Gagal keluar dari akun', 'error');
