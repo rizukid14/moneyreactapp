@@ -7,6 +7,7 @@ import { auth, googleProvider } from '../../lib/firebase';
 import { linkWithPopup } from 'firebase/auth';
 import { useToast } from '../common/Toast';
 import WorkspaceSwitcher from '../WorkspaceSwitcher';
+import RewardsStoreModal from './RewardsStoreModal';
 
 interface ProfileMenuModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
   const { user, theme, toggleTheme } = useMoney();
   const { showToast } = useToast();
   const [isLinking, setIsLinking] = React.useState(false);
+  const [showRewardsStore, setShowRewardsStore] = React.useState(false);
 
   const isGoogleLinked = auth.currentUser?.providerData.some(p => p.providerId === 'google.com');
 
@@ -73,6 +75,30 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
         )}
         <h3 className="font-headline-md text-headline-md text-on-surface">{user.name}</h3>
         <p className="text-sm text-on-surface-variant font-medium">Pro Plan Member</p>
+
+        {/* Rewards & Streak Card */}
+        <div className="flex gap-3 w-full px-4 mt-4">
+          <div className="flex-1 bg-surface-container rounded-xl p-3 border border-border-light flex flex-col items-center justify-center text-center">
+            <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Streak Login</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-lg">🔥</span>
+              <span className="text-base font-black text-on-surface">{user.loginStreak || 0} Hari</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => setShowRewardsStore(true)}
+            className="flex-1 bg-surface-container hover:bg-surface-container-high rounded-xl p-3 border border-border-light flex flex-col items-center justify-center text-center relative overflow-hidden transition-colors cursor-pointer text-on-surface"
+          >
+            <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Poin Reward</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-lg text-yellow-500 material-symbols-outlined">monetization_on</span>
+              <span className="text-base font-black text-on-surface">{user.rewardPoints || 0}</span>
+            </div>
+            <span className="text-[9px] text-primary font-bold flex items-center gap-0.5">
+              Tukar Poin <span className="material-symbols-outlined text-[10px] font-bold">chevron_right</span>
+            </span>
+          </button>
+        </div>
       </div>
       <div className="w-full px-4 mb-4 mt-2">
         <WorkspaceSwitcher isMobile={true} />
@@ -159,6 +185,11 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
           <span className="font-bold text-sm">Keluar (Logout)</span>
         </button>
       </div>
+
+      <RewardsStoreModal
+        isOpen={showRewardsStore}
+        onClose={() => setShowRewardsStore(false)}
+      />
     </Modal>
   );
 };

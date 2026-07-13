@@ -1,5 +1,6 @@
-
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import SpinWheel from '../ui/SpinWheel';
 
 interface Props {
   isOpen: boolean;
@@ -22,6 +23,15 @@ export default function StreakRewardModal({
   milestoneBonus,
   isWeekend
 }: Props) {
+  const [isSpinning, setIsSpinning] = useState(true);
+
+  // Reset spin state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setIsSpinning(true);
+    }
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -30,11 +40,37 @@ export default function StreakRewardModal({
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
-            className="bg-surface p-6 rounded-3xl max-w-sm w-full text-center relative shadow-2xl overflow-hidden"
+            className="bg-surface p-6 rounded-3xl max-w-sm w-full text-center relative shadow-2xl overflow-hidden min-h-[420px] flex flex-col justify-center"
           >
-            <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer border-none text-on-surface">
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
+            {isSpinning ? (
+              <motion.div 
+                key="spinning"
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }}
+                className="flex flex-col items-center justify-center"
+              >
+                <h2 className="text-xl font-black text-on-surface mb-2">Lucky Draw!</h2>
+                <p className="text-on-surface-variant text-sm mb-4">Mengundi multiplier poin hari ini...</p>
+                <SpinWheel 
+                  multiplier={multiplier} 
+                  isWeekend={isWeekend} 
+                  onComplete={() => {
+                    // Small delay to let user see the result before switching screen
+                    setTimeout(() => setIsSpinning(false), 800);
+                  }} 
+                />
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="reward"
+                initial={{ opacity: 0, scale: 0.9 }} 
+                animate={{ opacity: 1, scale: 1 }} 
+                className="flex flex-col w-full"
+              >
+                <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors cursor-pointer border-none text-on-surface">
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
             
             <motion.div 
               animate={{ y: [0, -10, 0] }} 
@@ -86,9 +122,11 @@ export default function StreakRewardModal({
               </p>
             </div>
             
-            <button onClick={onClose} className="w-full py-3.5 bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/90 transition-colors cursor-pointer border-none">
+            <button onClick={onClose} className="w-full py-3.5 bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/90 transition-colors cursor-pointer border-none mt-auto">
               Klaim Reward
             </button>
+            </motion.div>
+            )}
           </motion.div>
         </div>
       )}

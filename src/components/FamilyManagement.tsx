@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
+import { useMoney } from '../contexts/MoneyContext';
 import MaterialIcon from './common/MaterialIcon';
 import { useToast } from './common/Toast';
 import { auth } from '../lib/firebase';
@@ -21,6 +22,7 @@ export const FamilyManagement: React.FC = () => {
     transferOwnership,
     deleteFamily
   } = useFamily();
+  const { user, updateUser } = useMoney();
   const { showToast } = useToast();
   
   const [isCreating, setIsCreating] = useState(false);
@@ -37,6 +39,18 @@ export const FamilyManagement: React.FC = () => {
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+
+  const checkWorkspaceLimit = () => {
+    const unlockedSlots = user?.unlockedWorkspaceSlots || 0;
+    const limit = 2 + unlockedSlots;
+    if (families.length >= limit) {
+      setIsPurchaseModalOpen(true);
+      return false;
+    }
+    return true;
+  };
 
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -67,9 +81,30 @@ export const FamilyManagement: React.FC = () => {
     });
   };
 
+  const handlePurchaseSlot = () => {
+    if ((user?.rewardPoints || 0) < 300) return;
+    
+    setIsSubmitting(true);
+    try {
+      const newUser = {
+        ...user!,
+        rewardPoints: (user?.rewardPoints || 0) - 300,
+        unlockedWorkspaceSlots: (user?.unlockedWorkspaceSlots || 0) + 1
+      };
+      updateUser(newUser);
+      showToast('Berhasil membeli 1 slot workspace tambahan!', 'success');
+      setIsPurchaseModalOpen(false);
+    } catch (e) {
+      showToast('Gagal membeli slot', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFamilyName.trim() || isSubmitting) return;
+    if (!checkWorkspaceLimit()) return;
     
     setIsSubmitting(true);
     try {
@@ -87,6 +122,7 @@ export const FamilyManagement: React.FC = () => {
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinCode.trim() || isSubmitting) return;
+    if (!checkWorkspaceLimit()) return;
     
     setIsSubmitting(true);
     try {
@@ -598,6 +634,49 @@ export const FamilyManagement: React.FC = () => {
                 <MaterialIcon name="delete_forever" className="text-sm" />
               )}
               {isSubmitting ? 'Menghapus...' : 'Hapus Permanen'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Purchase Slot Modal */}
+      <Modal isOpen={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)}>
+        <div className="text-center p-2">
+          <div className="w-12 h-12 rounded-full bg-warning-container text-on-warning-container flex items-center justify-center mx-auto mb-4">
+            <MaterialIcon name="stars" className="text-xl" />
+          </div>
+          <h3 className="text-lg font-black text-on-surface mb-2">Limit Workspace Tercapai</h3>
+          <p className="text-sm text-on-surface-variant mb-6">
+            Anda hanya dapat memiliki maksimal 2 workspace (termasuk sebagai member). Beli slot tambahan untuk membuat atau bergabung dengan workspace baru.
+          </p>
+          
+          <div className="bg-surface-container rounded-xl p-4 mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-on-surface-variant">Harga Slot:</span>
+              <span className="font-bold text-primary">300 Poin</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-on-surface-variant">Poin Anda:</span>
+              <span className={`font-bold ${((user?.rewardPoints || 0) >= 300) ? 'text-success' : 'text-error'}`}>
+                {user?.rewardPoints || 0} Poin
+              </span>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setIsPurchaseModalOpen(false)}
+              className="flex-1 py-3 bg-surface-variant text-on-surface-variant font-bold text-sm rounded-xl hover:bg-surface-container border-none cursor-pointer"
+            >
+              Batal
+            </button>
+            <button 
+              onClick={handlePurchaseSlot}
+              disabled={(user?.rewardPoints || 0) < 300 || isSubmitting}
+              className="flex-[1.5] py-3 bg-primary text-on-primary font-bold text-sm rounded-xl hover:opacity-90 disabled:opacity-50 transition-all border-none cursor-pointer flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? <MaterialIcon name="progress_activity" className="animate-spin text-sm" /> : <MaterialIcon name="shopping_cart_checkout" className="text-sm" />}
+              Beli Slot
             </button>
           </div>
         </div>

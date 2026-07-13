@@ -289,6 +289,7 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           type={type}
+          zIndex={4000}
           addCategory={addCategory}
           updateCategory={updateCategory}
           addSubCategory={addSubCategory}

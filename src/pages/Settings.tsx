@@ -26,6 +26,9 @@ import CategorySelectModal from '../components/modals/CategorySelectModal';
 import SharedBillsManagerModal from '../components/modals/SharedBillsManagerModal';
 import ContactModal from '../components/modals/ContactModal';
 import ContactManagerModal from '../components/modals/ContactManagerModal';
+import ReauthenticateModal from '../components/modals/ReauthenticateModal';
+import { auth } from '../lib/firebase';
+import { verifyBeforeUpdateEmail } from 'firebase/auth';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -371,6 +374,8 @@ const Settings: React.FC = () => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showRewardsStore, setShowRewardsStore] = useState(false);
+  const [showReauthModal, setShowReauthModal] = useState(false);
+  const isGoogleLinked = auth.currentUser?.providerData.some(p => p.providerId === 'google.com');
 
   // Deep linking: open modal based on navigation state
   React.useEffect(() => {
@@ -592,9 +597,28 @@ const Settings: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateUser({ name: tempName, email: tempEmail, avatar: tempAvatar });
+    
+    let finalEmail = tempEmail;
+    if (tempEmail !== user.email && auth.currentUser && !isGoogleLinked) {
+      try {
+        await verifyBeforeUpdateEmail(auth.currentUser, tempEmail);
+        showToast('Tautan verifikasi telah dikirim ke email baru Anda. Silakan klik tautan tersebut untuk mengonfirmasi.', 'success');
+        finalEmail = user.email; // Keep old email locally until verified
+      } catch (error: any) {
+        console.error('Update email error:', error);
+        if (error.code === 'auth/requires-recent-login') {
+          setShowReauthModal(true);
+          return; // Stop here, wait for re-auth
+        } else {
+          showToast('Gagal mengubah email: ' + error.message, 'error');
+          return;
+        }
+      }
+    }
+
+    updateUser({ name: tempName, email: finalEmail, avatar: tempAvatar });
     setActiveModal(null);
     setIsEditingProfile(false);
   };
@@ -1823,9 +1847,13 @@ const Settings: React.FC = () => {
                       type="email"
                       value={tempEmail}
                       onChange={e => setTempEmail(e.target.value)}
-                      className="w-full p-2.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
+                      disabled={isGoogleLinked}
+                      className="w-full p-2.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                       required
                     />
+                    {isGoogleLinked && (
+                      <p className="text-[10px] text-on-surface-variant mt-1">Email dikelola oleh Google dan tidak dapat diubah.</p>
+                    )}
                   </div>
                 </div>
 
@@ -2621,6 +2649,23 @@ const Settings: React.FC = () => {
         assets={assets}
         selectedAssetId={defaultAssetId || ''}
         onSelect={id => setDefaultAssetId(id || null)}
+      />
+
+      {/* Shared Bills Manager Modal */}
+      <SharedBillsManagerModal 
+        isOpen={isSharedBillsOpen}
+        onClose={() => setIsSharedBillsOpen(false)}
+      />
+
+      <ReauthenticateModal
+        isOpen={showReauthModal}
+        onClose={() => setShowReauthModal(false)}
+        onSuccess={() => {
+          setShowReauthModal(false);
+          // Auto-trigger the update profile save again now that they are re-authenticated
+          const event = new Event('submit', { bubbles: true, cancelable: true });
+          handleUpdateProfile(event as any);
+        }}
       />
 
       <AssetSelectModal

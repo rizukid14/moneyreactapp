@@ -17,10 +17,11 @@ interface CategoryModalProps {
   addSubCategory?: (categoryId: string, name: string) => void;
   editingCategory?: Category | null;
   existingCategories: Category[];
+  zIndex?: number;
 }
 
 const CategoryModal: React.FC<CategoryModalProps> = ({
-  isOpen, onClose, type, addCategory, updateCategory, addSubCategory, editingCategory, existingCategories
+  isOpen, onClose, type, addCategory, updateCategory, addSubCategory, editingCategory, existingCategories, zIndex
 }) => {
   const { showToast } = useToast();
   const [name, setName] = useState('');
@@ -111,6 +112,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={editingCategory ? 'Edit Kategori' : `Tambah Kategori ${type === 'pengeluaran' ? 'Pengeluaran' : 'Pendapatan'}`}
+      zIndex={zIndex}
     >
       <form onSubmit={handleSave} style={{ padding: '0 4px' }}>
         <div style={{ marginBottom: '20px' }}>

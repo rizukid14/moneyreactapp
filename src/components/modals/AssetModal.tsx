@@ -22,11 +22,12 @@ interface AssetModalProps {
   onDelete?: (id: string) => void;
   currencySymbol: string;
   existingAssets: Asset[];
+  zIndex?: number;
 }
 
 const AssetModal: React.FC<AssetModalProps> = ({ 
   isOpen, onClose, addAsset, updateAsset, editingAsset, 
-  currentBalance, addTransaction, onDelete, currencySymbol, existingAssets 
+  currentBalance, addTransaction, onDelete, currencySymbol, existingAssets, zIndex
 }) => {
   const { showToast } = useToast();
   const [name, setName] = useState('');
@@ -125,6 +126,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
         onClose={onClose}
         title={editingAsset ? 'Edit Aset' : 'Tambah Aset Baru'}
         testId="asset-modal"
+        zIndex={zIndex}
       >
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '20px' }}>

@@ -252,6 +252,7 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
       <AssetModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        zIndex={4000}
         addAsset={addAsset}
         updateAsset={updateAsset}
         addTransaction={addTransaction}

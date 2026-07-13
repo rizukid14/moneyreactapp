@@ -108,32 +108,39 @@ export interface MoneyAppDB {
   notifications: { key: string; value: any };
 }
 
-let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
+const dbUpgrade = (db: IDBPDatabase<MoneyAppDB>) => {
+  if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('transactions')) db.createObjectStore('transactions', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('categories')) db.createObjectStore('categories', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('budgets')) db.createObjectStore('budgets', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('debts')) db.createObjectStore('debts', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('recurring_transactions')) db.createObjectStore('recurring_transactions', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('contacts')) db.createObjectStore('contacts', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('goals')) db.createObjectStore('goals', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('subscriptions')) db.createObjectStore('subscriptions', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
+  if (!db.objectStoreNames.contains('pending_sync')) db.createObjectStore('pending_sync', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('trips')) db.createObjectStore('trips', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('trip_expenses')) db.createObjectStore('trip_expenses', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('monthly_incomes')) db.createObjectStore('monthly_incomes', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('budget_reallocations')) db.createObjectStore('budget_reallocations', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('notifications')) db.createObjectStore('notifications', { keyPath: 'id' });
+};
 
+let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
 export const getDB = () => {
   if (!dbPromise) {
-    dbPromise = openDB<MoneyAppDB>(getDbName(), DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('transactions')) db.createObjectStore('transactions', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('categories')) db.createObjectStore('categories', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('budgets')) db.createObjectStore('budgets', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('debts')) db.createObjectStore('debts', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('recurring_transactions')) db.createObjectStore('recurring_transactions', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('contacts')) db.createObjectStore('contacts', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('goals')) db.createObjectStore('goals', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('subscriptions')) db.createObjectStore('subscriptions', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
-        if (!db.objectStoreNames.contains('pending_sync')) db.createObjectStore('pending_sync', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('trips')) db.createObjectStore('trips', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('trip_expenses')) db.createObjectStore('trip_expenses', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('monthly_incomes')) db.createObjectStore('monthly_incomes', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('budget_reallocations')) db.createObjectStore('budget_reallocations', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('notifications')) db.createObjectStore('notifications', { keyPath: 'id' });
-      },
-    });
+    dbPromise = openDB<MoneyAppDB>(getDbName(), DB_VERSION, { upgrade: dbUpgrade });
   }
   return dbPromise;
+};
+
+let globalDbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
+export const getGlobalDB = () => {
+  if (!globalDbPromise) {
+    globalDbPromise = openDB<MoneyAppDB>('moneyapp_db', DB_VERSION, { upgrade: dbUpgrade });
+  }
+  return globalDbPromise;
 };
 
 if (typeof window !== 'undefined') {
@@ -164,8 +171,21 @@ export const localDbGetAllTransactions = async (): Promise<Transaction[]> => (aw
 export const localDbGetAllCategories = async (): Promise<Category[]> => (await getDB()).getAll('categories');
 export const localDbGetAllBudgets = async (): Promise<any[]> => (await getDB()).getAll('budgets');
 export const localDbGetAllGoals = async (): Promise<Goal[]> => (await getDB()).getAll('goals');
-export const localDbGetSetting = async (key: string) => (await getDB()).get('settings', key);
-export const localDbPutSetting = async (key: string, value: any) => (await getDB()).put('settings', value, key);
+const USER_SPECIFIC_SETTINGS = ['premium', 'premiumActivationCode', 'user', 'pin', 'theme'];
+
+export const localDbGetSetting = async (key: string) => {
+  if (USER_SPECIFIC_SETTINGS.includes(key)) {
+    return (await getGlobalDB()).get('settings', key);
+  }
+  return (await getDB()).get('settings', key);
+};
+
+export const localDbPutSetting = async (key: string, value: any) => {
+  if (USER_SPECIFIC_SETTINGS.includes(key)) {
+    return (await getGlobalDB()).put('settings', value, key);
+  }
+  return (await getDB()).put('settings', value, key);
+};
 export const localDbGetAllNotifications = async (): Promise<any[]> => (await getDB()).getAll('notifications');
 
 // ─── FIRESTORE (Cloud Sync) ──────────────────────────────────────────────────
@@ -181,8 +201,7 @@ export const getWorkspacePath = (collectionName: string) => {
   return `users/${getUid()}/${collectionName}`;
 };
 
-const USER_SPECIFIC_SETTINGS = ['premium', 'premiumActivationCode', 'user', 'pin', 'theme'];
-
+// USER_SPECIFIC_SETTINGS defined above
 export const getSettingPath = (key: string) => {
   if (USER_SPECIFIC_SETTINGS.includes(key)) {
     return `users/${getUid()}/settings`;
@@ -576,7 +595,7 @@ export const dbGetSetting = async (key: string) => {
 };
 
 export const dbPutSetting = async (key: string, value: any) => {
-  await (await getDB()).put('settings', value, key);
+  await localDbPutSetting(key, value);
   
   const currentWorkspaceId = activeWorkspaceId;
   const meta: any = {
@@ -601,7 +620,12 @@ export const dbPutSetting = async (key: string, value: any) => {
 };
 
 export const dbDeleteSetting = async (key: string) => {
-  await (await getDB()).delete('settings', key);
+  if (USER_SPECIFIC_SETTINGS.includes(key)) {
+    await (await getGlobalDB()).delete('settings', key);
+  } else {
+    await (await getDB()).delete('settings', key);
+  }
+
   await recordPendingSync({ id: `setting-${key}`, collection: 'settings', operation: 'DELETE' });
 
   if (!isFirebaseConfigured || !auth.currentUser) return;

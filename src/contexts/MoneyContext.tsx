@@ -38,6 +38,7 @@ export interface UserProfile {
   lastLoginDate?: string;
   loginStreak?: number;
   rewardPoints?: number;
+  unlockedWorkspaceSlots?: number;
 }
 
 export interface SubCategory {

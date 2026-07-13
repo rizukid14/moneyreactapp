@@ -66,6 +66,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, editingCon
       isOpen={isOpen} 
       onClose={onClose} 
       title={editingContact ? 'Edit Kontak' : 'Tambah Kontak Baru'}
+      zIndex={4000}
     >
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '20px' }}>
         <div>

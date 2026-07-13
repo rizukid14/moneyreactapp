@@ -11,9 +11,10 @@ export interface ModalProps {
   testId?: string;
   headerActions?: React.ReactNode;
   maxWidth?: string;
+  zIndex?: number;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 'data-testid': dataTestId, testId, headerActions, maxWidth }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 'data-testid': dataTestId, testId, headerActions, maxWidth, zIndex }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,9 +68,9 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center px-0 pb-0 pt-10 sm:p-6 lg:p-8 bg-black/45 backdrop-blur-sm transition-opacity duration-200"
+      className="fixed inset-0 flex items-end sm:items-center justify-center px-0 pb-0 pt-10 sm:p-6 lg:p-8 bg-black/45 backdrop-blur-sm transition-opacity duration-200"
       onClick={handleOverlayClick}
-      style={{ touchAction: 'none' }}
+      style={{ touchAction: 'none', zIndex: zIndex !== undefined ? zIndex : 2000 }}
       data-testid={dataTestId || testId}
       data-modal="true"
     >
