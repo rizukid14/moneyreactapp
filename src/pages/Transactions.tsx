@@ -271,8 +271,8 @@ const Transactions: React.FC = () => {
       const isCurrentPeriod = (() => {
         if (startOfMonthDay > 1) {
           const start = new Date(vY, vM - 1, startOfMonthDay);
-          const end = new Date(vY, vM, startOfMonthDay - 1);
-          return txD >= start && txD <= end;
+          const end = new Date(vY, vM, startOfMonthDay);
+          return txD >= start && txD < end;
         }
         return txD.getMonth() === vM && txD.getFullYear() === vY;
       })();
@@ -572,8 +572,8 @@ const Transactions: React.FC = () => {
       const txD = new Date(tx.date);
       if (startOfMonthDay > 1) {
         const start = new Date(vY, vM - 1, startOfMonthDay);
-        const end = new Date(vY, vM, startOfMonthDay - 1);
-        return txD >= start && txD <= end;
+        const end = new Date(vY, vM, startOfMonthDay);
+        return txD >= start && txD < end;
       }
       return txD.getMonth() === vM && txD.getFullYear() === vY;
     }).reduce((sum, tx) => sum + tx.amount, 0);
@@ -583,8 +583,8 @@ const Transactions: React.FC = () => {
       const txD = new Date(tx.date);
       if (startOfMonthDay > 1) {
         const start = new Date(vY, vM - 1, startOfMonthDay);
-        const end = new Date(vY, vM, startOfMonthDay - 1);
-        return txD >= start && txD <= end;
+        const end = new Date(vY, vM, startOfMonthDay);
+        return txD >= start && txD < end;
       }
       return txD.getMonth() === vM && txD.getFullYear() === vY;
     }).reduce((sum, tx) => sum + tx.amount, 0);
@@ -607,8 +607,8 @@ const Transactions: React.FC = () => {
             const txD = new Date(tx.date);
             if (startOfMonthDay > 1) {
               const start = new Date(vY, vM - 1, startOfMonthDay);
-              const end = new Date(vY, vM, startOfMonthDay - 1);
-              return txD >= start && txD <= end;
+              const end = new Date(vY, vM, startOfMonthDay);
+              return txD >= start && txD < end;
             }
             return txD.getMonth() === vM && txD.getFullYear() === vY;
           })

@@ -97,23 +97,33 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Pilih Kategori">
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Pilih Kategori"
+        headerActions={
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            style={{
+              background: 'var(--primary-gradient)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 4px 10px var(--primary-glow)',
+            }}
+            title="Tambah Kategori Baru"
+          >
+            <MaterialIcon name="add" className="text-[18px]" />
+          </button>
+        }
+      >
         <div style={{ display: 'flex', flexDirection: 'column', height: '80vh', overflow: 'hidden' }}>
-          {/* Header Action: Add Category (Title and Close are handled by Modal) */}
-          <div style={{ position: 'absolute', top: '16px', right: '56px', zIndex: 10 }}>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              style={{
-                background: 'var(--primary-gradient)', color: 'white', border: 'none',
-                borderRadius: '10px', width: '32px', height: '32px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', boxShadow: '0 4px 10px var(--primary-glow)'
-              }}
-              title="Tambah Kategori Baru"
-            >
-              <MaterialIcon name="add" className="text-[18px]" />
-            </button>
-          </div>
 
               {/* Search Bar */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>

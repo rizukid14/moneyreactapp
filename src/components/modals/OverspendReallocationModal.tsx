@@ -42,23 +42,13 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
   const spendingMap = useMemo(() => {
     const map: Record<string, number> = {};
     
-    // Calculate month boundaries using startOfMonthDay
     const sDay = startOfMonthDay || 1;
-    let startDate: Date, endDate: Date;
-    
-    if (sDay === 1) {
-      startDate = new Date(year, month - 1, 1);
-      endDate = new Date(year, month, 0); // last day of month
-    } else {
-      startDate = new Date(year, month - 2, sDay);
-      endDate = new Date(year, month - 1, sDay - 1);
-    }
-    
-    const startStr = startDate.toISOString().split('T')[0];
-    const endStr = endDate.toISOString().split('T')[0];
-    
+    const periodStart = new Date(year, month - (sDay > 1 ? 1 : 0), sDay);
+    const periodEnd = new Date(year, month + (sDay > 1 ? 0 : 1), sDay);
+
     transactions.forEach(tx => {
-      if (tx.type === 'pengeluaran' && tx.date >= startStr && tx.date <= endStr) {
+      const d = new Date(tx.date);
+      if (tx.type === 'pengeluaran' && d >= periodStart && d < periodEnd) {
         const cat = categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
                     categories.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
         const catId = cat?.id;
@@ -67,7 +57,7 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
         }
       }
     });
-    
+
     return map;
   }, [transactions, categories, month, year, startOfMonthDay]);
 
