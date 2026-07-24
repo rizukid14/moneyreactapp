@@ -5,6 +5,7 @@ import type { Asset, RecurringTransaction, Transaction } from '../../contexts/Mo
 import CalculatorModal from './CalculatorModal';
 import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
+import ContactSelectModal from './ContactSelectModal';
 import GoalSelectModal from './GoalSelectModal';
 import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
@@ -37,7 +38,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType, initialAssetId
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode, startOfMonthDay } = useMoney();
+  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode, startOfMonthDay, addDebt, contacts } = useMoney();
   const { showToast } = useToast();
   const [type, setType] = useState<Transaction['type']>('pengeluaran');
   const [amount, setAmount] = useState('');
@@ -62,6 +63,15 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
   const [recurringEndDate, setRecurringEndDate] = useState('');
+
+  // Debt link state
+  const [isDebtLinked, setIsDebtLinked] = useState(false);
+  const [debtType, setDebtType] = useState<'hutang' | 'piutang'>('hutang');
+  const [debtContact, setDebtContact] = useState('');
+  const [debtDueDate, setDebtDueDate] = useState('');
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [showDebtInfo, setShowDebtInfo] = useState(false);
+  const [showRecurringInfo, setShowRecurringInfo] = useState(false);
 
   // Admin fee state (transfer only)
   const [adminFee, setAdminFee] = useState('');
@@ -387,6 +397,28 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         } catch (e) {}
       }
 
+      // Handle creating linked debt if toggled
+      if (isDebtLinked && debtContact.trim() && (type === 'pengeluaran' || type === 'pendapatan')) {
+        const numAmount = Number(amount.replace(/\./g, ''));
+        addDebt(
+          {
+            type: debtType,
+            contact: debtContact.trim(),
+            description: note.trim() || 'Dari transaksi',
+            totalAmount: numAmount,
+            principalAmount: numAmount,
+            date,
+            createdAt: `${date}T${time}:00`,
+            isPaid: false,
+            isInstallment: false,
+            paidInstallments: 0,
+            dueDate: debtDueDate || undefined,
+            paymentAssetId: assetId,
+          },
+          debtType === 'hutang' ? 'cash' : undefined
+        );
+      }
+
       // Reset local fields immediately so reopening doesn't flash old data
       setAmount('');
       setCategoryId('');
@@ -394,6 +426,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setNote('');
       setDescription('');
       setIsRecurring(false);
+      setIsDebtLinked(false);
+      setDebtType('hutang');
+      setDebtContact('');
+      setDebtDueDate('');
       setGoalId(undefined);
       setAdminFee('');
       setAdminFeeTarget('sender');
@@ -771,18 +807,45 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         border: `1px solid ${isRecurring ? 'var(--primary)' : 'var(--border-color)'}`,
                         transition: 'all 0.2s'
                       }} className="flex flex-col gap-2">
-                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, flex: 1 }}>
                             <MaterialIcon name="swap_horiz" />
                             <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Jadikan Transaksi Rutin</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowRecurringInfo(prev => !prev);
+                              }}
+                              style={{
+                                border: 'none', background: 'transparent', cursor: 'pointer',
+                                color: showRecurringInfo ? 'var(--primary)' : 'var(--text-muted)',
+                                padding: '2px', display: 'flex', alignItems: 'center'
+                              }}
+                              title="Informasi Transaksi Rutin"
+                            >
+                              <MaterialIcon name="info" className="text-[16px]" />
+                            </button>
+                            <input
+                              type="checkbox"
+                              checked={isRecurring}
+                              onChange={e => setIsRecurring(e.target.checked)}
+                              style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', marginLeft: 'auto' }}
+                            />
+                          </label>
+                        </div>
+
+                        {showRecurringInfo && (
+                          <div style={{
+                            padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-card-solid)',
+                            border: '1px solid var(--border-color)', fontSize: '12px', lineHeight: 1.5,
+                            color: 'var(--text-main)', marginTop: '4px'
+                          }}>
+                            <div style={{ fontWeight: 700, marginBottom: '4px', color: 'var(--primary)' }}>🔄 Transaksi Rutin:</div>
+                            <div>Transaksi ini akan diulangi secara otomatis sesuai frekuensi yang dipilih (Harian, Mingguan, Bulanan, atau Tahunan) tanpa perlu diisi ulang secara manual di kemudian hari.</div>
                           </div>
-                          <input
-                            type="checkbox"
-                            checked={isRecurring}
-                            onChange={e => setIsRecurring(e.target.checked)}
-                            style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
-                          />
-                        </label>
+                        )}
 
                         {isRecurring && (
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -825,6 +888,125 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 type="date"
                                 value={recurringEndDate}
                                 onChange={e => setRecurringEndDate(e.target.value)}
+                                style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!editingTransaction && (
+                      <div style={{
+                        padding: '12px', borderRadius: '12px',
+                        background: isDebtLinked ? 'hsla(35, 90%, 55%, 0.08)' : 'var(--bg-main)',
+                        border: `1px solid ${isDebtLinked ? 'hsla(35, 90%, 55%, 0.4)' : 'var(--border-color)'}`,
+                        transition: 'all 0.2s'
+                      }} className="flex flex-col gap-2">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, flex: 1 }}>
+                            <MaterialIcon name="account_balance" />
+                            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>Catat sebagai Hutang / Piutang</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowDebtInfo(prev => !prev);
+                              }}
+                              style={{
+                                border: 'none', background: 'transparent', cursor: 'pointer',
+                                color: showDebtInfo ? 'var(--primary)' : 'var(--text-muted)',
+                                padding: '2px', display: 'flex', alignItems: 'center'
+                              }}
+                              title="Informasi Penjelasan"
+                            >
+                              <MaterialIcon name="info" className="text-[16px]" />
+                            </button>
+                            <input
+                              type="checkbox"
+                              checked={isDebtLinked}
+                              onChange={e => setIsDebtLinked(e.target.checked)}
+                              style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', marginLeft: 'auto' }}
+                            />
+                          </label>
+                        </div>
+
+                        {showDebtInfo && (
+                          <div style={{
+                            padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-card-solid)',
+                            border: '1px solid var(--border-color)', fontSize: '12px', lineHeight: 1.5,
+                            color: 'var(--text-main)', marginTop: '4px'
+                          }}>
+                            <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--primary)' }}>ℹ️ Pemetaan Mode Hutang / Piutang:</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div>🔴 <strong>Pengeluaran + Saya Berhutang (Hutang):</strong> masuk ke <em>Mode Kredit / Paylater</em> (belanja dulu utang kemudian).</div>
+                              <div>🔴 <strong>Pengeluaran + Orang Berhutang (Piutang):</strong> masuk ke <em>Mode Piutang / Talangan</em> (memberikan pinjaman ke teman).</div>
+                              <div>🟢 <strong>Pendapatan + Saya Berhutang (Hutang):</strong> masuk ke <em>Mode Pinjaman Tunai</em> (menerima pencairan utang dari orang/bank).</div>
+                              <div>🟢 <strong>Pendapatan + Orang Berhutang (Piutang):</strong> masuk ke <em>Mode Pelunasan Piutang</em> (menerima pembayaran uang dari teman).</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {isDebtLinked && (
+                          <div className="flex flex-col gap-3 pt-1">
+                            {/* Type Pills */}
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDebtType('hutang')}
+                                style={{
+                                  flex: 1, padding: '7px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                                  border: `1.5px solid ${debtType === 'hutang' ? 'var(--danger)' : 'var(--border-color)'}`,
+                                  background: debtType === 'hutang' ? 'var(--bg-expense)' : 'var(--bg-card)',
+                                  color: debtType === 'hutang' ? 'var(--danger)' : 'var(--text-muted)',
+                                  cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                              >
+                                Saya Berhutang (Hutang)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDebtType('piutang')}
+                                style={{
+                                  flex: 1, padding: '7px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                                  border: `1.5px solid ${debtType === 'piutang' ? 'var(--success)' : 'var(--border-color)'}`,
+                                  background: debtType === 'piutang' ? 'var(--bg-income)' : 'var(--bg-card)',
+                                  color: debtType === 'piutang' ? 'var(--success)' : 'var(--text-muted)',
+                                  cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                              >
+                                Orang Berhutang (Piutang)
+                              </button>
+                            </div>
+
+                            {/* Contact Selector Button */}
+                            <button
+                              type="button"
+                              onClick={() => setIsContactModalOpen(true)}
+                              style={{
+                                width: '100%', padding: '10px 12px', background: 'var(--bg-card-solid)',
+                                border: !debtContact ? '1px dashed var(--danger)' : '1px solid var(--border-color)', borderRadius: '8px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                cursor: 'pointer', color: debtContact ? 'var(--text-main)' : 'var(--text-muted)'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <MaterialIcon name="person" className="text-[16px]" />
+                                <span style={{ fontSize: '13px', fontWeight: debtContact ? 600 : 400 }}>
+                                  {debtContact ? `Kontak: ${debtContact}` : '-- Pilih / Tambah Kontak --'}
+                                </span>
+                              </div>
+                              <MaterialIcon name="chevron_right" className="text-[16px]" />
+                            </button>
+
+                            {/* Due Date */}
+                            <div>
+                              <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tenggat Waktu / Jatuh Tempo (Opsional)</label>
+                              <input
+                                type="date"
+                                value={debtDueDate}
+                                onChange={e => setDebtDueDate(e.target.value)}
                                 style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
                               />
                             </div>
@@ -942,6 +1124,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           if (assetSelectingField === 'assetId') setAssetId(id);
           else if (assetSelectingField === 'fromAssetId') setFromAssetId(id);
           else setToAssetId(id);
+        }}
+      />
+
+      <ContactSelectModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        contacts={contacts}
+        selectedContactName={debtContact}
+        onSelect={(name) => {
+          setDebtContact(name);
+          setIsContactModalOpen(false);
         }}
       />
 

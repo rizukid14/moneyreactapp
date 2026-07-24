@@ -447,6 +447,7 @@ BEHAVIOR RULES:
 6. For split bill requests from raw text (e.g., "tolong split bill mie ayam 20rb es teh 5rb"), use 'create_split_bill'.
 7. Do NOT try to handle multiple transactions in one turn. Direct them to "Input Sekaligus" for bulk entries.
 8. Keep responses concise and in Indonesian.
+9. If a user describes a transaction with debt context (e.g., "bayarin makan Budi 50rb", "pinjam uang dari Ali 100rb"), call 'create_transaction' with linkDebt=true, debtType ('hutang' or 'piutang'), and debtContact.
 
 RECENT UI/BEHAVIOR CHANGES:
 - Asset selection in dialogs now uses AssetSelectModal across the app (AddTripExpenseModal, DebtPaymentModal, SettleUpModal).
@@ -557,7 +558,10 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
               note: { type: "string" },
               date: { type: "string", description: "YYYY-MM-DD" },
               adminFee: { type: "number" },
-              adminFeeTarget: { type: "string", enum: ["sender", "receiver"] }
+              adminFeeTarget: { type: "string", enum: ["sender", "receiver"] },
+              linkDebt: { type: "boolean", description: "Set true if the user implies a lending/borrowing or debt context in the transaction" },
+              debtType: { type: "string", enum: ["hutang", "piutang"], description: "hutang = I owe, piutang = others owe me" },
+              debtContact: { type: "string", description: "Name of the person/contact involved in the debt" }
             },
             required: ["type", "amount", "category", "note", "date"]
           }

@@ -375,7 +375,6 @@ const ChatBot: React.FC = () => {
             relatedId: newTx.id,
           });
         }
-      } else {
         addTransaction({
           type: toolArgs.type,
           amount: Number(toolArgs.amount),
@@ -385,13 +384,35 @@ const ChatBot: React.FC = () => {
           note: toolArgs.note || 'Dari AI Chat',
           date: toolArgs.date || getLocalDate(),
         });
+
+        if (toolArgs.linkDebt && toolArgs.debtContact) {
+          const dType = toolArgs.debtType === 'piutang' ? 'piutang' : 'hutang';
+          addDebt({
+            type: dType,
+            contact: toolArgs.debtContact.trim(),
+            description: toolArgs.note || 'Dari AI Chat',
+            totalAmount: Number(toolArgs.amount),
+            principalAmount: Number(toolArgs.amount),
+            date: toolArgs.date || getLocalDate(),
+            createdAt: toolArgs.date ? `${toolArgs.date}T${getLocalTime()}:00` : new Date().toISOString(),
+            isPaid: false,
+            isInstallment: false,
+            paidInstallments: 0,
+            paymentAssetId: toolArgs.assetId
+          }, dType === 'hutang' ? 'cash' : undefined);
+        }
       }
 
+      const hasDebtCreated = toolArgs.linkDebt && toolArgs.debtContact;
+      const successMsg = hasDebtCreated
+        ? `✅ Transaksi & Catatan ${toolArgs.debtType === 'piutang' ? 'Piutang' : 'Hutang'} (${toolArgs.debtContact}) berhasil dicatat!`
+        : '✅ Transaksi berhasil dicatat!';
+
       setMessages(prev => prev.map((m, i) => 
-        i === msgIndex ? { ...m, toolCall: undefined, content: '✅ Transaksi berhasil dicatat!' } : m
+        i === msgIndex ? { ...m, toolCall: undefined, content: successMsg } : m
       ));
       
-      showToast('Transaksi berhasil ditambahkan via AI!', 'success');
+      showToast(hasDebtCreated ? 'Transaksi & Hutang/Piutang berhasil ditambahkan!' : 'Transaksi berhasil ditambahkan via AI!', 'success');
     } catch (err: any) {
       showToast(err.message || 'Gagal menambahkan transaksi', 'error');
     }
@@ -984,6 +1005,77 @@ const ChatBot: React.FC = () => {
                               }}
                             />
                           </div>
+
+                          {/* Linked Debt Section */}
+                          {msg.toolCall.arguments.type !== 'transfer' && (
+                            <div style={{
+                              marginTop: '6px',
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              background: msg.toolCall.arguments.linkDebt ? 'hsla(35, 90%, 55%, 0.08)' : 'var(--bg-neutral)',
+                              border: `1px solid ${msg.toolCall.arguments.linkDebt ? 'hsla(35, 90%, 55%, 0.3)' : 'var(--border-color)'}`
+                            }}>
+                              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Catat Hutang/Piutang</span>
+                                <input
+                                  type="checkbox"
+                                  checked={!!msg.toolCall.arguments.linkDebt}
+                                  onChange={(e) => handleUpdateDraftField(idx, 'linkDebt', e.target.checked)}
+                                  style={{ width: '14px', height: '14px', accentColor: 'var(--primary)' }}
+                                />
+                              </label>
+
+                              {msg.toolCall.arguments.linkDebt && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateDraftField(idx, 'debtType', 'hutang')}
+                                      style={{
+                                        flex: 1, padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                                        border: `1px solid ${msg.toolCall.arguments.debtType !== 'piutang' ? 'var(--danger)' : 'var(--border-color)'}`,
+                                        background: msg.toolCall.arguments.debtType !== 'piutang' ? 'var(--bg-expense)' : 'var(--bg-main)',
+                                        color: msg.toolCall.arguments.debtType !== 'piutang' ? 'var(--danger)' : 'var(--text-muted)',
+                                        cursor: 'pointer'
+                                      }}
+                                    >Hutang</button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateDraftField(idx, 'debtType', 'piutang')}
+                                      style={{
+                                        flex: 1, padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                                        border: `1px solid ${msg.toolCall.arguments.debtType === 'piutang' ? 'var(--success)' : 'var(--border-color)'}`,
+                                        background: msg.toolCall.arguments.debtType === 'piutang' ? 'var(--bg-income)' : 'var(--bg-main)',
+                                        color: msg.toolCall.arguments.debtType === 'piutang' ? 'var(--success)' : 'var(--text-muted)',
+                                        cursor: 'pointer'
+                                      }}
+                                    >Piutang</button>
+                                  </div>
+
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kontak:</span>
+                                    <input 
+                                      type="text" 
+                                      value={msg.toolCall.arguments.debtContact || ''} 
+                                      onChange={(e) => handleUpdateDraftField(idx, 'debtContact', e.target.value)}
+                                      placeholder="Nama kontak..."
+                                      style={{
+                                        background: 'var(--bg-main)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '6px',
+                                        padding: '3px 6px',
+                                        fontSize: '11px',
+                                        color: 'var(--text-main)',
+                                        outline: 'none',
+                                        width: '130px',
+                                        textAlign: 'right'
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </>
                       ) : msg.toolCall.name === 'create_debt' ? (
                         <>
