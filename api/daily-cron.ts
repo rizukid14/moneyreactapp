@@ -108,11 +108,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             
             for (const rtDoc of activeRecurringDocs) {
                 const rt = rtDoc.data();
-                // Get UID from the document path: users/[uid]/recurring_transactions/[id]
-                const uid = rtDoc.ref.parent.parent?.id;
-                if (!uid) continue;
+                // Get parent document ref (e.g. users/[uid] or families/[familyId])
+                const parentRef = rtDoc.ref.parent.parent;
+                if (!parentRef) continue;
 
-                const startDate = new Date(rt.startDate);
+                const startDate = new Date(rt.startDate || todayStr);
                 startDate.setHours(0, 0, 0, 0);
 
                 const lastDate = rt.lastProcessedDate ? new Date(rt.lastProcessedDate) : new Date(startDate);
@@ -133,6 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 let hasChanges = false;
                 let latestProcessed = rt.lastProcessedDate || null;
                 const userGeneratedDetails: string[] = [];
+                const now = Date.now();
 
                 while (currentCheck <= today) {
                     if (endDate && currentCheck > endDate) break;
@@ -140,14 +141,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const txDate = currentCheck.toISOString().split('T')[0];
                     const txId = `auto-${rt.id}-${txDate}`;
                     
-                    // Simple check if already exists to prevent duplicates
-                    const existingTx = await db.collection('users').doc(uid).collection('transactions').doc(txId).get();
+                    const txRef = parentRef.collection('transactions').doc(txId);
+                    const existingTx = await txRef.get();
                     
                     if (!existingTx.exists) {
                         const newTx = {
                             id: txId,
-                            type: rt.type,
-                            amount: rt.amount,
+                            type: rt.type || 'pengeluaran',
+                            amount: Number(rt.amount) || 0,
                             categoryId: rt.categoryId || null,
                             subCategoryId: rt.subCategoryId || null,
                             assetId: rt.assetId || null,
@@ -155,13 +156,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             toAssetId: rt.toAssetId || null,
                             goalId: rt.goalId || null,
                             date: txDate,
-                            note: `${rt.note} [Auto:${rt.id}]`,
+                            time: '00:00',
+                            note: (rt.note ? `${rt.note} [Auto:${rt.id}]` : `Transaksi Rutin [Auto:${rt.id}]`).trim(),
+                            createdAt: `${txDate}T00:00:00.000Z`,
+                            updatedAt: now,
+                            isDeleted: false
                         };
                         
-                        batch.set(db.collection('users').doc(uid).collection('transactions').doc(txId), newTx);
+                        batch.set(txRef, newTx);
                         hasChanges = true;
                         totalGenerated++;
-                        userGeneratedDetails.push(`${rt.note || rt.categoryId}: Rp${rt.amount.toLocaleString('id-ID')}`);
+                        userGeneratedDetails.push(`${rt.note || rt.categoryId || 'Rutin'}: Rp${(rt.amount || 0).toLocaleString('id-ID')}`);
+                    } else {
+                        // If transaction exists but lacks updatedAt, update its updatedAt so deltaSync can pick it up
+                        const existingData = existingTx.data();
+                        if (existingData && !existingData.updatedAt) {
+                            batch.update(txRef, { updatedAt: now });
+                            hasChanges = true;
+                        }
                     }
 
                     latestProcessed = txDate;
@@ -169,11 +181,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 if (hasChanges) {
-                    batch.update(rtDoc.ref, { lastProcessedDate: latestProcessed });
+                    batch.update(rtDoc.ref, { 
+                        lastProcessedDate: latestProcessed,
+                        updatedAt: now
+                    });
                     await batch.commit();
 
                     // Queue notification for this user
-                    const tokenDoc = await db.collection('users').doc(uid).collection('settings').doc('fcmToken').get();
+                    const tokenDoc = await parentRef.collection('settings').doc('fcmToken').get();
                     const token = tokenDoc.data()?.value;
 
                     if (token) {

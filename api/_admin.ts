@@ -99,7 +99,7 @@ export const checkAndConsumeQuota = async (uid: string, feature: 'chat' | 'scan'
                     // Downgrade permanently
                     premiumData.isPremium = false;
                     premiumData.plan = null;
-                    await premiumRef.set({ value: premiumData }, { merge: true });
+                    await premiumRef.set({ value: premiumData, updatedAt: Date.now() }, { merge: true });
                 } else {
                     isPremium = true;
                 }
@@ -132,7 +132,7 @@ export const checkAndConsumeQuota = async (uid: string, feature: 'chat' | 'scan'
         
         // Increment
         quotaData[feature] = used + 1;
-        await quotaRef.set({ value: quotaData }, { merge: true });
+        await quotaRef.set({ value: quotaData, updatedAt: Date.now() }, { merge: true });
         
         return { allowed: true, quotaUsed: quotaData[feature], isPremium: false };
         

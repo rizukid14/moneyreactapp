@@ -1702,6 +1702,118 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
+  // ─── Auto-process Recurring Transactions on Client ──────────────────────────
+  useEffect(() => {
+    if (!isReady || recurringTransactions.length === 0) return;
+    const activeRts = recurringTransactions.filter(rt => rt.isActive);
+    if (activeRts.length === 0) return;
+
+    const todayStr = getLocalDate();
+    const today = new Date(todayStr);
+    today.setHours(0, 0, 0, 0);
+
+    const getNextDateHelper = (date: Date, freq: string): Date => {
+      const next = new Date(date);
+      if (freq === 'daily') next.setDate(next.getDate() + 1);
+      else if (freq === 'weekly') next.setDate(next.getDate() + 7);
+      else if (freq === 'monthly') next.setMonth(next.getMonth() + 1);
+      else if (freq === 'yearly') next.setFullYear(next.getFullYear() + 1);
+      return next;
+    };
+
+    const runAutoProcess = async () => {
+      const mDb = await import('../lib/db');
+      let hasNewTxs = false;
+      const newTxsToSave: Transaction[] = [];
+      const updatedRtsToSave: { id: string; lastProcessedDate: string }[] = [];
+      const now = Date.now();
+
+      for (const rt of activeRts) {
+        const startDate = new Date(rt.startDate || todayStr);
+        startDate.setHours(0, 0, 0, 0);
+
+        const lastDate = rt.lastProcessedDate ? new Date(rt.lastProcessedDate) : new Date(startDate);
+        lastDate.setHours(0, 0, 0, 0);
+
+        if (lastDate >= today && rt.lastProcessedDate) continue;
+
+        const endDate = rt.endDate ? new Date(rt.endDate) : null;
+        if (endDate) endDate.setHours(23, 59, 59, 999);
+
+        let currentCheck = new Date(lastDate);
+        if (rt.lastProcessedDate) {
+          currentCheck = getNextDateHelper(currentCheck, rt.frequency);
+        }
+
+        let latestProcessed = rt.lastProcessedDate || null;
+
+        while (currentCheck <= today) {
+          if (endDate && currentCheck > endDate) break;
+
+          const txDate = currentCheck.toISOString().split('T')[0];
+          const txId = `auto-${rt.id}-${txDate}`;
+
+          const exists = transactions.some(t => t.id === txId || (t.note && t.note.includes(`[Auto:${rt.id}]`) && t.date === txDate));
+          if (!exists) {
+            const newTx: Transaction = {
+              id: txId,
+              type: rt.type || 'pengeluaran',
+              amount: Number(rt.amount) || 0,
+              categoryId: rt.categoryId || undefined,
+              subCategoryId: rt.subCategoryId || undefined,
+              assetId: rt.assetId || undefined,
+              fromAssetId: rt.fromAssetId || undefined,
+              toAssetId: rt.toAssetId || undefined,
+              goalId: rt.goalId || undefined,
+              date: txDate,
+              time: '00:00',
+              note: (rt.note ? `${rt.note} [Auto:${rt.id}]` : `Transaksi Rutin [Auto:${rt.id}]`).trim(),
+              updatedAt: now
+            };
+
+            newTxsToSave.push(newTx);
+            hasNewTxs = true;
+          }
+
+          latestProcessed = txDate;
+          currentCheck = getNextDateHelper(currentCheck, rt.frequency);
+        }
+
+        if (latestProcessed && latestProcessed !== rt.lastProcessedDate) {
+          updatedRtsToSave.push({ id: rt.id, lastProcessedDate: latestProcessed });
+        }
+      }
+
+      if (newTxsToSave.length > 0) {
+        setTransactions(prev => {
+          const filteredNew = newTxsToSave.filter(nt => !prev.some(p => p.id === nt.id));
+          return [...filteredNew, ...prev];
+        });
+        for (const tx of newTxsToSave) {
+          await mDb.dbPutTransaction(tx);
+        }
+      }
+
+      if (updatedRtsToSave.length > 0) {
+        setRecurringTransactions(prev => prev.map(rt => {
+          const match = updatedRtsToSave.find(u => u.id === rt.id);
+          if (match) {
+            const updated = { ...rt, lastProcessedDate: match.lastProcessedDate, updatedAt: now };
+            mDb.dbPutRecurringTransaction(updated);
+            return updated;
+          }
+          return rt;
+        }));
+      }
+
+      if (hasNewTxs) {
+        refreshSyncCount();
+      }
+    };
+
+    runAutoProcess().catch(console.error);
+  }, [isReady, recurringTransactions, transactions, refreshSyncCount]);
+
   // ─── Subscriptions ──────────────────────────────────────────────────────────
   const addSubscription = useCallback((subReq: Omit<Subscription, 'id'>) => {
     const newSub: Subscription = { ...subReq, id: generateId() };
@@ -2350,7 +2462,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
    * Only needed when the user wants to see data added on another device.
    */
   const pullFromCloud = useCallback(async () => {
-    const result = await dbForceCloudSync();
+    const result = await dbForceCloudSync({ full: true });
     if (result.total > 0) {
       // Reload all state from IDB (which now has the fresh cloud data)
       const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbRec, dbContacts, dbSubs, dbTrips, dbTripEx] = await Promise.all([

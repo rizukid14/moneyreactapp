@@ -283,18 +283,24 @@ export const mergeData = <T extends { id?: string | number }>(cloud: T[], local:
 /**
  * Pulls a full collection from Firestore and writes every document into IDB.
  */
-export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: string, idbStoreName?: string): Promise<T[]> => {
+export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: string, idbStoreName?: string, options?: { forceFull?: boolean }): Promise<T[]> => {
   const workspaceId = activeWorkspaceId;
   const lastSync = getDeltaLastSyncTimestamp(workspaceId);
   const colRef = collection(firestore, getWorkspacePath(colName));
-  const sinceTime = Math.max(0, lastSync - 5000);
+  const sinceTime = options?.forceFull ? 0 : Math.max(0, lastSync - 5000);
 
   const q = sinceTime > 0
     ? query(colRef, where('updatedAt', '>', sinceTime))
     : colRef;
 
   const snapshot = await withTimeout(getDocs(q), 10000);
-  const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as T));
+  const items = snapshot.docs.map(d => {
+    const data = d.data();
+    if (!data.updatedAt) {
+      data.updatedAt = Date.now();
+    }
+    return { id: d.id, ...data } as T;
+  });
   const db = await getDB();
   const store = idbStoreName || colName;
 
@@ -334,12 +340,12 @@ export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: 
  * Call this when the user explicitly wants to sync (e.g. "Pull from Cloud" button).
  * Returns the number of documents synced.
  */
-export const dbForceCloudSync = async (): Promise<{ total: number }> => {
+export const dbForceCloudSync = async (options?: { full?: boolean }): Promise<{ total: number }> => {
   if (!isFirebaseConfigured || !auth.currentUser) return { total: 0 };
   const db = await getDB();
   let total = 0;
   const workspaceId = activeWorkspaceId;
-  const sinceTime = Math.max(0, getDeltaLastSyncTimestamp(workspaceId) - 5000);
+  const sinceTime = options?.full ? 0 : Math.max(0, getDeltaLastSyncTimestamp(workspaceId) - 5000);
   
   try {
     // Collections
@@ -360,7 +366,7 @@ export const dbForceCloudSync = async (): Promise<{ total: number }> => {
     ];
 
     for (const [fsCol, idbStore] of collections) {
-      const items = await pullCollectionIntoIDB(fsCol, idbStore);
+      const items = await pullCollectionIntoIDB(fsCol, idbStore, { forceFull: options?.full });
       total += items.length;
     }
     // Settings: pull all setting docs from the settings sub-collection (Delta fetch)

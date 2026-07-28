@@ -323,7 +323,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             customerEmail,
         };
 
-        await premiumRef.set({ value: newPremiumData });
+        await premiumRef.set({ value: newPremiumData, updatedAt: Date.now() });
 
         // ── Destroy activation code ─────────────────────────────────────
         try {
