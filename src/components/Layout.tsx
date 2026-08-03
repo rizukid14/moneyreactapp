@@ -186,7 +186,7 @@ const Layout: React.FC = () => {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold mr-3">
             M
           </div>
-          <span className="font-headline-lg-mobile text-lg text-on-surface">MoneyApp</span>
+          <span className="font-headline-lg-mobile text-lg text-on-surface">Monetiq</span>
         </div>
         
         <WorkspaceSwitcher />

@@ -79,7 +79,7 @@ export const AuthScreen: React.FC = () => {
               <span className="material-symbols-outlined text-[28px] font-bold">savings</span>
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight bg-gradient-to-r from-on-surface to-on-surface-variant bg-clip-text">MoneyApp</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight bg-gradient-to-r from-on-surface to-on-surface-variant bg-clip-text">Monetiq</h1>
               <p className="text-xs text-on-surface-variant font-medium mt-1">Cerdas mengelola, bijak menginvestasikan</p>
             </div>
           </div>

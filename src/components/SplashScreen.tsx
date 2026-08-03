@@ -109,7 +109,7 @@ const SplashScreen: React.FC = () => {
           WebkitTextFillColor: 'transparent',
           backgroundClip: 'text',
         }}>
-          MoneyApp
+          Monetiq
         </h1>
       </div>
 

@@ -336,7 +336,7 @@ const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-8', name: 'Investasi', type: 'pendapatan', subcategories: [] },
 ];
 
-const DEFAULT_USER: UserProfile = { name: 'Pengguna MoneyApp', email: 'pengguna@email.com', loginStreak: 0, rewardPoints: 0 };
+const DEFAULT_USER: UserProfile = { name: 'Pengguna Monetiq', email: 'pengguna@email.com', loginStreak: 0, rewardPoints: 0 };
 
 // ─── Context type ────────────────────────────────────────────────────────────
 interface MoneyContextType {
@@ -923,10 +923,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Auto-fill profile from Firebase Auth if empty or default
       if (isFirebaseConfigured && auth.currentUser) {
         const u = auth.currentUser;
-        if (!profile || profile.name === 'Pengguna MoneyApp' || profile.email === 'pengguna@email.com') {
+        if (!profile || profile.name === 'Pengguna MoneyApp' || profile.name === 'Pengguna Monetiq' || profile.email === 'pengguna@email.com') {
           profile = {
             ...profile,
-            name: u.displayName || profile?.name || 'Pengguna MoneyApp',
+            name: u.displayName || profile?.name || 'Pengguna Monetiq',
             email: u.email || profile?.email || '',
             avatar: u.photoURL || profile?.avatar || ''
           };
@@ -987,7 +987,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
 
-      console.log('--- MONEYAPP DIAGNOSTICS ---');
+      console.log('--- MONETIQ DIAGNOSTICS ---');
       console.log('User UID:', authUser?.uid || 'Not Logged In');
       console.log('Firebase Configured:', isFirebaseConfigured);
       console.log('Local Transactions Count:', dbTxs.length);

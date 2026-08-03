@@ -25,7 +25,7 @@ import { MONTH_NAMES } from '../../lib/constants';
 
 const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Halo! Saya MoneyBot. Ada yang bisa saya bantu tentang MoneyApp atau pencatatan keuanganmu hari ini?' }
+    { role: 'assistant', content: 'Halo! Saya Asisten AI Monetiq. Ada yang bisa saya bantu tentang Monetiq atau pencatatan keuanganmu hari ini?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
