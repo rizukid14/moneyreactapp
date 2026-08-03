@@ -1735,7 +1735,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ─── Auto-process Recurring Transactions on Client ──────────────────────────
   useEffect(() => {
     if (!isReady || recurringTransactions.length === 0) return;
-    const activeRts = recurringTransactions.filter(rt => rt.isActive);
+    const activeRts = recurringTransactions.filter(rt => rt.isActive && !rt.isDeleted);
     if (activeRts.length === 0) return;
 
     const todayStr = getLocalDate();
@@ -1757,8 +1757,13 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const newTxsToSave: Transaction[] = [];
       const updatedRtsToSave: { id: string; lastProcessedDate: string }[] = [];
       const now = Date.now();
+      const idb = await mDb.getDB();
 
       for (const rt of activeRts) {
+        // Double check IndexedDB to ensure transaction was not deleted locally
+        const idbRt = await idb.get('recurring_transactions', rt.id);
+        if (idbRt?.isDeleted) continue;
+
         const startDate = new Date(rt.startDate || todayStr);
         startDate.setHours(0, 0, 0, 0);
 
@@ -1827,7 +1832,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (updatedRtsToSave.length > 0) {
         setRecurringTransactions(prev => prev.map(rt => {
           const match = updatedRtsToSave.find(u => u.id === rt.id);
-          if (match) {
+          if (match && !rt.isDeleted) {
             const updated = { ...rt, lastProcessedDate: match.lastProcessedDate, updatedAt: now };
             mDb.dbPutRecurringTransaction(updated);
             return updated;

@@ -42,8 +42,13 @@ const enrichWithMetadata = (data: any) => {
 };
 
 const putEntity = async (storeName: string, item: any, options?: { skipSync?: boolean }) => {
+  const db = await getDB();
+  const existing = await db.get(storeName as any, item.id);
+  if (existing?.isDeleted && item.isDeleted === undefined) {
+    item = { ...item, isDeleted: true };
+  }
   const enriched = enrichWithMetadata(item);
-  await (await getDB()).put(storeName as any, enriched);
+  await db.put(storeName as any, enriched);
   if (options?.skipSync) return enriched;
 
   await recordPendingSync({ id: item.id, collection: storeName, operation: 'PUT', data: enriched });

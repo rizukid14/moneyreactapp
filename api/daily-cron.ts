@@ -99,7 +99,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 1. Fetch all recurring transactions across all users using collectionGroup
         const allRecurring = await db.collectionGroup('recurring_transactions').get();
-        const activeRecurringDocs = allRecurring.docs.filter(doc => doc.data().isActive === true);
+        const activeRecurringDocs = allRecurring.docs.filter(doc => {
+            const data = doc.data();
+            return data.isActive === true && data.isDeleted !== true;
+        });
 
         if (activeRecurringDocs.length === 0) {
             console.log('[Cron] No active recurring transactions found.');
@@ -108,6 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             
             for (const rtDoc of activeRecurringDocs) {
                 const rt = rtDoc.data();
+                if (rt.isDeleted) continue;
                 // Get parent document ref (e.g. users/[uid] or families/[familyId])
                 const parentRef = rtDoc.ref.parent.parent;
                 if (!parentRef) continue;
