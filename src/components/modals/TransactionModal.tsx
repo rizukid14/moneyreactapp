@@ -11,6 +11,7 @@ import { getLocalDate, getLocalTime } from '../../lib/utils';
 import { useToast } from '../common/Toast';
 import { lazy, Suspense } from 'react';
 const OverspendReallocationModal = lazy(() => import('./OverspendReallocationModal'));
+import { convertToBaseIDR, formatCurrencyAmount } from '../../lib/currency';
 import CurrencyInput from '../common/CurrencyInput';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { SYS_CAT } from '../../contexts/MoneyContext';
@@ -710,6 +711,22 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         <MaterialIcon name="calculate" className="text-[20px]" />
                       </button>
                     </div>
+
+                    {(() => {
+                      const selectedAsset = assets.find(a => a.id === (type === 'transfer' ? fromAssetId : assetId));
+                      const cardCurrency = selectedAsset?.currency || 'IDR';
+                      const numAmt = Number(amount.replace(/\./g, '')) || 0;
+                      if (cardCurrency !== 'IDR' && numAmt > 0) {
+                        const baseIDR = convertToBaseIDR(numAmt, cardCurrency);
+                        return (
+                          <div className="text-xs font-semibold text-primary px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between">
+                            <span>Mata Uang Aset ({cardCurrency}):</span>
+                            <span>≈ {formatCurrencyAmount(baseIDR, 'IDR')}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     <div className="flex gap-2">
                       <div className="flex-1">

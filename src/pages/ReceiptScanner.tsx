@@ -8,6 +8,7 @@ import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
 import { validateFileSecure } from '../lib/fileValidation';
 import SplitBillModal from '../components/modals/SplitBillModal';
+import { ReceiptItemizerModal } from '../components/modals/ReceiptItemizerModal';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
 import { lazy, Suspense } from 'react';
@@ -79,6 +80,7 @@ const ReceiptScanner: React.FC = () => {
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<'name' | 'amount' | null>(null);
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const [isItemizerOpen, setIsItemizerOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1125,10 +1127,14 @@ const ReceiptScanner: React.FC = () => {
                   <span className="font-label-md">Pastikan rincian item sudah sesuai dengan struk asli.</span>
                 </div>
                 <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
-                  <button disabled={isSubmitting} onClick={handleSaveMain} className="flex-1 sm:flex-none px-3 sm:px-6 py-3 rounded-xl border border-primary text-primary font-label-sm sm:font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer font-bold leading-tight flex items-center justify-center text-center">
+                  <button disabled={isSubmitting} onClick={() => setIsItemizerOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-5 py-3 rounded-xl border border-primary/40 text-primary font-label-sm sm:font-label-md hover:bg-primary/10 transition-colors cursor-pointer font-bold leading-tight text-center">
+                    <MaterialIcon name="receipt_long" />
+                    Split Subkategori
+                  </button>
+                  <button disabled={isSubmitting} onClick={handleSaveMain} className="flex-1 sm:flex-none px-3 sm:px-5 py-3 rounded-xl border border-primary text-primary font-label-sm sm:font-label-md hover:bg-primary/5 transition-colors bg-transparent cursor-pointer font-bold leading-tight flex items-center justify-center text-center">
                     Simpan Langsung
                   </button>
-                  <button disabled={isSubmitting} onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 rounded-xl bg-primary text-on-primary font-label-sm sm:font-label-md hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30 cursor-pointer font-bold border-none leading-tight text-center">
+                  <button disabled={isSubmitting} onClick={() => setIsSplitModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-5 py-3 rounded-xl bg-primary text-on-primary font-label-sm sm:font-label-md hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30 cursor-pointer font-bold border-none leading-tight text-center">
                     <MaterialIcon name="group" />
                     Split Bill
                   </button>
@@ -1233,6 +1239,52 @@ const ReceiptScanner: React.FC = () => {
         onSelect={(cat, sub) => {
           setSelectedCategory(cat);
           setSelectedSubCategory(sub);
+        }}
+      />
+
+      <ReceiptItemizerModal
+        isOpen={isItemizerOpen}
+        onClose={() => setIsItemizerOpen(false)}
+        initialItems={lineItems.map(item => ({
+          name: item.name,
+          amount: item.amount,
+          categoryId: selectedCategory,
+          subCategoryId: selectedSubCategory,
+        }))}
+        categories={categories}
+        merchantName={merchantName}
+        receiptDate={selectedDate}
+        assetId={selectedAssetId}
+        onSaveAsSplit={(items, totalAmt) => {
+          addTransaction({
+            type: 'pengeluaran',
+            amount: totalAmt,
+            categoryId: selectedCategory || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '',
+            subCategoryId: selectedSubCategory,
+            date: selectedDate,
+            time: selectedTime,
+            note: merchantName || 'Struk Itemized',
+            assetId: selectedAssetId || assets[0]?.id || '',
+            itemizedDetails: items,
+          });
+          showToast(`Berhasil menyimpan 1 transaksi itemized (${items.length} barang)!`, 'success');
+          navigate('/');
+        }}
+        onSaveAsMultiple={(items) => {
+          items.forEach(item => {
+            addTransaction({
+              type: 'pengeluaran',
+              amount: item.amount,
+              categoryId: item.categoryId || selectedCategory || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '',
+              subCategoryId: item.subCategoryId || selectedSubCategory,
+              date: selectedDate,
+              time: selectedTime,
+              note: `${merchantName} - ${item.name}`,
+              assetId: selectedAssetId || assets[0]?.id || '',
+            });
+          });
+          showToast(`Berhasil menyimpan ${items.length} transaksi terpisah!`, 'success');
+          navigate('/');
         }}
       />
 

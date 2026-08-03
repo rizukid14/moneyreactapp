@@ -29,6 +29,19 @@ import { startDeltaListeners, stopDeltaListeners } from '../lib/deltaSync';
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 export type BudgetMode = 'regular' | 'zero-based';
 
+export interface SavingsChallenge {
+  id: string;
+  type: '52_week' | 'no_spend';
+  title: string;
+  targetAmount?: number;
+  currentAmount?: number;
+  currentWeek?: number;
+  noSpendStreak?: number;
+  lastNoSpendCheck?: string; // YYYY-MM-DD
+  isCompleted?: boolean;
+  updatedAt?: number;
+}
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -39,6 +52,8 @@ export interface UserProfile {
   loginStreak?: number;
   rewardPoints?: number;
   unlockedWorkspaceSlots?: number;
+  emergencyFundMonthsTarget?: number; // Default 6 months
+  savingsChallenges?: SavingsChallenge[];
 }
 
 export interface SubCategory {
@@ -66,6 +81,10 @@ export interface Asset {
   isHidden?: boolean;
   isDeleted?: boolean;
   accountNumber?: string;
+  currency?: string;            // 'IDR' | 'USD' | 'SGD' | 'JPY' | 'SAR'
+  statementCutoffDay?: number;  // 1-31 (Billing Cut-off Day for Credit Cards)
+  paymentDueDay?: number;       // 1-31 (Payment Due Day for Credit Cards)
+  isEmergencyFund?: boolean;    // Emergency Fund Shield Flag
   updatedAt?: number;
   createdBy?: string;
   updatedBy?: string;
@@ -206,6 +225,14 @@ export interface BudgetReallocation {
   updatedBy?: string;
 }
 
+export interface ItemizedDetail {
+  id: string;
+  name: string;
+  amount: number;
+  categoryId?: string;
+  subCategoryId?: string;
+}
+
 export interface Transaction {
   id: string;
   type: 'pengeluaran' | 'pendapatan' | 'transfer' | 'piutang_keluar' | 'piutang_masuk' | 'hutang_masuk' | 'hutang_keluar';
@@ -221,6 +248,9 @@ export interface Transaction {
   toAssetId?: string;
   relatedId?: string; // Links to Debt.id, etc.
   goalId?: string; // Links to Goal.id
+  currency?: string; // 'IDR' | 'USD' | 'SGD' | 'JPY' | 'SAR'
+  exchangeRate?: number; // Kurs ke IDR saat transaksi dicatat
+  itemizedDetails?: ItemizedDetail[];
   updatedAt?: number;
   isDeleted?: boolean;
   createdBy?: string;

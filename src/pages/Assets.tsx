@@ -3,6 +3,7 @@ import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import { SYS_CAT } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
+import { CreditCardOptimizerCard } from '../components/CreditCardOptimizerCard';
 import { lazy, Suspense } from 'react';
 const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -629,6 +630,15 @@ const Assets: React.FC = () => {
           onTogglePrivate={togglePrivateMode}
         />
       </div>
+
+      {/* Credit Card Optimizer Card */}
+      <CreditCardOptimizerCard
+        assets={assets}
+        transactions={transactions}
+        onSelectCard={(card) => {
+          setSelectedAsset(card);
+        }}
+      />
 
       {/* Asset list */}
       <SectionHeader 

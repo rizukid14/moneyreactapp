@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import MaterialIcon from './common/MaterialIcon';
-import { useMoney, type Goal } from '../contexts/MoneyContext';
+import { useMoney, type Goal, type SavingsChallenge, type UserProfile } from '../contexts/MoneyContext';
+import { EmergencyFundShield } from './EmergencyFundShield';
+import { SavingsChallengeCard } from './SavingsChallengeCard';
 
 import GoalModal from './modals/GoalModal';
 import ConfirmDialog from './common/ConfirmDialog';
@@ -110,10 +112,15 @@ const GoalCard: React.FC<{
 };
 
 export const GoalManagement: React.FC = () => {
-  const { goals, transactions, assets, addGoal, updateGoal, deleteGoal, currencySymbol } = useMoney();
+  const { goals, transactions, assets, addGoal, updateGoal, deleteGoal, currencySymbol, getAssetBalance, user, updateUser } = useMoney();
+  const [activeSubTab, setActiveSubTab] = useState<'goals' | 'emergency' | 'challenge'>('goals');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
+
+  const updateUserProfile = (updatedFields: Partial<UserProfile>) => {
+    updateUser({ ...user, ...updatedFields });
+  };
 
   const goalAllocations = useMemo(() => {
     const map: Record<string, number> = {};
@@ -138,41 +145,112 @@ export const GoalManagement: React.FC = () => {
     setDeleteConfirm({ open: true, id });
   };
 
+  const handleUpdateChallenge = (challenge: SavingsChallenge) => {
+    const currentList: SavingsChallenge[] = user?.savingsChallenges || [];
+    const idx = currentList.findIndex((c: SavingsChallenge) => c.id === challenge.id);
+    let updatedList: SavingsChallenge[];
+    if (idx >= 0) {
+      updatedList = currentList.map((c: SavingsChallenge) => (c.id === challenge.id ? challenge : c));
+    } else {
+      updatedList = [...currentList, challenge];
+    }
+    updateUserProfile({ savingsChallenges: updatedList });
+  };
+
   return (
-    <div className="budget-management-embedded">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <MaterialIcon name="trending_up" className="text-lg text-primary" />
-          <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0 }}>Target Tabungan</h3>
-        </div>
-        <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <MaterialIcon name="add_circle" className="text-sm" /> Buat Baru
+    <div className="budget-management-embedded space-y-4">
+      {/* Sub Tabs Header */}
+      <div className="flex items-center gap-1.5 p-1 bg-surface-variant/40 rounded-xl border border-outline-variant/30 text-xs">
+        <button
+          onClick={() => setActiveSubTab('goals')}
+          className={`flex-1 py-2 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
+            activeSubTab === 'goals'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-outline hover:text-on-surface'
+          }`}
+        >
+          <MaterialIcon name="flag" className="text-base" /> Target Impian
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('emergency')}
+          className={`flex-1 py-2 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
+            activeSubTab === 'emergency'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-outline hover:text-on-surface'
+          }`}
+        >
+          <MaterialIcon name="shield" className="text-base" /> Emergency Shield
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('challenge')}
+          className={`flex-1 py-2 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
+            activeSubTab === 'challenge'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'text-outline hover:text-on-surface'
+          }`}
+        >
+          <MaterialIcon name="military_tech" className="text-base" /> Challenge 🏆
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, maxHeight: '420px', overflowY: 'auto', paddingRight: 4, paddingBottom: 20 }}>
-        {goals.map(g => (
-          <div key={g.id} onClick={e => e.stopPropagation()}>
-            <GoalCard
-              goal={g}
-              currentAmount={goalAllocations[g.id] || 0}
-              onEdit={() => handleEdit(g)}
-              onDelete={() => handleDelete(g.id)}
-              currencySymbol={currencySymbol}
-            />
+      {activeSubTab === 'goals' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MaterialIcon name="trending_up" className="text-lg text-primary" />
+              <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0 }}>Target Tabungan Impian</h3>
+            </div>
+            <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <MaterialIcon name="add_circle" className="text-sm" /> Buat Baru
+            </button>
           </div>
-        ))}
-        {goals.length === 0 && (
-          <div style={{ 
-            textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px',
-            background: 'var(--bg-main)', borderRadius: 16, border: '1px dashed var(--border-color)' 
-          }}>
-            <MaterialIcon name="flag" className="text-3xl opacity-30 mb-3 block mx-auto" />
-            <div style={{ fontSize: 13, fontWeight: 700 }}>Belum ada target tabungan</div>
-            <div style={{ fontSize: 11, marginTop: 4 }}>Mulai buat rencana untuk impian Anda!</div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, maxHeight: '420px', overflowY: 'auto', paddingRight: 4, paddingBottom: 20 }}>
+            {goals.map(g => (
+              <div key={g.id} onClick={e => e.stopPropagation()}>
+                <GoalCard
+                  goal={g}
+                  currentAmount={goalAllocations[g.id] || 0}
+                  onEdit={() => handleEdit(g)}
+                  onDelete={() => handleDelete(g.id)}
+                  currencySymbol={currencySymbol}
+                />
+              </div>
+            ))}
+            {goals.length === 0 && (
+              <div style={{ 
+                textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px',
+                background: 'var(--bg-main)', borderRadius: 16, border: '1px dashed var(--border-color)' 
+              }}>
+                <MaterialIcon name="flag" className="text-3xl opacity-30 mb-3 block mx-auto" />
+                <div style={{ fontSize: 13, fontWeight: 700 }}>Belum ada target tabungan</div>
+                <div style={{ fontSize: 11, marginTop: 4 }}>Mulai buat rencana untuk impian Anda!</div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
+
+      {activeSubTab === 'emergency' && (
+        <EmergencyFundShield
+          assets={assets}
+          transactions={transactions}
+          getAssetBalance={getAssetBalance}
+          targetMonths={user?.emergencyFundMonthsTarget || 6}
+          onUpdateTargetMonths={months => updateUserProfile({ emergencyFundMonthsTarget: months })}
+        />
+      )}
+
+      {activeSubTab === 'challenge' && (
+        <SavingsChallengeCard
+          challenges={user?.savingsChallenges}
+          onUpdateChallenge={handleUpdateChallenge}
+          rewardPoints={user?.rewardPoints || 0}
+          onRewardPointsChange={pts => updateUserProfile({ rewardPoints: pts })}
+        />
+      )}
 
       <GoalModal
         isOpen={isModalOpen}

@@ -36,6 +36,10 @@ const AssetModal: React.FC<AssetModalProps> = ({
   const [adjustedBalance, setAdjustedBalance] = useState('');
   const [isHidden, setIsHidden] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
+  const [currency, setCurrency] = useState('IDR');
+  const [statementCutoffDay, setStatementCutoffDay] = useState('15');
+  const [paymentDueDay, setPaymentDueDay] = useState('5');
+  const [isEmergencyFund, setIsEmergencyFund] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,6 +51,10 @@ const AssetModal: React.FC<AssetModalProps> = ({
       setAdjustedBalance(currentBalance !== undefined ? currentBalance.toLocaleString('id-ID') : '');
       setIsHidden(editingAsset.isHidden || false);
       setAccountNumber(editingAsset.accountNumber || '');
+      setCurrency(editingAsset.currency || 'IDR');
+      setStatementCutoffDay(editingAsset.statementCutoffDay ? String(editingAsset.statementCutoffDay) : '15');
+      setPaymentDueDay(editingAsset.paymentDueDay ? String(editingAsset.paymentDueDay) : '5');
+      setIsEmergencyFund(editingAsset.isEmergencyFund || false);
     } else {
       setName('');
       setType('Cash');
@@ -54,6 +62,10 @@ const AssetModal: React.FC<AssetModalProps> = ({
       setAdjustedBalance('');
       setIsHidden(false);
       setAccountNumber('');
+      setCurrency('IDR');
+      setStatementCutoffDay('15');
+      setPaymentDueDay('5');
+      setIsEmergencyFund(false);
     }
   }, [editingAsset, isOpen, currentBalance]);
 
@@ -92,6 +104,10 @@ const AssetModal: React.FC<AssetModalProps> = ({
       initialBalance: parseNumber(initialBalance),
       isHidden,
       accountNumber: accountNumber.trim() || undefined,
+      currency,
+      statementCutoffDay: type === 'Credit Card' ? (Number(statementCutoffDay) || 15) : undefined,
+      paymentDueDay: type === 'Credit Card' ? (Number(paymentDueDay) || 5) : undefined,
+      isEmergencyFund,
     };
 
     if (editingAsset && updateAsset) {
@@ -195,17 +211,75 @@ const AssetModal: React.FC<AssetModalProps> = ({
                       />
                     </div>
                   )}
+
+                  {type === 'Credit Card' && (
+                    <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tgl Cetak Tagihan</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="31"
+                          placeholder="Tgl (misal 15)"
+                          value={statementCutoffDay}
+                          onChange={e => setStatementCutoffDay(e.target.value)}
+                          style={{ marginBottom: 0 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tgl Jatuh Tempo</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="31"
+                          placeholder="Tgl (misal 5)"
+                          value={paymentDueDay}
+                          onChange={e => setPaymentDueDay(e.target.value)}
+                          style={{ marginBottom: 0 }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>Keuangan</label>
-                  <CurrencyInput 
-                    data-testid="asset-balance-input"
-                    placeholder={`Saldo Awal (${currencySymbol})`} 
-                    value={initialBalance} 
-                    onChange={setInitialBalance} 
-                    style={{ marginBottom: '12px' }}
-                  />
+                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>Keuangan & Mata Uang</label>
+                  
+                  <div style={{ marginBottom: '12px', display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <CurrencyInput 
+                        data-testid="asset-balance-input"
+                        placeholder={`Saldo Awal (${currencySymbol})`} 
+                        value={initialBalance} 
+                        onChange={setInitialBalance} 
+                        style={{ marginBottom: 0 }}
+                      />
+                    </div>
+                    <div style={{ width: '120px' }}>
+                      <select
+                        value={currency}
+                        onChange={e => setCurrency(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          borderRadius: '12px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-card-solid)',
+                          color: 'var(--text-main)',
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="IDR">IDR (Rp)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="SGD">SGD (S$)</option>
+                        <option value="JPY">JPY (¥)</option>
+                        <option value="SAR">SAR (SR)</option>
+                      </select>
+                    </div>
+                  </div>
 
                   {editingAsset && currentBalance !== undefined && (
                     <div style={{ padding: '16px', background: 'var(--bg-income)', borderRadius: '16px', border: '1.5px solid var(--primary-glow)' }}>
@@ -224,7 +298,27 @@ const AssetModal: React.FC<AssetModalProps> = ({
                 </div>
 
                 <div style={{ 
-                  margin: '16px 0 24px', padding: '16px', borderRadius: '16px', 
+                  margin: '16px 0 12px', padding: '16px', borderRadius: '16px', 
+                  background: isEmergencyFund ? 'var(--bg-income)' : 'var(--bg-main)',
+                  border: '1px solid var(--border-color)',
+                  transition: 'all 0.2s'
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', marginBottom: '2px' }}>🛡️ Alokasikan Sebagai Dana Darurat</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dipisahkan dari Kas Siap Pakai harian.</div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={isEmergencyFund}
+                      onChange={(e) => setIsEmergencyFund(e.target.checked)}
+                      style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', margin: 0 }}
+                    />
+                  </label>
+                </div>
+
+                <div style={{ 
+                  margin: '0 0 24px', padding: '16px', borderRadius: '16px', 
                   background: isHidden ? 'var(--bg-neutral)' : 'var(--bg-main)',
                   border: '1px solid var(--border-color)',
                   transition: 'all 0.2s'
