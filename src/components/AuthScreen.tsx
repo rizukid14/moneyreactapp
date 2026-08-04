@@ -65,7 +65,7 @@ export const AuthScreen: React.FC = () => {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-secondary/5 blur-[120px] pointer-events-none" />
       <div className="absolute top-[30%] right-[10%] w-[30vw] h-[30vw] rounded-full bg-primary-glow/10 blur-[100px] pointer-events-none" />
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.98 }}
@@ -91,8 +91,8 @@ export const AuthScreen: React.FC = () => {
               {isForgotPassword ? 'Reset Kata Sandi' : (isLogin ? 'Masuk ke Akun Anda' : 'Buat Akun Baru')}
             </h2>
             <p className="text-xs text-on-surface-variant font-medium leading-relaxed max-w-[280px] mx-auto">
-              {isForgotPassword 
-                ? 'Masukkan email Anda untuk menerima tautan reset kata sandi.' 
+              {isForgotPassword
+                ? 'Masukkan email Anda untuk menerima tautan reset kata sandi.'
                 : 'Data Anda akan otomatis tersinkronisasi ke cloud dengan aman.'}
             </p>
           </div>
@@ -102,8 +102,11 @@ export const AuthScreen: React.FC = () => {
             {/* Email Input */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block pl-1">Email</label>
-              <div className="relative flex items-center">
-                <span className="material-symbols-outlined text-on-surface-variant text-lg absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">mail</span>
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '48px', borderRadius: '12px', border: '1px solid var(--border-variant, #e2e8f0)', background: 'var(--surface-container-low)' }} className="focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+                <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--on-surface-variant)' }}>
+                  <span style={{ fontFamily: 'Material Symbols Outlined', fontSize: '20px', lineHeight: 1, fontVariationSettings: "'wght' 400", userSelect: 'none', display: 'block' }}>mail</span>
+                </div>
+                <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-variant, #e2e8f0)', flexShrink: 0 }} />
                 <input
                   data-testid="auth-email"
                   type="email"
@@ -111,7 +114,8 @@ export const AuthScreen: React.FC = () => {
                   onChange={e => setEmail(e.target.value)}
                   required
                   placeholder="nama@email.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+                  className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-on-surface focus:outline-none pl-3 pr-4 !border-none focus:!border-none focus:!ring-0 focus:!shadow-none"
+                  style={{ height: '48px', padding: '0 16px 0 12px' }}
                 />
               </div>
             </div>
@@ -122,17 +126,20 @@ export const AuthScreen: React.FC = () => {
                 <div className="flex justify-between items-center px-1">
                   <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Password</label>
                   {isLogin && (
-                    <button 
-                      type="button" 
-                      onClick={() => { setIsForgotPassword(true); setError(''); setSuccessMsg(''); }} 
+                    <button
+                      type="button"
+                      onClick={() => { setIsForgotPassword(true); setError(''); setSuccessMsg(''); }}
                       className="border-none bg-transparent text-primary text-[10px] font-extrabold cursor-pointer hover:underline p-0"
                     >
                       Lupa Password?
                     </button>
                   )}
                 </div>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined text-on-surface-variant text-lg absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">lock</span>
+                <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '48px', borderRadius: '12px', border: '1px solid var(--border-variant, #e2e8f0)', background: 'var(--surface-container-low)' }} className="focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+                  <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--on-surface-variant)' }}>
+                    <span style={{ fontFamily: 'Material Symbols Outlined', fontSize: '20px', lineHeight: 1, fontVariationSettings: "'wght' 400", userSelect: 'none', display: 'block' }}>lock</span>
+                  </div>
+                  <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-variant, #e2e8f0)', flexShrink: 0 }} />
                   <input
                     data-testid="auth-password"
                     type={showPassword ? 'text' : 'password'}
@@ -141,38 +148,41 @@ export const AuthScreen: React.FC = () => {
                     required
                     minLength={6}
                     placeholder="Minimal 6 karakter"
-                    className="w-full pl-10 pr-10 py-3 rounded-xl border border-outline-variant bg-surface-container-low text-sm font-semibold text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+                    className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-on-surface focus:outline-none !border-none focus:!border-none focus:!ring-0 focus:!shadow-none"
+                    style={{ height: '48px', padding: '0 8px 0 12px' }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(prev => !prev)}
-                    aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
-                    className="absolute right-3 border-none bg-transparent text-on-surface-variant hover:text-on-surface cursor-pointer p-1 flex items-center justify-center transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-lg">
-                      {showPassword ? 'visibility_off' : 'visibility'}
-                    </span>
-                  </button>
+                  <div style={{ width: '40px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(prev => !prev)}
+                      aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                      className="border-none bg-transparent text-on-surface-variant hover:text-on-surface cursor-pointer p-1.5 flex items-center justify-center transition-colors"
+                    >
+                      <span style={{ fontFamily: 'Material Symbols Outlined', fontSize: '20px', lineHeight: 1, fontVariationSettings: "'wght' 400", userSelect: 'none', display: 'block' }}>
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Messages */}
             {error && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                data-testid="auth-error" 
+                data-testid="auth-error"
                 className="text-error text-xs font-semibold text-center p-3 bg-error-container/30 border border-error/20 rounded-xl"
               >
                 {error}
               </motion.div>
             )}
             {successMsg && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                data-testid="auth-success" 
+                data-testid="auth-success"
                 className="text-primary text-xs font-semibold text-center p-3 bg-primary-glow/20 border border-primary/20 rounded-xl"
               >
                 {successMsg}
@@ -180,9 +190,9 @@ export const AuthScreen: React.FC = () => {
             )}
 
             {/* Submit Button */}
-            <button 
-              data-testid={isForgotPassword ? "auth-reset-btn" : (isLogin ? "auth-signin-btn" : "auth-signup-btn")} 
-              type="submit" 
+            <button
+              data-testid={isForgotPassword ? "auth-reset-btn" : (isLogin ? "auth-signin-btn" : "auth-signup-btn")}
+              type="submit"
               disabled={loading}
               className="w-full mt-2 py-3 bg-primary hover:bg-primary-container text-white font-bold rounded-xl text-sm border-none shadow-md shadow-primary-glow/30 flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -225,9 +235,9 @@ export const AuthScreen: React.FC = () => {
           {/* Footer Toggle Mode */}
           <div className="text-center text-xs flex flex-col gap-2 mt-2">
             {isForgotPassword ? (
-              <button 
-                type="button" 
-                onClick={() => { setIsForgotPassword(false); setError(''); setSuccessMsg(''); }} 
+              <button
+                type="button"
+                onClick={() => { setIsForgotPassword(false); setError(''); setSuccessMsg(''); }}
                 className="bg-transparent border-none text-on-surface-variant hover:text-primary font-bold cursor-pointer transition-colors"
               >
                 Kembali ke Halaman Masuk
@@ -235,9 +245,9 @@ export const AuthScreen: React.FC = () => {
             ) : (
               <div className="text-on-surface-variant font-medium">
                 {isLogin ? 'Belum punya akun?' : 'Sudah punya akun?'} {' '}
-                <button 
-                  data-testid="auth-toggle-mode" 
-                  onClick={toggleMode} 
+                <button
+                  data-testid="auth-toggle-mode"
+                  onClick={toggleMode}
                   className="bg-transparent border-none text-primary hover:text-primary-container font-extrabold cursor-pointer transition-colors"
                 >
                   {isLogin ? 'Daftar Sekarang' : 'Masuk Disini'}
