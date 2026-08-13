@@ -200,6 +200,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
 // ─── StatsViewSettings ────────────────────────────────────────────────────────
 export const ALL_STATS_VIEWS = [
   { id: 'all', label: 'Ringkasan Umum', description: 'Analisis semua aset' },
+  { id: 'calendar', label: 'Kalender Keuangan', description: 'Grid kalender harian masuk & keluar' },
   { id: 'cash_bank', label: 'Kas & Bank', description: 'Analisis tunai & rekening' },
   { id: 'investment', label: 'Investasi & Tabungan', description: 'Analisis aset produktif' },
   { id: 'goals', label: 'Tabungan', description: 'Progres target impian', pro: true },

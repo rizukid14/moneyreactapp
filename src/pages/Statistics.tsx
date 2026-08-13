@@ -20,8 +20,12 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { ListItem } from '../components/ui/ListItem';
 
+import { DailyFinancialCalendar } from '../components/DailyFinancialCalendar';
+import { EmptyState } from '../components/ui/EmptyState';
+
 const VIEW_ICONS: Record<string, string> = {
   all: 'stacked_bar_chart',
+  calendar: 'calendar_month',
   cash_bank: 'account_balance',
   investment: 'savings',
   goals: 'trending_up',
@@ -30,7 +34,6 @@ const VIEW_ICONS: Record<string, string> = {
   forecast: 'water_drop',
   detailed_analysis: 'insights',
 };
-import { EmptyState } from '../components/ui/EmptyState';
 
 const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -608,6 +611,52 @@ const Statistics: React.FC = () => {
               <CashFlowForecast onShowDetail={setDetailModalProps} />
             </PremiumGate>
           </motion.div>
+        ) : activeViewId === 'calendar' ? (
+          <motion.div
+            key="calendar"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            <PageHeader
+              className="mt-2"
+              title="Kalender Keuangan Harian"
+              subtitle="Tinjau arus kas masuk dan keluar per hari"
+              action={
+                <div className="flex items-center gap-1 sm:gap-3 justify-end w-full">
+                  <button
+                    onClick={resetToToday}
+                    className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
+                  >
+                    <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+                  </button>
+                  <div 
+                    className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-1 sm:px-2 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm w-full" 
+                    onClick={() => setIsDatePickerOpen(true)}
+                  >
+                    <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
+                      <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0">
+                        <MaterialIcon name="chevron_left" className="text-on-surface-variant text-[14px] sm:text-base" />
+                      </button>
+                      <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
+                        <MaterialIcon name="calendar_month" className="text-primary text-[14px] sm:text-base shrink-0 hidden sm:block" />
+                        <span className="font-label-sm sm:font-label-md text-[10px] sm:text-sm text-on-surface font-semibold truncate">
+                          {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear().toString().slice(2)}
+                        </span>
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0">
+                        <MaterialIcon name="chevron_right" className="text-on-surface-variant text-[14px] sm:text-base" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            />
+            <div className="mt-4">
+              <DailyFinancialCalendar viewDate={viewDate} />
+            </div>
+          </motion.div>
         ) : (
           <motion.div
             key="analysis"
@@ -917,7 +966,7 @@ const Statistics: React.FC = () => {
                   {/* Scrollable container with modern scrollbar styling */}
                   <div
                     ref={heatmapScrollRef}
-                    className="custom-scrollbar hidden sm:block"
+                    className="custom-scrollbar block w-full"
                     style={{
                       overflowX: 'auto',
                       WebkitOverflowScrolling: 'touch',
@@ -1028,7 +1077,7 @@ const Statistics: React.FC = () => {
 
                     return (
                       <>
-                        <div className="hidden sm:block" style={{ marginTop: '18px', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
+                        <div className="block" style={{ marginTop: '18px', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                             <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>Skala Akurasi Pengeluaran (Rupiah)</span>
                             <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Maks: {fmt(maxAmount)}</span>
@@ -1063,43 +1112,6 @@ const Statistics: React.FC = () => {
                               ))}
                             </div>
                           </div>
-                        </div>
-
-                        {/* Weekly Summary List for Mobile (hidden on sm: and up) */}
-                        <div className="block sm:hidden space-y-3 mt-4 border-t border-border-light pt-4">
-                          <p className="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider mb-2">Ringkasan Mingguan</p>
-                          {heatmapData.map((monthData, idx) => {
-                            // Group monthData.cells into weeks (7 days each)
-                            const weeks: { weekNum: number; total: number }[] = [];
-                            let currentWeekTotal = 0;
-                            monthData.cells.forEach((cell, cellIdx) => {
-                              currentWeekTotal += cell.amount;
-                              if ((cellIdx + 1) % 7 === 0 || cellIdx === monthData.cells.length - 1) {
-                                weeks.push({ weekNum: Math.floor(cellIdx / 7) + 1, total: currentWeekTotal });
-                                currentWeekTotal = 0;
-                              }
-                            });
-
-                            const monthTotal = monthData.cells.reduce((s, c) => s + c.amount, 0);
-                            if (monthTotal === 0) return null;
-
-                            return (
-                              <div key={idx} className="bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant flex flex-col gap-2.5">
-                                <div className="flex justify-between items-center pb-2 border-b border-outline-variant/60">
-                                  <span className="font-extrabold text-xs text-on-surface">{monthData.name} {viewDate.getFullYear()}</span>
-                                  <span className="font-extrabold text-xs text-secondary">{fmt(monthTotal)}</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {weeks.map((w, wIdx) => (
-                                    <div key={wIdx} className="bg-bg-card p-2.5 rounded-xl border border-outline-variant/80 flex justify-between items-center text-[10px] gap-1">
-                                      <span className="text-on-surface-variant font-bold">Minggu {w.weekNum}</span>
-                                      <span className="font-extrabold text-on-surface text-right truncate">{fmt(w.total)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })}
                         </div>
                       </>
                     );
@@ -1389,6 +1401,9 @@ const Statistics: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* ── Daily Financial Calendar Section ───────────────── */}
+            <DailyFinancialCalendar viewDate={viewDate} />
 
             {drillDownCategory && (
               <div className="col-span-1 md:col-span-12 bg-surface-container-lowest border border-outline-variant rounded-xl p-3 mb-4 flex items-center gap-3">
