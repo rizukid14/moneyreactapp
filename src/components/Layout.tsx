@@ -99,6 +99,7 @@ const Layout: React.FC = () => {
   const desktopNavItems = [
     { path: '/', icon: 'dashboard', label: 'Dashboard', end: true, testId: 'nav-transactions' },
     { path: '/assets', icon: 'account_balance_wallet', label: 'Aset & Rekening', testId: 'nav-assets' },
+    { path: '/goals', icon: 'flag', label: 'Anggaran & Target', testId: 'nav-goals' },
     { path: '/social', icon: 'groups', label: 'Sosial & Berbagi', testId: 'nav-social', isSocial: true },
     { path: '/stats', icon: 'analytics', label: 'Laporan & Analitik', testId: 'nav-statistics' },
     { path: '/settings', icon: 'settings', label: 'Pengaturan', testId: 'nav-settings' },

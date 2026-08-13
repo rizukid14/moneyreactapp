@@ -25,6 +25,7 @@ import { AuthScreen } from '../components/AuthScreen';
 import SplashScreen from '../components/SplashScreen';
 import { getLocalDate, getLocalTime, generateId, isPrincipalTx, hashPin } from '../lib/utils';
 import { startDeltaListeners, stopDeltaListeners } from '../lib/deltaSync';
+import { fetchLiveExchangeRates } from '../lib/currency';
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 export type BudgetMode = 'regular' | 'zero-based';
@@ -1067,6 +1068,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
 
+      fetchLiveExchangeRates().catch(console.warn);
       setIsReady(true);
     };
     bootstrap();
@@ -1441,13 +1443,46 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [transactions, refreshSyncCount, categories, debts]);
 
   const updateTransaction = useCallback((id: string, updatedTx: Partial<Transaction>) => {
+    let targetDebtId: string | undefined;
+
     setTransactions(prev => prev.map(tx => {
       if (tx.id !== id) return tx;
       const updated = { ...tx, ...updatedTx } as Transaction;
       dbPutTransaction(updated).then(refreshSyncCount);
+      if (updated.relatedId) {
+        targetDebtId = updated.relatedId;
+      }
       return updated;
     }));
-  }, []);
+
+    if (targetDebtId) {
+      setDebts(prevDebts => {
+        const debt = prevDebts.find(d => d.id === targetDebtId);
+        if (!debt) return prevDebts;
+
+        const allTxs = transactions.map(t => t.id === id ? ({ ...t, ...updatedTx } as Transaction) : t);
+        const debtTxs = allTxs.filter(t => t.relatedId === targetDebtId && !t.isDeleted);
+
+        const principalSum = debtTxs
+          .filter(t => isPrincipalTx(t.note, t.categoryId, categories))
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        const paymentSum = debtTxs
+          .filter(t => !isPrincipalTx(t.note, t.categoryId, categories))
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        const newTotal = principalSum > 0 ? principalSum : debt.totalAmount;
+        const isPaid = newTotal > 0 && paymentSum >= newTotal;
+
+        if (newTotal !== debt.totalAmount || isPaid !== debt.isPaid) {
+          const updatedDebt = { ...debt, totalAmount: newTotal, isPaid };
+          dbPutDebt(updatedDebt);
+          return prevDebts.map(d => d.id === targetDebtId ? updatedDebt : d);
+        }
+        return prevDebts;
+      });
+    }
+  }, [transactions, categories, refreshSyncCount]);
 
   // ─── Categories ───────────────────────────────────────────────────────────
   const addCategory = useCallback((catReq: Omit<Category, 'id'>) => {

@@ -59,7 +59,11 @@ export const isPrincipalTx = (note: string, categoryIdOrName?: string, categorie
          n.includes('penambahan') ||
          c === 'pinjaman & piutang' ||
          c === 'penerimaan dana pinjaman' ||
-         c === 'pemberian pinjaman';
+         c === 'pemberian pinjaman' ||
+         c === 'sys-cat-debt-receive' ||
+         c === 'sys-cat-receivable-pay' ||
+         categoryIdOrName === 'sys-cat-debt-receive' ||
+         categoryIdOrName === 'sys-cat-receivable-pay';
 };
 /**
  * Hashes a PIN string using SHA-256 via Web Crypto API.

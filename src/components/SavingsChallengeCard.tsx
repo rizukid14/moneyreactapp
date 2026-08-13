@@ -86,36 +86,36 @@ export const SavingsChallengeCard: React.FC<SavingsChallengeCardProps> = ({
   const progress52Percent = Math.min(100, Math.round(((week52Challenge.currentAmount || 0) / (week52Challenge.targetAmount || 1)) * 100));
 
   return (
-    <div className="bg-surface-variant/40 rounded-2xl p-5 border border-outline-variant/30 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+    <div className="bg-bg-card dark:bg-surface-container-low p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
             <MaterialIcon name="military_tech" className="text-xl" />
           </div>
           <div>
-            <h3 className="font-bold text-on-surface text-base">Gamified Savings Challenge 🏆</h3>
-            <p className="text-xs text-outline">Tantangan Interaktif & Rekor Hemat</p>
+            <h3 className="font-extrabold text-on-surface text-base sm:text-lg">Gamified Savings Challenge 🏆</h3>
+            <p className="text-xs text-on-surface-variant mt-0.5">Tantangan Interaktif &amp; Rekor Hemat</p>
           </div>
         </div>
 
         {/* Challenge Tabs */}
-        <div className="flex items-center bg-surface border border-outline-variant/40 rounded-xl p-1 text-xs">
+        <div className="flex items-center bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-1 text-xs shrink-0 self-start sm:self-center">
           <button
             onClick={() => setActiveTab('52_week')}
-            className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all border-none cursor-pointer ${
               activeTab === '52_week'
                 ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-outline hover:text-on-surface'
+                : 'text-on-surface-variant hover:text-on-surface bg-transparent'
             }`}
           >
             52 Minggu
           </button>
           <button
             onClick={() => setActiveTab('no_spend')}
-            className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all border-none cursor-pointer ${
               activeTab === 'no_spend'
                 ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-outline hover:text-on-surface'
+                : 'text-on-surface-variant hover:text-on-surface bg-transparent'
             }`}
           >
             No-Spend Streak
@@ -125,28 +125,28 @@ export const SavingsChallengeCard: React.FC<SavingsChallengeCardProps> = ({
 
       {activeTab === '52_week' ? (
         /* 52-Week Challenge Tab */
-        <div className="p-4 rounded-xl bg-surface border border-outline-variant/40 space-y-4">
+        <div className="p-6 rounded-xl bg-surface-container-lowest border border-border-light space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs text-outline">Minggu Berjalan:</span>
-              <p className="text-lg font-bold text-on-surface">
+              <span className="text-xs text-on-surface-variant">Minggu Berjalan:</span>
+              <p className="text-lg font-extrabold text-on-surface mt-0.5">
                 Minggu Ke-{week52Challenge.currentWeek || 1} / 52
               </p>
             </div>
             <div className="text-right">
-              <span className="text-xs text-outline">Terkumpul:</span>
-              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+              <span className="text-xs text-on-surface-variant">Terkumpul:</span>
+              <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">
                 {formatCurrencyAmount(week52Challenge.currentAmount || 0, 'IDR')}
               </p>
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between text-xs font-semibold mb-1">
-              <span className="text-on-surface">Progress Tantangan</span>
-              <span className="text-amber-500 font-bold">{progress52Percent}%</span>
+            <div className="flex items-center justify-between text-xs font-semibold mb-1.5">
+              <span className="text-on-surface font-bold">Progress Tantangan</span>
+              <span className="text-amber-500 font-extrabold">{progress52Percent}%</span>
             </div>
-            <div className="w-full h-3 rounded-full bg-outline-variant/20 overflow-hidden">
+            <div className="w-full h-3 rounded-full bg-surface-container overflow-hidden">
               <div
                 className="h-full bg-amber-500 transition-all duration-500 rounded-full"
                 style={{ width: `${progress52Percent}%` }}
@@ -154,14 +154,14 @@ export const SavingsChallengeCard: React.FC<SavingsChallengeCardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-outline-variant/20">
-            <div className="text-xs text-outline">
+          <div className="flex items-center justify-between pt-3 border-t border-border-light">
+            <div className="text-xs text-on-surface-variant">
               Setoran Minggu Ini: <strong className="text-on-surface">{formatCurrencyAmount(nextDepositAmount, 'IDR')}</strong>
             </div>
             <button
               onClick={handleDepositNextWeek}
               disabled={week52Challenge.currentWeek! > 52}
-              className="px-4 py-2 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-all shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50"
+              className="px-4 py-2.5 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-all shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50 border-none cursor-pointer"
             >
               Setor Minggu Ke-{week52Challenge.currentWeek || 1} ✨
             </button>
@@ -169,25 +169,25 @@ export const SavingsChallengeCard: React.FC<SavingsChallengeCardProps> = ({
         </div>
       ) : (
         /* No-Spend Streak Tab */
-        <div className="p-4 rounded-xl bg-surface border border-outline-variant/40 space-y-4 text-center">
+        <div className="p-6 rounded-xl bg-surface-container-lowest border border-border-light space-y-4 text-center">
           <div className="py-2">
             <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto mb-2 text-3xl">
               🔥
             </div>
             <h4 className="text-3xl font-extrabold text-on-surface">
-              {noSpendChallenge.noSpendStreak || 0} <span className="text-base font-bold text-outline">Hari Streak</span>
+              {noSpendChallenge.noSpendStreak || 0} <span className="text-base font-bold text-on-surface-variant">Hari Streak</span>
             </h4>
-            <p className="text-xs text-outline mt-1">Hari Bebas Pengeluaran Non-Esensial (No-Spend Day)</p>
+            <p className="text-xs text-on-surface-variant mt-1">Hari Bebas Pengeluaran Non-Esensial (No-Spend Day)</p>
           </div>
 
-          <div className="flex items-center justify-center gap-2 text-xs py-2 border-t border-b border-outline-variant/20">
-            <span className={`px-2.5 py-1 rounded-full border ${noSpendChallenge.noSpendStreak! >= 3 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 font-bold' : 'opacity-40'}`}>
+          <div className="flex items-center justify-center gap-2 text-xs py-2 border-t border-b border-border-light">
+            <span className={`px-3 py-1 rounded-full border ${noSpendChallenge.noSpendStreak! >= 3 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 font-bold' : 'opacity-40 border-outline-variant'}`}>
               🥉 3 Hari
             </span>
-            <span className={`px-2.5 py-1 rounded-full border ${noSpendChallenge.noSpendStreak! >= 7 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 font-bold' : 'opacity-40'}`}>
+            <span className={`px-3 py-1 rounded-full border ${noSpendChallenge.noSpendStreak! >= 7 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 font-bold' : 'opacity-40 border-outline-variant'}`}>
               🥈 7 Hari
             </span>
-            <span className={`px-2.5 py-1 rounded-full border ${noSpendChallenge.noSpendStreak! >= 30 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 font-bold' : 'opacity-40'}`}>
+            <span className={`px-3 py-1 rounded-full border ${noSpendChallenge.noSpendStreak! >= 30 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 font-bold' : 'opacity-40 border-outline-variant'}`}>
               🥇 30 Hari Legend
             </span>
           </div>
@@ -195,7 +195,7 @@ export const SavingsChallengeCard: React.FC<SavingsChallengeCardProps> = ({
           <button
             onClick={handleNoSpendCheck}
             disabled={noSpendChallenge.lastNoSpendCheck === todayStr}
-            className="w-full py-3 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-all shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-all shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50 border-none cursor-pointer"
           >
             {noSpendChallenge.lastNoSpendCheck === todayStr
               ? '✓ Sudah Check-In Hari Ini'

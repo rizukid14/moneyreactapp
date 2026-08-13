@@ -2257,10 +2257,22 @@ const Settings: React.FC = () => {
 
           {/* Budgeting Mode Card */}
           <section data-tour="pref-budget-mode" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary">track_changes</span>
-              <h3 className="font-headline-md text-headline-md text-on-surface">Mode Budgeting</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary">track_changes</span>
+                <h3 className="font-headline-md text-headline-md text-on-surface">Mode Budgeting</h3>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/goals')}
+              className="w-full py-3 px-4 rounded-xl bg-primary text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-opacity hover:opacity-90 border-none shadow-sm"
+            >
+              <MaterialIcon name="track_changes" className="text-base" />
+              Buka Manajemen Anggaran &amp; Target
+              <MaterialIcon name="arrow_forward" className="text-sm ml-auto" />
+            </button>
 
             <div className="flex flex-col gap-2 p-1 bg-surface-container-low rounded-xl border border-outline-variant/60">
               <button
@@ -2362,7 +2374,7 @@ const Settings: React.FC = () => {
                 Kelola Biaya Langganan ({subscriptions.length})
               </button>
               <button
-                onClick={() => handleMenuClick('budgets')}
+                onClick={() => navigate('/goals')}
                 className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
               >
                 <MaterialIcon name="track_changes" className="text-sm" />

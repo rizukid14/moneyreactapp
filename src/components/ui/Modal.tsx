@@ -84,7 +84,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
           <div className="w-12 h-1 rounded-full bg-outline-variant/60"></div>
         </div>
 
-        <div className="flex items-center justify-between px-6 py-4 sm:py-5 border-b border-border-light shrink-0">
+        <div className="flex items-center justify-between px-6 py-2.5 sm:py-3 border-b border-border-light shrink-0">
           {title ? (
             typeof title === 'string' ? (
               <h2 className="m-0 text-lg font-bold text-on-surface tracking-tight">
@@ -108,7 +108,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             </button>
           </div>
         </div>
-        <div className="p-6 overflow-y-auto overscroll-contain flex flex-col gap-4">
+        <div className="px-6 pt-1.5 pb-6 sm:pt-2 overflow-y-auto overscroll-contain flex flex-col gap-4">
           {children}
         </div>
       </div>

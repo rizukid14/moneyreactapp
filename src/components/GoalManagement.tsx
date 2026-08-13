@@ -42,19 +42,23 @@ const GoalCard: React.FC<{
     if (finishDate > targetDate) status = 'behind';
   }
 
-  const barColor = isCompleted ? 'var(--success)' : status === 'behind' ? '#f59e0b' : 'var(--primary)';
-
   return (
-    <div className={`bg-bg-card p-4 rounded-2xl shadow-bento border relative mb-3 group transition-all ${isCompleted ? 'border-success' : 'border-outline-variant'}`} style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? 'bg-success-container text-success' : 'bg-primary-container text-primary-color'}`}>
-            <MaterialIcon name={isCompleted ? "check_circle" : "flag"} className="text-lg" />
+    <div className={`bg-bg-card dark:bg-surface-container-low p-6 rounded-xl border shadow-sm group relative overflow-hidden transition-shadow hover:shadow-md ${
+      isCompleted ? 'border-2 border-success' : 'border border-border-light'
+    }`}>
+      {isCompleted && (
+        <div className="absolute top-0 right-0 bg-success text-white text-[10px] px-3 py-1 font-bold rounded-bl-lg">SELESAI</div>
+      )}
+
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isCompleted ? 'bg-success-container text-success' : 'bg-primary-container/30 text-primary'}`}>
+            <MaterialIcon name={isCompleted ? "check_circle" : "flag"} className="text-xl" />
           </div>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)' }}>{goal.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-              <MaterialIcon name="calendar_today" className="text-[10px]" /> Target: {new Date(goal.targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+            <h3 className="font-extrabold text-on-surface text-base sm:text-lg">{goal.name}</h3>
+            <div className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5">
+              <MaterialIcon name="calendar_today" className="text-xs" /> Target: {new Date(goal.targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
             </div>
           </div>
         </div>
@@ -66,43 +70,31 @@ const GoalCard: React.FC<{
         />
       </div>
 
-      <div style={{ height: 8, background: 'var(--bg-neutral)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
-        <div style={{
-          height: '100%', borderRadius: 4,
-          width: `${Math.min(percent, 100)}%`,
-          background: barColor,
-          transition: 'width 1s cubic-bezier(0.16,1,0.3,1)'
-        }} />
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>
-        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-          {fmt(currentAmount, currencySymbol)} <span style={{ opacity: 0.5 }}>/ {fmt(goal.targetAmount, currencySymbol)}</span>
-        </span>
-        <span style={{ fontWeight: 800, color: barColor }}>
+      <div className="flex justify-between text-sm text-on-surface-variant mb-2">
+        <span>Terkumpul: <span className="font-bold text-on-surface">{fmt(currentAmount, currencySymbol)}</span> <span className="opacity-60">/ {fmt(goal.targetAmount, currencySymbol)}</span></span>
+        <span className={`font-extrabold ${isCompleted ? 'text-success' : status === 'behind' ? 'text-amber-500' : 'text-primary'}`}>
           {Math.floor(percent)}%
         </span>
       </div>
 
-      <div style={{ 
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, 
-        padding: '8px 10px', background: 'var(--bg-main)', borderRadius: 10,
-        border: '1px solid var(--border-color)' 
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Estimasi Selesai</span>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <MaterialIcon name="schedule" className={`text-[10px] ${status === 'behind' ? 'text-[#f59e0b]' : 'text-primary'}`} />
-            {etaText}
+      <div className="w-full h-3 rounded-full overflow-hidden bg-surface-container mb-4">
+        <div 
+          className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-success' : status === 'behind' ? 'bg-amber-500' : 'bg-primary'}`}
+          style={{ width: `${Math.min(percent, 100)}%` }}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 p-3 bg-surface-container-lowest border border-border-light rounded-xl text-xs">
+        <div>
+          <span className="text-[10px] uppercase font-bold text-on-surface-variant block mb-0.5">Estimasi Selesai</span>
+          <div className="font-bold text-on-surface flex items-center gap-1">
+            <MaterialIcon name="schedule" className={`text-xs ${status === 'behind' ? 'text-amber-500' : 'text-primary'}`} />
+            <span>{etaText}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Status</span>
-          <div style={{ 
-            fontSize: '11px', fontWeight: 800, 
-            color: isCompleted ? 'var(--success)' : status === 'behind' ? 'var(--warning)' : 'var(--primary)',
-            display: 'flex', alignItems: 'center', gap: 4
-          }}>
+        <div>
+          <span className="text-[10px] uppercase font-bold text-on-surface-variant block mb-0.5">Status</span>
+          <div className={`font-extrabold flex items-center gap-1 ${isCompleted ? 'text-success' : status === 'behind' ? 'text-amber-500' : 'text-primary'}`}>
             {isCompleted ? 'Selesai' : status === 'behind' ? 'Terlambat' : 'On Track'}
           </div>
         </div>
@@ -111,7 +103,7 @@ const GoalCard: React.FC<{
   );
 };
 
-export const GoalManagement: React.FC = () => {
+export const GoalManagement: React.FC<{ hideSubTabs?: boolean }> = ({ hideSubTabs = false }) => {
   const { goals, transactions, assets, addGoal, updateGoal, deleteGoal, currencySymbol, getAssetBalance, user, updateUser } = useMoney();
   const [activeSubTab, setActiveSubTab] = useState<'goals' | 'emergency' | 'challenge'>('goals');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -158,56 +150,59 @@ export const GoalManagement: React.FC = () => {
   };
 
   return (
-    <div className="budget-management-embedded space-y-4">
-      {/* Sub Tabs Header */}
-      <div className="flex items-center gap-1.5 p-1 bg-surface-variant/40 rounded-xl border border-outline-variant/30 text-xs">
-        <button
-          onClick={() => setActiveSubTab('goals')}
-          className={`flex-1 py-2 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
-            activeSubTab === 'goals'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-outline hover:text-on-surface'
-          }`}
-        >
-          <MaterialIcon name="flag" className="text-base" /> Target Impian
-        </button>
+    <div className="space-y-6">
+      {/* Sub Tabs Header (Hidden when hideSubTabs is true) */}
+      {!hideSubTabs && (
+        <div className="flex items-center gap-1.5 p-1 bg-surface-container-lowest rounded-xl border border-border-light text-xs font-bold">
+          <button
+            onClick={() => setActiveSubTab('goals')}
+            className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
+              activeSubTab === 'goals'
+                ? 'bg-primary text-white shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface bg-transparent'
+            }`}
+          >
+            <MaterialIcon name="flag" className="text-base" /> Target Impian
+          </button>
 
-        <button
-          onClick={() => setActiveSubTab('emergency')}
-          className={`flex-1 py-2 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
-            activeSubTab === 'emergency'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-outline hover:text-on-surface'
-          }`}
-        >
-          <MaterialIcon name="shield" className="text-base" /> Emergency Shield
-        </button>
+          <button
+            onClick={() => setActiveSubTab('emergency')}
+            className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
+              activeSubTab === 'emergency'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface bg-transparent'
+            }`}
+          >
+            <MaterialIcon name="shield" className="text-base" /> Emergency Shield
+          </button>
 
-        <button
-          onClick={() => setActiveSubTab('challenge')}
-          className={`flex-1 py-2 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
-            activeSubTab === 'challenge'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'text-outline hover:text-on-surface'
-          }`}
-        >
-          <MaterialIcon name="military_tech" className="text-base" /> Challenge 🏆
-        </button>
-      </div>
+          <button
+            onClick={() => setActiveSubTab('challenge')}
+            className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
+              activeSubTab === 'challenge'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface bg-transparent'
+            }`}
+          >
+            <MaterialIcon name="military_tech" className="text-base" /> Challenge 🏆
+          </button>
+        </div>
+      )}
 
       {activeSubTab === 'goals' && (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <MaterialIcon name="trending_up" className="text-lg text-primary" />
-              <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0 }}>Target Tabungan Impian</h3>
-            </div>
-            <button onClick={openAdd} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <MaterialIcon name="add_circle" className="text-sm" /> Buat Baru
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg md:text-headline-md font-extrabold flex items-center gap-2 text-on-surface">
+              <MaterialIcon name="flag" className="text-primary text-xl md:text-2xl" />
+              <span>Target Tabungan Impian</span>
+            </h2>
+            <button onClick={openAdd} className="flex items-center gap-1.5 text-primary font-bold text-xs md:text-sm hover:underline shrink-0 border-none bg-transparent cursor-pointer">
+              <MaterialIcon name="add_circle" className="text-sm md:text-base" />
+              <span>Buat Target Baru</span>
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, maxHeight: '420px', overflowY: 'auto', paddingRight: 4, paddingBottom: 20 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {goals.map(g => (
               <div key={g.id} onClick={e => e.stopPropagation()}>
                 <GoalCard
@@ -220,17 +215,14 @@ export const GoalManagement: React.FC = () => {
               </div>
             ))}
             {goals.length === 0 && (
-              <div style={{ 
-                textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px',
-                background: 'var(--bg-main)', borderRadius: 16, border: '1px dashed var(--border-color)' 
-              }}>
-                <MaterialIcon name="flag" className="text-3xl opacity-30 mb-3 block mx-auto" />
-                <div style={{ fontSize: 13, fontWeight: 700 }}>Belum ada target tabungan</div>
-                <div style={{ fontSize: 11, marginTop: 4 }}>Mulai buat rencana untuk impian Anda!</div>
+              <div className="col-span-full py-12 text-center text-on-surface-variant bg-surface-container-low rounded-xl border border-dashed border-outline-variant">
+                <MaterialIcon name="flag" className="text-4xl mb-2 opacity-50 block mx-auto" />
+                <p className="font-bold text-sm">Belum ada target tabungan</p>
+                <p className="text-xs mt-1">Mulai buat rencana untuk wujudkan impian Anda!</p>
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {activeSubTab === 'emergency' && (

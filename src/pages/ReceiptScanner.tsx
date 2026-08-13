@@ -1256,11 +1256,13 @@ const ReceiptScanner: React.FC = () => {
         receiptDate={selectedDate}
         assetId={selectedAssetId}
         onSaveAsSplit={(items, totalAmt) => {
+          const firstCatId = items[0]?.categoryId || selectedCategory || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '';
+          const firstSubCatId = items[0]?.subCategoryId || selectedSubCategory || undefined;
           addTransaction({
             type: 'pengeluaran',
             amount: totalAmt,
-            categoryId: selectedCategory || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '',
-            subCategoryId: selectedSubCategory,
+            categoryId: firstCatId,
+            subCategoryId: firstSubCatId,
             date: selectedDate,
             time: selectedTime,
             note: merchantName || 'Struk Itemized',
@@ -1272,11 +1274,13 @@ const ReceiptScanner: React.FC = () => {
         }}
         onSaveAsMultiple={(items) => {
           items.forEach(item => {
+            const itemCatId = item.categoryId || selectedCategory || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '';
+            const itemSubCatId = item.subCategoryId !== undefined ? (item.subCategoryId || undefined) : (selectedSubCategory || undefined);
             addTransaction({
               type: 'pengeluaran',
               amount: item.amount,
-              categoryId: item.categoryId || selectedCategory || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '',
-              subCategoryId: item.subCategoryId || selectedSubCategory,
+              categoryId: itemCatId,
+              subCategoryId: itemSubCatId,
               date: selectedDate,
               time: selectedTime,
               note: `${merchantName} - ${item.name}`,

@@ -3,13 +3,12 @@ import { useMoney } from '../contexts/MoneyContext';
 import type { Asset, AssetType, Transaction } from '../contexts/MoneyContext';
 import { SYS_CAT } from '../contexts/MoneyContext';
 import AssetModal from '../components/modals/AssetModal';
-import { CreditCardOptimizerCard } from '../components/CreditCardOptimizerCard';
 import { lazy, Suspense } from 'react';
 const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSwipeGesture } from '../hooks/useSwipeGesture';
+import { convertToBaseIDR, SUPPORTED_CURRENCIES } from '../lib/currency';
 import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
 import type { CardId } from '../components/AssetSummaryCarousel';
 import OnboardingTutorial from '../components/OnboardingTutorial';
@@ -118,6 +117,7 @@ const AssetDetailDrawer: React.FC<{
 
   if (!asset) return null;
 
+  const cardSymbol = SUPPORTED_CURRENCIES.find(c => c.code === asset.currency)?.symbol || currencySymbol;
   const Icon = getIconForType(asset.type);
   const color = getColorForType(asset.type);
 
@@ -215,7 +215,7 @@ const AssetDetailDrawer: React.FC<{
             </div>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Saldo Saat Ini</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: balance < 0 ? 'var(--danger)' : 'var(--text-main)', letterSpacing: '-1px' }}>
-              {isPrivateMode ? `${currencySymbol} ••••••••` : fmt(Math.abs(balance), currencySymbol)}
+              {isPrivateMode ? `${cardSymbol} ••••••••` : fmt(Math.abs(balance), cardSymbol)}
               {balance < 0 && <span style={{ fontSize: 13, marginLeft: 6, color: 'var(--danger)' }}>(minus)</span>}
             </div>
 
@@ -239,7 +239,7 @@ const AssetDetailDrawer: React.FC<{
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Masuk</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--primary)' }}>
-                  {isPrivateMode ? '••••' : fmt(stats.income, currencySymbol)}
+                  {isPrivateMode ? '••••' : fmt(stats.income, cardSymbol)}
                 </div>
               </div>
               <div 
@@ -260,7 +260,7 @@ const AssetDetailDrawer: React.FC<{
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)', textTransform: 'uppercase' }}>Keluar</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--danger)' }}>
-                  {isPrivateMode ? '••••' : fmt(stats.expense, currencySymbol)}
+                  {isPrivateMode ? '••••' : fmt(stats.expense, cardSymbol)}
                 </div>
               </div>
               <div 
@@ -397,7 +397,7 @@ const AssetDetailDrawer: React.FC<{
 };
 
 // ── Asset Card Component with Swipe Gesture ──────────────────────────────────
-const AssetCard: React.FC<{
+interface AssetCardProps {
   asset: Asset;
   balance: number;
   isPrivateMode: boolean;
@@ -409,24 +409,37 @@ const AssetCard: React.FC<{
   onDelete: () => void;
   onSelect: () => void;
   isHidden?: boolean;
-}> = ({ asset, balance, isPrivateMode, currencySymbol, color, Icon, stats, onEdit, onDelete, onSelect, isHidden }) => {
-  const { dragProps, swipeOffset, reset } = useSwipeGesture({
-    onSwipeLeft: () => {
-      reset();
-      onDelete();
-    },
-    onSwipeRight: () => {
-      reset();
-      onEdit();
-    },
-  });
+  isBestCC?: boolean;
+  unbilledAmount?: number;
+}
 
-  const isLiability = (asset.type === 'Credit Card' || asset.type === 'Loan') && balance < 0;
-  const displayBalance = isLiability ? Math.abs(balance) : balance;
-  const isBankLike = asset.type === 'Bank Account' || asset.type === 'Credit Card' || asset.type === 'eWallet';
+const AssetCard: React.FC<AssetCardProps> = ({
+  asset, balance, isPrivateMode, currencySymbol, color, Icon, stats, onEdit, onDelete, onSelect, isHidden, isBestCC, unbilledAmount
+}) => {
+  const cardSymbol = SUPPORTED_CURRENCIES.find(c => c.code === asset.currency)?.symbol || currencySymbol;
+  const isLiability = asset.type === 'Credit Card' || asset.type === 'Loan';
+  const isBankLike = asset.type === 'Bank Account' || asset.type === 'Credit Card' || asset.type === 'Savings';
+
+  const [dragX, setDragX] = useState(0);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+  const displayBalance = Math.abs(balance);
+  const swipeOffset = isMobile ? dragX : 0;
+
+  const dragProps = isMobile ? {
+    drag: "x" as const,
+    dragConstraints: { left: -80, right: 80 },
+    dragElastic: 0.1,
+    onDrag: (_: any, info: { offset: { x: number } }) => setDragX(info.offset.x),
+    onDragEnd: (_: any, info: { offset: { x: number } }) => {
+      setDragX(0);
+      if (info.offset.x > 50) onEdit();
+      if (info.offset.x < -50) onDelete();
+    }
+  } : {};
 
   return (
-    <div className="relative overflow-hidden rounded-[24px] w-full h-full">
+    <div className="relative overflow-hidden group/card rounded-[24px]">
       {/* Swipe Action Backgrounds */}
       <div className="absolute inset-0 flex justify-between items-center pointer-events-none rounded-[24px]">
         <div 
@@ -452,7 +465,9 @@ const AssetCard: React.FC<{
           className={`relative overflow-hidden p-5 rounded-[24px] cursor-pointer group hover:-translate-y-1.5 transition-all duration-300 shadow-sm hover:shadow-xl border h-full ${
             isHidden 
               ? 'border-dashed border-outline-variant/50 opacity-60 hover:opacity-100' 
-              : 'border-white/40 dark:border-white/5'
+              : isBestCC
+                ? 'border-2 border-emerald-500 shadow-emerald-500/10'
+                : 'border-white/40 dark:border-white/5'
           } ${
             isLiability 
               ? isHidden 
@@ -467,12 +482,10 @@ const AssetCard: React.FC<{
                   : 'bg-gradient-to-br from-surface-container to-surface-container-lowest'
           }`}
         >
-          {/* Decorative blur circle */}
           <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-[24px] opacity-40 transition-opacity duration-500 group-hover:opacity-70 ${
              isLiability ? 'bg-error' : color === 'primary' ? 'bg-primary' : color === 'success' ? 'bg-[#10b981]' : 'bg-outline-variant'
           }`}></div>
 
-          {/* Decorative glass overlay */}
           <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent dark:from-white/5 pointer-events-none"></div>
 
           <div className="relative z-10 h-full flex flex-col justify-between min-h-[140px]">
@@ -502,36 +515,68 @@ const AssetCard: React.FC<{
               <div className="flex justify-between items-end mb-1">
                 <div>
                   <div className="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider line-clamp-1 opacity-80">{asset.name}</div>
-                  {/* Masked Account Number */}
                   {isBankLike && (
                     <div className="font-mono text-[10px] tracking-widest opacity-60 mt-0.5">
                       •••• •••• {asset.accountNumber ? asset.accountNumber.slice(-4).padStart(4, '•') : asset.id.replace(/[^0-9]/g, '').padEnd(4, '0').slice(-4)}
                     </div>
                   )}
                 </div>
-                {isLiability && <div className="text-[9px] text-error mb-1 font-extrabold bg-error/10 dark:bg-error/20 inline-block px-2 py-0.5 rounded-md tracking-widest shrink-0">HUTANG</div>}
+                {asset.type === 'Credit Card' ? (
+                  isBestCC ? (
+                    <div className="text-[9px] text-emerald-600 dark:text-emerald-400 mb-1 font-extrabold bg-emerald-500/15 border border-emerald-500/30 inline-block px-2 py-0.5 rounded-md tracking-wider shrink-0">
+                      ⭐ REKOMENDASI HARI INI
+                    </div>
+                  ) : (
+                    <div className="text-[9px] text-error mb-1 font-extrabold bg-error/10 dark:bg-error/20 inline-block px-2 py-0.5 rounded-md tracking-widest shrink-0">
+                      HUTANG
+                    </div>
+                  )
+                ) : isLiability && (
+                  <div className="text-[9px] text-error mb-1 font-extrabold bg-error/10 dark:bg-error/20 inline-block px-2 py-0.5 rounded-md tracking-widest shrink-0">
+                    HUTANG
+                  </div>
+                )}
               </div>
               
               <div className="text-xl md:text-2xl font-black tracking-tight truncate">
-                {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${displayBalance.toLocaleString('id-ID')}`}
+                {isPrivateMode ? `${cardSymbol} ••••••••` : `${cardSymbol}${displayBalance.toLocaleString('id-ID')}`}
               </div>
+              {asset.currency && asset.currency !== 'IDR' && (
+                <div className="text-[11px] font-extrabold text-on-surface-variant/70 mt-0.5 flex items-center gap-1">
+                  <span>≈ {isPrivateMode ? 'Rp ••••••••' : `Rp ${convertToBaseIDR(displayBalance, asset.currency).toLocaleString('id-ID')}`}</span>
+                </div>
+              )}
               
               {/* Bottom Stats Row */}
-              <div className="mt-3 flex items-center justify-between opacity-60 bg-black/5 dark:bg-white/5 rounded-lg px-2 py-1.5">
-                {/* Last Active */}
-                <div className="flex items-center gap-1.5">
-                  <MaterialIcon name="update" className="text-[11px]" />
-                  <span className="text-[9px] font-bold uppercase tracking-wider">
-                    {stats.count === 0 ? 'Belum Aktif' : `Aktif: ${stats.lastActive}`}
-                  </span>
-                </div>
-                
-                {/* Mini Cashflow */}
-                {stats.count > 0 && (
-                  <div className="flex items-center gap-2 text-[9px] font-bold">
-                    <span className="text-primary flex items-center"><MaterialIcon name="arrow_drop_up" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.income/1000).toFixed(0)}k</span>
-                    <span className="text-error flex items-center"><MaterialIcon name="arrow_drop_down" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.expense/1000).toFixed(0)}k</span>
-                  </div>
+              <div className="mt-3 flex items-center justify-between opacity-80 bg-black/5 dark:bg-white/5 rounded-lg px-2.5 py-1.5">
+                {asset.type === 'Credit Card' ? (
+                  <>
+                    <div className="flex items-center gap-1 text-on-surface-variant text-[9px] font-bold">
+                      <MaterialIcon name="event" className="text-[11px] text-primary" />
+                      <span>Cetak: Tgl {asset.statementCutoffDay || 15} &bull; Due: Tgl {asset.paymentDueDay || 5}</span>
+                    </div>
+                    {unbilledAmount !== undefined && unbilledAmount > 0 && (
+                      <div className="text-[9px] text-amber-600 dark:text-amber-400 font-extrabold">
+                        Unbilled: {cardSymbol}{(unbilledAmount / 1000).toFixed(0)}k
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <MaterialIcon name="update" className="text-[11px]" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider">
+                        {stats.count === 0 ? 'Belum Aktif' : `Aktif: ${stats.lastActive}`}
+                      </span>
+                    </div>
+                    
+                    {stats.count > 0 && (
+                      <div className="flex items-center gap-2 text-[9px] font-bold">
+                        <span className="text-primary flex items-center"><MaterialIcon name="arrow_drop_up" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.income/1000).toFixed(0)}k</span>
+                        <span className="text-error flex items-center"><MaterialIcon name="arrow_drop_down" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.expense/1000).toFixed(0)}k</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -569,12 +614,42 @@ const Assets: React.FC = () => {
       b[asset.id] = bal;
       if (groups[asset.type]) groups[asset.type].push(asset);
       if (bal > 0 && asset.type !== 'Credit Card' && asset.type !== 'Loan') {
-        total += bal;
+        total += convertToBaseIDR(bal, asset.currency);
       }
     });
 
     return { balances: b, assetGroups: groups, totalNetWorth: total };
   }, [assets, getAssetBalance]);
+
+  const { bestCCId, unbilledMap } = useMemo(() => {
+    const ccAssets = assets.filter(a => a.type === 'Credit Card' && !a.isDeleted);
+    if (ccAssets.length === 0) return { bestCCId: null, unbilledMap: {} };
+
+    const today = new Date();
+    const currentDay = today.getDate();
+    const map: Record<string, number> = {};
+
+    const analytics = ccAssets.map(card => {
+      const cutoffDay = card.statementCutoffDay || 15;
+      let daysSinceCutoff = currentDay - cutoffDay;
+      if (daysSinceCutoff < 0) daysSinceCutoff += 30;
+
+      const lastCutoffDate = new Date(today.getFullYear(), today.getMonth(), cutoffDay);
+      if (currentDay < cutoffDay) lastCutoffDate.setMonth(lastCutoffDate.getMonth() - 1);
+      const lastCutoffStr = lastCutoffDate.toISOString().split('T')[0];
+
+      const unbilled = transactions
+        .filter(t => t.assetId === card.id && t.type === 'pengeluaran' && t.date >= lastCutoffStr && !t.isDeleted)
+        .reduce((sum, t) => sum + convertToBaseIDR(t.amount, t.currency, t.exchangeRate), 0);
+
+      map[card.id] = unbilled;
+
+      return { id: card.id, daysSinceCutoff };
+    });
+
+    analytics.sort((a, b) => a.daysSinceCutoff - b.daysSinceCutoff);
+    return { bestCCId: analytics[0]?.id || null, unbilledMap: map };
+  }, [assets, transactions]);
 
   const handleEdit = (asset: Asset) => {
     setEditingAsset(asset);
@@ -631,15 +706,6 @@ const Assets: React.FC = () => {
         />
       </div>
 
-      {/* Credit Card Optimizer Card */}
-      <CreditCardOptimizerCard
-        assets={assets}
-        transactions={transactions}
-        onSelectCard={(card) => {
-          setSelectedAsset(card);
-        }}
-      />
-
       {/* Asset list */}
       <SectionHeader 
         title="Daftar Rekening" 
@@ -665,9 +731,11 @@ const Assets: React.FC = () => {
                       {TYPE_LABELS[typeKey]} ({visibleAssets.length})
                     </div>
                     <div className="text-xs font-extrabold text-on-surface">
-                      {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${visibleAssets.reduce((sum, a) => sum + (balances[a.id] || 0), 0).toLocaleString('id-ID')}`}
+                      {isPrivateMode ? `${currencySymbol} ••••••••` : `${currencySymbol}${visibleAssets.reduce((sum, a) => sum + convertToBaseIDR(balances[a.id] || 0, a.currency), 0).toLocaleString('id-ID')}`}
+                      <span className="text-[10px] text-on-surface-variant font-normal ml-1">(IDR)</span>
                     </div>
                   </div>
+
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {visibleAssets.map((asset: Asset) => {
                       const Icon = getIconForType(asset.type);
@@ -688,6 +756,8 @@ const Assets: React.FC = () => {
                           onEdit={() => handleEdit(asset)}
                           onDelete={() => setDeletingAssetId(asset.id)}
                           onSelect={() => setSelectedAsset(asset)}
+                          isBestCC={asset.id === bestCCId}
+                          unbilledAmount={unbilledMap[asset.id]}
                         />
                       );
                     })}

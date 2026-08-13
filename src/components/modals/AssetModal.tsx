@@ -9,6 +9,7 @@ import CurrencyInput from '../common/CurrencyInput';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { SUPPORTED_CURRENCIES, getExchangeRate, convertToBaseIDR } from '../../lib/currency';
 import MaterialIcon from '../common/MaterialIcon';
 
 interface AssetModalProps {
@@ -25,8 +26,8 @@ interface AssetModalProps {
   zIndex?: number;
 }
 
-const AssetModal: React.FC<AssetModalProps> = ({ 
-  isOpen, onClose, addAsset, updateAsset, editingAsset, 
+const AssetModal: React.FC<AssetModalProps> = ({
+  isOpen, onClose, addAsset, updateAsset, editingAsset,
   currentBalance, addTransaction, onDelete, currencySymbol, existingAssets, zIndex
 }) => {
   const { showToast } = useToast();
@@ -34,6 +35,8 @@ const AssetModal: React.FC<AssetModalProps> = ({
   const [type, setType] = useState<AssetType>('Cash');
   const [initialBalance, setInitialBalance] = useState('');
   const [adjustedBalance, setAdjustedBalance] = useState('');
+  const [baseIDRInitial, setBaseIDRInitial] = useState<number>(0);
+  const [baseIDRAdjusted, setBaseIDRAdjusted] = useState<number>(0);
   const [isHidden, setIsHidden] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
   const [currency, setCurrency] = useState('IDR');
@@ -45,13 +48,21 @@ const AssetModal: React.FC<AssetModalProps> = ({
 
   useEffect(() => {
     if (editingAsset) {
+      const curr = editingAsset.currency || 'IDR';
+      const initNum = editingAsset.initialBalance;
+      const currBalNum = currentBalance !== undefined ? currentBalance : 0;
+
       setName(editingAsset.name);
       setType(editingAsset.type);
-      setInitialBalance(editingAsset.initialBalance.toLocaleString('id-ID'));
+      setCurrency(curr);
+      setInitialBalance(initNum.toLocaleString('id-ID'));
       setAdjustedBalance(currentBalance !== undefined ? currentBalance.toLocaleString('id-ID') : '');
+
+      setBaseIDRInitial(convertToBaseIDR(initNum, curr));
+      setBaseIDRAdjusted(convertToBaseIDR(currBalNum, curr));
+
       setIsHidden(editingAsset.isHidden || false);
       setAccountNumber(editingAsset.accountNumber || '');
-      setCurrency(editingAsset.currency || 'IDR');
       setStatementCutoffDay(editingAsset.statementCutoffDay ? String(editingAsset.statementCutoffDay) : '15');
       setPaymentDueDay(editingAsset.paymentDueDay ? String(editingAsset.paymentDueDay) : '5');
       setIsEmergencyFund(editingAsset.isEmergencyFund || false);
@@ -60,6 +71,8 @@ const AssetModal: React.FC<AssetModalProps> = ({
       setType('Cash');
       setInitialBalance('');
       setAdjustedBalance('');
+      setBaseIDRInitial(0);
+      setBaseIDRAdjusted(0);
       setIsHidden(false);
       setAccountNumber('');
       setCurrency('IDR');
@@ -69,19 +82,57 @@ const AssetModal: React.FC<AssetModalProps> = ({
     }
   }, [editingAsset, isOpen, currentBalance]);
 
-
-
   const parseNumber = (val: string) => {
     if (!val || val === '-') return 0;
     const isNegative = val.startsWith('-');
-    const num = Number(val.replace(/[^\d]/g, ''));
-    return isNegative ? -num : num;
+    const clean = val.replace(/,/g, '.').replace(/[^\d.]/g, '');
+    const num = Number(clean);
+    return isNegative ? -num : (isNaN(num) ? 0 : num);
+  };
+
+  const handleInitialChange = (valStr: string) => {
+    setInitialBalance(valStr);
+    const num = parseNumber(valStr);
+    setBaseIDRInitial(convertToBaseIDR(num, currency));
+  };
+
+  const handleAdjustedChange = (valStr: string) => {
+    setAdjustedBalance(valStr);
+    const num = parseNumber(valStr);
+    setBaseIDRAdjusted(convertToBaseIDR(num, currency));
+  };
+
+  const handleCurrencyChange = (newCurrency: string) => {
+    if (newCurrency === currency) return;
+    const newRate = getExchangeRate(newCurrency);
+
+    if (newRate) {
+      if (baseIDRInitial) {
+        const rawConverted = baseIDRInitial / newRate;
+        const formatted = newCurrency === 'IDR'
+          ? Math.round(rawConverted).toLocaleString('id-ID')
+          : (Math.round(rawConverted * 100) / 100).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        setInitialBalance(formatted);
+      }
+
+      if (baseIDRAdjusted) {
+        const rawConverted = baseIDRAdjusted / newRate;
+        const formatted = newCurrency === 'IDR'
+          ? Math.round(rawConverted).toLocaleString('id-ID')
+          : (Math.round(rawConverted * 100) / 100).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        setAdjustedBalance(formatted);
+      }
+
+      showToast(`Konversi saldo ke ${newCurrency} berhasil`, 'info');
+    }
+
+    setCurrency(newCurrency);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
-    
+
     if (!name.trim()) return;
     setIsSubmitting(true);
 
@@ -112,7 +163,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
 
     if (editingAsset && updateAsset) {
       updateAsset(editingAsset.id, assetData);
-      
+
       if (currentBalance !== undefined && addTransaction && adjustedBalance !== '') {
         const newTargetBalance = parseNumber(adjustedBalance);
         const difference = newTargetBalance - currentBalance;
@@ -130,7 +181,7 @@ const AssetModal: React.FC<AssetModalProps> = ({
     } else {
       addAsset(assetData);
     }
-    
+
     setTimeout(() => setIsSubmitting(false), 1000);
     onClose();
   };
@@ -145,227 +196,235 @@ const AssetModal: React.FC<AssetModalProps> = ({
         zIndex={zIndex}
       >
         <form onSubmit={handleSave}>
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '20px', marginTop: 0 }}>
             <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>Identitas Aset</label>
-            <Input 
+            <Input
               data-testid="asset-name-input"
-              type="text" 
-              required 
-              placeholder="Nama Aset (mis: Rekening Mandiri)" 
-              value={name} 
-              onChange={e => setName(e.target.value)} 
+              type="text"
+              required
+              placeholder="Nama Aset (mis: Rekening Mandiri)"
+              value={name}
+              onChange={e => setName(e.target.value)}
               style={{ marginBottom: '12px' }}
             />
-                  
-                  <div style={{ position: 'relative' }}>
-                    <select
-                      data-testid="asset-type-select"
-                      value={type}
-                      onChange={e => setType(e.target.value as AssetType)}
-                      style={{
-                        appearance: 'none',
-                        WebkitAppearance: 'none',
-                        width: '100%',
-                        padding: '12px 16px',
-                        paddingRight: '40px',
-                        borderRadius: '12px',
-                        border: '1px solid var(--border-color)',
-                        background: 'var(--bg-card-solid)',
-                        color: 'var(--text-main)',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        outline: 'none',
-                        marginBottom: 0
-                      }}
-                    >
-                      <option value="Cash">Tunai / Dompet</option>
-                      <option value="Bank Account">Rekening Bank</option>
-                      <option value="eWallet">E-Wallet (Gopay, OVO)</option>
-                      <option value="Savings">Tabungan</option>
-                      <option value="Investment">Investasi (Saham, Reksadana)</option>
-                      <option value="Credit Card">Kartu Kredit</option>
-                      <option value="Loan">Pinjaman / Hutang</option>
-                    </select>
-                    <div style={{
-                      position: 'absolute',
-                      right: '16px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      pointerEvents: 'none',
-                      color: 'var(--text-muted)'
-                    }}>
-                      <div style={{ border: 'solid var(--text-muted)', borderWidth: '0 2px 2px 0', display: 'inline-block', padding: '3px', transform: 'rotate(45deg)' }}></div>
-                    </div>
-                  </div>
-                  
-                  {(type === 'Bank Account' || type === 'Credit Card' || type === 'eWallet') && (
-                    <div style={{ marginTop: '12px' }}>
-                      <Input
-                        type="text"
-                        placeholder="Nomor Rekening / No. Kartu / No. HP (Opsional)"
-                        value={accountNumber}
-                        onChange={e => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                        style={{ marginBottom: 0 }}
-                      />
-                    </div>
-                  )}
 
-                  {type === 'Credit Card' && (
-                    <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tgl Cetak Tagihan</label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="31"
-                          placeholder="Tgl (misal 15)"
-                          value={statementCutoffDay}
-                          onChange={e => setStatementCutoffDay(e.target.value)}
-                          style={{ marginBottom: 0 }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tgl Jatuh Tempo</label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="31"
-                          placeholder="Tgl (misal 5)"
-                          value={paymentDueDay}
-                          onChange={e => setPaymentDueDay(e.target.value)}
-                          style={{ marginBottom: 0 }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>Keuangan & Mata Uang</label>
-                  
-                  <div style={{ marginBottom: '12px', display: 'flex', gap: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <CurrencyInput 
-                        data-testid="asset-balance-input"
-                        placeholder={`Saldo Awal (${currencySymbol})`} 
-                        value={initialBalance} 
-                        onChange={setInitialBalance} 
-                        style={{ marginBottom: 0 }}
-                      />
-                    </div>
-                    <div style={{ width: '120px' }}>
-                      <select
-                        value={currency}
-                        onChange={e => setCurrency(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '12px 14px',
-                          borderRadius: '12px',
-                          border: '1px solid var(--border-color)',
-                          background: 'var(--bg-card-solid)',
-                          color: 'var(--text-main)',
-                          fontSize: '14px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          outline: 'none',
-                        }}
-                      >
-                        <option value="IDR">IDR (Rp)</option>
-                        <option value="USD">USD ($)</option>
-                        <option value="SGD">SGD (S$)</option>
-                        <option value="JPY">JPY (¥)</option>
-                        <option value="SAR">SAR (SR)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {editingAsset && currentBalance !== undefined && (
-                    <div style={{ padding: '16px', background: 'var(--bg-income)', borderRadius: '16px', border: '1.5px solid var(--primary-glow)' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', display: 'block', marginBottom: '8px' }}>Penyesuaian Saldo Berjalan</label>
-                      <CurrencyInput 
-                        placeholder="Saldo saat ini" 
-                        value={adjustedBalance} 
-                        onChange={setAdjustedBalance} 
-                        style={{ marginBottom: '8px', fontWeight: 800, color: 'var(--primary)', border: '2px solid var(--primary)', fontSize: '16px' }}
-                      />
-                      <div style={{ fontSize: '11px', color: 'var(--primary)', opacity: 0.8, lineHeight: 1.4 }}>
-                        Sistem akan membuat transaksi <strong>Koreksi Saldo</strong> otomatis untuk selisih dari <strong>{currencySymbol}{currentBalance.toLocaleString('id-ID')}</strong>.
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ 
-                  margin: '16px 0 12px', padding: '16px', borderRadius: '16px', 
-                  background: isEmergencyFund ? 'var(--bg-income)' : 'var(--bg-main)',
-                  border: '1px solid var(--border-color)',
-                  transition: 'all 0.2s'
+            <div style={{ marginTop: '12px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Kategori / Tipe Aset</label>
+              <div style={{ position: 'relative' }}>
+                <select
+                  data-testid="asset-type-select"
+                  value={type}
+                  onChange={e => setType(e.target.value as AssetType)}
+                  style={{
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    width: '100%',
+                    padding: '12px 16px',
+                    paddingRight: '40px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-card-solid)',
+                    color: 'var(--text-main)',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    outline: 'none',
+                    marginBottom: 0
+                  }}
+                >
+                  <option value="Cash">Tunai / Dompet</option>
+                  <option value="Bank Account">Rekening Bank</option>
+                  <option value="eWallet">E-Wallet (Gopay, OVO)</option>
+                  <option value="Savings">Tabungan</option>
+                  <option value="Investment">Investasi (Saham, Reksadana)</option>
+                  <option value="Credit Card">Kartu Kredit</option>
+                  <option value="Loan">Pinjaman / Hutang</option>
+                </select>
+                <div style={{
+                  position: 'absolute',
+                  right: '16px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                  color: 'var(--text-muted)'
                 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', marginBottom: '2px' }}>🛡️ Alokasikan Sebagai Dana Darurat</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dipisahkan dari Kas Siap Pakai harian.</div>
-                    </div>
-                    <input 
-                      type="checkbox" 
-                      checked={isEmergencyFund}
-                      onChange={(e) => setIsEmergencyFund(e.target.checked)}
-                      style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', margin: 0 }}
-                    />
-                  </label>
+                  <div style={{ border: 'solid var(--text-muted)', borderWidth: '0 2px 2px 0', display: 'inline-block', padding: '3px', transform: 'rotate(45deg)' }}></div>
                 </div>
+              </div>
+            </div>
 
-                <div style={{ 
-                  margin: '0 0 24px', padding: '16px', borderRadius: '16px', 
-                  background: isHidden ? 'var(--bg-neutral)' : 'var(--bg-main)',
-                  border: '1px solid var(--border-color)',
-                  transition: 'all 0.2s'
-                }}>
-                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', marginBottom: '2px' }}>Sembunyikan dari Total</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Saldo tidak akan dihitung di Net Worth.</div>
-                    </div>
-                    <input 
-                      type="checkbox" 
-                      checked={isHidden}
-                      onChange={(e) => setIsHidden(e.target.checked)}
-                      style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', margin: 0 }}
-                    />
-                  </label>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                  {editingAsset && onDelete && (
-                    <Button 
-                      variant="danger"
-                      type="button" 
-                      onClick={() => setIsConfirmOpen(true)}
-                      title="Hapus Aset"
-                      style={{ 
-                        width: '56px', height: '56px', borderRadius: '16px', 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0
-                      }}
-                    >
-                      <MaterialIcon name="delete" className="text-[24px]" />
-                    </Button>
-                  )}
+            {(type === 'Bank Account' || type === 'Credit Card' || type === 'eWallet') && (
+              <div style={{ marginTop: '12px' }}>
+                <Input
+                  type="text"
+                  placeholder="Nomor Rekening / No. Kartu / No. HP (Opsional)"
+                  value={accountNumber}
+                  onChange={e => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                  style={{ marginBottom: 0 }}
+                />
+              </div>
+            )}
 
-                  <Button disabled={isSubmitting} variant="primary" data-testid="asset-submit-btn" type="submit" style={{ 
-                    flex: 1, height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    boxShadow: '0 8px 24px var(--primary-glow)', margin: 0
-                  }}>
-                    <MaterialIcon name="check_circle" className="text-[22px]" />
-                    {editingAsset ? 'Simpan' : 'Simpan Aset'}
-                  </Button>
+            {type === 'Credit Card' && (
+              <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tgl Cetak Tagihan</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Tgl (misal 15)"
+                    value={statementCutoffDay}
+                    onChange={e => setStatementCutoffDay(e.target.value)}
+                    style={{ marginBottom: 0 }}
+                  />
                 </div>
-              </form>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tgl Jatuh Tempo</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Tgl (misal 5)"
+                    value={paymentDueDay}
+                    onChange={e => setPaymentDueDay(e.target.value)}
+                    style={{ marginBottom: 0 }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>Keuangan & Mata Uang</label>
+
+            <div style={{ marginBottom: '12px', display: 'flex', gap: '12px' }}>
+              {!editingAsset && (
+                <div style={{ flex: 1 }}>
+                  <CurrencyInput
+                    data-testid="asset-balance-input"
+                    placeholder={`Saldo Awal (${currencySymbol})`}
+                    value={initialBalance}
+                    onChange={handleInitialChange}
+                    allowDecimals={currency !== 'IDR'}
+                    style={{ marginBottom: 0 }}
+                  />
+                </div>
+              )}
+
+              <div style={{ flex: editingAsset ? 1 : 'none', width: editingAsset ? '100%' : '140px' }}>
+                <select
+                  value={currency}
+                  onChange={e => handleCurrencyChange(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-card-solid)',
+                    color: 'var(--text-main)',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="IDR">IDR (Rp)</option>
+                  <option value="USD">USD ($ • 1 USD ≈ Rp {getExchangeRate('USD').toLocaleString('id-ID')})</option>
+                  <option value="SGD">SGD (S$ • 1 SGD ≈ Rp {getExchangeRate('SGD').toLocaleString('id-ID')})</option>
+                  <option value="JPY">JPY (¥ • 1 JPY ≈ Rp {getExchangeRate('JPY').toLocaleString('id-ID')})</option>
+                  <option value="SAR">SAR (SR • 1 SAR ≈ Rp {getExchangeRate('SAR').toLocaleString('id-ID')})</option>
+                </select>
+              </div>
+            </div>
+
+            {editingAsset && currentBalance !== undefined && (
+              <div style={{ padding: '16px', background: 'var(--bg-income)', borderRadius: '16px', border: '1.5px solid var(--primary-glow)' }}>
+                <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', display: 'block', marginBottom: '8px' }}>Penyesuaian Saldo Berjalan</label>
+                <CurrencyInput
+                  placeholder="Saldo saat ini"
+                  value={adjustedBalance}
+                  onChange={handleAdjustedChange}
+                  allowDecimals={currency !== 'IDR'}
+                  style={{ marginBottom: '8px', fontWeight: 800, color: 'var(--primary)', border: '2px solid var(--primary)', fontSize: '16px' }}
+                />
+                <div style={{ fontSize: '11px', color: 'var(--primary)', opacity: 0.8, lineHeight: 1.4 }}>
+                  Sistem akan membuat transaksi <strong>Koreksi Saldo</strong> otomatis untuk selisih dari <strong>{SUPPORTED_CURRENCIES.find(c => c.code === currency)?.symbol || currencySymbol}{currentBalance.toLocaleString('id-ID')}</strong>.
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{
+            margin: '16px 0 12px', padding: '16px', borderRadius: '16px',
+            background: isEmergencyFund ? 'var(--bg-income)' : 'var(--bg-main)',
+            border: '1px solid var(--border-color)',
+            transition: 'all 0.2s'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
+              <div style={{ flex: 1, paddingRight: '12px' }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', marginBottom: '2px' }}>🛡️ Alokasikan Sebagai Dana Darurat</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>Dipisahkan dari Kas Siap Pakai harian &amp; otomatis dihitung ke Perisai Dana Darurat di Target &amp; Anggaran.</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={isEmergencyFund}
+                onChange={(e) => setIsEmergencyFund(e.target.checked)}
+                style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', margin: 0 }}
+              />
+            </label>
+          </div>
+
+          <div style={{
+            margin: '0 0 24px', padding: '16px', borderRadius: '16px',
+            background: isHidden ? 'var(--bg-neutral)' : 'var(--bg-main)',
+            border: '1px solid var(--border-color)',
+            transition: 'all 0.2s'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: 0 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', marginBottom: '2px' }}>Sembunyikan dari Total</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Saldo tidak akan dihitung di Net Worth.</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={isHidden}
+                onChange={(e) => setIsHidden(e.target.checked)}
+                style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', margin: 0 }}
+              />
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+            {editingAsset && onDelete && (
+              <Button
+                variant="danger"
+                type="button"
+                onClick={() => setIsConfirmOpen(true)}
+                title="Hapus Aset"
+                style={{
+                  width: '56px', height: '56px', borderRadius: '16px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <MaterialIcon name="delete" className="text-[24px]" />
+              </Button>
+            )}
+
+            <Button disabled={isSubmitting} variant="primary" data-testid="asset-submit-btn" type="submit" style={{
+              flex: 1, height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              boxShadow: '0 8px 24px var(--primary-glow)', margin: 0
+            }}>
+              <MaterialIcon name="check_circle" className="text-[22px]" />
+              {editingAsset ? 'Simpan' : 'Simpan Aset'}
+            </Button>
+          </div>
+        </form>
       </Modal>
 
-      <ConfirmDialog 
+      <ConfirmDialog
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={() => {

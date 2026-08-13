@@ -191,10 +191,13 @@ function getTierFillPercent(amount: number, tier: GachaTier): number {
   return Math.min(1, Math.max(0, within / range));
 }
 
+import { convertToBaseIDR } from '../lib/currency';
+
 // ─── Card value calculation ───────────────────────────────────────────────────
 interface Asset {
   id: string;
   type: string;
+  currency?: string;
   isDeleted?: boolean;
   isHidden?: boolean;
 }
@@ -209,17 +212,17 @@ export function calcCardValue(
   const visible = assets.filter(a => !a.isDeleted);
 
   if (cardId === 'net_worth') {
-    return visible.reduce((s, a) => s + (balances[a.id] || 0), 0);
+    return visible.reduce((s, a) => s + convertToBaseIDR(balances[a.id] || 0, a.currency), 0);
   }
   if (def.negate) {
     const raw = visible
       .filter(a => def.types.includes(a.type))
-      .reduce((s, a) => s + (balances[a.id] || 0), 0);
+      .reduce((s, a) => s + convertToBaseIDR(balances[a.id] || 0, a.currency), 0);
     return Math.abs(raw);
   }
   return visible
     .filter(a => def.types.includes(a.type))
-    .reduce((s, a) => s + (balances[a.id] || 0), 0);
+    .reduce((s, a) => s + convertToBaseIDR(balances[a.id] || 0, a.currency), 0);
 }
 
 // ─── Liquid Wave Animation CSS (injected once) ────────────────────────────────

@@ -49,28 +49,28 @@ export const EmergencyFundShield: React.FC<EmergencyFundShieldProps> = ({
   };
 
   return (
-    <div className="bg-surface-variant/40 rounded-2xl p-5 border border-outline-variant/30 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+    <div className="bg-bg-card dark:bg-surface-container-low p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <MaterialIcon name="shield" className="text-xl" />
           </div>
           <div>
-            <h3 className="font-bold text-on-surface text-base">Emergency Fund Shield 🛡️</h3>
-            <p className="text-xs text-outline">Perlindungan Dana Darurat & Alokasi Kebutuhan</p>
+            <h3 className="font-extrabold text-on-surface text-base sm:text-lg">Emergency Fund Shield 🛡️</h3>
+            <p className="text-xs text-on-surface-variant mt-0.5">Perlindungan Dana Darurat &amp; Alokasi Kebutuhan</p>
           </div>
         </div>
 
         {/* Target Month Selector */}
-        <div className="flex items-center bg-surface border border-outline-variant/40 rounded-xl p-1 text-xs">
+        <div className="flex items-center bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-1 text-xs shrink-0 self-start sm:self-center">
           {[3, 6, 9, 12].map(m => (
             <button
               key={m}
               onClick={() => handleMonthChange(m)}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all border-none cursor-pointer ${
                 selectedMonths === m
                   ? 'bg-primary text-white shadow-sm'
-                  : 'text-outline hover:text-on-surface'
+                  : 'text-on-surface-variant hover:text-on-surface bg-transparent'
               }`}
             >
               {m} Bln
@@ -80,17 +80,17 @@ export const EmergencyFundShield: React.FC<EmergencyFundShieldProps> = ({
       </div>
 
       {/* Progress & Status Banner */}
-      <div className="p-4 rounded-xl bg-surface border border-outline-variant/40 space-y-3">
+      <div className="p-6 rounded-xl bg-surface-container-lowest border border-border-light space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs text-outline">Terkumpul saat ini:</span>
-            <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+            <span className="text-xs text-on-surface-variant">Terkumpul saat ini:</span>
+            <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
               {formatCurrencyAmount(totalEmergencyBalance, 'IDR')}
             </p>
           </div>
           <div className="text-right">
-            <span className="text-xs text-outline">Target ({selectedMonths} Bulan):</span>
-            <p className="text-sm font-bold text-on-surface">
+            <span className="text-xs text-on-surface-variant">Target ({selectedMonths} Bulan):</span>
+            <p className="text-base font-bold text-on-surface mt-0.5">
               {formatCurrencyAmount(targetAmount, 'IDR')}
             </p>
           </div>
@@ -98,11 +98,11 @@ export const EmergencyFundShield: React.FC<EmergencyFundShieldProps> = ({
 
         {/* Progress Bar */}
         <div>
-          <div className="flex items-center justify-between text-xs font-semibold mb-1">
-            <span className="text-on-surface">Cakupan Pengeluaran: {coverageMonths} Bulan</span>
-            <span className="text-primary font-bold">{progressPercent}%</span>
+          <div className="flex items-center justify-between text-xs font-semibold mb-1.5">
+            <span className="text-on-surface font-bold">Cakupan Pengeluaran: {coverageMonths} Bulan</span>
+            <span className="text-primary font-extrabold">{progressPercent}%</span>
           </div>
-          <div className="w-full h-3 rounded-full bg-outline-variant/20 overflow-hidden">
+          <div className="w-full h-3 rounded-full bg-surface-container overflow-hidden">
             <div
               className="h-full bg-emerald-500 transition-all duration-500 rounded-full"
               style={{ width: `${progressPercent}%` }}
@@ -110,9 +110,9 @@ export const EmergencyFundShield: React.FC<EmergencyFundShieldProps> = ({
           </div>
         </div>
 
-        <div className="text-xs text-outline flex items-center justify-between pt-1">
-          <span>Estimasi Pengeluaran Bulanan: {formatCurrencyAmount(avgMonthlyExpense, 'IDR')}</span>
-          <span className="font-medium text-emerald-600 dark:text-emerald-400">
+        <div className="text-xs text-on-surface-variant flex items-center justify-between pt-2 border-t border-border-light">
+          <span>Estimasi Pengeluaran Bulanan: <strong className="text-on-surface">{formatCurrencyAmount(avgMonthlyExpense, 'IDR')}</strong></span>
+          <span className="font-bold text-emerald-600 dark:text-emerald-400">
             {emergencyAssets.length} Aset Terpilih
           </span>
         </div>
@@ -120,18 +120,18 @@ export const EmergencyFundShield: React.FC<EmergencyFundShieldProps> = ({
 
       {/* Allocated Emergency Assets */}
       {emergencyAssets.length > 0 && (
-        <div className="space-y-1.5">
-          <span className="text-xs font-bold text-outline uppercase tracking-wider">Aset Dana Darurat:</span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="space-y-3">
+          <span className="text-xs font-extrabold text-on-surface-variant uppercase tracking-wider block">Aset Dana Darurat:</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {emergencyAssets.map(asset => {
               const bal = getAssetBalance(asset.id);
               return (
-                <div key={asset.id} className="flex items-center justify-between p-2.5 rounded-xl bg-surface border border-outline-variant/30 text-xs">
-                  <div className="flex items-center gap-2">
-                    <MaterialIcon name="savings" className="text-emerald-500" />
-                    <span className="font-semibold text-on-surface">{asset.name}</span>
+                <div key={asset.id} className="flex items-center justify-between p-3 rounded-xl bg-surface-container-lowest border border-border-light text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <MaterialIcon name="savings" className="text-emerald-500 text-lg" />
+                    <span className="font-bold text-on-surface">{asset.name}</span>
                   </div>
-                  <span className="font-bold text-on-surface">
+                  <span className="font-extrabold text-on-surface">
                     {formatCurrencyAmount(bal, asset.currency || 'IDR')}
                   </span>
                 </div>

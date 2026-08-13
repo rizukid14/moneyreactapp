@@ -23,8 +23,10 @@ const SocialHub = lazy(() => import('./pages/SocialHub'));
 const SharedSplitBill = lazy(() => import('./pages/SharedSplitBill'));
 const Trips = lazy(() => import('./pages/Trips'));
 const TripDetail = lazy(() => import('./pages/TripDetail'));
+const Budgets = lazy(() => import('./pages/Budgets'));
 
 // SplashScreen is used as fallback for both initial load and lazy page loading
+
 
 const AppContent: React.FC = () => {
   const { isAppLocked, theme } = useMoney();
@@ -74,6 +76,8 @@ const AppContent: React.FC = () => {
               <Route path="settings" element={<Settings />} />
               <Route path="trips" element={<Trips />} />
               <Route path="trips/:id" element={<TripDetail />} />
+              <Route path="budgets" element={<Budgets />} />
+              <Route path="goals" element={<Budgets />} />
             </Route>
             <Route path="/shared-split/:id" element={<SharedSplitBill />} />
             <Route path="/shared-split-bill/:id" element={<SharedSplitBill />} />
