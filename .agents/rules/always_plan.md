@@ -2,7 +2,8 @@
 trigger: always_on
 ---
 
-# Implementation Plan Rule
+## ⚠️ ATURAN WAJIB AI AGENT (MANDATORY AGENT RULES)
 
-- ALWAYS write a detailed `implementation_plan.md` and obtain explicit user approval BEFORE making any code edits or running non-read-only modifying commands.
-- Never jump straight into code modifications, even if tasks seem clear. it okay if its just minor changes or  simple.
+1. **SELALU MINTA KONFIRMASI SEBELUM MENGUBAH KODE (ALWAYS ASK BEFORE EDITING CODE)**:
+   - Sebelum melakukan edit/perubahan file kode apa pun, AI WAJIB menjelaskan masalah dan menampilkan rencana/perubahan yang diusulkan.
+   - AI DILARANG mengeksekusi tool edit file (`replace_file_content`, `write_to_file`, `multi_replace_file_content`) sebelum pengguna memberikan persetujuan/konfirmasi eksplisit.
