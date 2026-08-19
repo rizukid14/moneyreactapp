@@ -430,6 +430,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
     drag: "x" as const,
     dragConstraints: { left: -80, right: 80 },
     dragElastic: 0.1,
+    dragSnapToOrigin: true,
     onDrag: (_: any, info: { offset: { x: number } }) => setDragX(info.offset.x),
     onDragEnd: (_: any, info: { offset: { x: number } }) => {
       setDragX(0);
@@ -458,7 +459,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
         </div>
       </div>
 
-      <motion.div {...dragProps} className="relative z-10 h-full w-full">
+      <motion.div {...dragProps} animate={{ x: 0 }} className="relative z-10 h-full w-full">
         <div
           data-testid={`asset-card-${asset.id}`}
           onClick={onSelect}
@@ -512,9 +513,9 @@ const AssetCard: React.FC<AssetCardProps> = ({
             </div>
             
             <div className="mt-4">
-              <div className="flex justify-between items-end mb-1">
-                <div>
-                  <div className="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider line-clamp-1 opacity-80">{asset.name}</div>
+              <div className="flex flex-wrap items-start justify-between gap-1 mb-1">
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider truncate opacity-80">{asset.name}</div>
                   {isBankLike && (
                     <div className="font-mono text-[10px] tracking-widest opacity-60 mt-0.5">
                       •••• •••• {asset.accountNumber ? asset.accountNumber.slice(-4).padStart(4, '•') : asset.id.replace(/[^0-9]/g, '').padEnd(4, '0').slice(-4)}
@@ -523,16 +524,16 @@ const AssetCard: React.FC<AssetCardProps> = ({
                 </div>
                 {asset.type === 'Credit Card' ? (
                   isBestCC ? (
-                    <div className="text-[9px] text-emerald-600 dark:text-emerald-400 mb-1 font-extrabold bg-emerald-500/15 border border-emerald-500/30 inline-block px-2 py-0.5 rounded-md tracking-wider shrink-0">
+                    <div className="text-[8.5px] sm:text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/15 border border-emerald-500/30 px-1.5 sm:px-2 py-0.5 rounded-md tracking-tight whitespace-nowrap shrink-0">
                       ⭐ REKOMENDASI HARI INI
                     </div>
                   ) : (
-                    <div className="text-[9px] text-error mb-1 font-extrabold bg-error/10 dark:bg-error/20 inline-block px-2 py-0.5 rounded-md tracking-widest shrink-0">
+                    <div className="text-[8.5px] sm:text-[9px] text-error font-extrabold bg-error/10 dark:bg-error/20 px-1.5 sm:px-2 py-0.5 rounded-md tracking-wider shrink-0">
                       HUTANG
                     </div>
                   )
                 ) : isLiability && (
-                  <div className="text-[9px] text-error mb-1 font-extrabold bg-error/10 dark:bg-error/20 inline-block px-2 py-0.5 rounded-md tracking-widest shrink-0">
+                  <div className="text-[8.5px] sm:text-[9px] text-error font-extrabold bg-error/10 dark:bg-error/20 px-1.5 sm:px-2 py-0.5 rounded-md tracking-wider shrink-0">
                     HUTANG
                   </div>
                 )}

@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
 import { formatCurrency } from '../lib/utils';
 import MaterialIcon from './common/MaterialIcon';
+import StatDetailModal from './modals/StatDetailModal';
 
 interface DailyFinancialCalendarProps {
   viewDate: Date;
@@ -11,7 +12,7 @@ interface DailyFinancialCalendarProps {
 }
 
 export const DailyFinancialCalendar: React.FC<DailyFinancialCalendarProps> = ({ viewDate }) => {
-  const { transactions, currencySymbol, categories, assets } = useMoney();
+  const { transactions, currencySymbol, categories } = useMoney();
   const [selectedDayTxs, setSelectedDayTxs] = useState<{ dateStr: string; dateObj: Date; txs: Transaction[]; income: number; expense: number } | null>(null);
 
   const fmt = (val: number) => formatCurrency(val, currencySymbol);
@@ -162,8 +163,8 @@ export const DailyFinancialCalendar: React.FC<DailyFinancialCalendarProps> = ({ 
         </div>
       </div>
 
-      {/* 100% Fit Screen Container (No Horizontal Scroll) */}
-      <div className="w-full">
+      {/* Responsive Fit Screen Container */}
+      <div className="w-full max-w-3xl mx-auto">
         {/* Days of Week Header */}
         <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-1.5 text-center">
           {DAYS_OF_WEEK.map((d, i) => (
@@ -178,11 +179,11 @@ export const DailyFinancialCalendar: React.FC<DailyFinancialCalendarProps> = ({ 
           ))}
         </div>
 
-        {/* 7-Column Calendar Grid - Fit Screen 100% Square Cells */}
+        {/* 7-Column Calendar Grid - Responsive Square/Compact Cells */}
         <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {calendarGrid.map((cell, idx) => {
             if (!cell.dayNum) {
-              return <div key={`blank-${idx}`} className="aspect-square rounded-lg bg-transparent" />;
+              return <div key={`blank-${idx}`} className="aspect-square md:aspect-[4/3] rounded-lg bg-transparent" />;
             }
 
             const hasData = cell.income > 0 || cell.expense > 0;
@@ -204,7 +205,7 @@ export const DailyFinancialCalendar: React.FC<DailyFinancialCalendarProps> = ({ 
                     });
                   }
                 }}
-                className={`aspect-square p-1 sm:p-1.5 rounded-lg border flex flex-col justify-between transition-all relative overflow-hidden ${
+                className={`aspect-square md:aspect-[4/3] md:max-h-20 p-1 sm:p-2 rounded-lg border flex flex-col justify-between transition-all relative overflow-hidden ${
                   isSelected
                     ? 'border-primary ring-2 ring-primary bg-primary-container/20 shadow-md z-10'
                     : cell.isToday
@@ -247,88 +248,20 @@ export const DailyFinancialCalendar: React.FC<DailyFinancialCalendarProps> = ({ 
         </div>
       </div>
 
-      {/* Selected Day Transaction Summary Card directly below Calendar */}
-      <AnimatePresence mode="wait">
-        {selectedDayTxs && (
-          <motion.div
-            key={selectedDayTxs.dateStr}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="mt-4 pt-4 border-t border-outline-variant"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-on-surface">
-                  {selectedDayTxs.dateObj.toLocaleDateString('id-ID', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </span>
-                {selectedDayTxs.txs.length > 0 && (
-                  <span className="text-xs bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full font-bold">
-                    {selectedDayTxs.txs.length} transaksi
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => setSelectedDayTxs(null)}
-                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg transition-colors"
-              >
-                <MaterialIcon name="close" className="text-base" />
-              </button>
-            </div>
-
-            {selectedDayTxs.txs.length > 0 ? (
-              <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-                {selectedDayTxs.txs.map(tx => {
-                  const cat = categories.find(c => c.id === tx.categoryId);
-                  const asset = assets.find(a => a.id === tx.assetId);
-
-                  return (
-                    <div
-                      key={tx.id}
-                      className="bg-surface-container-lowest p-3 rounded-2xl border border-outline-variant flex items-center justify-between gap-3 shadow-2xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 font-bold text-sm ${
-                            tx.type === 'pendapatan' ? 'bg-primary-color' : 'bg-error'
-                          }`}
-                        >
-                          <MaterialIcon name={tx.type === 'pendapatan' ? 'arrow_downward' : 'arrow_upward'} className="text-base" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs sm:text-sm text-on-surface truncate">{tx.note || cat?.name || 'Transaksi'}</p>
-                          <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant font-medium truncate">
-                            <span>{cat?.name || 'Umum'}</span>
-                            {asset && (
-                              <>
-                                <span>•</span>
-                                <span className="truncate">{asset.name}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className={`font-extrabold text-xs sm:text-sm shrink-0 ${tx.type === 'pendapatan' ? 'text-primary-color' : 'text-error'}`}>
-                        {tx.type === 'pendapatan' ? '+' : '-'}{fmt(tx.amount)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="p-4 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-2xl border border-outline-variant/50">
-                Tidak ada transaksi tercatat pada tanggal ini.
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* StatDetailModal Overlay on Day Click */}
+      <StatDetailModal
+        isOpen={!!selectedDayTxs}
+        onClose={() => setSelectedDayTxs(null)}
+        title={selectedDayTxs ? `Rincian Transaksi — ${selectedDayTxs.dateObj.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+        explanation={selectedDayTxs ? `${selectedDayTxs.txs.length} transaksi · Masuk: ${fmt(selectedDayTxs.income)} · Keluar: ${fmt(selectedDayTxs.expense)}` : undefined}
+        details={selectedDayTxs?.txs.length ? selectedDayTxs.txs.map(t => ({
+          label: `${t.note || categories.find(c => c.id === t.categoryId)?.name || 'Transaksi'}${t.time ? ` (${t.time})` : ''}`,
+          value: fmt(t.amount),
+          type: t.type === 'pengeluaran' ? 'subtraction' : 'addition'
+        })) : [
+          { label: 'Tidak ada transaksi tercatat pada tanggal ini', value: fmt(0), type: 'result' }
+        ]}
+      />
     </div>
   );
 };

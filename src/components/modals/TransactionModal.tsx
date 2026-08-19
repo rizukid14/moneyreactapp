@@ -7,7 +7,7 @@ import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
 import ContactSelectModal from './ContactSelectModal';
 import GoalSelectModal from './GoalSelectModal';
-import { getLocalDate, getLocalTime } from '../../lib/utils';
+import { getLocalDate, getLocalTime, formatCurrency, isPrincipalTx } from '../../lib/utils';
 import { useToast } from '../common/Toast';
 import { lazy, Suspense } from 'react';
 const OverspendReallocationModal = lazy(() => import('./OverspendReallocationModal'));
@@ -39,7 +39,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, assets, addTransaction, addRecurringTransaction, updateTransaction, deleteTransaction, editingTransaction, isCopyMode, initialType, initialAssetId
 }) => {
   const activeAssets = assets.filter(a => !a.isDeleted);
-  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode, startOfMonthDay, addDebt, contacts } = useMoney();
+  const { categories, budgets, transactions, defaultAssetId, currencySymbol, goals, validateTransactionBudget, zbbMode, startOfMonthDay, addDebt, addDebtPayment, debts, contacts } = useMoney();
   const { showToast } = useToast();
   const [type, setType] = useState<Transaction['type']>('pengeluaran');
   const [amount, setAmount] = useState('');
@@ -67,12 +67,40 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // Debt link state
   const [isDebtLinked, setIsDebtLinked] = useState(false);
+  const [isExistingDebtLinked, setIsExistingDebtLinked] = useState(false);
+  const [selectedExistingDebtId, setSelectedExistingDebtId] = useState('');
   const [debtType, setDebtType] = useState<'hutang' | 'piutang'>('hutang');
   const [debtContact, setDebtContact] = useState('');
   const [debtDueDate, setDebtDueDate] = useState('');
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [showDebtInfo, setShowDebtInfo] = useState(false);
   const [showRecurringInfo, setShowRecurringInfo] = useState(false);
+
+  // Calculate available unpaid debts
+  const availableDebts = useMemo(() => {
+    if (!debts) return [];
+    return debts
+      .filter(d => !d.isPaid && !d.isDeleted)
+      .map(d => {
+        const paid = transactions
+          .filter(t => t.relatedId === d.id && !t.isDeleted)
+          .reduce((sum, tx) => isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0), 0);
+        const remaining = Math.max(0, Number(d.totalAmount || 0) - paid);
+        return { ...d, remaining, paid };
+      });
+  }, [debts, transactions, categories]);
+
+  // Filter matching unpaid debts by type and contact
+  const matchingDebts = useMemo(() => {
+    return availableDebts.filter(d => {
+      const typeMatch = d.type === debtType;
+      if (!typeMatch) return false;
+      if (debtContact.trim()) {
+        return d.contact.toLowerCase() === debtContact.trim().toLowerCase();
+      }
+      return true;
+    });
+  }, [availableDebts, debtType, debtContact]);
 
   // Admin fee state (transfer only)
   const [adminFee, setAdminFee] = useState('');
@@ -368,23 +396,60 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       }
     } else {
       isSavingRef.current = true;
-      const newTx = addTransaction(txData);
 
-      // Create separate pengeluaran transaction for admin fee
-      const adminFeeAmount = Number(adminFee.replace(/\./g, ''));
-      if (type === 'transfer' && adminFeeAmount > 0) {
-        const feeAssetId = adminFeeTarget === 'sender' ? fromAssetId : toAssetId;
-        const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
-        addTransaction({
-          type: 'pengeluaran',
-          amount: adminFeeAmount,
-          categoryId: SYS_CAT.ADMIN_FEE,
+      // Check if this transaction is linked to an existing debt (Auto Settle Up)
+      if (isDebtLinked && isExistingDebtLinked && selectedExistingDebtId) {
+        const numAmount = Number(amount.replace(/\./g, ''));
+        addDebtPayment(
+          selectedExistingDebtId,
+          numAmount,
+          assetId,
           date,
           time,
-          note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
-          assetId: feeAssetId,
-          relatedId: newTx.id,
-        });
+          note.trim() || (debtType === 'hutang' ? 'Pembayaran Hutang' : 'Pelunasan Piutang')
+        );
+      } else {
+        const newTx = addTransaction(txData);
+
+        // Create separate pengeluaran transaction for admin fee
+        const adminFeeAmount = Number(adminFee.replace(/\./g, ''));
+        if (type === 'transfer' && adminFeeAmount > 0) {
+          const feeAssetId = adminFeeTarget === 'sender' ? fromAssetId : toAssetId;
+          const feeAssetName = assets.find(a => a.id === feeAssetId)?.name || '';
+          addTransaction({
+            type: 'pengeluaran',
+            amount: adminFeeAmount,
+            categoryId: SYS_CAT.ADMIN_FEE,
+            date,
+            time,
+            note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
+            assetId: feeAssetId,
+            relatedId: newTx.id,
+          });
+        }
+
+        // Handle creating new linked debt if toggled (Uang lewat / catatan baru)
+        if (isDebtLinked && debtContact.trim() && (type === 'pengeluaran' || type === 'pendapatan')) {
+          const numAmount = Number(amount.replace(/\./g, ''));
+          addDebt(
+            {
+              type: debtType,
+              contact: debtContact.trim(),
+              description: note.trim() || 'Dari transaksi',
+              totalAmount: numAmount,
+              principalAmount: numAmount,
+              date,
+              createdAt: `${date}T${time}:00`,
+              isPaid: false,
+              isInstallment: false,
+              paidInstallments: 0,
+              excludeAutoOffset: true,
+              dueDate: debtDueDate || undefined,
+              paymentAssetId: assetId,
+            },
+            debtType === 'hutang' ? 'cash' : undefined
+          );
+        }
       }
 
       // Clear draft for this type after success - explicitly read and write to bypass any state delays
@@ -398,28 +463,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         } catch (e) {}
       }
 
-      // Handle creating linked debt if toggled
-      if (isDebtLinked && debtContact.trim() && (type === 'pengeluaran' || type === 'pendapatan')) {
-        const numAmount = Number(amount.replace(/\./g, ''));
-        addDebt(
-          {
-            type: debtType,
-            contact: debtContact.trim(),
-            description: note.trim() || 'Dari transaksi',
-            totalAmount: numAmount,
-            principalAmount: numAmount,
-            date,
-            createdAt: `${date}T${time}:00`,
-            isPaid: false,
-            isInstallment: false,
-            paidInstallments: 0,
-            dueDate: debtDueDate || undefined,
-            paymentAssetId: assetId,
-          },
-          debtType === 'hutang' ? 'cash' : undefined
-        );
-      }
-
       // Reset local fields immediately so reopening doesn't flash old data
       setAmount('');
       setCategoryId('');
@@ -428,6 +471,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       setDescription('');
       setIsRecurring(false);
       setIsDebtLinked(false);
+      setIsExistingDebtLinked(false);
+      setSelectedExistingDebtId('');
       setDebtType('hutang');
       setDebtContact('');
       setDebtDueDate('');
@@ -971,7 +1016,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             <div className="flex gap-2">
                               <button
                                 type="button"
-                                onClick={() => setDebtType('hutang')}
+                                onClick={() => {
+                                  setDebtType('hutang');
+                                  setSelectedExistingDebtId('');
+                                }}
                                 style={{
                                   flex: 1, padding: '7px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
                                   border: `1.5px solid ${debtType === 'hutang' ? 'var(--danger)' : 'var(--border-color)'}`,
@@ -984,7 +1032,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setDebtType('piutang')}
+                                onClick={() => {
+                                  setDebtType('piutang');
+                                  setSelectedExistingDebtId('');
+                                }}
                                 style={{
                                   flex: 1, padding: '7px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
                                   border: `1.5px solid ${debtType === 'piutang' ? 'var(--success)' : 'var(--border-color)'}`,
@@ -997,36 +1048,130 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                               </button>
                             </div>
 
-                            {/* Contact Selector Button */}
-                            <button
-                              type="button"
-                              onClick={() => setIsContactModalOpen(true)}
-                              style={{
-                                width: '100%', padding: '10px 12px', background: 'var(--bg-card-solid)',
-                                border: !debtContact ? '1px dashed var(--danger)' : '1px solid var(--border-color)', borderRadius: '8px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', color: debtContact ? 'var(--text-main)' : 'var(--text-muted)'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <MaterialIcon name="person" className="text-[16px]" />
-                                <span style={{ fontSize: '13px', fontWeight: debtContact ? 600 : 400 }}>
-                                  {debtContact ? `Kontak: ${debtContact}` : '-- Pilih / Tambah Kontak --'}
-                                </span>
-                              </div>
-                              <MaterialIcon name="chevron_right" className="text-[16px]" />
-                            </button>
-
-                            {/* Due Date */}
-                            <div>
-                              <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tenggat Waktu / Jatuh Tempo (Opsional)</label>
-                              <input
-                                type="date"
-                                value={debtDueDate}
-                                onChange={e => setDebtDueDate(e.target.value)}
-                                style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
-                              />
+                            {/* Option to Link to Existing Debt / Auto Settle Up */}
+                            <div style={{
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              background: 'var(--bg-card-solid)',
+                              border: '1px solid var(--border-color)'
+                            }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isExistingDebtLinked}
+                                  onChange={e => {
+                                    setIsExistingDebtLinked(e.target.checked);
+                                    if (!e.target.checked) setSelectedExistingDebtId('');
+                                  }}
+                                  style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                                />
+                                <span>🔗 Kaitkan ke {debtType === 'hutang' ? 'Hutang' : 'Piutang'} Eksisting (Auto Settle Up)</span>
+                              </label>
                             </div>
+
+                            {isExistingDebtLinked ? (
+                              /* Linked to Existing Debt Selection */
+                              <div className="flex flex-col gap-2">
+                                {matchingDebts.length > 0 ? (
+                                  <div className="flex flex-col gap-1.5">
+                                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                      Pilih {debtType === 'hutang' ? 'Hutang' : 'Piutang'} yang Ingin Dilunasi / Dicicil:
+                                    </label>
+                                    <select
+                                      value={selectedExistingDebtId}
+                                      onChange={e => {
+                                        setSelectedExistingDebtId(e.target.value);
+                                        const found = matchingDebts.find(d => d.id === e.target.value);
+                                        if (found && !debtContact) {
+                                          setDebtContact(found.contact);
+                                        }
+                                      }}
+                                      style={{
+                                        width: '100%',
+                                        padding: '9px 10px',
+                                        fontSize: '12px',
+                                        borderRadius: '8px',
+                                        background: 'var(--bg-card-solid)',
+                                        border: !selectedExistingDebtId ? '1px dashed var(--primary)' : '1px solid var(--border-color)',
+                                        color: 'var(--text-main)',
+                                        fontWeight: 500
+                                      }}
+                                    >
+                                      <option value="">-- Pilih dari {matchingDebts.length} {debtType === 'hutang' ? 'hutang' : 'piutang'} aktif --</option>
+                                      {matchingDebts.map(d => (
+                                        <option key={d.id} value={d.id}>
+                                          {d.contact} · {d.description || (d.type === 'hutang' ? 'Hutang' : 'Piutang')} (Sisa: {formatCurrency(d.remaining, currencySymbol)})
+                                        </option>
+                                      ))}
+                                    </select>
+
+                                    {selectedExistingDebtId && (
+                                      <div style={{
+                                        padding: '6px 10px',
+                                        borderRadius: '6px',
+                                        background: 'rgba(16, 185, 129, 0.12)',
+                                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                                        fontSize: '11px',
+                                        color: '#10b981',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                      }}>
+                                        <MaterialIcon name="check_circle" className="text-[14px]" />
+                                        <span>Transaksi ini otomatis melunasi & memotong sisa saldo hutang di atas.</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div style={{
+                                    padding: '8px 10px',
+                                    borderRadius: '8px',
+                                    background: 'rgba(245, 158, 11, 0.1)',
+                                    border: '1px solid rgba(245, 158, 11, 0.25)',
+                                    fontSize: '11px',
+                                    color: '#f59e0b',
+                                    fontWeight: 500
+                                  }}>
+                                    Belum ada {debtType === 'hutang' ? 'hutang' : 'piutang'} aktif yang belum lunas. Hapus centang di atas untuk membuat catatan baru (uang lewat).
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              /* Standalone / New Debt Creation (Uang Lewat / Titipan) */
+                              <div className="flex flex-col gap-3">
+                                {/* Contact Selector Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => setIsContactModalOpen(true)}
+                                  style={{
+                                    width: '100%', padding: '10px 12px', background: 'var(--bg-card-solid)',
+                                    border: !debtContact ? '1px dashed var(--danger)' : '1px solid var(--border-color)', borderRadius: '8px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    cursor: 'pointer', color: debtContact ? 'var(--text-main)' : 'var(--text-muted)'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <MaterialIcon name="person" className="text-[16px]" />
+                                    <span style={{ fontSize: '13px', fontWeight: debtContact ? 600 : 400 }}>
+                                      {debtContact ? `Kontak: ${debtContact}` : '-- Pilih / Tambah Kontak --'}
+                                    </span>
+                                  </div>
+                                  <MaterialIcon name="chevron_right" className="text-[16px]" />
+                                </button>
+
+                                {/* Due Date */}
+                                <div>
+                                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Tenggat Waktu / Jatuh Tempo (Opsional)</label>
+                                  <input
+                                    type="date"
+                                    value={debtDueDate}
+                                    onChange={e => setDebtDueDate(e.target.value)}
+                                    style={{ fontSize: '12px', padding: '8px', marginBottom: 0 }}
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

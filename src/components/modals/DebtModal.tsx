@@ -12,10 +12,12 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import MaterialIcon from '../common/MaterialIcon';
 
+import type { AutoSettleOptions } from '../../contexts/MoneyContext';
+
 interface DebtModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string) => void;
+  onSave: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string, autoSettleOptions?: AutoSettleOptions) => void;
   editingDebt: Debt | null;
   assets: Asset[];
   categories: Category[]; // expense categories for credit mode
@@ -44,13 +46,18 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   const [receiveAssetId, setReceiveAssetId]       = useState('');
   // Hutang recording mode (new)
   const [hutangMode, setHutangMode]               = useState<'none' | 'cash' | 'credit'>('none');
+  const [isAutoSettled, setIsAutoSettled]         = useState(false);
+  const [autoSettleMode, setAutoSettleMode]       = useState<'note_only' | 'with_tx'>('note_only');
+  const [settleOutAssetId, setSettleOutAssetId]   = useState('');
+  const [settleInAssetId, setSettleInAssetId]     = useState('');
+  const [excludeAutoOffset, setExcludeAutoOffset] = useState(false);
   const [createdAt, setCreatedAt]                 = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting]           = useState(false);
 
   const activeAssets = assets.filter(a => !a.isDeleted);
 
   // Modal state
-  type AssetTarget = 'liability' | 'payment' | 'receive' | null;
+  type AssetTarget = 'liability' | 'payment' | 'receive' | 'settleOut' | 'settleIn' | null;
   const [calcOpen, setCalcOpen] = useState<'total' | 'installment' | null>(null);
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -80,6 +87,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setPaymentAssetId(editingDebt.paymentAssetId || '');
       setReceiveAssetId(editingDebt.receiveAssetId || '');
       setHutangMode('none');
+      setIsAutoSettled(false);
+      setAutoSettleMode('note_only');
+      setSettleOutAssetId(defaultAssetId || activeAssets[0]?.id || '');
+      setSettleInAssetId(defaultAssetId || activeAssets[0]?.id || '');
+      setExcludeAutoOffset(editingDebt.excludeAutoOffset || false);
       setCreditCatName('');
       setCreditSubCatName('');
       setCreatedAt(editingDebt.createdAt.split('T')[0]);
@@ -101,6 +113,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setPaymentAssetId(defaultAssetId || activeAssets[0]?.id || '');
       setReceiveAssetId(defaultAssetId || activeAssets[0]?.id || '');
       setHutangMode('none');
+      setIsAutoSettled(false);
+      setAutoSettleMode('note_only');
+      setSettleOutAssetId(defaultAssetId || activeAssets[0]?.id || '');
+      setSettleInAssetId(defaultAssetId || activeAssets[0]?.id || '');
+      setExcludeAutoOffset(false);
       setCreditCatName('');
       setCreditSubCatName('');
       setCreatedAt(new Date().toISOString().split('T')[0]);
@@ -110,33 +127,30 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   useEffect(() => {
     if (isInstallment && principalAmount && totalInstallments) {
       if (editingDebt) {
-        const origTotal = (editingDebt.principalAmount || editingDebt.totalAmount).toLocaleString('id-ID');
-        const origMonths = String(editingDebt.totalInstallments || '');
-        if (principalAmount === origTotal && totalInstallments === origMonths) {
-          return; // Skip auto-calculate on initial load if values haven't changed
+        // Keep existing installmentAmount on edit unless user recalculates
+      } else {
+        const p = parseNum(principalAmount);
+        const t = parseNum(totalInstallments);
+        if (p > 0 && t > 0) {
+          setInstallmentAmount(Math.round(p / t).toLocaleString('id-ID'));
         }
       }
-
-      const calcPrincipal = parseNum(principalAmount);
-      const calcInterestAmt = hasInterest 
-        ? (interestType === 'fixed' ? parseNum(interestAmount) : Math.round(calcPrincipal * (Number(interestRate) / 100))) 
-        : 0;
-      const finalTotalAmount = calcPrincipal + calcInterestAmt;
-
-      const total = finalTotalAmount;
-      const months = Number(totalInstallments);
-      if (total > 0 && months > 0) {
-        const calculated = Math.round(total / months);
-        setInstallmentAmount(calculated.toLocaleString('id-ID'));
-      }
     }
-  }, [principalAmount, interestAmount, interestRate, interestType, hasInterest, totalInstallments, isInstallment, editingDebt]);
+  }, [isInstallment, principalAmount, totalInstallments, editingDebt]);
 
 
   const parseNum = (s: string) => Number(s.replace(/\./g, ''));
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!contact.trim()) {
+      alert('Mohon masukkan atau pilih kontak terlebih dahulu.');
+      return;
+    }
+    if (!principalAmount || parseNum(principalAmount) <= 0) {
+      alert('Mohon masukkan nominal yang valid.');
+      return;
+    }
     if (isSubmitting) return;
     setIsSubmitting(true);
     
@@ -157,7 +171,8 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
         interestRate: hasInterest && interestType === 'percentage' ? Number(interestRate) : undefined,
         interestAmount: hasInterest ? calcInterestAmt : undefined,
         dueDate:      dueDate || undefined,
-        isPaid:       editingDebt?.isPaid || false,
+        isPaid:       editingDebt ? (editingDebt.isPaid || isAutoSettled) : isAutoSettled,
+        excludeAutoOffset,
         date:         createdAt,
         createdAt:    editingDebt ? editingDebt.createdAt : new Date(createdAt).toISOString(),
         isInstallment,
@@ -172,6 +187,11 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       type === 'hutang' ? hutangMode : undefined,
       type === 'hutang' && hutangMode === 'credit' ? creditCatName : undefined,
       type === 'hutang' && hutangMode === 'credit' ? creditSubCatName : undefined,
+      isAutoSettled ? {
+        mode: autoSettleMode,
+        outAssetId: autoSettleMode === 'with_tx' ? (settleOutAssetId || defaultAssetId || activeAssets[0]?.id) : undefined,
+        inAssetId: autoSettleMode === 'with_tx' ? (settleInAssetId || defaultAssetId || activeAssets[0]?.id) : undefined,
+      } : undefined
     );
     
     setTimeout(() => setIsSubmitting(false), 1000);
@@ -503,6 +523,114 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
             </div>
           )}
 
+          {!editingDebt && (
+            <>
+              <div style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                background: isAutoSettled ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-main)',
+                border: `1px solid ${isAutoSettled ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-color)'}`,
+                transition: 'all 0.2s'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                  <input
+                    type="checkbox"
+                    checked={isAutoSettled}
+                    onChange={e => setIsAutoSettled(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--success)' }}
+                  />
+                  <span>Langsung Tandai Lunas (Uang Lewat / Selesai)</span>
+                </label>
+
+                {isAutoSettled && (
+                  <div className="flex flex-col gap-2 pt-2.5 mt-2 border-t border-outline-variant/40">
+                    <label className="text-[11px] font-bold text-on-surface-variant">Pilih Mode Pencatatan Pelunasan:</label>
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                        <input
+                          type="radio"
+                          name="autoSettleMode"
+                          checked={autoSettleMode === 'note_only'}
+                          onChange={() => setAutoSettleMode('note_only')}
+                          style={{ accentColor: 'var(--primary)' }}
+                        />
+                        <span>📝 <strong>Catatan Murni</strong> (Saldo aset 100% tidak berubah)</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                        <input
+                          type="radio"
+                          name="autoSettleMode"
+                          checked={autoSettleMode === 'with_tx'}
+                          onChange={() => setAutoSettleMode('with_tx')}
+                          style={{ accentColor: 'var(--primary)' }}
+                        />
+                        <span>💸 <strong>Catatan + Mutasi Kas</strong> (Buat riwayat keluar & masuk)</span>
+                      </label>
+                    </div>
+
+                    {autoSettleMode === 'with_tx' && (
+                      <div className="flex flex-col gap-2 pt-2 mt-1 bg-surface-container-low p-2.5 rounded-lg border border-outline-variant/60">
+                        {/* Aset Keluar */}
+                        <div>
+                          <label className="text-[10px] font-bold text-on-surface-variant uppercase block mb-1">
+                            📤 Rekening Uang Keluar (Pinjaman Berasal):
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setAssetModalTarget('settleOut')}
+                            className="w-full p-2 rounded-lg bg-surface-container-lowest border border-outline-variant text-left text-xs font-semibold flex items-center justify-between"
+                          >
+                            <span>{getAssetName(settleOutAssetId || defaultAssetId || activeAssets[0]?.id)}</span>
+                            <MaterialIcon name="chevron_right" className="text-sm" />
+                          </button>
+                        </div>
+
+                        {/* Aset Masuk */}
+                        <div>
+                          <label className="text-[10px] font-bold text-on-surface-variant uppercase block mb-1">
+                            📥 Rekening Uang Masuk (Pelunasan Diterima):
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setAssetModalTarget('settleIn')}
+                            className="w-full p-2 rounded-lg bg-surface-container-lowest border border-outline-variant text-left text-xs font-semibold flex items-center justify-between"
+                          >
+                            <span>{getAssetName(settleInAssetId || defaultAssetId || activeAssets[0]?.id)}</span>
+                            <MaterialIcon name="chevron_right" className="text-sm" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                background: excludeAutoOffset ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-main)',
+                border: `1px solid ${excludeAutoOffset ? 'rgba(59, 130, 246, 0.3)' : 'var(--border-color)'}`,
+                transition: 'all 0.2s',
+                marginTop: '6px'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                  <input
+                    type="checkbox"
+                    checked={excludeAutoOffset}
+                    onChange={e => setExcludeAutoOffset(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                  />
+                  <span>🔒 Lewati Potong Silang Otomatis (Catatan Mandiri)</span>
+                </label>
+                {excludeAutoOffset && (
+                  <p style={{ margin: '4px 0 0 24px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Catatan ini berdiri sendiri dan <strong>TIDAK akan dipotong silang (auto-offset)</strong> dengan hutang/piutang lama milik kontak ini.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
           <Button
             data-testid="debt-submit-btn"
             disabled={isSubmitting}
@@ -542,10 +670,18 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       isOpen={assetModalTarget !== null}
       onClose={() => setAssetModalTarget(null)}
       assets={activeAssets}
-      selectedAssetId={assetModalTarget === 'liability' ? liabilityAssetId : assetModalTarget === 'receive' ? receiveAssetId : paymentAssetId}
+      selectedAssetId={
+        assetModalTarget === 'liability' ? liabilityAssetId :
+        assetModalTarget === 'receive' ? receiveAssetId :
+        assetModalTarget === 'settleOut' ? settleOutAssetId :
+        assetModalTarget === 'settleIn' ? settleInAssetId :
+        paymentAssetId
+      }
       onSelect={(id) => {
         if (assetModalTarget === 'liability') setLiabilityAssetId(id);
         else if (assetModalTarget === 'receive') setReceiveAssetId(id);
+        else if (assetModalTarget === 'settleOut') setSettleOutAssetId(id);
+        else if (assetModalTarget === 'settleIn') setSettleInAssetId(id);
         else setPaymentAssetId(id);
       }}
     />

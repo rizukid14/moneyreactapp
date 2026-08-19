@@ -1028,18 +1028,21 @@ const Statistics: React.FC = () => {
                                 onClick={e => {
                                   if (cell) {
                                     e.stopPropagation();
-                                    const cellRect = e.currentTarget.getBoundingClientRect();
-                                    const container = e.currentTarget.closest('.card.glass');
-                                    if (container) {
-                                      const containerRect = container.getBoundingClientRect();
-                                      setHoveredCell({
-                                        date: cell.date,
-                                        day: cell.day,
-                                        amount: cell.amount,
-                                        x: cellRect.left - containerRect.left + cellRect.width / 2,
-                                        y: cellRect.top - containerRect.top,
-                                      });
-                                    }
+                                    const dayTxs = transactions.filter(t => !t.isDeleted && t.date === cell.date);
+                                    const dateFormatted = new Date(cell.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                                    
+                                    setDetailModalProps({
+                                      isOpen: true,
+                                      title: `Rincian Transaksi — ${dateFormatted}`,
+                                      explanation: `${dayTxs.length} transaksi pada ${dateFormatted} · Total: ${fmt(cell.amount)}`,
+                                      details: dayTxs.length > 0 ? dayTxs.map(t => ({
+                                        label: `${t.note || categoryMap.get(t.categoryId || '')?.name || 'Transaksi'}${t.time ? ` (${t.time})` : ''}`,
+                                        value: fmt(t.amount),
+                                        type: t.type === 'pengeluaran' ? 'subtraction' : 'addition'
+                                      })) : [
+                                        { label: 'Tidak ada pengeluaran pada tanggal ini', value: fmt(0), type: 'result' }
+                                      ]
+                                    });
                                   }
                                 }}
                               />

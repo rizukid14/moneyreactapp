@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMoney, type Debt, type Transaction } from '../contexts/MoneyContext';
+import { useMoney, type Debt, type Transaction, type AutoSettleOptions } from '../contexts/MoneyContext';
 import { isPrincipalTx } from '../lib/utils';
 import DropdownMenu from '../components/common/DropdownMenu';
 import DebtModal from '../components/modals/DebtModal';
@@ -139,6 +139,9 @@ const DebtCard = React.memo<DebtCardProps>(({
               )}
               {isDueSoon && (
                 <span className="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-full tracking-wider">SEGERA</span>
+              )}
+              {debt.excludeAutoOffset && !debt.isPaid && (
+                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full tracking-wider" title="Catatan Mandiri (Dilewati dari Auto Potong Silang)">🔒 MANDIRI</span>
               )}
             </div>
             <div className="text-xs text-on-surface-variant truncate">{debt.description || (isHutang ? 'Hutang' : 'Piutang')}</div>
@@ -314,9 +317,16 @@ const Debts: React.FC = () => {
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
   const openEdit = (d: Debt) => { setEditingDebt(d); setIsModalOpen(true); };
-  const handleSave = (data: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryName?: string, subCategoryName?: string) => {
+
+  const handleSave = (
+    data: Omit<Debt, 'id'>,
+    initialMode?: 'none' | 'cash' | 'credit',
+    categoryName?: string,
+    subCategoryName?: string,
+    autoSettleOptions?: AutoSettleOptions
+  ) => {
     if (editingDebt) updateDebt(editingDebt.id, data);
-    else addDebt(data, initialMode ?? 'none', categoryName, subCategoryName);
+    else addDebt(data, initialMode ?? 'none', categoryName, subCategoryName, autoSettleOptions);
   };
 
   // Create Map for fast asset lookup
@@ -343,7 +353,7 @@ const Debts: React.FC = () => {
   const offsetPotentials = useMemo(() => {
     const contactMap: Record<string, { h: number; p: number }> = {};
     debts.forEach(d => {
-      if (d.isPaid) return;
+      if (d.isPaid || d.excludeAutoOffset) return;
       const history = transactions.filter(t => t.relatedId === d.id);
       const paidAmt = history.reduce((sum, tx) => {
         return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);

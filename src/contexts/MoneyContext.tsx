@@ -100,6 +100,12 @@ export interface Budget {
   year: number;
 }
 
+export interface AutoSettleOptions {
+  mode: 'note_only' | 'with_tx';
+  outAssetId?: string;
+  inAssetId?: string;
+}
+
 export interface Debt {
   id: string;
   type: 'hutang' | 'piutang';   // hutang=I owe, piutang=they owe me
@@ -128,6 +134,7 @@ export interface Debt {
   sourceAssetId?: string;        // DEPRECATED - prefer paymentAssetId for simplicity; added for schema compatibility if needed
   tripId?: string; // Link to trip
   relatedId?: string; // General link to related items (e.g. TripExpense)
+  excludeAutoOffset?: boolean; // Exclude from auto-offset potong silang
   updatedAt?: number;
   isDeleted?: boolean;
   createdBy?: string;
@@ -377,7 +384,7 @@ interface MoneyContextType {
   addBudget: (budget: Omit<Budget, 'id'>) => void;
   updateBudget: (id: string, budget: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryIdName?: string, subCategoryIdName?: string) => void;
+  addDebt: (debt: Omit<Debt, 'id'>, initialMode?: 'none' | 'cash' | 'credit', categoryIdName?: string, subCategoryIdName?: string, autoSettleOptions?: AutoSettleOptions) => void;
   updateDebt: (id: string, debt: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
   addContact: (contact: Omit<Contact, 'id'>) => void;
@@ -1610,13 +1617,17 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   // ─── Debts ──────────────────────────────────────────────────────────────
-  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryIdName?: string, subCategoryIdName?: string) => {
+  const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryIdName?: string, subCategoryIdName?: string, autoSettleOptions?: AutoSettleOptions) => {
     // Check if an existing unpaid debt with the same contact and type exists
-    const existingDebt = debts.find(d =>
-      !d.isPaid &&
-      d.contact.toLowerCase().trim() === debtReq.contact.toLowerCase().trim() &&
-      d.type === debtReq.type
-    );
+    // (Isolate if new debt or existing debt has excludeAutoOffset, or if new debt is already paid)
+    const existingDebt = (debtReq.excludeAutoOffset || debtReq.isPaid)
+      ? undefined
+      : debts.find(d =>
+          !d.isPaid &&
+          !d.excludeAutoOffset &&
+          d.contact.toLowerCase().trim() === debtReq.contact.toLowerCase().trim() &&
+          d.type === debtReq.type
+        );
 
     const debtId = existingDebt ? existingDebt.id : generateId();
     const newDebt: Debt = { ...debtReq, id: debtId };
@@ -1625,54 +1636,115 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const date = newDebt.date || new Date(newDebt.createdAt).toISOString().split('T')[0];
     const time = new Date(newDebt.createdAt).toTimeString().split(' ')[0].substring(0, 5);
 
-    if (newDebt.type === 'piutang') {
-      // Give loan: Account balance decreases (Expense-like but ignored in stats)
-      if (newDebt.paymentAssetId) {
-        _createTx({
-          type: 'piutang_keluar',
-          amount: newDebt.principalAmount || newDebt.totalAmount,
-          categoryId: 'sys-cat-receivable-pay',
-          date,
-          time,
-          note: existingDebt
-            ? `Penambahan Piutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
-            : `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
-          assetId: newDebt.paymentAssetId,
-          relatedId: debtId,
-        });
+    if (newDebt.isPaid) {
+      // If initialized as ALREADY LUNAS (Auto-Settled / Historical Note)
+      if (autoSettleOptions?.mode === 'with_tx') {
+        const amt = newDebt.principalAmount || newDebt.totalAmount;
+        if (newDebt.type === 'piutang') {
+          const outAsset = autoSettleOptions.outAssetId || newDebt.paymentAssetId;
+          const inAsset = autoSettleOptions.inAssetId || newDebt.receiveAssetId || newDebt.paymentAssetId;
+          if (outAsset) {
+            _createTx({
+              type: 'piutang_keluar',
+              amount: amt,
+              categoryId: 'sys-cat-receivable-pay',
+              date,
+              time,
+              note: `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
+              assetId: outAsset,
+              relatedId: debtId,
+            });
+          }
+          if (inAsset) {
+            _createTx({
+              type: 'piutang_masuk',
+              amount: amt,
+              categoryId: 'sys-cat-receivable-receive',
+              date,
+              time,
+              note: `Pelunasan piutang dari ${newDebt.contact} (Seketika)`,
+              assetId: inAsset,
+              relatedId: debtId,
+            });
+          }
+        } else {
+          // Hutang
+          const outAsset = autoSettleOptions.outAssetId || newDebt.paymentAssetId;
+          const inAsset = autoSettleOptions.inAssetId || newDebt.paymentAssetId;
+          if (outAsset) {
+            _createTx({
+              type: 'hutang_masuk',
+              amount: amt,
+              categoryId: 'sys-cat-debt-receive',
+              date,
+              time,
+              note: `Penerimaan dana pinjaman dari ${newDebt.contact}`,
+              assetId: outAsset,
+              relatedId: debtId,
+            });
+          }
+          if (inAsset) {
+            _createTx({
+              type: 'hutang_keluar',
+              amount: amt,
+              categoryId: 'sys-cat-debt-pay',
+              date,
+              time,
+              note: `Pembayaran hutang kepada ${newDebt.contact} (Seketika)`,
+              assetId: inAsset,
+              relatedId: debtId,
+            });
+          }
+        }
       }
+      // If mode === 'note_only' (or undefined), do NOT create any transactions! Net asset change = 0!
     } else {
-      // Hutang (Saya Berhutang)
-      if (initialMode === 'cash' && newDebt.paymentAssetId) {
-        // Receive loan principal: Account balance increases (Income-like but ignored in stats)
-        _createTx({
-          type: 'hutang_masuk',
-          amount: newDebt.principalAmount || newDebt.totalAmount,
-          categoryId: 'sys-cat-debt-receive',
-          subCategoryId: subCategoryIdName,
-          date,
-          time,
-          note: existingDebt
-            ? `Penambahan Hutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
-            : `Penerimaan dana pinjaman dari ${newDebt.contact}`,
-          assetId: newDebt.paymentAssetId,
-          relatedId: debtId,
-        });
-      } else if (initialMode === 'credit' && newDebt.liabilityAssetId) {
-        // Credit/Paylater purchase: Account balance decreases (Expense)
-        _createTx({
-          type: 'pengeluaran',
-          amount: newDebt.principalAmount || newDebt.totalAmount,
-          categoryId: categoryIdName || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '',
-          subCategoryId: subCategoryIdName,
-          date,
-          time,
-          note: existingDebt
-            ? `Penambahan Hutang (Kredit): ${newDebt.contact} (${newDebt.description || 'Baru'})`
-            : `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
-          assetId: newDebt.liabilityAssetId,
-          relatedId: debtId,
-        });
+      // Normal active debt transaction creation (isPaid === false)
+      if (newDebt.type === 'piutang') {
+        if (newDebt.paymentAssetId) {
+          _createTx({
+            type: 'piutang_keluar',
+            amount: newDebt.principalAmount || newDebt.totalAmount,
+            categoryId: 'sys-cat-receivable-pay',
+            date,
+            time,
+            note: existingDebt
+              ? `Penambahan Piutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
+              : `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
+            assetId: newDebt.paymentAssetId,
+            relatedId: debtId,
+          });
+        }
+      } else {
+        if (initialMode === 'cash' && newDebt.paymentAssetId) {
+          _createTx({
+            type: 'hutang_masuk',
+            amount: newDebt.principalAmount || newDebt.totalAmount,
+            categoryId: 'sys-cat-debt-receive',
+            subCategoryId: subCategoryIdName,
+            date,
+            time,
+            note: existingDebt
+              ? `Penambahan Hutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
+              : `Penerimaan dana pinjaman dari ${newDebt.contact}`,
+            assetId: newDebt.paymentAssetId,
+            relatedId: debtId,
+          });
+        } else if (initialMode === 'credit' && newDebt.liabilityAssetId) {
+          _createTx({
+            type: 'pengeluaran',
+            amount: newDebt.principalAmount || newDebt.totalAmount,
+            categoryId: categoryIdName || categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '',
+            subCategoryId: subCategoryIdName,
+            date,
+            time,
+            note: existingDebt
+              ? `Penambahan Hutang (Kredit): ${newDebt.contact} (${newDebt.description || 'Baru'})`
+              : `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
+            assetId: newDebt.liabilityAssetId,
+            relatedId: debtId,
+          });
+        }
       }
     }
 
@@ -2147,7 +2219,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [debts]);
 
   const offsetDebt = useCallback((contactName: string, customDate?: string) => {
-    const contactDebts = debts.filter(d => !d.isPaid && d.contact.toLowerCase() === contactName.toLowerCase());
+    const contactDebts = debts.filter(d => !d.isPaid && !d.excludeAutoOffset && d.contact.toLowerCase() === contactName.toLowerCase());
 
     const debtsWithBal = contactDebts.map(d => {
       const history = transactions.filter(t => t.relatedId === d.id);

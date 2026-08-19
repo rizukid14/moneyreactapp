@@ -22,6 +22,8 @@ import { useTransactionPresets } from '../hooks/useTransactionPresets';
 import { PresetManagerModal } from '../components/modals/PresetManagerModal';
 
 import { MONTH_NAMES } from '../lib/constants';
+import InsightStoryBanner from '../components/InsightStoryBanner';
+import InsightStoriesModal from '../components/modals/InsightStoriesModal';
 
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
@@ -55,6 +57,7 @@ const Transactions: React.FC = () => {
   }, [syncData, pullFromCloud, showToast]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInsightStoriesOpen, setIsInsightStoriesOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isCopyMode, setIsCopyMode] = useState(false);
   const [initialType, setInitialType] = useState<Transaction['type']>('pengeluaran');
@@ -548,199 +551,8 @@ const Transactions: React.FC = () => {
     return ((savingsAndInvestments - lastMonthSavingsAndInvestments) / lastMonthSavingsAndInvestments) * 100;
   }, [savingsAndInvestments, lastMonthSavingsAndInvestments]);
 
-  const weeklyExpense = useMemo(() => {
-    const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(diff);
-    startOfWeek.setHours(0, 0, 0, 0);
 
-    return transactions
-      .filter(tx => tx.type === 'pengeluaran')
-      .filter(tx => new Date(tx.date) >= startOfWeek)
-      .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [transactions]);
 
-  const aiInsightData = useMemo(() => {
-    const vM = viewDate.getMonth();
-    const vY = viewDate.getFullYear();
-
-    // Calculate Monthly Income & Expense
-    const mIncome = transactions.filter(tx => {
-      if (tx.type !== 'pendapatan') return false;
-      const txD = new Date(tx.date);
-      if (startOfMonthDay > 1) {
-        const start = new Date(vY, vM - 1, startOfMonthDay);
-        const end = new Date(vY, vM, startOfMonthDay);
-        return txD >= start && txD < end;
-      }
-      return txD.getMonth() === vM && txD.getFullYear() === vY;
-    }).reduce((sum, tx) => sum + tx.amount, 0);
-
-    const mExpense = transactions.filter(tx => {
-      if (tx.type !== 'pengeluaran') return false;
-      const txD = new Date(tx.date);
-      if (startOfMonthDay > 1) {
-        const start = new Date(vY, vM - 1, startOfMonthDay);
-        const end = new Date(vY, vM, startOfMonthDay);
-        return txD >= start && txD < end;
-      }
-      return txD.getMonth() === vM && txD.getFullYear() === vY;
-    }).reduce((sum, tx) => sum + tx.amount, 0);
-
-    const findings: string[] = [];
-    let score = 100;
-
-    // 1. Budget Checks
-    const activeBudgets = budgets.filter(b => b.month === vM && b.year === vY && b.categoryId !== null);
-    let overBudgetCount = 0;
-    let warningBudgetCount = 0;
-
-    activeBudgets.forEach(b => {
-      const categoryIdObj = b.categoryId ? categoryMap.get(b.categoryId) : undefined;
-      if (categoryIdObj) {
-        const categoryIdName = categoryIdObj.name;
-        const catSpent = transactions
-          .filter(tx => {
-            if (tx.type !== 'pengeluaran' || tx.categoryId !== b.categoryId) return false;
-            const txD = new Date(tx.date);
-            if (startOfMonthDay > 1) {
-              const start = new Date(vY, vM - 1, startOfMonthDay);
-              const end = new Date(vY, vM, startOfMonthDay);
-              return txD >= start && txD < end;
-            }
-            return txD.getMonth() === vM && txD.getFullYear() === vY;
-          })
-          .reduce((sum, tx) => sum + tx.amount, 0);
-
-        if (b.limit > 0) {
-          const ratio = catSpent / b.limit;
-          if (ratio >= 1.0) {
-            findings.push(`Budget ${categoryIdName} over ${Math.round((ratio - 1) * 100)}%.`);
-            overBudgetCount++;
-          } else if (ratio >= 0.8) {
-            findings.push(`Budget ${categoryIdName} terpakai ${Math.round(ratio * 100)}%.`);
-            warningBudgetCount++;
-          }
-        }
-      }
-    });
-
-    score -= (overBudgetCount * 15) + (warningBudgetCount * 5);
-
-    // 2. Cash Flow Checks
-    if (mIncome > 0 && mExpense > mIncome) {
-      const deficit = mExpense - mIncome;
-      findings.push(`Defisit arus kas ${formatCurrency(deficit, currencySymbol)}.`);
-      score -= 20;
-    } else if (mIncome > 0 && mIncome > mExpense) {
-      const savings = mIncome - mExpense;
-      const savingsRate = Math.round((savings / mIncome) * 100);
-      if (savingsRate >= 20) {
-        findings.push(`Menabung ${savingsRate}% dari pemasukan.`);
-        score += 10;
-      }
-    }
-
-    // 3. Weekly Expense Check
-    if (weeklyExpense > 0) {
-      const today = new Date();
-      const day = today.getDay();
-      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-      const startOfWeek = new Date(new Date().setDate(diff));
-      startOfWeek.setHours(0, 0, 0, 0);
-
-      const weeklyTxs = transactions.filter(tx => tx.type === 'pengeluaran' && new Date(tx.date) >= startOfWeek);
-      const catSums: Record<string, number> = {};
-      weeklyTxs.forEach(tx => {
-        catSums[tx.categoryId || ''] = (catSums[tx.categoryId || ''] || 0) + tx.amount;
-      });
-      let topCat = '';
-      let topAmt = 0;
-      Object.entries(catSums).forEach(([cat, amt]) => {
-        if (amt > topAmt) { topAmt = amt; topCat = cat; }
-      });
-
-      if (topCat && topAmt > 0) {
-        const pct = Math.round((topAmt / weeklyExpense) * 100);
-        const topCatName = categoryMap.get(topCat)?.name || topCat;
-        findings.push(`Fokus minggu ini: ${topCatName} (${pct}%).`);
-      }
-    }
-
-    // 4. Runway Check
-    if (mExpense > 0 && totalLiquidBalance > 0) {
-      const runway = totalLiquidBalance / mExpense;
-      if (runway >= 3) {
-        findings.push(`Dana darurat aman (${runway.toFixed(1)} bln).`);
-      } else {
-        findings.push(`Dana darurat tipis (${runway.toFixed(1)} bln).`);
-        score -= 15;
-      }
-    }
-
-    // Fallbacks if findings list is empty
-    if (findings.length === 0) {
-      if (transactions.length === 0) {
-        findings.push("Catat transaksi pertama Anda.");
-        score = 100;
-      } else {
-        findings.push("Pola arus kas stabil.");
-        if (activeBudgets.length === 0) {
-          findings.push("Buat budget untuk audit otomatis.");
-        }
-      }
-    }
-
-    // Clamp score
-    score = Math.max(0, Math.min(100, score));
-    let statusText = "Sehat";
-    let statusColor = "text-primary-color";
-    let statusBg = "bg-primary-container/20";
-    if (score < 50) {
-      statusText = "Kritis";
-      statusColor = "text-error";
-      statusBg = "bg-error-container/20";
-    } else if (score < 80) {
-      statusText = "Waspada";
-      statusColor = "text-warning";
-      statusBg = "bg-warning/20";
-    }
-
-    // Generate sentence
-    let sentence = '';
-    const savings = mIncome - mExpense;
-    const savingsRate = mIncome > 0 ? (savings / mIncome) * 100 : 0;
-    const runway = mExpense > 0 ? totalLiquidBalance / mExpense : 0;
-
-    if (transactions.length === 0) {
-      sentence = "Selamat datang! Silakan catat transaksi pertama Anda untuk mengaktifkan analisis keuangan berbasis AI yang mendalam.";
-    } else if (mIncome > 0 && mExpense > mIncome) {
-      sentence = `Pengeluaran Anda bulan ini melebihi pemasukan. Kurangi pos non-essential untuk menghindari defisit yang lebih besar (${formatCurrency(mExpense - mIncome, currencySymbol)}).`;
-    } else if (overBudgetCount > 0) {
-      sentence = `Anda telah melebihi batas anggaran di ${overBudgetCount} kategori. Segera batasi pengeluaran di pos tersebut untuk menjaga kestabilan finansial.`;
-    } else if (warningBudgetCount > 0) {
-      sentence = `Anggaran untuk ${warningBudgetCount} kategori sudah mendekati batas limit. Mulai kendalikan konsumsi Anda di sisa bulan ini.`;
-    } else if (savingsRate >= 20) {
-      sentence = `Luar biasa! Anda berhasil menghemat ${Math.round(savingsRate)}% dari pemasukan. Pertahankan tren positif ini untuk mempercepat tujuan keuangan Anda.`;
-    } else if (runway >= 3) {
-      sentence = `Kondisi dana darurat Anda sangat sehat, mampu menutupi kebutuhan hingga ${runway.toFixed(1)} bulan. Fokuslah mengalokasikan sisa dana ke investasi.`;
-    } else if (runway > 0 && runway < 3) {
-      sentence = `Dana darurat Anda hanya cukup untuk ${runway.toFixed(1)} bulan. Prioritaskan menabung untuk memperkuat bantalan keuangan Anda.`;
-    } else {
-      sentence = "Keuangan Anda dalam kondisi stabil bulan ini. Terus pantau pengeluaran harian dan pertahankan kebiasaan mencatat transaksi Anda.";
-    }
-
-    return {
-      score,
-      statusText,
-      statusColor,
-      statusBg,
-      findings: findings.slice(0, 3), // Show top 3 findings
-      sentence
-    };
-  }, [transactions, weeklyExpense, totalLiquidBalance, budgets, categories, viewDate, startOfMonthDay, currencySymbol]);
 
   const handleEdit = useCallback((tx: Transaction) => {
     setEditingTransaction(tx);
@@ -782,6 +594,8 @@ const Transactions: React.FC = () => {
               </div>
             }
           />
+
+          <InsightStoryBanner onClick={() => setIsInsightStoriesOpen(true)} />
 
           {/* Hero Summary Section - Bento Grid */}
           <section data-tour="tx-summary" className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
@@ -932,47 +746,6 @@ const Transactions: React.FC = () => {
               </div>
             </div>
 
-            {/* AI Insight Card (Spans 12 cols to fill remaining width) */}
-            <div className="col-span-1 md:col-span-12 bg-surface-container p-5 rounded-3xl border border-outline-variant flex flex-col justify-between relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-24 h-24 bg-primary opacity-10 rounded-full blur-xl -translate-y-1/2 -translate-x-1/2 group-hover:opacity-20 transition-opacity"></div>
-
-              <div className="flex justify-between items-start relative z-10">
-                <span className="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider flex items-center gap-1.5">
-                  <MaterialIcon name="auto_awesome" filled className="text-primary text-sm" />
-                  Insight AI
-                </span>
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${aiInsightData.statusBg} ${aiInsightData.statusColor}`}>
-                  {aiInsightData.statusText}
-                </span>
-              </div>
-
-              <div className="mt-3 relative z-10 space-y-3 flex-1 flex flex-col justify-between">
-                {/* Score bar */}
-                <div>
-                  <div className="flex justify-between items-center text-[10px] text-on-surface-variant mb-1 font-semibold">
-                    <span>Skor Kesehatan</span>
-                    <span className="font-bold text-on-surface">{aiInsightData.score}/100</span>
-                  </div>
-                  <div className="w-full h-1 bg-surface-container-highest rounded-full overflow-hidden flex shadow-inner">
-                    <div style={{ width: `${aiInsightData.score}%` }} className="bg-primary h-full transition-all duration-500"></div>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-on-surface leading-relaxed font-semibold">
-                  {aiInsightData.sentence}
-                </p>
-
-                {/* Findings List */}
-                <div className="pt-2 border-t border-border-light flex flex-col gap-1.5">
-                  {aiInsightData.findings.map((finding, idx) => (
-                    <div key={idx} className="flex items-start gap-1.5 text-[11px] leading-tight text-on-surface-variant font-medium">
-                      <MaterialIcon name="chevron_right" className="text-[10px] text-primary mt-0.5 shrink-0" />
-                      <span className="truncate">{finding}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </section>
 
           {/* Presets Section */}
@@ -1262,6 +1035,11 @@ const Transactions: React.FC = () => {
       >
         <span className="material-symbols-outlined text-2xl text-on-primary">smart_toy</span>
       </div>
+
+      <InsightStoriesModal
+        isOpen={isInsightStoriesOpen}
+        onClose={() => setIsInsightStoriesOpen(false)}
+      />
 
     </PullToRefresh>
   );
