@@ -70,9 +70,18 @@ export default async function handler(req: any, res: any) {
     - type: "pengeluaran", "pendapatan", or "transfer"
     - amount: numeric value (int)
     - date: YYYY-MM-DD (fallback to ${dateContext})
-    - note: concise description. CRITICAL: For merchant names, extract ONLY the real entity name. IGNORE generic transaction titles (e.g., QRIS payments, TopUps, Debit Transactions, Transfer) and masked card numbers. If no specific name is found, use a concise description of the transaction.
-    - category: best match from available categories (leave empty if transfer).
-    - subCategory: best match if a subcategory is identified.
+    - note: concise merchant or transaction description. 
+      CRITICAL RULES FOR NOTE / MERCHANT NAME:
+      1. Extract ONLY the real merchant, store, or recipient name.
+      2. STRIP OUT and IGNORE generic transaction prefixes such as "PEMBAYARAN QRIS", "QRIS", "TRANSFER QRIS KE", "QRIS PAYMENT", "PEMBAYARAN VIA", "TOPUP", "DEBIT", "TRANSFER", and trailing codes like "DB", "CR".
+      3. Examples:
+         - "PEMBAYARAN QRIS KOPI KENANGAN DB" -> note: "Kopi Kenangan"
+         - "PEMBAYARAN QRIS LAUNDRY CLEAN AND FRESH" -> note: "Laundry Clean and Fresh"
+         - "QRIS DANA TOKO MAJU JAYA" -> note: "Toko Maju Jaya"
+         - "PEMBAYARAN QRIS Rp 25.000 DI WARUNG makan BAROKAH" -> note: "Warung Makan Barokah"
+      4. DO NOT return "Pembayaran QRIS" or "QRIS" as the note if a merchant/store/person name is present in the text!
+    - category: best match main category name from available categories (leave empty if transfer). CRITICAL: For services like Laundry, dry clean, cuci baju, cuci sepatu, etc., match to categories like "Belanja", "Tagihan", "Rumah Tangga", "Layanan", or "Kebersihan" if no exact "Laundry" main category exists. Do NOT output "Lainnya" if any logical category fits.
+    - subCategory: best match subcategory name if a subcategory is identified, or empty string.
     - asset: best match for payment method from [${assetList}] (for pengeluaran/pendapatan). ${defaultAssetHint ? `If not clearly mentioned, use "${defaultAsset.name}" as the default asset.` : ""}
     - fromAsset: best match for sender/source from [${assetList}] (only for transfer).
     - toAsset: best match for receiver/destination from [${assetList}] (only for transfer).

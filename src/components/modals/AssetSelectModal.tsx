@@ -54,13 +54,22 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
     }
   }, [isOpen, selectedAssetId, assets]);
 
-  // Assets of the active type, sorted alphabetically
+  // Assets matching search query or active type, sorted alphabetically
   const filteredAssets = useMemo(() => {
     let result = assets.filter(a => !a.isDeleted || a.id === selectedAssetId);
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(a => a.name.toLowerCase().includes(query));
+      result = result.filter(a => {
+        const typeMeta = ASSET_TYPE_META[a.type];
+        const labelLower = typeMeta ? typeMeta.label.toLowerCase() : '';
+        const typeLower = a.type.toLowerCase();
+        return (
+          a.name.toLowerCase().includes(query) ||
+          typeLower.includes(query) ||
+          labelLower.includes(query)
+        );
+      });
     } else {
       result = result.filter(a => a.type === activeType);
     }
@@ -109,7 +118,7 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                   <MaterialIcon name="search" />
                   <input
                     type="text"
-                    placeholder="Cari rekening..."
+                    placeholder="Cari rekening atau tipe akun..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{
@@ -148,8 +157,19 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                 }}>
                   {availableTypes.map(type => {
                     const meta = ASSET_TYPE_META[type];
-                    const isActive = type === activeType && !searchQuery;
-                    const count = assets.filter(a => a.type === type && (!a.isDeleted || a.id === selectedAssetId)).length;
+                    const isActive = type === activeType;
+                    const query = searchQuery.trim().toLowerCase();
+                    const count = assets.filter(a => {
+                      if (a.isDeleted && a.id !== selectedAssetId) return false;
+                      if (a.type !== type) return false;
+                      if (!query) return true;
+                      const labelLower = meta ? meta.label.toLowerCase() : '';
+                      return (
+                        a.name.toLowerCase().includes(query) ||
+                        type.toLowerCase().includes(query) ||
+                        labelLower.includes(query)
+                      );
+                    }).length;
 
                     return (
                       <button
@@ -163,7 +183,6 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
                           border: 'none', borderLeft: `3px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
                           display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
                           cursor: 'pointer', transition: 'background 0.2s', textAlign: 'left', gap: '4px',
-                          opacity: searchQuery ? 0.5 : 1
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>

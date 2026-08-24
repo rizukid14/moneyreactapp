@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { getLocalDate } from '../lib/utils';
 import { resizeImage, blobToBase64 } from '../lib/imageUtils';
 import { auth } from '../lib/firebase';
+import { cleanMerchantNote } from '../utils/categoryMatcher';
 
 export interface LineItem {
   name: string;
@@ -165,7 +166,7 @@ export const useReceiptOCR = () => {
       const taxInfo = summaryParts.length > 0 ? summaryParts.join(' · ') : undefined;
 
       return {
-        merchantName: result.merchantName || "",
+        merchantName: cleanMerchantNote(result.merchantName || ""),
         amount: result.amount || 0,
         date: result.date || getLocalDate(),
         time: result.time || "",

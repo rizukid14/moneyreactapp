@@ -5,6 +5,7 @@ import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI'
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/common/Toast';
+import { findBestCategoryMatch } from '../utils/categoryMatcher';
 import { lazy, Suspense } from 'react';
 const OverspendReallocationModal = lazy(() => import('../components/modals/OverspendReallocationModal'));
 import { PageWrapper } from '../components/ui/PageWrapper';
@@ -126,26 +127,16 @@ const BulkInput: React.FC = () => {
 
         let matchedCategoryId = '';
         let matchedSubCategoryId = '';
-        if (tx.category && tx.type !== 'transfer') {
-          const matchedCat = categories.find(c =>
-            c.type === tx.type &&
-            !c.isDeleted &&
-            (c.name.toLowerCase() === tx.category!.toLowerCase() ||
-             c.name.toLowerCase().includes(tx.category!.toLowerCase()) ||
-             tx.category!.toLowerCase().includes(c.name.toLowerCase()))
+        if (tx.type !== 'transfer') {
+          const matchResult = findBestCategoryMatch(
+            tx.category,
+            tx.subCategory,
+            tx.note,
+            categories,
+            tx.type
           );
-          if (matchedCat) {
-            matchedCategoryId = matchedCat.id;
-            if (tx.subCategory && matchedCat.subcategories) {
-              const matchedSub = matchedCat.subcategories.find((s: any) =>
-                !s.isDeleted &&
-                (s.name.toLowerCase() === tx.subCategory!.toLowerCase() ||
-                 s.name.toLowerCase().includes(tx.subCategory!.toLowerCase()) ||
-                 tx.subCategory!.toLowerCase().includes(s.name.toLowerCase()))
-              );
-              if (matchedSub) matchedSubCategoryId = matchedSub.id;
-            }
-          }
+          matchedCategoryId = matchResult.categoryId;
+          matchedSubCategoryId = matchResult.subCategoryId;
         }
 
         return {

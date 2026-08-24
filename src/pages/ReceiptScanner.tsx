@@ -6,6 +6,7 @@ import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceip
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
+import { findBestCategoryMatch } from '../utils/categoryMatcher';
 import { validateFileSecure } from '../lib/fileValidation';
 import SplitBillModal from '../components/modals/SplitBillModal';
 import { ReceiptItemizerModal } from '../components/modals/ReceiptItemizerModal';
@@ -410,22 +411,18 @@ const ReceiptScanner: React.FC = () => {
       setServiceAmount(ocrResult.serviceAmount || 0);
       setDiscountAmount(ocrResult.discountAmount || 0);
 
-      // 2. Category Matching
-      if (ocrResult.suggestedCategory) {
-        const matchedCat = categories.find(c =>
-          c.name.toLowerCase() === ocrResult.suggestedCategory.toLowerCase() &&
-          c.type === 'pengeluaran' &&
-          !c.isDeleted
-        );
-        if (matchedCat) {
-          setSelectedCategory(matchedCat.id);
-          if (ocrResult.suggestedSubCategory && matchedCat.subcategories) {
-            const matchedSub = matchedCat.subcategories.find(s =>
-              s.name.toLowerCase() === ocrResult.suggestedSubCategory!.toLowerCase() &&
-              !s.isDeleted
-            );
-            if (matchedSub) setSelectedSubCategory(matchedSub.id);
-          }
+      // 2. Robust Category & Subcategory Matching
+      const matched = findBestCategoryMatch(
+        ocrResult.suggestedCategory,
+        ocrResult.suggestedSubCategory,
+        ocrResult.merchantName,
+        categories,
+        'pengeluaran'
+      );
+      if (matched.categoryId) {
+        setSelectedCategory(matched.categoryId);
+        if (matched.subCategoryId) {
+          setSelectedSubCategory(matched.subCategoryId);
         }
       }
       setStage('results');

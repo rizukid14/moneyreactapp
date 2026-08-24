@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { getLocalDate } from '../lib/utils';
 import { resizeImage, blobToBase64 } from '../lib/imageUtils';
 import { auth } from '../lib/firebase';
+import { cleanMerchantNote } from '../utils/categoryMatcher';
 
 export interface ParsedTransaction {
   id: string; // temporary id for frontend listing
@@ -115,7 +116,7 @@ export const useBulkParseAI = () => {
           type,
           amount: item.amount || 0,
           date: item.date || getLocalDate(),
-          note: item.note || '',
+          note: cleanMerchantNote(item.note || ''),
           categoryId: item.category || '',
           subCategory: item.subCategory || '',
           asset: item.asset || '',

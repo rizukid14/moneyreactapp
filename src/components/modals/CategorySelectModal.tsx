@@ -48,14 +48,16 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
   }, [categories, type, searchQuery, initialCategoryId]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    if (!sortedCategories.some(c => c.id === activeCategoryId)) {
       if (initialCategoryId && sortedCategories.some(c => c.id === initialCategoryId)) {
         setActiveCategoryId(initialCategoryId);
       } else if (sortedCategories.length > 0) {
         setActiveCategoryId(sortedCategories[0].id);
       }
     }
-  }, [isOpen, initialCategoryId, sortedCategories]);
+  }, [isOpen, initialCategoryId, sortedCategories, activeCategoryId]);
 
   const activeCategoryObj = useMemo(() => {
     return sortedCategories.find(c => c.id === activeCategoryId);
@@ -75,7 +77,13 @@ const CategorySelectModal: React.FC<CategorySelectModalProps> = ({
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(s => s.name.toLowerCase().includes(query));
+      const isMainCategoryMatch = activeCategoryObj.name.toLowerCase().includes(query);
+
+      // If search query matches main category name, display all subcategories under it.
+      // Otherwise, filter subcategories by name match.
+      if (!isMainCategoryMatch) {
+        result = result.filter(s => s.name.toLowerCase().includes(query));
+      }
     }
 
     return result.sort((a, b) => a.name.localeCompare(b.name));

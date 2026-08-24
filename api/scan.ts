@@ -49,18 +49,23 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ message: 'OPENAI_API_KEY is not configured on the server.' });
     }
 
-    const categoryList = categories?.length > 0 ? categories.map((c: any) => c.name).join(',') : "None";
+    const categoryWithSubs = categories?.length > 0
+      ? categories.map((c: any) => `${c.name}${c.subcategories?.length > 0 ? ` (Sub-kategori: ${c.subcategories.join(', ')})` : ''}`).join(' | ')
+      : "None";
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
     const defaultAsset = assets?.find((a: any) => a.id === defaultAssetId);
     const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
 
     const prompt = `You are a receipt parser. Extract receipt data and return ONLY a valid JSON object with these fields:
     - merchantName: string (The actual store, merchant, or target name. 
-      CRITICAL: Extract ONLY the real entity name. 
-      - MUST IGNORE generic transaction titles or prefixes (e.g., QRIS payments, E-Wallet TopUps, Debit Transactions, Transfer).
-      - MUST IGNORE payment method names, virtual cards, or masked card numbers.
-      - Extract only the core merchant or recipient name.
-      - If no specific merchant name is found, return an empty string "". Do NOT hallucinate.
+      CRITICAL RULES FOR MERCHANT NAME:
+      1. Extract ONLY the real merchant, store, or recipient entity name. 
+      2. STRIP OUT generic transaction titles or prefixes (e.g., "PEMBAYARAN QRIS", "QRIS", "TRANSFER QRIS KE", "E-Wallet TopUp", "Debit Transaction", "Transfer").
+      3. MUST IGNORE payment method names, virtual cards, or masked card numbers.
+      4. Examples:
+         - "PEMBAYARAN QRIS KOPI KENANGAN DB" -> merchantName: "Kopi Kenangan"
+         - "PEMBAYARAN QRIS LAUNDRY CLEAN AND FRESH" -> merchantName: "Laundry Clean and Fresh"
+      5. DO NOT return "Pembayaran QRIS" or "QRIS" as the merchantName if a store or business name is visible! If no specific merchant name is found, return an empty string "". Do NOT hallucinate.
     )
     - amount: number (final TOTAL paid by customer, including all taxes and fees. Use 0 if not found.)
     - date: string (YYYY-MM-DD format, use today if not visible)
@@ -76,10 +81,10 @@ export default async function handler(req: any, res: any) {
     - taxAmount: number (EXACT amount of tax/PPN/PB1/VAT or maybe it look like tax example tax1 , etc from receipt. Use 0 if not found or not clearly visible. Do NOT calculate or estimate.)
     - serviceChargeAmount: number (EXACT amount of service charge/service fee from receipt. Use 0 if not found or not clearly visible. Do NOT calculate or estimate.)
     - discountAmount: number (EXACT amount of all discounts from receipt. Positive number. Use 0 if not found or not clearly visible. Do NOT calculate or estimate.)
-    - suggestedCategory: best match from [${categoryList}], or empty string
-    - suggestedSubCategory: sub-category if applicable, or empty string
+    - suggestedCategory: best match main category name from available categories [${categoryWithSubs}]. CRITICAL: For services like Laundry, dry clean, cuci baju, cuci sepatu, etc., match to categories like "Belanja", "Tagihan", "Rumah Tangga", "Layanan", or "Kebersihan" if no exact "Laundry" main category exists. Do NOT output "Lainnya" if any logical category fits.
+    - suggestedSubCategory: best match sub-category if applicable, or empty string
     - suggestedAsset: best match payment method from [${assetList}], or empty string. ${defaultAssetHint ? `If the payment method is not clearly stated, prefer "${defaultAsset.name}" as it is the user's default.` : ""}
-    - confidence: "high" | "medium" | "low"
+    - confidence: "high" | "medium" | "low"`;
     
     IMPORTANT RULES:
     1. Only extract numbers that are CLEARLY VISIBLE in the receipt.
