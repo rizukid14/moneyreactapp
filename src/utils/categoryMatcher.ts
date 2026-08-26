@@ -12,7 +12,7 @@ export interface SubCategory {
 export interface Category {
   id: string;
   name: string;
-  type: 'pengeluaran' | 'pendapatan';
+  type: 'pengeluaran' | 'pendapatan' | 'hutang_keluar' | 'hutang_masuk' | 'piutang_keluar' | 'piutang_masuk' | string;
   subcategories?: SubCategory[];
   isDeleted?: boolean;
 }

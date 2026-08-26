@@ -157,6 +157,7 @@ const ChatBot: React.FC = () => {
               type: t.type,
               amount: t.amount,
               categoryId: t.categoryId,
+              subCategoryId: t.subCategoryId,
               note: t.note,
               date: t.date
             })),
@@ -250,8 +251,6 @@ const ChatBot: React.FC = () => {
     setInput('');
     setIsLoading(true);
 
-    const { startDateStr, endDateStr } = getCurrentFinancialMonthDates();
-
     try {
       const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
       const response = await fetch('/api/chat', {
@@ -271,12 +270,12 @@ const ChatBot: React.FC = () => {
             })),
           transactions: [...transactions]
             .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
-            .filter(t => t.date >= startDateStr && t.date <= endDateStr)
             .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
             .map(t => ({
               type: t.type,
               amount: t.amount,
               categoryId: t.categoryId,
+              subCategoryId: t.subCategoryId,
               note: t.note,
               date: t.date
             })),
