@@ -18,7 +18,15 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v2.3.0', date: 'Jul 2026', badge: 'Terbaru',
+    version: 'v2.3.2', date: 'Agu 2026', badge: 'Terbaru',
+    entries: [
+      { type: 'improve', text: 'AI Financial Advisor & Survival Guide: MoneyBot kini lebih cerdas dan empatik dalam memberikan strategi penghematan saat uang menipis di pertengahan bulan, lengkap dengan kalkulasi batas belanja harian (Daily Spending Cap) dan audit pengeluaran.' },
+      { type: 'improve', text: 'Keamanan Prompt Injection AI: Perlindungan menyeluruh pada MoneyBot, OCR Scanner, dan Bulk Input dari upaya manipulasi instruksi maupun injeksi data tidak sah.' },
+      { type: 'fix', text: 'Perbaikan Tipe & Stabilitas Kode: Mengoptimalkan pemetaan kategori transaksi pada Bulk Input & Scanner serta membersihkan variabel yang tidak terpakai.' }
+    ]
+  },
+  {
+    version: 'v2.3.0', date: 'Jul 2026',
     entries: [
       { type: 'new', text: 'Toko Penukaran Poin (Rewards Store): Tukarkan poin streak login harian Anda langsung di dalam aplikasi untuk ditukar dengan token scan struk, sesi AI Chat, bulk input, atau akses Premium (1 hari hingga 1 bulan).' },
       { type: 'new', text: 'Login Streak Harian: Dapatkan poin reward setiap hari dengan melakukan login beruntun. Multiplier bonus akan meningkat setiap 3 hari berturut-turut.' },
