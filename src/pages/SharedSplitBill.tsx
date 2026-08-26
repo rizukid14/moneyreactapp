@@ -166,7 +166,7 @@ const SharedSplitBill: React.FC = () => {
             className="btn btn-primary"
             style={{ width: '100%', padding: '16px', borderRadius: '16px' }}
           >
-            Buka MoneyApp
+            Buka Monetiq
           </button>
         </motion.div>
       </div>
@@ -195,7 +195,7 @@ const SharedSplitBill: React.FC = () => {
             <div style={{ width: '36px', height: '36px', background: 'var(--primary)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 16px var(--primary-glow)' }}>
               <MaterialIcon name="account_balance_wallet" className="text-white text-xl" />
             </div>
-            <span style={{ fontWeight: 800, fontSize: '20px', letterSpacing: '-0.5px' }}>MoneyApp</span>
+            <span style={{ fontWeight: 800, fontSize: '20px', letterSpacing: '-0.5px' }}>Monetiq</span>
           </div>
           <button
             onClick={handleCopyLink}
@@ -473,7 +473,7 @@ const SharedSplitBill: React.FC = () => {
             </div>
             <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '8px' }}>Atur Keuangan Bareng?</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px', lineHeight: 1.5 }}>
-              Gunakan MoneyApp untuk catat pengeluaran, bagi tagihan otomatis, dan pantau budget dengan mudah.
+              Gunakan Monetiq untuk catat pengeluaran, bagi tagihan otomatis, dan pantau budget dengan mudah.
             </p>
 
             <button
@@ -484,7 +484,7 @@ const SharedSplitBill: React.FC = () => {
                 boxShadow: '0 8px 16px var(--primary-glow)'
               }}
             >
-              Coba MoneyApp Gratis
+              Coba Monetiq Gratis
               <MaterialIcon name="open_in_new" className="text-lg" />
             </button>
           </div>
@@ -492,7 +492,7 @@ const SharedSplitBill: React.FC = () => {
 
         <footer style={{ marginTop: '48px', textAlign: 'center' }}>
           <p style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4em', opacity: 0.4 }}>
-            MoneyApp • {new Date().getFullYear()}
+            Monetiq • {new Date().getFullYear()}
           </p>
         </footer>
       </div>

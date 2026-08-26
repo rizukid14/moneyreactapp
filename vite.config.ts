@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'MoneyApp',
-        short_name: 'MoneyApp',
+        name: 'Monetiq',
+        short_name: 'Monetiq',
         description: 'Track your expenses and incomes easily',
         theme_color: '#14b881',
         start_url: '/',

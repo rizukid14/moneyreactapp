@@ -519,7 +519,7 @@ const Settings: React.FC = () => {
 
   const handleMenuClick = (id: string) => {
     if (id === 'help') {
-      window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp&body=Halo, saya butuh bantuan terkait...';
+      window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan Monetiq&body=Halo, saya butuh bantuan terkait...';
       return;
     }
     if (id === 'shared_bills') {
@@ -1165,7 +1165,7 @@ const Settings: React.FC = () => {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 800, fontSize: '17px', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {tempName || 'User MoneyApp'}
+                      {tempName || 'User Monetiq'}
                     </span>
                     <span style={{
                       backgroundColor: 'rgba(255, 255, 255, 0.22)',
@@ -2472,10 +2472,10 @@ const Settings: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-2 pt-2 text-center text-xs text-on-surface-variant">
-              <div className="font-semibold flex items-center justify-center gap-1 cursor-pointer hover:underline" onClick={() => window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan MoneyApp'}>
+              <div className="font-semibold flex items-center justify-center gap-1 cursor-pointer hover:underline" onClick={() => window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan Monetiq'}>
                 <MaterialIcon name="mail" className="text-sm" /> Hubungi Dukungan (rizqydaffa14@gmail.com)
               </div>
-              <div className="text-[10px] opacity-75">MoneyApp v2.0.0 • Dibuat dengan ❤️ by Dappal</div>
+              <div className="text-[10px] opacity-75">Monetiq v2.3.2 • Dibuat dengan ❤️ by Dappal</div>
             </div>
 
             <button
