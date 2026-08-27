@@ -265,12 +265,103 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
     // 2. Multi-Month Pre-Aggregation Engine
     // Process ALL transactions server-side to build compact, 100% complete summaries
     const allTxs = (transactions || []) as any[];
-    const allTxsWithDate = allTxs.filter((t: any) => t.date && t.amount);
+    const allTxsWithDate = allTxs.filter((t: any) => !t.isDeleted && t.date && t.amount);
 
-    // Group transactions by YYYY-MM month key
-    const monthlyData: Record<string, { income: number; expenses: number; byCategory: Record<string, { total: number; count: number; notes: string[] }>; byNote: Record<string, { total: number; count: number; category: string }> }> = {};
+    // Helper to compute monthKey respecting startOfMonthDay (e.g. if startOfMonthDay is 25, 2026-06-25 belongs to 2026-07)
+    const effectiveStartDay = typeof startOfMonthDay === 'number' && startOfMonthDay >= 1 && startOfMonthDay <= 31 ? startOfMonthDay : 1;
+    const getMonthKey = (dateStr: string, startDay: number): string => {
+      const parts = (dateStr || '').split('-');
+      if (parts.length < 3) return (dateStr || '').substring(0, 7);
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const day = parseInt(parts[2], 10);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return (dateStr || '').substring(0, 7);
+
+      if (startDay <= 1) {
+        return `${year}-${String(month).padStart(2, '0')}`;
+      }
+
+      let finYear = year;
+      let finMonth = month;
+      if (day >= startDay) {
+        finMonth += 1;
+        if (finMonth > 12) {
+          finMonth = 1;
+          finYear += 1;
+        }
+      }
+      return `${finYear}-${String(finMonth).padStart(2, '0')}`;
+    };
+
+    // Category resolution helper (maps any subcategory transaction to its parent main category)
+    const resolveCategoryName = (t: any): string => {
+      if (!categories || categories.length === 0) return t.category || t.categoryId || 'Lainnya';
+
+      // 1. Direct match on main category ID or Name
+      let catObj = categories.find((c: any) => 
+        c.id === t.categoryId || 
+        (c.name && c.name.toLowerCase() === (t.categoryId || '').toLowerCase()) ||
+        c.id === t.category ||
+        (c.name && c.name.toLowerCase() === (t.category || '').toLowerCase())
+      );
+      if (catObj) return catObj.name;
+
+      // 2. Subcategory match: if t.categoryId or t.subCategoryId matches ANY subcategory
+      catObj = categories.find((c: any) => 
+        c.subcategories?.some((s: any) => 
+          s.id === t.categoryId || 
+          (s.name && s.name.toLowerCase() === (t.categoryId || '').toLowerCase()) ||
+          s.id === t.subCategoryId ||
+          (s.name && s.name.toLowerCase() === (t.subCategoryId || '').toLowerCase()) ||
+          s.id === t.category ||
+          (s.name && s.name.toLowerCase() === (t.category || '').toLowerCase())
+        )
+      );
+      if (catObj) return catObj.name;
+
+      return t.category || t.categoryId || 'Lainnya';
+    };
+
+    // Active Subscriptions & Recurring Names for Tier 1 deduplication
+    const activeSubs = (subscriptions || []).filter((s: any) => s.isActive);
+    const totalSubsMonthly = activeSubs.reduce((sum: number, s: any) => {
+      const amt = Number(s.amount || 0);
+      return sum + (s.billingCycle === 'yearly' ? Math.round(amt / 12) : amt);
+    }, 0);
+    const activeSubsNames: string[] = activeSubs.map((s: any) => (s.name || '').toLowerCase().trim()).filter(Boolean);
+
+    const activeRecurring = (recurringTransactions || []).filter((rt: any) => rt.isActive);
+    const totalRecurringMonthly = activeRecurring.reduce((sum: number, rt: any) => {
+      const amt = Number(rt.amount || 0);
+      if (rt.frequency === 'daily') return sum + (amt * 30);
+      if (rt.frequency === 'weekly') return sum + (amt * 4);
+      if (rt.frequency === 'yearly') return sum + Math.round(amt / 12);
+      return sum + amt;
+    }, 0);
+    const activeRecurringNotes: string[] = activeRecurring.map((rt: any) => (rt.note || '').toLowerCase().trim()).filter(Boolean);
+
+    const isTier1Note = (note: string): boolean => {
+      if (!note) return false;
+      const noteLower = note.toLowerCase().trim();
+      return activeSubsNames.some((name: string) => noteLower.includes(name)) || activeRecurringNotes.some((recNote: string) => Boolean(recNote && noteLower.includes(recNote)));
+    };
+
+    // Outlier & Non-Routine Keyword matcher
+    const isNonRoutineNote = (note: string): boolean => {
+      if (!note) return false;
+      return /tiket\s*(kereta|pesawat|kapal|bus|travel)|pajak\s*(stnk|motor|mobil|pbb|tahunan)|servis\s*besar|turun\s*mesin|ganti\s*(aki|ban|sparepart|helm)|liburan|mudik|hotel|villa|gadget|iphone|laptop|elektronik|kondangan|amplop\s*nikah|renovasi|dp\s*rumah|dp\s*mobil/i.test(note);
+    };
+
+    // Group transactions by YYYY-MM financial month key
+    const monthlyData: Record<string, { 
+      income: number; 
+      expenses: number; 
+      byCategory: Record<string, { total: number; routineTotal: number; count: number; routineCount: number; notes: string[]; nonRoutineItems: { date: string; note: string; amount: number }[] }>; 
+      byNote: Record<string, { total: number; count: number; category: string }> 
+    }> = {};
+
     for (const t of allTxsWithDate) {
-      const monthKey = t.date.substring(0, 7); // "2026-08"
+      const monthKey = getMonthKey(t.date, effectiveStartDay);
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { income: 0, expenses: 0, byCategory: {}, byNote: {} };
       }
@@ -278,13 +369,24 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
       if (t.type === 'pendapatan') md.income += t.amount;
       if (t.type === 'pengeluaran') md.expenses += t.amount;
 
-      // Category aggregation
-      const catObj = (categories || []).find((c: any) => c.id === t.categoryId || c.name === t.categoryId || c.id === t.category || c.name === t.category);
-      const cat = catObj ? catObj.name : (t.category || t.categoryId || 'Lainnya');
+      // Category aggregation (rolled up to parent category)
+      const cat = resolveCategoryName(t);
       if (t.type === 'pengeluaran' || t.type === 'transfer') {
-        if (!md.byCategory[cat]) md.byCategory[cat] = { total: 0, count: 0, notes: [] };
+        if (!md.byCategory[cat]) {
+          md.byCategory[cat] = { total: 0, routineTotal: 0, count: 0, routineCount: 0, notes: [], nonRoutineItems: [] };
+        }
         md.byCategory[cat].total += t.amount;
         md.byCategory[cat].count++;
+
+        const isTier1 = isTier1Note(t.note || '');
+        const isNonRoutine = isNonRoutineNote(t.note || '');
+        if (isNonRoutine) {
+          md.byCategory[cat].nonRoutineItems.push({ date: t.date, note: t.note || 'Insidental', amount: t.amount });
+        } else if (!isTier1) {
+          md.byCategory[cat].routineTotal += t.amount;
+          md.byCategory[cat].routineCount++;
+        }
+
         if (t.note && md.byCategory[cat].notes.length < 5) md.byCategory[cat].notes.push(t.note);
       }
 
@@ -322,31 +424,76 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
       .slice(0, 3)
       .map(([name, data]) => `"${name}" avg Rp ${Math.round(data.total / Math.max(data.count, 1)).toLocaleString('id-ID')}/occurrence (${data.count} times in ${last6Months.length} months)`);
 
-    // === CATEGORY SPENDING AVERAGES (3-month & overall) ===
+    // === CATEGORY SPENDING AVERAGES (Routine Baseline vs Non-Routine Outliers) ===
     const allCategories = new Set<string>();
     for (const m of sortedMonths) {
       Object.keys(monthlyData[m].byCategory).forEach(c => allCategories.add(c));
     }
-    const categoryAverages: { name: string; avg3mo: number; avgAll: number; totalTxs: number; topNotes: string[] }[] = [];
+    const categoryAverages: { 
+      name: string; 
+      routineAvg3mo: number; 
+      avg3mo: number; 
+      avgAll: number; 
+      totalTxs: number; 
+      topNotes: string[]; 
+      monthlyBreakdown: string;
+      nonRoutineSummary: string;
+    }[] = [];
+
     for (const cat of allCategories) {
       const last3Totals = last3Months.map(m => monthlyData[m]?.byCategory[cat]?.total || 0);
+      const last3RoutineTotals = last3Months.map(m => monthlyData[m]?.byCategory[cat]?.routineTotal || 0);
       const allTotals = sortedMonths.map(m => monthlyData[m]?.byCategory[cat]?.total || 0);
-      const monthsWithSpend3 = last3Totals.filter(v => v > 0).length;
-      const monthsWithSpendAll = allTotals.filter(v => v > 0).length;
-      const avg3mo = monthsWithSpend3 > 0 ? Math.round(last3Totals.reduce((a, b) => a + b, 0) / Math.max(monthsWithSpend3, 1)) : 0;
-      const avgAll = monthsWithSpendAll > 0 ? Math.round(allTotals.reduce((a, b) => a + b, 0) / Math.max(monthsWithSpendAll, 1)) : 0;
+      
+      const total3mo = last3Totals.reduce((a, b) => a + b, 0);
+      const total3moRoutine = last3RoutineTotals.reduce((a, b) => a + b, 0);
+      
+      const avg3mo = last3Months.length > 0 ? Math.round(total3mo / Math.min(last3Months.length, 3)) : 0;
+      const routineAvg3mo = last3Months.length > 0 ? Math.round(total3moRoutine / Math.min(last3Months.length, 3)) : 0;
+      
+      const totalAll = allTotals.reduce((a, b) => a + b, 0);
+      const avgAll = sortedMonths.length > 0 ? Math.round(totalAll / sortedMonths.length) : 0;
+      
       const totalTxs = sortedMonths.reduce((sum, m) => sum + (monthlyData[m]?.byCategory[cat]?.count || 0), 0);
+      
+      const monthlyBreakdown = sortedMonths.slice(0, 6).map(m => {
+        const data = monthlyData[m]?.byCategory[cat];
+        const tot = data?.total || 0;
+        const rout = data?.routineTotal || 0;
+        if (tot !== rout && tot > 0) {
+          return `${m}: Rp ${tot.toLocaleString('id-ID')} (Rutin: Rp ${rout.toLocaleString('id-ID')})`;
+        }
+        return `${m}: Rp ${tot.toLocaleString('id-ID')}`;
+      }).join(', ');
+
+      // Collect non-routine items across last 6 months
+      const nonRoutineList: string[] = [];
+      for (const m of last6Months) {
+        (monthlyData[m]?.byCategory[cat]?.nonRoutineItems || []).forEach(item => {
+          nonRoutineList.push(`${item.date}: "${item.note}" Rp ${item.amount.toLocaleString('id-ID')}`);
+        });
+      }
+      const nonRoutineSummary = nonRoutineList.length > 0 ? nonRoutineList.slice(0, 5).join('; ') : 'None detected';
+
       // Collect top notes across all months
       const noteSet = new Set<string>();
       for (const m of sortedMonths) {
         (monthlyData[m]?.byCategory[cat]?.notes || []).forEach((n: string) => noteSet.add(n));
       }
-      categoryAverages.push({ name: cat, avg3mo, avgAll, totalTxs, topNotes: [...noteSet].slice(0, 5) });
+      categoryAverages.push({ 
+        name: cat, 
+        routineAvg3mo, 
+        avg3mo, 
+        avgAll, 
+        totalTxs, 
+        topNotes: [...noteSet].slice(0, 5), 
+        monthlyBreakdown,
+        nonRoutineSummary 
+      });
     }
-    categoryAverages.sort((a, b) => b.avg3mo - a.avg3mo);
+    categoryAverages.sort((a, b) => b.routineAvg3mo - a.routineAvg3mo);
 
-    // === FIXED MONTHLY OBLIGATION DETECTION ===
-    // Find notes that appear in 3+ of last 6 months with <30% amount variance
+    // === TIER 1: FIXED MONTHLY OBLIGATION & SUBSCRIPTION INTEGRATION (Deduplicated) ===
     const fixedObligations: { note: string; category: string; avgAmount: number; frequency: number; months: number }[] = [];
     const noteOccurrences: Record<string, { amounts: number[]; category: string; monthCount: number }> = {};
     for (const m of last6Months) {
@@ -358,6 +505,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
       }
     }
     for (const [noteKey, data] of Object.entries(noteOccurrences)) {
+      if (isTier1Note(noteKey)) continue; // Skip notes already covered in active subscriptions or active recurring
       if (data.monthCount >= 2 && data.amounts.length >= 2) {
         const avg = data.amounts.reduce((a, b) => a + b, 0) / data.amounts.length;
         const maxVariance = Math.max(...data.amounts.map(a => Math.abs(a - avg) / avg));
@@ -374,32 +522,65 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
     }
     fixedObligations.sort((a, b) => b.avgAmount - a.avgAmount);
     const totalFixedObligations = fixedObligations.reduce((sum, f) => sum + f.avgAmount, 0);
+    const totalTier1Deduction = totalFixedObligations + totalSubsMonthly + totalRecurringMonthly;
+    const realNetDisposable = avgMonthlyIncome - totalTier1Deduction;
+
+    // === ASSET LIQUIDITY & EMERGENCY FUND METRICS ===
+    const liquidAssets = (assets || []).filter((a: any) => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type));
+    const totalLiquidBalance = liquidAssets.reduce((sum: number, a: any) => sum + (a.balance || 0), 0);
+    const monthlyLivingCost = (totalTier1Deduction || 0) + (categoryAverages.reduce((sum, c) => sum + (c.routineAvg3mo || 0), 0) || 0);
+    const emergencyFundMonths = monthlyLivingCost > 0 ? (totalLiquidBalance / monthlyLivingCost).toFixed(1) : (totalLiquidBalance > 0 ? '5.0' : '0.0');
+
+    // Period days metrics
+    const periodStartDate = new Date(effectiveStartStr);
+    const periodEndDate = new Date(effectiveEndStr);
+    const totalDaysInPeriod = !isNaN(periodStartDate.getTime()) && !isNaN(periodEndDate.getTime())
+      ? Math.max(1, Math.round((periodEndDate.getTime() - periodStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+      : 30;
+    const remainingDaysInPeriod = daysToEOM >= 0 ? Math.max(1, daysToEOM) : totalDaysInPeriod;
+
+    // Food spending in current period so far
+    const currentPeriodFoodSpent = currentPeriodTxs
+      .filter((t: any) => {
+        const cat = resolveCategoryName(t).toLowerCase();
+        return cat.includes('makan') || cat.includes('food') || cat.includes('dapur') || cat.includes('kuliner');
+      })
+      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
 
     // Build compact multi-month summary
     let multiMonthSummary = '';
     if (sortedMonths.length > 0) {
       multiMonthSummary = `
-=== MULTI-MONTH SPENDING ANALYSIS (All History, ${allTxsWithDate.length} transactions) ===
-Months with data: ${sortedMonths.length} (${sortedMonths[sortedMonths.length - 1]} to ${sortedMonths[0]})
+=== MULTI-MONTH SPENDING & BUDGET ANALYSIS (${allTxsWithDate.length} active transactions across ${sortedMonths.length} recorded months) ===
+Recorded months: ${sortedMonths.length} (${sortedMonths[sortedMonths.length - 1]} to ${sortedMonths[0]})
 
---- INCOME PATTERNS (MOST IMPORTANT) ---
+--- CURRENT FINANCIAL CYCLE & LIQUIDITY CONTEXT ---
+- Financial Period: ${effectiveStartStr || 'N/A'} to ${effectiveEndStr || 'N/A'} (Total ${totalDaysInPeriod} days, ${remainingDaysInPeriod} days remaining)
+- Total Liquid Balances in User Accounts (Cash, Bank, eWallet, Savings): Rp ${totalLiquidBalance.toLocaleString('id-ID')}
+- Estimated Monthly Operating Expenses (Tier 1 + Tier 2 Routine): Rp ${monthlyLivingCost.toLocaleString('id-ID')}/mo
+- Current Emergency Fund Coverage Ratio: ${emergencyFundMonths} months of operating expenses (${Number(emergencyFundMonths) < 3 ? '⚠️ Pondasi Kritis (<3 bln)' : (Number(emergencyFundMonths) <= 6 ? '⚖️ Tahap Transisi / Cukup Sehat (3-6 bln)' : '🏆 Finansial Matang (>6 bln)')})
+- Food Spending in Current Period so Far (${effectiveStartStr} to today): Rp ${currentPeriodFoodSpent.toLocaleString('id-ID')}
+
+--- INCOME OVERVIEW ---
 - Latest month income (${last3Months[0] || 'N/A'}): Rp ${latestMonthIncome.toLocaleString('id-ID')}
 - Average monthly income (${last6Months.length} months): Rp ${avgMonthlyIncome.toLocaleString('id-ID')}
 - Income consistency: ${incomeByMonth.length}/${last6Months.length} months had income
 - Top income sources: ${topIncomeSources.length > 0 ? topIncomeSources.join('; ') : 'None detected'}
 
---- PER-CATEGORY MONTHLY AVERAGES ---
-${categoryAverages.map(c => `- ${c.name}: 3-mo avg Rp ${c.avg3mo.toLocaleString('id-ID')} | overall avg Rp ${c.avgAll.toLocaleString('id-ID')} (${c.totalTxs} txs)${c.topNotes.length > 0 ? `\n  └ Common notes: ${c.topNotes.join(', ')}` : ''}`).join('\n')}
-`;
+--- TIER 1: FIXED OBLIGATIONS & ACTIVE SUBSCRIPTIONS (Auto-Deducted in Advance) ---
+${fixedObligations.map(f => `- [Detected Fixed] "${f.note}" (${f.category}): ~Rp ${f.avgAmount.toLocaleString('id-ID')}/mo (detected in ${f.frequency} of last ${f.months} months)`).join('\n')}
+${activeRecurring.map((r: any) => `- [Active Recurring Schedule] "${r.note || r.categoryId}": Rp ${Number(r.amount).toLocaleString('id-ID')}/${r.frequency}`).join('\n')}
+${activeSubs.map((s: any) => `- [Active Subscription] "${s.name}": Rp ${Number(s.amount).toLocaleString('id-ID')}/${s.billingCycle}`).join('\n')}
+Total Tier 1 Deductions (Fixed + Recurring + Subscriptions): ~Rp ${totalTier1Deduction.toLocaleString('id-ID')}/mo
+Estimated Net Disposable Income (after Tier 1): Rp ${realNetDisposable.toLocaleString('id-ID')}/mo
 
-      if (fixedObligations.length > 0) {
-        multiMonthSummary += `
---- DETECTED FIXED MONTHLY OBLIGATIONS ---
-${fixedObligations.map(f => `- "${f.note}" (${f.category}): ~Rp ${f.avgAmount.toLocaleString('id-ID')}/mo — detected ${f.frequency} of last ${f.months} months`).join('\n')}
-Total Fixed Obligations: ~Rp ${totalFixedObligations.toLocaleString('id-ID')}/mo
-Estimated Net Disposable (from avg income): ~Rp ${Math.max(0, avgMonthlyIncome - totalFixedObligations).toLocaleString('id-ID')}/mo
+--- PER-CATEGORY ROUTINE OPERATIONAL BASELINE VS NON-ROUTINE OUTLIERS ---
+${categoryAverages.map(c => `- ${c.name}:
+  * Routine Monthly Baseline (for Tier 2 Envelope Limit): Rp ${c.routineAvg3mo.toLocaleString('id-ID')}/month
+  * Total 3-Month Average (including non-routine): Rp ${c.avg3mo.toLocaleString('id-ID')}/month
+  * Non-Routine / One-Off Items Detected: ${c.nonRoutineSummary}
+  * History per Month: [${c.monthlyBreakdown}]${c.topNotes.length > 0 ? `\n  * Common notes: ${c.topNotes.join(', ')}` : ''}`).join('\n')}
 `;
-      }
     }
 
     // 3. Classifiers
@@ -417,8 +598,6 @@ Estimated Net Disposable (from avg income): ~Rp ${Math.max(0, avgMonthlyIncome -
     const isAdviceRelated = /advice|nasihat|saran|tips|solusi|hemat|uang.*(sedikit|habis|kurang|tipis|kritis|tinggal)|bokek|krisis|darurat|bantu|tolong/i.test(userMessagesContext);
 
     // 4. Dynamic Context Downscaling & Smart Date Override
-    // For budget queries: use compact multi-month summary + 20 recent samples
-    // For other queries: keep existing behavior
     const maxTxs = (isStatsRelated || isHistoryRelated || isDateRelated || isEndOfMonthRelated || isNearEndOfMonth || isAdviceRelated) ? 100 : (isBudgetRelated ? 20 : 15);
     const slicedTxs = (isEndOfMonthRelated || isNearEndOfMonth)
       ? allTxsWithDate
@@ -477,38 +656,69 @@ Estimated Net Disposable (from avg income): ~Rp ${Math.max(0, avgMonthlyIncome -
 - ZBB Strict Mode: If Strict ZBB is active, any transaction (manual, scan struk OCR, bank mutasi) that exceeds the remaining budget limit of its category is BLOCKED/INTERCEPTED by the system. The app forces the user to perform an envelope reallocation (move money between categories) in a modal before saving.
 - AI Advice: When talking about budgets or overbudgeting in ZBB, suggest reallocating money from an envelope with surplus budget to the deficient envelope.
 
-=== PRIORITY CASH-FLOW BUDGETING PROTOCOL (MANDATORY) ===
-When the user asks for budget recommendations, financial planning, or monthly budget advice, you MUST follow this EXACT sequence:
+=== PRIORITY CASH-FLOW & ASSET-INTEGRATED BUDGETING PROTOCOL (MANDATORY) ===
+When the user asks for budget recommendations, financial planning, or monthly budget advice, you MUST follow this EXACT SEQUENCE:
 
-1. INCOME FIRST (Penghasilan):
-   - Start by stating the user's monthly income/wage from the INCOME PATTERNS section.
-   - If the user explicitly states their wage in the message, use THAT number instead.
-   - This is the MOST IMPORTANT number — everything else is derived from it.
+1. INCOME & TIER 1 (Kewajiban Tetap & Langganan — Deduct & Lock First):
+   - State the user's monthly gross income/wage from the INCOME OVERVIEW section or explicit user input in chat (e.g. "gaji saya 10.3jt").
+   - ZERO-INCOME GUARD: If monthly income is Rp 0 (or no income recorded) AND the user has NOT provided their salary in the message:
+     * DO NOT create a full budget breakdown or assume a blind deficit.
+     * State clearly that monthly income has not yet been recorded in the app (Rp 0), and politely ask the user to provide their estimated monthly income/salary first so that a realistic budget plan can be generated.
+     * You may briefly summarize detected Tier 1 obligations as context, but DO NOT draft budget envelopes (Tier 2/3/4) until the income base is provided.
+   - List ALL detected fixed monthly obligations, active recurring schedules (Kos, Transfer Orang Tua/Saudara, SPP, Cicilan Utang, Listrik Tetap), and active subscriptions (Netflix, Spotify, iCloud).
+   - Also include any fixed expenses the user mentions in their message (e.g., "bayar utang 600k", "kirim ortu 1.55M", "kirim adik 700k", "kos 1.45M", "listrik 150k"). User-stated amounts OVERRIDE detected amounts for the same item.
+   - MID-MONTH RECOGNITION: Check if any of these Tier 1 commitments have ALREADY been recorded/paid in the current financial period (${effectiveStartStr} to today) and acknowledge their payment status ("✅ Sudah terbayar tgl X" vs "⏳ Belum terbayar").
+   - ANTI-DOUBLE-COUNTING RULE: Items in Tier 1 are ALREADY deducted from income. You MUST NOT create separate budget envelopes for these exact same items in Tier 2.
+   - Calculate total Tier 1 fixed commitments and subtract directly from Income.
+   - Show: "Sisa Dana Bersih (Net Disposable) = Gaji - Total Tier 1 = Rp X"
+   - CONDITIONAL DEFICIT WARNING (ONLY IF Tier 1 > Gaji):
+     * ONLY display "⚠️ Peringatan Kritis Defisit Finansial" IF Total Tier 1 is strictly greater than Gaji.
+     * NEVER display or write any deficit warning headers/text if Net Disposable is positive!
+     * If deficit occurs: lock Tier 3 = Rp 0, Tier 4 = Rp 0, and advise emergency debt restructuring. Stop here.
 
-2. FIXED COMMITMENTS (Kewajiban Tetap) — Deduct First:
-   - List ALL detected fixed monthly obligations from the DETECTED FIXED MONTHLY OBLIGATIONS section.
-   - Also include any fixed expenses the user mentions in their message (e.g., "utang 600k", "kirim ortu 1.55M", "kos 1.45M").
-   - User-stated amounts OVERRIDE detected amounts for the same item.
-   - Calculate total fixed commitments and subtract from income.
-   - Show: "Sisa Dana Bersih (Net Disposable) = Gaji - Total Kewajiban Tetap = Rp X"
+2. TIER 3: TABUNGAN, DANA DARURAT & INVESTASI (Prioritas Pertama — Pay Yourself First):
+   - Evaluate the user's Total Liquid Balances and Current Emergency Fund Coverage Ratio from the summary:
+     * Rasio < 3 Bulan (⚠️ Pondasi Kritis): Allocate 100% of Tier 3 toward building liquid Emergency Funds (Dana Darurat di Rekening Tabungan).
+     * Rasio 3 s/d 6 Bulan (⚖️ Tahap Transisi / Cukup Sehat): Split Tier 3 50:50 (50% Penguatan Dana Darurat + 50% Investasi Produktif / Sinking Fund).
+     * Rasio > 6 Bulan (🏆 Finansial Matang / Sangat Kuat): Allocate 100% of Tier 3 toward Productive Investments & Planned Sinking Funds.
+     * Asset Data Empty (User baru tanpa data aset): Skip ratio calculation with a polite note and proceed based on cash flow.
+   - Tier 3 Allocation Base: Minimum 20% of Net Disposable Income. Tier 3 also acts as the primary Surplus Absorber (unallocated funds flow to Tier 3, NOT Tier 4).
 
-3. DISCRETIONARY BUDGET ALLOCATION (Alokasi Sisa Dana):
-   - Use the PER-CATEGORY MONTHLY AVERAGES (3-month averages) to guide how to distribute the remaining Net Disposable Income.
-   - The SUM of all discretionary category budgets MUST NEVER EXCEED Net Disposable Income.
-   - Prioritize: Makanan/daily needs → Transportasi → Tabungan (10-20% of income) → Hiburan & others.
+3. TIER 4: GAYA HIDUP & HIBURAN (Strict Hard Cap Max 15%):
+   - Discretionary spending (Nongkrong/Kafe, Belanja Hobi, Hiburan) MUST NOT exceed 15% of Net Disposable Income (e.g. Net Disposable Rp 5.850.000 → Max Tier 4 = Rp 877.500).
+   - If user history has no Tier 4 spend, default to 10% of Net Disposable.
+   - OVERSPEND AUDIT: If historical Tier 4 spend was > 15%, evaluate and explicitly cut the lifestyle envelope back to the safe ≤15% cap.
+   - SURPLUS PROHIBITION: Any leftover surplus from Tier 2 is STRICTLY PROHIBITED from entering Tier 4.
 
-4. PRACTICAL DAILY GUIDANCE:
-   - Calculate daily food/spending allowance: "~Rp X/hari untuk makan" (divide food budget by 30 days).
-   - Suggest a specific savings target amount and percentage.
+4. TIER 2: KEBUTUHAN POKOK OPERASIONAL (Comprehensive Category Allocation):
+   - Scan the user's registered CATEGORIES list (<user_financial_data>) and allocate envelopes for ALL active essential living categories.
+   - If real transaction history exists, use each category's 'Routine Monthly Baseline' (routineAvg3mo).
+   - If data is new/sparse (routineAvg3mo = 0), allocate the ~65% Net Disposable baseline across essential categories:
+     * Makanan & Minuman Harian: ~25% of Net Disposable
+     * Dapur, Sembako, Toiletries: ~10% of Net Disposable
+     * Transportasi Rutin (Bensin/Ojol): ~8% of Net Disposable
+     * Komunikasi & Kuota/Pulsa: ~5% of Net Disposable
+     * Kesehatan & Perawatan Diri: ~5% of Net Disposable
+     * Utilitas Tambahan (jika belum di Tier 1): ~3% of Net Disposable
+     * Buffer Kebutuhan Harian: ~9% of Net Disposable (Total = 65% Net Disposable)
+   - UNALLOCATED: If certain categories (like Listrik) are already in Tier 1 or not created as separate envelopes, explicitly label the unallocated portion as "Dana Belum Teralokasi (Rp X) dialihkan ke Tabungan (Tier 3 Booster)".
+   - Only use the term "Surplus Riil Hemat Belanja" when actual recorded transactions are lower than budget limits.
 
-5. THEN generate the 'recommend_budget' tool call with category limits that match your analysis.
+5. PANDUAN BELANJA HARIAN & ALOKASI REKENING (Sanity Check 100%):
+   - Dynamic Daily Food Allowance: Calculate based on remaining food budget and actual remaining days in current period (${remainingDaysInPeriod} days remaining):
+     Batas Harian = (Limit Anggaran Makanan - Makan Terpakai di Periode Ini (${currentPeriodFoodSpent})) / Sisa Hari (${remainingDaysInPeriod} hari).
+   - SANITY CHECK & ROUNDING: Round all category limits to the nearest Rp 1.000. Absorb any rounding remainder into Tier 3 (Tabungan) so that:
+     Tier 1 + Tier 2 + Tier 3 + Tier 4 == Tepat 100% Gaji Bruto.
+   - USER-OWNED ASSET ALLOCATION: ONLY recommend transfers using real account names from the user's registered Assets list (e.g. transfer from Bank Account to Savings or eWallet). DO NOT invent or mention third-party brand names that are not in the user's asset list!
+   - Then generate the 'recommend_budget' tool call with category limits matching Tier 2, Tier 3, and Tier 4 (only if income > 0 and asset categories are confirmed), and populate 'goalRecommendations' for any recommended emergency fund or savings targets.
 
 - Budget & Asset Recommendations:
   1. If the user asks for budget recommendations or planning, you MUST first ask or confirm with the user which asset categories/types (e.g., Cash, Bank Account, eWallet, Savings, Investment) they want to use for the recommendations. Do NOT call the 'recommend_budget' tool until the user has explicitly confirmed/replied with their preferred asset categories, or unless they have already specified it in their message (e.g. "Buat rencana gajiku hanya untuk Bank dan eWallet").
-  2. Once confirmed or specified, analyze the MULTI-MONTH SPENDING ANALYSIS data (3-month averages, fixed obligations, income patterns) to draft accurate budget limits. Provide a clear justification in Indonesian.
-  3. ONLY include categories in the tool call's 'recommendations' array that actually require a non-zero budget limit (> 0) based on multi-month averages, active recurring transactions, or active subscriptions. Do NOT include or draft categories that have a 0 budget recommendation.
-  4. If the user has multiple accounts and has concentrated balances in one account (like a salary account/checking account), or if an account is low on balance relative to upcoming bills, suggest a transfer from the high-balance account to the savings account, or to a dedicated account for category-specific spending (e.g. transfer Rp 1.5M from 'blu' to 'Mandiri' to fund the 'Makanan' budget). Provide these recommendations by populating the 'transferRecommendations' array parameter in the 'recommend_budget' tool call. MUST NOT recommend transfers to/from deleted assets or debt assets (Credit Card, Loan). Only use active Cash, Bank, eWallet, Savings, or Investment assets that fit within the categories/types confirmed by the user. You MUST STRICTLY obey any restrictions specified by the user in their message regarding which asset types are allowed for transfer destination (e.g., if the user says "HANYA boleh merekomendasikan transfer ke rekening dengan tipe: Bank Account", then only recommend transfers where the target asset (toAssetId) matches that type).
+  2. Once confirmed or specified, analyze the MULTI-MONTH SPENDING & BUDGET ANALYSIS data (routine baselines, fixed obligations, income patterns, asset liquidity) to draft accurate budget limits. Provide a clear justification in Indonesian.
+  3. ONLY include categories in the tool call's 'recommendations' array that actually require a non-zero budget limit (> 0) based on routine baselines, active recurring transactions, or active subscriptions. Do NOT include or draft categories that have a 0 budget recommendation.
+  4. If the user has multiple accounts and has concentrated balances in one account (like a salary account/checking account), or if an account is low on balance relative to upcoming bills, suggest a transfer from the high-balance account to the savings account, or to a dedicated account for category-specific spending (e.g. transfer from checking account to savings account to fund the Tier 3 budget). Provide these recommendations by populating the 'transferRecommendations' array parameter in the 'recommend_budget' tool call. MUST NOT recommend transfers to/from deleted assets or debt assets (Credit Card, Loan). Only use active Cash, Bank, eWallet, Savings, or Investment assets that fit within the categories/types confirmed by the user. You MUST STRICTLY obey any restrictions specified by the user in their message regarding which asset types are allowed for transfer destination.
   5. If the user has transactions that recur periodically (e.g., bills paid monthly, subscriptions, monthly savings, weekly transport costs, or a pattern of 2+ similar transactions), recommend them as recurring transactions by populating the 'recurringRecommendations' array. Provide a clear reason in Indonesian (e.g., 'Terdeteksi pengeluaran berulang untuk token listrik'). You MUST NOT recommend or duplicate recurring transactions for services or payments that are ALREADY registered in the user's 'RECENT RECURRING TRANSACTIONS' or 'SUBSCRIPTIONS' lists. Only suggest NEW patterns found in the transaction history that are not yet active recurring items.
+  6. Tier 3 Savings & Emergency Fund Goals: If recommending savings, building liquid emergency funds, or sinking funds in Tier 3, ALWAYS populate the 'goalRecommendations' array in 'recommend_budget' (e.g. name: 'Dana Darurat (Target 3 Bulan)', targetAmount: calculated target, targetDate: end of year or 6 months out, reason: explanation). If the user explicitly asks to create a savings goal or emergency fund directly (e.g. "Buatkan target tabungan Dana Darurat 15jt"), call the 'create_goal' tool.
 `;
     }
 
@@ -568,8 +778,13 @@ When the user asks for budget recommendations, financial planning, or monthly bu
       modularRules += `
 === OCR SCANNING & SPLIT BILL RULES ===
 - Receipt Scanner: GPT-based OCR extracts merchant, date, items, tax, and service charge. Tax and service are distributed proportionally.
-- Split Bill by Text: If the user pastes a text containing food/items and their prices (e.g. "Nasi Goreng 25k, Es Teh 5k"), you MUST call the 'create_split_bill' tool.
-- Split Bill distributions: Distributes items among contacts, generating Piutang (receivables) for others and recording a standard transaction for the user's share.
+- Split Bill by Text: When the user asks to split a bill with friends or gives a list of items, prices, and people (e.g. "Tolong split bill sama Budi dan Siti: Nasi Goreng 25k, Es Teh 5k"):
+  1. Extract merchantName (restaurant or 'Split Bill').
+  2. Extract contacts array with the names of all participants mentioned (e.g. ['Budi', 'Siti']). Do NOT include 'Saya'.
+  3. Extract lineItems with exact name and amount as an integer number (e.g. 25k -> 25000).
+  4. If specific items are for specific persons (e.g. 'Nasi Goreng punya Budi'), set assignedContacts: ['Budi'].
+  5. Calculate totalAmount as the sum of all item amounts.
+  6. ALWAYS call the 'create_split_bill' tool.
 `;
     }
 
@@ -633,6 +848,12 @@ STRICT GUARDRAILS:
 2. Decline ONLY completely unrelated non-financial topics (such as computer programming, cooking recipes, sports news, or general trivia). When declining, explain politely in Indonesian that you are MoneyBot for Monetiq, an AI assistant dedicated to personal finance. NEVER claim that financial advice is outside context or hallucinate third-party app names.
 3. If the user asks for help, tutorial, or how to use ANY feature, you MUST call 'get_app_help' to get the user manual.
 4. You can ONLY process and create ONE transaction/debt at a time. If the user provides multiple transactions (e.g. "makan 10rb dan bensin 20rb"), do NOT call 'create_transaction' for all. Instead, pick the first one or ask for clarification, and inform the user that for multiple entries, they should use the "Input Sekaligus" (Bulk Input) feature found in the main (+) menu.
+5. ZERO-TOLERANCE ANTI-HALLUCINATION PROTOCOL (ABSOLUTE RULE):
+   - NEVER invent, fabricate, or hallucinate transaction amounts, monthly numbers, dates, or spending breakdowns.
+   - When asked to explain where a number comes from or to show data breakdowns (e.g. "Tunjukkan datanya", "Darimana data itu?"), you MUST ONLY cite the exact numbers from the "PER-CATEGORY MONTHLY AVERAGES & RAW MONTHLY HISTORY" and "RECENT TRANSACTIONS" sections in <user_financial_data>.
+   - If a specific month had 0 spending, state Rp 0 explicitly.
+   - If historical data for a specific period is not recorded, state truthfully: "Data untuk periode tersebut belum tercatat di sistem." NEVER make up numbers to justify a recommendation.
+   - When making budget recommendations, base your amounts directly on the actual 3-Month Average or Overall Average provided in context, without randomly inflating figures.
 
 <user_financial_data>
 Categories: ${categoryList}
@@ -653,15 +874,20 @@ ${subscriptionSummary}
 ${modularRules ? `\nACTIVE TOPIC CONTEXT RULES:${modularRules}` : ''}
 
 BEHAVIOR RULES:
-1. When a user describes a transaction (e.g., "makan kfc 10k"), First, recommend category and asset name and ask for confirmation.
-2. ONLY call 'create_transaction' or 'create_debt' when the user explicitly agrees.
-3. For help/tutorial requests, use 'get_app_help'.
-4. For transfers between assets, use 'create_transaction' with 'type': 'transfer'.
-5. For debts (hutang) or receivables (piutang), use 'create_debt'.
-6. For split bill requests from raw text (e.g., "tolong split bill mie ayam 20rb es teh 5rb"), use 'create_split_bill'.
-7. Do NOT try to handle multiple transactions in one turn. Direct them to "Input Sekaligus" for bulk entries.
-8. Keep responses concise and in Indonesian.
-9. If a user describes a transaction with debt context (e.g., "bayarin makan Budi 50rb", "pinjam uang dari Ali 100rb"), call 'create_transaction' with linkDebt=true, debtType ('hutang' or 'piutang'), and debtContact.
+1. BUDGETING CONVERSATION CONTEXT (CRITICAL PRIORITY):
+   - When the user lists income, wages, debts, or living expenses in the context of budgeting, financial planning, or answering the AI's question about monthly income and obligations (e.g., "gaji 10.3jt, utang 600rb, kirim ortu 1.55jt, kos 1.45jt, listrik 150rb"):
+   - You MUST treat these numbers as **Tier 1 Fixed Commitments & Income inputs for the Budget Plan**.
+   - You MUST NOT call 'create_debt' or 'create_transaction' for these mentioned items!
+   - Continue directly with the PRIORITY CASH-FLOW & ASSET-INTEGRATED BUDGETING PROTOCOL (calculate Net Disposable, Tier 3, Tier 4, Tier 2).
+2. When a user explicitly describes a single transaction to record (e.g., "catat makan kfc 10k"), First, recommend category and asset name and ask for confirmation.
+3. ONLY call 'create_transaction' or 'create_debt' when the user explicitly intends to record an actual transaction/debt log.
+4. For help/tutorial requests, use 'get_app_help'.
+5. For transfers between assets, use 'create_transaction' with 'type': 'transfer'.
+6. For dedicated debt recording requests (e.g., "catat pinjaman ke Budi 50rb"), use 'create_debt'.
+7. For split bill requests from raw text (e.g., "tolong split bill mie ayam 20rb es teh 5rb"), use 'create_split_bill'.
+8. Do NOT try to handle multiple transactions in one turn. Direct them to "Input Sekaligus" for bulk entries.
+9. Keep responses concise and in Indonesian.
+10. If a user describes a transaction with debt context (e.g., "bayarin makan Budi 50rb", "pinjam uang dari Ali 100rb"), call 'create_transaction' with linkDebt=true, debtType ('hutang' or 'piutang'), and debtContact.
 
 RECENT UI/BEHAVIOR CHANGES:
 - Asset selection in dialogs now uses AssetSelectModal across the app (AddTripExpenseModal, DebtPaymentModal, SettleUpModal).
@@ -747,10 +973,43 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
                   required: ["type", "amount", "category", "frequency", "note", "reason"]
                 }
               },
+              goalRecommendations: {
+                type: "array",
+                description: "List of recommended savings goals or emergency funds (Tier 3: Pay Yourself First).",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string", description: "Name of the savings goal (e.g. 'Dana Darurat 3 Bulan', 'Tabungan Liburan')." },
+                    targetAmount: { type: "number", description: "Target amount in user currency." },
+                    targetDate: { type: "string", description: "Target completion date (YYYY-MM-DD)." },
+                    assetId: { type: "string", description: "Optional asset ID designated for this goal (e.g. Savings account ID)." },
+                    reason: { type: "string", description: "Brief reason or explanation in Indonesian." }
+                  },
+                  required: ["name", "targetAmount", "targetDate", "reason"]
+                }
+              },
               month: { type: "number", description: "Budget month (0-11, where 0 is January, 11 is December)." },
               year: { type: "number", description: "Budget year (YYYY)." }
             },
             required: ["recommendations", "month", "year"]
+          }
+        }
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "create_goal",
+          description: "Draft a savings goal or emergency fund target (e.g. Dana Darurat, Beli Laptop, Tabungan Liburan) for the user to confirm.",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Name of the savings goal (e.g. Dana Darurat 3 Bulan, Liburan Akhir Tahun)." },
+              targetAmount: { type: "number", description: "Target savings amount in user's currency." },
+              targetDate: { type: "string", description: "Target completion date (YYYY-MM-DD)." },
+              assetId: { type: "string", description: "Optional asset ID designated for this goal (e.g. Savings account ID)." },
+              note: { type: "string", description: "Optional notes or purpose of the goal." }
+            },
+            required: ["name", "targetAmount", "targetDate"]
           }
         }
       },
@@ -816,24 +1075,32 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
         type: "function" as const,
         function: {
           name: "create_split_bill",
-          description: "Parse raw text of items and prices into a structured split bill.",
+          description: "Parse raw text of items, prices, and mentioned contacts into a structured split bill.",
           parameters: {
             type: "object",
             properties: {
-              merchantName: { type: "string", description: "Inferred merchant name, or 'Split Bill' if unknown" },
-              totalAmount: { type: "number", description: "Total amount calculated" },
+              merchantName: { type: "string", description: "Inferred merchant or restaurant name, or 'Split Bill' if unknown" },
+              totalAmount: { type: "number", description: "Total amount calculated from all items" },
+              contacts: {
+                type: "array",
+                items: { type: "string" },
+                description: "List of other participant/friend names mentioned for the split bill (e.g. ['Budi', 'Siti']). Do NOT include 'Saya'."
+              },
               lineItems: {
                 type: "array",
                 description: "Array of items detected in the text.",
                 items: {
                   type: "object",
                   properties: {
-                    name: { type: "string" },
-                    quantity: { type: "number" },
-                    price: { type: "number", description: "Price per unit" },
-                    total: { type: "number", description: "Total for this item (quantity * price)" }
+                    name: { type: "string", description: "Item name" },
+                    amount: { type: "number", description: "Total price of this item as a number (e.g. 25000 for 25k)" },
+                    assignedContacts: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Contact names that ordered or share this item (e.g. ['Budi'] or ['Saya', 'Siti'])"
+                    }
                   },
-                  required: ["name", "quantity", "price", "total"]
+                  required: ["name", "amount"]
                 }
               }
             },
@@ -969,7 +1236,7 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
           });
         }
 
-        if (functionName === 'create_transaction' || functionName === 'create_debt' || functionName === 'recommend_budget' || functionName === 'create_subscription' || functionName === 'create_split_bill') {
+        if (functionName === 'create_transaction' || functionName === 'create_debt' || functionName === 'recommend_budget' || functionName === 'create_subscription' || functionName === 'create_split_bill' || functionName === 'create_goal') {
           let parsedArgs = {};
           try {
             parsedArgs = typeof toolCall.function.arguments === 'string'
@@ -985,6 +1252,8 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
             fallbackContent = "Berikut draf langganan baru yang telah saya buat. Silakan konfirmasi untuk menyimpannya!";
           } else if (functionName === 'create_split_bill') {
             fallbackContent = "Saya telah mendeteksi daftar tagihan dari teks Anda. Klik tombol di bawah ini untuk mengatur Split Bill-nya!";
+          } else if (functionName === 'create_goal') {
+            fallbackContent = "Berikut draf target tabungan baru yang telah saya buat. Silakan konfirmasi untuk menyimpannya!";
           }
           return res.status(200).json({
             role: "assistant",

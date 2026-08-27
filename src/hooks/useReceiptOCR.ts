@@ -25,6 +25,9 @@ export interface OCRResult {
   taxAmount?: number;
   serviceAmount?: number;
   discountAmount?: number;
+  documentType?: 'receipt' | 'bank_statement' | 'invalid';
+  isValidTransaction?: boolean;
+  validationMessage?: string;
   quotaUsed?: number;
   isPremium?: boolean;
   confidence: 'high' | 'medium' | 'low';
@@ -105,8 +108,18 @@ export const useReceiptOCR = () => {
       }
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Gagal menghubungi server AI.');
+        let errMsg = 'Gagal menghubungi server AI.';
+        try {
+          const errData = await response.json();
+          if (errData.error === 'Quota exceeded') {
+            errMsg = 'Kuota scan struk gratis bulan ini telah habis. Silakan upgrade ke Pro atau tukar poin di Toko Reward.';
+          } else {
+            errMsg = errData.message || errData.error || errMsg;
+          }
+        } catch {
+          errMsg = `Server error (${response.status}: ${response.statusText || 'Gagal memproses struk'})`;
+        }
+        throw new Error(errMsg);
       }
 
       setProgress(85);
@@ -179,6 +192,9 @@ export const useReceiptOCR = () => {
         taxAmount: tax,
         serviceAmount: service,
         discountAmount: discount,
+        documentType: result.documentType || (result.transactions ? 'bank_statement' : 'receipt'),
+        isValidTransaction: result.isValidTransaction !== false,
+        validationMessage: result.validationMessage || '',
         quotaUsed: result.quotaUsed,
         isPremium: result.isPremium,
         confidence: result.confidence || 'medium',

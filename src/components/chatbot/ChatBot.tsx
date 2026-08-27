@@ -47,7 +47,7 @@ const ChatBot: React.FC = () => {
     currencySymbol, isChatOpen, setIsChatOpen,
     recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
     startOfMonthDay, budgets, goals, addBudget, updateBudget, addSubscription,
-    addRecurringTransaction
+    addRecurringTransaction, addGoal
   } = useMoney();
   const { checkQuota, updatePremiumDataFromServer, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
@@ -150,7 +150,7 @@ const ChatBot: React.FC = () => {
               balance: getAssetBalance(a.id)
             })),
           transactions: [...transactions]
-            .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
+            .filter(t => !t.isDeleted && ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
             .filter(t => t.date >= startDateStr && t.date <= endDateStr)
             .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
             .map(t => ({
@@ -269,7 +269,7 @@ const ChatBot: React.FC = () => {
               balance: getAssetBalance(a.id)
             })),
           transactions: [...transactions]
-            .filter(t => ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
+            .filter(t => !t.isDeleted && ['pengeluaran', 'pendapatan', 'transfer'].includes(t.type))
             .sort((a, b) => b.date.localeCompare(a.date) || (b.time || '').localeCompare(a.time || ''))
             .map(t => ({
               type: t.type,
@@ -464,29 +464,58 @@ const ChatBot: React.FC = () => {
 
   const handleConfirmBudget = (msgIndex: number, toolArgs: any) => {
     try {
-      const { recommendations, month, year } = toolArgs;
+      const { recommendations, month, year, goalRecommendations } = toolArgs;
       if (!recommendations || !Array.isArray(recommendations)) {
         showToast('Rekomendasi tidak valid', 'warning');
         return;
       }
 
+      // Normalize month: if month is 1-12, normalize to 0-11
+      let targetMonth = typeof month === 'number' ? month : new Date().getMonth();
+      const targetYear = typeof year === 'number' ? year : new Date().getFullYear();
+      const currentJsMonth = new Date().getMonth(); // 0-11
+      if (targetMonth === currentJsMonth + 1 || targetMonth > 11) {
+        targetMonth = targetMonth - 1;
+      }
+
       recommendations.forEach((rec: any) => {
+        const matchedCat = categories.find(c => 
+          c.id === rec.categoryId || 
+          (c.name && c.name.toLowerCase() === (rec.categoryId || '').toLowerCase()) ||
+          (c.name && c.name.toLowerCase() === (rec.categoryName || '').toLowerCase())
+        );
+        const finalCategoryId = matchedCat ? matchedCat.id : rec.categoryId;
+
         const existing = budgets.find(
-          b => b.categoryId === rec.categoryId && b.month === month && b.year === year
+          b => b.categoryId === finalCategoryId && b.month === targetMonth && b.year === targetYear
         );
 
         if (existing) {
           updateBudget(existing.id, { limit: Number(rec.limit) });
         } else {
           addBudget({
-            categoryId: rec.categoryId,
+            categoryId: finalCategoryId,
             limit: Number(rec.limit),
             period: 'monthly',
-            month,
-            year
+            month: targetMonth,
+            year: targetYear
           });
         }
       });
+
+      // Also create any unexecuted goalRecommendations if present
+      if (goalRecommendations && Array.isArray(goalRecommendations)) {
+        goalRecommendations.forEach((g: any) => {
+          if (!g.isExecuted) {
+            addGoal({
+              name: g.name,
+              targetAmount: Number(g.targetAmount),
+              targetDate: g.targetDate || getLocalDate(),
+              assetId: g.assetId || undefined,
+            });
+          }
+        });
+      }
 
       setMessages(prev => prev.map((m, i) => 
         i === msgIndex ? { ...m, toolCall: undefined, content: '✅ Rekomendasi anggaran berhasil diterapkan!' } : m
@@ -590,8 +619,16 @@ const ChatBot: React.FC = () => {
 
   const handleExecuteTransferRecommendation = (msgIndex: number, transferIdx: number, tf: any) => {
     try {
-      const fromAsset = assets.find(a => a.id === tf.fromAssetId);
-      const toAsset = assets.find(a => a.id === tf.toAssetId);
+      const fromAsset = assets.find(a => 
+        a.id === tf.fromAssetId || 
+        (a.name && a.name.toLowerCase() === (tf.fromAssetId || '').toLowerCase()) ||
+        (a.name && a.name.toLowerCase() === (tf.fromAssetName || '').toLowerCase())
+      );
+      const toAsset = assets.find(a => 
+        a.id === tf.toAssetId || 
+        (a.name && a.name.toLowerCase() === (tf.toAssetId || '').toLowerCase()) ||
+        (a.name && a.name.toLowerCase() === (tf.toAssetName || '').toLowerCase())
+      );
 
       if (!fromAsset || fromAsset.isDeleted || ['Credit Card', 'Loan'].includes(fromAsset.type)) {
         throw new Error('Rekening asal tidak valid atau merupakan kartu kredit/pinjaman.');
@@ -606,8 +643,8 @@ const ChatBot: React.FC = () => {
         date: getLocalDate(),
         note: tf.reason || `Transfer Rekomendasi AI`,
         categoryId: undefined,
-        fromAssetId: tf.fromAssetId,
-        toAssetId: tf.toAssetId,
+        fromAssetId: fromAsset.id,
+        toAssetId: toAsset.id,
       });
 
       setMessages(prev => prev.map((m, i) => {
@@ -663,6 +700,56 @@ const ChatBot: React.FC = () => {
       showToast(`Berhasil mengaktifkan transaksi rutin: ${rt.note}!`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Gagal mengaktifkan transaksi rutin', 'error');
+    }
+  };
+
+  const handleConfirmGoal = (msgIndex: number, toolArgs: any) => {
+    try {
+      addGoal({
+        name: toolArgs.name,
+        targetAmount: Number(toolArgs.targetAmount),
+        targetDate: toolArgs.targetDate || getLocalDate(),
+        assetId: toolArgs.assetId || undefined,
+      });
+
+      setMessages(prev => prev.map((m, i) => 
+        i === msgIndex ? { ...m, toolCall: undefined, content: `✅ Target tabungan "${toolArgs.name}" berhasil dibuat!` } : m
+      ));
+      
+      showToast(`Target tabungan "${toolArgs.name}" berhasil ditambahkan!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menambahkan target tabungan', 'error');
+    }
+  };
+
+  const handleExecuteGoalRecommendation = (msgIndex: number, goalIdx: number, goalRec: any) => {
+    try {
+      addGoal({
+        name: goalRec.name,
+        targetAmount: Number(goalRec.targetAmount),
+        targetDate: goalRec.targetDate || getLocalDate(),
+        assetId: goalRec.assetId || undefined,
+      });
+
+      setMessages(prev => prev.map((m, i) => {
+        if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
+          const updatedGoals = (m.toolCall.arguments.goalRecommendations || []).map((g: any, idx: number) => 
+            idx === goalIdx ? { ...g, isExecuted: true } : g
+          );
+          return {
+            ...m,
+            toolCall: {
+              ...m.toolCall,
+              arguments: { ...m.toolCall.arguments, goalRecommendations: updatedGoals }
+            }
+          };
+        }
+        return m;
+      }));
+
+      showToast(`Target tabungan "${goalRec.name}" berhasil dibuat!`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal membuat target tabungan', 'error');
     }
   };
 
@@ -740,7 +827,7 @@ const ChatBot: React.FC = () => {
                     {renderMarkdown(msg.content)}
                   </div>
                 )}
-                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt' || msg.toolCall.name === 'create_subscription' || msg.toolCall.name === 'create_split_bill') && (
+                {msg.toolCall && (msg.toolCall.name === 'create_transaction' || msg.toolCall.name === 'create_debt' || msg.toolCall.name === 'create_subscription' || msg.toolCall.name === 'create_split_bill' || msg.toolCall.name === 'create_goal') && (
                   <div style={{
                     marginTop: '8px',
                     width: '100%',
@@ -751,9 +838,9 @@ const ChatBot: React.FC = () => {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
-                      <MaterialIcon name="error" className="text-[16px]" />
+                      <MaterialIcon name={msg.toolCall.name === 'create_goal' ? 'flag' : 'error'} className="text-[16px]" />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : msg.toolCall.name === 'create_debt' ? 'Draft Catatan Hutang' : msg.toolCall.name === 'create_split_bill' ? 'Draft Split Bill' : 'Draft Langganan Baru'}
+                        {msg.toolCall.name === 'create_transaction' ? 'Draft Transaksi' : msg.toolCall.name === 'create_debt' ? 'Draft Catatan Hutang' : msg.toolCall.name === 'create_split_bill' ? 'Draft Split Bill' : msg.toolCall.name === 'create_goal' ? 'Draft Target Tabungan / Dana Darurat' : 'Draft Langganan Baru'}
                       </span>
                     </div>
                     
@@ -1219,6 +1306,104 @@ const ChatBot: React.FC = () => {
                             />
                           </div>
                         </>
+                      ) : msg.toolCall.name === 'create_goal' ? (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Nama Target:</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.name || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'name', e.target.value)}
+                              placeholder="Nama target (misal: Dana Darurat)..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '180px',
+                                textAlign: 'right'
+                              }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Target Nominal:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600 }}>{currencySymbol}</span>
+                              <input 
+                                type="text" 
+                                value={msg.toolCall.arguments.targetAmount === 0 || !msg.toolCall.arguments.targetAmount ? '' : msg.toolCall.arguments.targetAmount.toLocaleString('id-ID')}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value.replace(/\D/g, '')) || 0;
+                                  handleUpdateDraftField(idx, 'targetAmount', val);
+                                }}
+                                style={{
+                                  background: 'var(--bg-neutral)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '12px',
+                                  color: 'var(--text-main)',
+                                  outline: 'none',
+                                  width: '120px',
+                                  textAlign: 'right',
+                                  fontWeight: 700
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Rekening Tabungan:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSelectAssetMsgIdx(idx);
+                                setAssetSelectCallback(() => (assetId: string) => {
+                                  handleUpdateDraftField(idx, 'assetId', assetId);
+                                });
+                              }}
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {assets.find(a => a.id === msg.toolCall?.arguments?.assetId)?.name || 'Semua / Opsional'}
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Catatan:</span>
+                            <input 
+                              type="text" 
+                              value={msg.toolCall.arguments.note || ''} 
+                              onChange={(e) => handleUpdateDraftField(idx, 'note', e.target.value)}
+                              placeholder="Alasan/Catatan..."
+                              style={{
+                                background: 'var(--bg-neutral)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                outline: 'none',
+                                width: '150px',
+                                textAlign: 'right'
+                              }}
+                            />
+                          </div>
+                        </>
                       ) : (
                         <>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1396,7 +1581,26 @@ const ChatBot: React.FC = () => {
                         </>
                       )}
 
-                      {msg.toolCall.name !== 'create_subscription' ? (
+                      {msg.toolCall.name === 'create_goal' ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Target Tercapai:</span>
+                          <input 
+                            type="date" 
+                            value={msg.toolCall.arguments.targetDate || getLocalDate()}
+                            onChange={(e) => handleUpdateDraftField(idx, 'targetDate', e.target.value)}
+                            style={{ 
+                              background: 'var(--bg-neutral)', 
+                              border: '1px solid var(--border-color)', 
+                              borderRadius: '8px', 
+                              padding: '4px 8px', 
+                              fontSize: '12px', 
+                              color: 'var(--text-main)',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                      ) : msg.toolCall.name !== 'create_subscription' ? (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ color: 'var(--text-muted)' }}>Tanggal:</span>
                           <input 
@@ -1452,6 +1656,8 @@ const ChatBot: React.FC = () => {
                               handleConfirmTransaction(idx, msg.toolCall.arguments);
                             } else if (msg.toolCall?.name === 'create_debt') {
                               handleConfirmDebt(idx, msg.toolCall.arguments);
+                            } else if (msg.toolCall?.name === 'create_goal') {
+                              handleConfirmGoal(idx, msg.toolCall.arguments);
                             } else {
                               handleConfirmSubscription(idx, msg.toolCall!.arguments);
                             }
@@ -1464,14 +1670,27 @@ const ChatBot: React.FC = () => {
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                          Sistem mendeteksi <b>{msg.toolCall.arguments.lineItems?.length || 0} item</b> untuk dibuat Split Bill.
+                          Sistem mendeteksi <b>{msg.toolCall.arguments.lineItems?.length || 0} item</b>
+                          {msg.toolCall.arguments.contacts?.length > 0 && (
+                            <span> bersama <b>{msg.toolCall.arguments.contacts.join(', ')}</b></span>
+                          )} untuk dibuat Split Bill.
                         </div>
                         <button
                           onClick={() => {
+                            const rawItems = msg.toolCall?.arguments.lineItems || [];
+                            const normalizedItems = rawItems.map((item: any) => ({
+                              name: item.name || 'Item',
+                              amount: Number(item.amount || item.total || item.price || 0),
+                              assignedContacts: item.assignedContacts || [],
+                              selected: true,
+                            }));
+                            const computedTotal = msg.toolCall?.arguments.totalAmount || normalizedItems.reduce((s: number, i: any) => s + (i.amount || 0), 0);
+
                             setSplitBillData({
                               merchantName: msg.toolCall?.arguments.merchantName || 'Split Bill',
-                              totalAmount: msg.toolCall?.arguments.totalAmount || 0,
-                              lineItems: msg.toolCall?.arguments.lineItems || []
+                              totalAmount: computedTotal,
+                              contacts: msg.toolCall?.arguments.contacts || [],
+                              lineItems: normalizedItems
                             });
                             setSplitBillModalOpen(true);
                             
@@ -1663,8 +1882,16 @@ const ChatBot: React.FC = () => {
                           </span>
                         </div>
                         {msg.toolCall.arguments.transferRecommendations.map((tf: any, tfIdx: number) => {
-                          const fromAsset = assets.find(a => a.id === tf.fromAssetId);
-                          const toAsset = assets.find(a => a.id === tf.toAssetId);
+                          const fromAsset = assets.find(a => 
+                            a.id === tf.fromAssetId || 
+                            (a.name && a.name.toLowerCase() === (tf.fromAssetId || '').toLowerCase()) ||
+                            (a.name && a.name.toLowerCase() === (tf.fromAssetName || '').toLowerCase())
+                          );
+                          const toAsset = assets.find(a => 
+                            a.id === tf.toAssetId || 
+                            (a.name && a.name.toLowerCase() === (tf.toAssetId || '').toLowerCase()) ||
+                            (a.name && a.name.toLowerCase() === (tf.toAssetName || '').toLowerCase())
+                          );
                           
                           // Skip rendering if it involves Credit Card, Loan, or deleted assets
                           const isFromDebt = fromAsset && ['Credit Card', 'Loan'].includes(fromAsset.type);
@@ -1674,6 +1901,9 @@ const ChatBot: React.FC = () => {
                           if (isFromDebt || isToDebt || isDeleted || !fromAsset || !toAsset) {
                             return null;
                           }
+
+                          const displayFromName = fromAsset.name || tf.fromAssetName || 'Rekening Asal';
+                          const displayToName = toAsset.name || tf.toAssetName || 'Rekening Tujuan';
 
                           return (
                             <div key={tfIdx} style={{ 
@@ -1687,9 +1917,9 @@ const ChatBot: React.FC = () => {
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
-                                <span>{tf.fromAssetName}</span>
+                                <span>{displayFromName}</span>
                                 <MaterialIcon name="arrow_forward" className="text-[12px] text-on-surface-variant" />
-                                <span>{tf.toAssetName}</span>
+                                <span>{displayToName}</span>
                               </div>
                               <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
                                 {currencySymbol}{tf.amount.toLocaleString('id-ID')}
@@ -1802,6 +2032,81 @@ const ChatBot: React.FC = () => {
                                 </>
                               ) : (
                                 'Aktifkan Transaksi Rutin'
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {msg.toolCall.arguments.goalRecommendations && msg.toolCall.arguments.goalRecommendations.length > 0 && (
+                      <div style={{ 
+                        marginTop: '16px', 
+                        borderTop: '1px dashed var(--border-color)', 
+                        paddingTop: '16px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '12px', 
+                        marginBottom: '16px' 
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)' }}>
+                          <MaterialIcon name="flag" className="text-[16px]" />
+                          <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                            Rekomendasi Target Tabungan & Dana Darurat
+                          </span>
+                        </div>
+                        {msg.toolCall.arguments.goalRecommendations.map((goalRec: any, gIdx: number) => (
+                          <div key={gIdx} style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-card)', 
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
+                                {goalRec.name}
+                              </span>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                                {currencySymbol}{Number(goalRec.targetAmount || 0).toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Target Tanggal: {goalRec.targetDate || 'Akhir Tahun'}
+                            </div>
+                            {goalRec.reason && (
+                              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
+                                {goalRec.reason}
+                              </p>
+                            )}
+                            <button
+                              onClick={() => handleExecuteGoalRecommendation(idx, gIdx, goalRec)}
+                              disabled={goalRec.isExecuted}
+                              style={{
+                                marginTop: '4px',
+                                width: '100%',
+                                padding: '6px',
+                                borderRadius: '8px',
+                                border: goalRec.isExecuted ? '1px solid var(--success-border, #10b981)' : 'none',
+                                background: goalRec.isExecuted ? 'rgba(16, 185, 129, 0.1)' : 'var(--primary)',
+                                color: goalRec.isExecuted ? 'var(--success-text, #10b981)' : 'white',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: goalRec.isExecuted ? 'default' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {goalRec.isExecuted ? (
+                                <>
+                                  <MaterialIcon name="check" className="text-[12px]" /> Target Tabungan Berhasil Dibuat
+                                </>
+                              ) : (
+                                'Buat Target Tabungan'
                               )}
                             </button>
                           </div>
@@ -2166,6 +2471,7 @@ const ChatBot: React.FC = () => {
           totalAmount={splitBillData.totalAmount}
           date={getLocalDate()}
           lineItems={splitBillData.lineItems}
+          initialContacts={splitBillData.contacts}
           assets={assets}
           categories={categories}
           onSave={(splits, data) => {

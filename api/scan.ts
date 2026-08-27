@@ -56,7 +56,13 @@ export default async function handler(req: any, res: any) {
     const defaultAsset = assets?.find((a: any) => a.id === defaultAssetId);
     const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
 
-    const prompt = `You are a receipt parser. Extract receipt data and return ONLY a valid JSON object with these fields:
+    const prompt = `You are a fin-tech document parser. Analyze the uploaded image and return ONLY a valid JSON object with these fields:
+    - documentType: "receipt" | "bank_statement" | "invalid"
+      * "receipt": A single shopping receipt, cashier receipt, restaurant bill, invoice, or single purchase proof.
+      * "bank_statement": A bank account mutation, m-banking history list, multi-transaction statement, or transfer ledger.
+      * "invalid": Non-financial image, selfie, scenery, meme, or unreadable document.
+    - isValidTransaction: boolean (true if image is a receipt, invoice, transfer receipt, or bank statement; false if invalid/unrelated)
+    - validationMessage: string (empty if valid receipt; or explanation if bank_statement / invalid)
     - merchantName: string (The actual store, merchant, or target name. 
       CRITICAL RULES FOR MERCHANT NAME:
       1. Extract ONLY the real merchant, store, or recipient entity name. 
@@ -84,7 +90,7 @@ export default async function handler(req: any, res: any) {
     - suggestedCategory: best match main category name from available categories [${categoryWithSubs}]. CRITICAL: For services like Laundry, dry clean, cuci baju, cuci sepatu, etc., match to categories like "Belanja", "Tagihan", "Rumah Tangga", "Layanan", or "Kebersihan" if no exact "Laundry" main category exists. Do NOT output "Lainnya" if any logical category fits.
     - suggestedSubCategory: best match sub-category if applicable, or empty string
     - suggestedAsset: best match payment method from [${assetList}], or empty string. ${defaultAssetHint ? `If the payment method is not clearly stated, prefer "${defaultAsset.name}" as it is the user's default.` : ""}
-    - confidence: "high" | "medium" | "low"`;
+    - confidence: "high" | "medium" | "low"
     
     IMPORTANT RULES:
     1. Only extract numbers that are CLEARLY VISIBLE in the receipt.

@@ -114,7 +114,7 @@ const Budgets: React.FC = () => {
     const budget = currentMonthBudgets.find(b => b.id === selectedBudgetId);
     if (!budget || !budget.categoryId) return [];
     
-    const cat = categoryMap.get(budget.categoryId);
+    const cat = budget.categoryId ? (categoryMap.get(budget.categoryId) || categories.find(c => c.name.toLowerCase() === budget.categoryId?.toLowerCase())) : undefined;
     if (!cat) return [];
 
     const periodStart = new Date(selectedYear, selectedMonth - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
@@ -308,7 +308,7 @@ const Budgets: React.FC = () => {
                 </div>
               ) : (
                 categoryBudgets.map(budget => {
-                  const cat = categories.find(c => c.id === budget.categoryId);
+                  const cat = categories.find(c => c.id === budget.categoryId || (c.name && c.name.toLowerCase() === (budget.categoryId || '').toLowerCase()));
                   if (!cat) return null;
                   
                   const spent = spendingMap[cat.id] || 0;

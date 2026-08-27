@@ -28,6 +28,7 @@ interface SplitBillModalProps {
   merchantName: string;
   date: string;
   lineItems?: LineItem[];
+  initialContacts?: string[];
   assets: Asset[];
   categories: Category[];
   initialAssetId?: string;
@@ -44,6 +45,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   merchantName,
   date,
   lineItems,
+  initialContacts,
   assets,
   categories,
   initialAssetId,
@@ -93,10 +95,46 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setSplits([{ id: 'me', contactName: 'Saya', amount: totalAmount, isPayer: true }]);
-      setSplitMethod(lineItems && lineItems.length > 0 ? 'items' : 'equal');
-      setLocalLineItems(lineItems || []);
-      setItemAssignments({});
+      // 1. Initialize people: 'Saya' + any mentioned initialContacts
+      let initialPeople: SplitPerson[] = [{ id: 'me', contactName: 'Saya', amount: totalAmount, isPayer: true }];
+      if (initialContacts && initialContacts.length > 0) {
+        const extraPeople = initialContacts
+          .filter(name => name && name.toLowerCase() !== 'saya' && name.toLowerCase() !== 'me')
+          .map(name => ({
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            contactName: name.trim(),
+            amount: 0,
+            isPayer: false,
+          }));
+        initialPeople = [...initialPeople, ...extraPeople];
+      }
+
+      // 2. Normalize line items so amount is always a number (support amount, total, price)
+      const normalizedItems: LineItem[] = (lineItems || []).map((item: any) => ({
+        name: item.name || 'Item',
+        amount: Number(item.amount || item.total || item.price || 0),
+        selected: item.selected !== false,
+      }));
+
+      // 3. Map any pre-assigned contacts to person IDs
+      const assignments: Record<number, string[]> = {};
+      (lineItems || []).forEach((item: any, idx) => {
+        if (item.assignedContacts && Array.isArray(item.assignedContacts) && item.assignedContacts.length > 0) {
+          const matchedIds = item.assignedContacts.map((cName: string) => {
+            const found = initialPeople.find(p => p.contactName.toLowerCase() === cName.toLowerCase() || (cName.toLowerCase() === 'saya' && p.id === 'me'));
+            return found ? found.id : null;
+          }).filter(Boolean) as string[];
+          if (matchedIds.length > 0) {
+            assignments[idx] = matchedIds;
+          }
+        }
+      });
+
+      const effectiveMethod = normalizedItems.length > 0 ? 'items' : 'equal';
+      setSplits(initialPeople);
+      setSplitMethod(effectiveMethod);
+      setLocalLineItems(normalizedItems);
+      setItemAssignments(assignments);
       setSelectedAssetId(initialAssetId || '');
       setReceiveAssetId(initialAssetId || '');
       setSelectedCategoryId(initialCategoryId || '');
@@ -104,8 +142,15 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       setActiveSharedId(null);
       setIsSharing(false);
       setShowCopySuccess(false);
+
+      // 4. Calculate initial distribution
+      if (effectiveMethod === 'items' && normalizedItems.length > 0) {
+        calculateItemSplit(initialPeople, assignments, normalizedItems);
+      } else {
+        calculateEqualSplit(initialPeople);
+      }
     }
-  }, [isOpen, totalAmount, lineItems, initialAssetId, initialCategoryId, initialSubCategoryId]);
+  }, [isOpen, totalAmount, lineItems, initialContacts, initialAssetId, initialCategoryId, initialSubCategoryId]);
 
   const addPeople = (names: string[]) => {
     const existingNames = splits.map(s => s.contactName);

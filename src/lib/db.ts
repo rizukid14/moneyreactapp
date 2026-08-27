@@ -621,7 +621,7 @@ export const dbGetSetting = async (key: string) => {
     const docSnap = await withTimeout(getDoc(doc(collection(firestore, getSettingPath(key)), key)));
     const cloud = docSnap.exists() ? docSnap.data().value : undefined;
     // Cache into IDB so next read costs nothing
-    if (cloud !== undefined) await (await getDB()).put('settings', cloud, key);
+    if (cloud !== undefined) await localDbPutSetting(key, cloud);
     return cloud;
   } catch (e) { return local; }
 };

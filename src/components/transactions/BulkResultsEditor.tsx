@@ -273,7 +273,7 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                   )}
                   <button onClick={() => openModal('category', item.id)} style={{ gridColumn: isMutation ? '1 / -1' : 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Kategori</span>
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: item.category ? 'var(--text-main)' : 'var(--text-muted)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: item.categoryId ? 'var(--text-main)' : 'var(--text-muted)', width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {getCategoryLabel(item)}
                     </span>
                   </button>
@@ -350,8 +350,8 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                 </>
               )}
 
-              {/* Admin Fee (spans full width if present or added) */}
-              {isMutation && (
+              {/* Admin Fee (only for Transfer transactions) */}
+              {item.type === 'transfer' && (
                 <div style={{ gridColumn: '1 / -1', background: item.adminFee ? 'hsla(35, 90%, 55%, 0.08)' : 'var(--bg-main)', border: `1px solid ${item.adminFee ? 'hsla(35, 90%, 55%, 0.3)' : 'var(--border-color)'}`, borderRadius: '12px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Biaya Admin</span>

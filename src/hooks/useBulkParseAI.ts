@@ -41,7 +41,14 @@ export const useBulkParseAI = () => {
     categories?: any[];
     assets?: any[];
     defaultAssetId?: string
-  }): Promise<{ transactions: ParsedTransaction[], quotaUsed?: number, isPremium?: boolean } | null> => {
+  }): Promise<{ 
+    transactions: ParsedTransaction[]; 
+    documentType?: 'bank_statement' | 'receipt' | 'invalid';
+    isValidTransaction?: boolean;
+    validationMessage?: string;
+    quotaUsed?: number; 
+    isPremium?: boolean;
+  } | null> => {
     setIsParsing(true);
     setError(null);
     setProgress(0);
@@ -80,9 +87,9 @@ export const useBulkParseAI = () => {
               ?.filter(c => !c.isDeleted)
               .map(c => ({ 
                 name: c.name, 
-                subcategories: c.subcategories
+                subcategories: (c.subcategories || [])
                   ?.filter((s: any) => !s.isDeleted)
-                  .map((s: any) => ({ name: s.name })) 
+                  .map((s: any) => typeof s === 'string' ? s : s.name) 
               })),
             assets: assets?.map(a => ({ name: a.name, id: a.id })),
             defaultAssetId,
@@ -94,8 +101,18 @@ export const useBulkParseAI = () => {
       }
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Gagal menghubungi server AI.');
+        let errMsg = 'Gagal menghubungi server AI.';
+        try {
+          const errData = await response.json();
+          if (errData.error === 'Quota exceeded') {
+            errMsg = 'Kuota scan mutasi gratis bulan ini telah habis. Silakan upgrade ke Pro atau tukar poin di Toko Reward.';
+          } else {
+            errMsg = errData.message || errData.error || errMsg;
+          }
+        } catch {
+          errMsg = `Server error (${response.status}: ${response.statusText || 'Gagal memproses data'})`;
+        }
+        throw new Error(errMsg);
       }
 
       setProgress(90);
@@ -117,8 +134,10 @@ export const useBulkParseAI = () => {
           amount: item.amount || 0,
           date: item.date || getLocalDate(),
           note: cleanMerchantNote(item.note || ''),
-          categoryId: item.category || '',
+          category: item.category || '',
           subCategory: item.subCategory || '',
+          categoryId: item.category || '',
+          subCategoryId: item.subCategory || '',
           asset: item.asset || '',
           fromAsset: item.fromAsset || '',
           toAsset: item.toAsset || '',
@@ -131,6 +150,9 @@ export const useBulkParseAI = () => {
       setProgress(100);
       return {
         transactions: mappedTransactions,
+        documentType: result.documentType || 'bank_statement',
+        isValidTransaction: result.isValidTransaction !== false,
+        validationMessage: result.validationMessage || '',
         quotaUsed: result.quotaUsed,
         isPremium: result.isPremium
       };

@@ -85,6 +85,14 @@ const ReceiptScanner: React.FC = () => {
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [docTypeMismatch, setDocTypeMismatch] = useState<{
+    isOpen: boolean;
+    detectedType: 'receipt' | 'bank_statement';
+    currentMode: 'struk' | 'mutasi';
+    blob: Blob;
+    pendingReceipt?: OCRResult;
+    pendingMutasi?: ParsedTransaction[];
+  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -313,59 +321,32 @@ const ReceiptScanner: React.FC = () => {
       if (parsedData?.quotaUsed !== undefined) {
         await updatePremiumDataFromServer('bulk', parsedData.quotaUsed, parsedData.isPremium);
       }
-      if (parsedData && parsedData.transactions && parsedData.transactions.length > 0) {
-        const augmented = parsedData.transactions.map(tx => {
-          const mapAsset = (assetName: string | undefined, defaultId = '') => {
-            if (!assetName) return defaultId;
-            const matched = activeAssets.find(a => a.name.toLowerCase().includes(assetName.toLowerCase()) || assetName.toLowerCase().includes(a.name.toLowerCase()));
-            return matched?.id || defaultId;
-          };
+      if (parsedData) {
+        if (parsedData.isValidTransaction === false || parsedData.documentType === 'invalid') {
+          showToast(parsedData.validationMessage || 'Gambar yang diunggah tidak dikenali sebagai dokumen transaksi atau mutasi yang valid.', 'error');
+          setStage('crop');
+          return;
+        }
 
-          const fallbackAssetId = contextDefaultAssetId || activeAssets[0]?.id || '';
-          const matchedAssetId = mapAsset(tx.asset, fallbackAssetId);
-          const matchedFromAssetId = mapAsset(tx.fromAsset, fallbackAssetId);
-          const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || fallbackAssetId);
+        if (parsedData.documentType === 'receipt') {
+          setDocTypeMismatch({
+            isOpen: true,
+            detectedType: 'receipt',
+            currentMode: 'mutasi',
+            blob: blob as Blob,
+            pendingMutasi: parsedData.transactions
+          });
+          return;
+        }
 
-          let matchedCategoryId = '';
-          let matchedSubCategoryId = '';
-          if (tx.categoryId && tx.type !== 'transfer') {
-            const matchedCat = categories.find(c => 
-              c.type === tx.type && 
-              !c.isDeleted && 
-              (c.name.toLowerCase() === tx.categoryId.toLowerCase() || 
-               c.name.toLowerCase().includes(tx.categoryId.toLowerCase()) || 
-               tx.categoryId.toLowerCase().includes(c.name.toLowerCase()))
-            );
-            if (matchedCat) {
-              matchedCategoryId = matchedCat.id;
-              if (tx.subCategoryId && matchedCat.subcategories) {
-                const matchedSub = matchedCat.subcategories.find(s => 
-                  !s.isDeleted && 
-                  (s.name.toLowerCase() === tx.subCategoryId!.toLowerCase() ||
-                   s.name.toLowerCase().includes(tx.subCategoryId!.toLowerCase()) ||
-                   tx.subCategoryId!.toLowerCase().includes(s.name.toLowerCase()))
-                );
-                if (matchedSub) matchedSubCategoryId = matchedSub.id;
-              }
-            }
-          }
-
-          return {
-            ...tx,
-            asset: matchedAssetId,
-            fromAsset: matchedFromAssetId,
-            toAsset: matchedToAssetId,
-            categoryId: matchedCategoryId || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '' : categories.find(c => c.type === 'pendapatan' && !c.isDeleted)?.id || ''),
-            subCategoryId: matchedSubCategoryId || ''
-          };
-        });
-
-        setMutasiResults(augmented);
-        setStage('results');
-      } else if (parsedData && parsedData.transactions && parsedData.transactions.length === 0) {
-        showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
-        setStage('crop');
+        if (parsedData.transactions.length > 0) {
+          applyMutasiData(parsedData.transactions);
+        } else {
+          showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
+          setStage('crop');
+        }
       } else {
+        if (mutasiError) showToast(mutasiError, 'error');
         setStage('crop');
       }
       return;
@@ -377,59 +358,166 @@ const ReceiptScanner: React.FC = () => {
       await updatePremiumDataFromServer('scan', ocrResult.quotaUsed, ocrResult.isPremium);
     }
     if (ocrResult) {
-      if (ocrResult.amount === 0) {
-        if (ocrResult.rawText.trim().length === 0) {
-          showToast('AI tidak berhasil membaca teks apapun. Pastikan foto cukup terang.', 'warning');
-        } else {
-          showToast('Teks terbaca, tapi tidak menemukan nominal Total.', 'warning');
-        }
+      if (ocrResult.isValidTransaction === false || ocrResult.documentType === 'invalid') {
+        showToast(ocrResult.validationMessage || 'Gambar yang diunggah tidak dikenali sebagai struk belanja atau bukti transaksi yang valid.', 'error');
+        setStage('crop');
+        return;
       }
 
-      setResult(ocrResult);
-
-      // 1. Asset/Payment Method Matching
-      if (ocrResult.suggestedAsset) {
-        const matchedAsset = activeAssets.find(a =>
-          a.name.toLowerCase() === ocrResult.suggestedAsset?.toLowerCase()
-        );
-        if (matchedAsset) {
-          setSelectedAssetId(matchedAsset.id);
-        } else {
-          setSelectedAssetId(contextDefaultAssetId || activeAssets[0]?.id || '');
-        }
-      } else {
-        setSelectedAssetId(contextDefaultAssetId || activeAssets[0]?.id || '');
+      if (ocrResult.documentType === 'bank_statement') {
+        setDocTypeMismatch({
+          isOpen: true,
+          detectedType: 'bank_statement',
+          currentMode: 'struk',
+          blob: blob as Blob,
+          pendingReceipt: ocrResult
+        });
+        return;
       }
 
-      setSelectedType('pengeluaran');
-      setSelectedDate(ocrResult.date);
-      setSelectedTime(ocrResult.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
-      setEditableAmount(ocrResult.amount > 0 ? ocrResult.amount.toString() : '');
-      setMerchantName(ocrResult.merchantName || 'Scan Otomatis');
-      setLineItems(ocrResult.lineItems);
-      setTaxAmount(ocrResult.taxAmount || 0);
-      setServiceAmount(ocrResult.serviceAmount || 0);
-      setDiscountAmount(ocrResult.discountAmount || 0);
-
-      // 2. Robust Category & Subcategory Matching
-      const matched = findBestCategoryMatch(
-        ocrResult.suggestedCategory,
-        ocrResult.suggestedSubCategory,
-        ocrResult.merchantName,
-        categories,
-        'pengeluaran'
-      );
-      if (matched.categoryId) {
-        setSelectedCategory(matched.categoryId);
-        if (matched.subCategoryId) {
-          setSelectedSubCategory(matched.subCategoryId);
-        }
-      }
-      setStage('results');
+      applyReceiptData(ocrResult);
     } else {
+      if (strukError) {
+        showToast(strukError, 'error');
+      }
       setStage('crop');
     }
-  }, [imageFile, scanReceipt, assets, categories, setError, selectedAssetId, selectedCategory, selectedDate, selectedTime, merchantName, editableAmount, selectedType]);
+  }, [imageFile, scanReceipt, parseMutasi, assets, categories, setError, selectedAssetId, selectedCategory, selectedDate, selectedTime, merchantName, editableAmount, selectedType, strukError, mutasiError, showToast, contextDefaultAssetId, scanMode]);
+
+  const applyReceiptData = useCallback((ocrResult: OCRResult) => {
+    const activeAssets = assets.filter(a => !a.isDeleted);
+    setResult(ocrResult);
+
+    if (ocrResult.amount === 0) {
+      if (ocrResult.rawText.trim().length === 0) {
+        showToast('AI tidak berhasil membaca teks apapun. Pastikan foto cukup terang.', 'warning');
+      } else {
+        showToast('Teks terbaca, tapi tidak menemukan nominal Total.', 'warning');
+      }
+    }
+
+    if (ocrResult.suggestedAsset) {
+      const matchedAsset = activeAssets.find(a =>
+        a.name.toLowerCase() === ocrResult.suggestedAsset?.toLowerCase()
+      );
+      setSelectedAssetId(matchedAsset ? matchedAsset.id : (contextDefaultAssetId || activeAssets[0]?.id || ''));
+    } else {
+      setSelectedAssetId(contextDefaultAssetId || activeAssets[0]?.id || '');
+    }
+
+    setSelectedType('pengeluaran');
+    setSelectedDate(ocrResult.date);
+    setSelectedTime(ocrResult.time || new Date().toTimeString().split(' ')[0].slice(0, 5));
+    setEditableAmount(ocrResult.amount > 0 ? ocrResult.amount.toString() : '');
+    setMerchantName(ocrResult.merchantName || 'Scan Otomatis');
+    setLineItems(ocrResult.lineItems);
+    setTaxAmount(ocrResult.taxAmount || 0);
+    setServiceAmount(ocrResult.serviceAmount || 0);
+    setDiscountAmount(ocrResult.discountAmount || 0);
+
+    const matched = findBestCategoryMatch(
+      ocrResult.suggestedCategory,
+      ocrResult.suggestedSubCategory,
+      ocrResult.merchantName,
+      categories,
+      'pengeluaran'
+    );
+    if (matched.categoryId) {
+      setSelectedCategory(matched.categoryId);
+      if (matched.subCategoryId) {
+        setSelectedSubCategory(matched.subCategoryId);
+      }
+    }
+    setStage('results');
+  }, [assets, categories, contextDefaultAssetId, showToast]);
+
+  const applyMutasiData = useCallback((transactions: ParsedTransaction[]) => {
+    const activeAssets = assets.filter(a => !a.isDeleted);
+    const augmented = transactions.map(tx => {
+      const mapAsset = (assetName: string | undefined, defaultId = '') => {
+        if (!assetName) return defaultId;
+        const matched = activeAssets.find(a => a.name.toLowerCase().includes(assetName.toLowerCase()) || assetName.toLowerCase().includes(a.name.toLowerCase()));
+        return matched?.id || defaultId;
+      };
+
+      const fallbackAssetId = contextDefaultAssetId || activeAssets[0]?.id || '';
+      const matchedAssetId = mapAsset(tx.asset, fallbackAssetId);
+      const matchedFromAssetId = mapAsset(tx.fromAsset, fallbackAssetId);
+      const matchedToAssetId = mapAsset(tx.toAsset, activeAssets[1]?.id || fallbackAssetId);
+
+      let matchedCategoryId = '';
+      let matchedSubCategoryId = '';
+      if (tx.type !== 'transfer') {
+        const rawCategory = tx.category || tx.categoryId;
+        const rawSubCategory = tx.subCategory || tx.subCategoryId;
+        const matchResult = findBestCategoryMatch(
+          rawCategory,
+          rawSubCategory,
+          tx.note,
+          categories,
+          tx.type
+        );
+        matchedCategoryId = matchResult.categoryId;
+        matchedSubCategoryId = matchResult.subCategoryId;
+      }
+
+      return {
+        ...tx,
+        asset: matchedAssetId,
+        fromAsset: matchedFromAssetId,
+        toAsset: matchedToAssetId,
+        categoryId: matchedCategoryId || (tx.type === 'transfer' ? '' : tx.type === 'pengeluaran' ? categories.find(c => c.type === 'pengeluaran' && !c.isDeleted)?.id || '' : categories.find(c => c.type === 'pendapatan' && !c.isDeleted)?.id || ''),
+        subCategoryId: matchedSubCategoryId || ''
+      };
+    });
+
+    setMutasiResults(augmented);
+    setStage('results');
+  }, [assets, categories, contextDefaultAssetId]);
+
+  const handleSwitchMode = async () => {
+    if (!docTypeMismatch) return;
+    const targetMode = docTypeMismatch.detectedType === 'bank_statement' ? 'mutasi' : 'struk';
+    setScanMode(targetMode);
+    const blob = docTypeMismatch.blob;
+    setDocTypeMismatch(null);
+    setStage('scanning');
+
+    const activeAssets = assets.filter(a => !a.isDeleted);
+    if (targetMode === 'mutasi') {
+      const parsedData = await parseMutasi({ imageBlob: blob, categories, assets: activeAssets, defaultAssetId: contextDefaultAssetId || undefined });
+      if (parsedData?.quotaUsed !== undefined) {
+        await updatePremiumDataFromServer('bulk', parsedData.quotaUsed, parsedData.isPremium);
+      }
+      if (parsedData && parsedData.transactions && parsedData.transactions.length > 0) {
+        applyMutasiData(parsedData.transactions);
+      } else {
+        showToast('Tidak ada transaksi yang berhasil dikenali.', 'warning');
+        setStage('crop');
+      }
+    } else {
+      const ocrResult = await scanReceipt(blob, categories, activeAssets, contextDefaultAssetId || undefined);
+      if (ocrResult?.quotaUsed !== undefined) {
+        await updatePremiumDataFromServer('scan', ocrResult.quotaUsed, ocrResult.isPremium);
+      }
+      if (ocrResult) {
+        applyReceiptData(ocrResult);
+      } else {
+        showToast(strukError || 'Gagal memproses struk.', 'error');
+        setStage('crop');
+      }
+    }
+  };
+
+  const handleProceedCurrentMode = () => {
+    if (!docTypeMismatch) return;
+    if (docTypeMismatch.currentMode === 'struk' && docTypeMismatch.pendingReceipt) {
+      applyReceiptData(docTypeMismatch.pendingReceipt);
+    } else if (docTypeMismatch.currentMode === 'mutasi' && docTypeMismatch.pendingMutasi) {
+      applyMutasiData(docTypeMismatch.pendingMutasi);
+    }
+    setDocTypeMismatch(null);
+  };
 
   const handleDistributeCharges = () => {
     const activeItems = lineItems.filter(i => i.selected);
@@ -890,6 +978,17 @@ const ReceiptScanner: React.FC = () => {
 
       {stage === 'crop' && (
         <div className="w-full max-w-[800px] mx-auto flex flex-col gap-6">
+          {error && (
+            <div className="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900/50 flex items-center justify-between gap-3 text-red-700 dark:text-red-300 text-sm font-semibold animate-shake">
+              <div className="flex items-center gap-2">
+                <MaterialIcon name="error" className="text-xl shrink-0" />
+                <span>{error}</span>
+              </div>
+              <button onClick={() => setError(null)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-full border-none bg-transparent cursor-pointer text-red-700 dark:text-red-300">
+                <MaterialIcon name="close" className="text-lg" />
+              </button>
+            </div>
+          )}
           <div className="bg-surface-container-low rounded-2xl overflow-hidden border border-outline-variant shadow-sm mb-24">
             <canvas ref={canvasRef} className="w-full block" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} />
           </div>
@@ -1301,6 +1400,58 @@ const ReceiptScanner: React.FC = () => {
             year={reallocationModal.year}
           />
         </Suspense>
+      )}
+
+      {/* Smart Document Type Mismatch Modal */}
+      {docTypeMismatch && docTypeMismatch.isOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-surface-container rounded-2xl max-w-md w-full p-6 shadow-2xl border border-outline-variant flex flex-col gap-4 animate-scale-up">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-primary-container text-primary flex items-center justify-center shrink-0">
+                <MaterialIcon 
+                  name={docTypeMismatch.detectedType === 'bank_statement' ? 'account_balance' : 'receipt_long'} 
+                  className="text-2xl" 
+                />
+              </div>
+              <div>
+                <h3 className="font-headline-md text-base font-bold text-on-surface">
+                  {docTypeMismatch.detectedType === 'bank_statement' 
+                    ? 'Terdeteksi Mutasi Bank / Rekening' 
+                    : 'Terdeteksi Struk Belanja Tunggal'}
+                </h3>
+                <p className="text-xs text-on-surface-variant">
+                  {docTypeMismatch.detectedType === 'bank_statement'
+                    ? 'Gambar memiliki format daftar banyak transaksi mutasi'
+                    : 'Gambar memiliki format struk belanja perorangan'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              {docTypeMismatch.detectedType === 'bank_statement'
+                ? 'Gambar yang Anda unggah tampak seperti riwayat mutasi rekening atau screenshot m-banking. Apakah Anda ingin beralih ke tab Pindai Mutasi agar semua baris transaksi dapat diproses sekaligus?'
+                : 'Gambar yang Anda unggah tampak seperti struk belanja. Apakah Anda ingin beralih ke tab Pindai Struk agar rincian belanja per-item dan pajak dapat diuraikan?'}
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleProceedCurrentMode}
+                className="flex-1 py-2.5 px-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-surface-container text-on-surface text-xs font-bold transition-colors cursor-pointer"
+              >
+                {docTypeMismatch.currentMode === 'struk' ? 'Tetap Lanjut sebagai Struk' : 'Tetap Lanjut sebagai Mutasi'}
+              </button>
+              <button
+                type="button"
+                onClick={handleSwitchMode}
+                className="flex-1 py-2.5 px-3 rounded-xl border-none bg-primary hover:bg-primary/90 text-white text-xs font-bold transition-colors cursor-pointer shadow-md shadow-primary/30 flex items-center justify-center gap-1.5"
+              >
+                <MaterialIcon name="swap_horiz" className="text-base" />
+                {docTypeMismatch.detectedType === 'bank_statement' ? 'Beralih ke Pindai Mutasi' : 'Beralih ke Pindai Struk'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageWrapper>
   );

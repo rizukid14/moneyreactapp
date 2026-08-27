@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { type Asset, type AssetType, useMoney } from '../../contexts/MoneyContext';
 import AssetModal from './AssetModal';
 import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 import MaterialIcon from '../common/MaterialIcon';
 
 interface AssetSelectModalProps {
@@ -13,14 +15,14 @@ interface AssetSelectModalProps {
   onSelect: (assetId: string) => void;
 }
 
-const ASSET_TYPE_META: Record<AssetType, { label: string; icon: React.ReactNode }> = {
-  'Cash': { label: 'Tunai', icon: <MaterialIcon name="account_balance_wallet" className="text-[18px]" /> },
-  'Bank Account': { label: 'Bank', icon: <MaterialIcon name="account_balance" className="text-[18px]" /> },
-  'Credit Card': { label: 'Kartu Kredit', icon: <MaterialIcon name="credit_card" className="text-[18px]" /> },
-  'eWallet': { label: 'E-Wallet', icon: <MaterialIcon name="smartphone" className="text-[18px]" /> },
-  'Savings': { label: 'Tabungan', icon: <MaterialIcon name="savings" className="text-[18px]" /> },
-  'Investment': { label: 'Investasi', icon: <MaterialIcon name="trending_up" className="text-[18px]" /> },
-  'Loan': { label: 'Pinjaman', icon: <MaterialIcon name="payments" className="text-[18px]" /> },
+const ASSET_TYPE_META: Record<AssetType, { label: string; icon: string; colorClass: string }> = {
+  'Cash': { label: 'Tunai', icon: 'account_balance_wallet', colorClass: 'text-secondary' },
+  'Bank Account': { label: 'Bank', icon: 'account_balance', colorClass: 'text-primary' },
+  'Credit Card': { label: 'Kartu Kredit', icon: 'credit_card', colorClass: 'text-error' },
+  'eWallet': { label: 'E-Wallet', icon: 'smartphone', colorClass: 'text-success' },
+  'Savings': { label: 'Tabungan', icon: 'savings', colorClass: 'text-blue-500' },
+  'Investment': { label: 'Investasi', icon: 'trending_up', colorClass: 'text-emerald-500' },
+  'Loan': { label: 'Pinjaman', icon: 'payments', colorClass: 'text-error' },
 };
 
 const ALL_TYPES: AssetType[] = ['Cash', 'Bank Account', 'Credit Card', 'eWallet', 'Savings', 'Investment', 'Loan'];
@@ -33,45 +35,66 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Get types that have at least one active asset
-  const availableTypes = useMemo(() => {
-    return ALL_TYPES;
-  }, [assets]);
+  // Filter and sort available asset types
+  const sortedTypes = useMemo(() => {
+    let types = ALL_TYPES.filter(type => {
+      return assets.some(a => a.type === type && (!a.isDeleted || a.id === selectedAssetId));
+    });
 
-  // On open, set active type to the currently selected asset's type
+    if (types.length === 0) {
+      types = ALL_TYPES;
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      types = types.filter(type => {
+        const meta = ASSET_TYPE_META[type];
+        const matchesType = meta.label.toLowerCase().includes(query) || type.toLowerCase().includes(query);
+        const matchesAsset = assets.some(a =>
+          a.type === type &&
+          (!a.isDeleted || a.id === selectedAssetId) &&
+          a.name.toLowerCase().includes(query)
+        );
+        return matchesType || matchesAsset;
+      });
+    }
+
+    return types;
+  }, [assets, searchQuery, selectedAssetId]);
+
+  // Sync active type on open or when types change
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    if (!sortedTypes.includes(activeType)) {
       if (selectedAssetId) {
         const selectedAsset = assets.find(a => a.id === selectedAssetId);
-        if (selectedAsset) {
+        if (selectedAsset && sortedTypes.includes(selectedAsset.type)) {
           setActiveType(selectedAsset.type);
           return;
         }
       }
-      // Default to first type that has assets, or 'Cash'
-      const firstTypeWithAssets = ALL_TYPES.find(t => assets.some(a => a.type === t && (!a.isDeleted || a.id === selectedAssetId)));
-      setActiveType(firstTypeWithAssets || 'Cash');
+      if (sortedTypes.length > 0) {
+        setActiveType(sortedTypes[0]);
+      }
     }
-  }, [isOpen, selectedAssetId, assets]);
+  }, [isOpen, selectedAssetId, sortedTypes, activeType, assets]);
 
-  // Assets matching search query or active type, sorted alphabetically
-  const filteredAssets = useMemo(() => {
-    let result = assets.filter(a => !a.isDeleted || a.id === selectedAssetId);
+  // Filter and sort assets for active type
+  const sortedAssets = useMemo(() => {
+    let result = assets.filter(a =>
+      a.type === activeType &&
+      (!a.isDeleted || a.id === selectedAssetId)
+    );
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(a => {
-        const typeMeta = ASSET_TYPE_META[a.type];
-        const labelLower = typeMeta ? typeMeta.label.toLowerCase() : '';
-        const typeLower = a.type.toLowerCase();
-        return (
-          a.name.toLowerCase().includes(query) ||
-          typeLower.includes(query) ||
-          labelLower.includes(query)
-        );
-      });
-    } else {
-      result = result.filter(a => a.type === activeType);
+      const meta = ASSET_TYPE_META[activeType];
+      const isTypeMatch = (meta && meta.label.toLowerCase().includes(query)) || activeType.toLowerCase().includes(query);
+
+      if (!isTypeMatch) {
+        result = result.filter(a => a.name.toLowerCase().includes(query));
+      }
     }
 
     return result.sort((a, b) => a.name.localeCompare(b.name));
@@ -110,171 +133,194 @@ const AssetSelectModal: React.FC<AssetSelectModalProps> = ({
           </button>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', height: '75vh', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '80vh', overflow: 'hidden' }}>
 
-              {/* Search Bar */}
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
-                <div style={{ position: 'relative' }}>
-                  <MaterialIcon name="search" />
-                  <input
-                    type="text"
-                    placeholder="Cari rekening atau tipe akun..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 36px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--bg-main)',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      marginBottom: 0,
-                    }}
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                    >
-                      <MaterialIcon name="close" className="text-[14px]" />
-                    </button>
-                  )}
+          {/* Search Bar */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
+            <Input
+              type="text"
+              placeholder="Cari rekening atau tipe akun..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              icon={<MaterialIcon name="search" className="text-[16px]" />}
+              rightElement={searchQuery ? (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+                >
+                  <MaterialIcon name="close" className="text-[14px]" />
+                </button>
+              ) : undefined}
+              style={{ marginBottom: 0 }}
+            />
+          </div>
+
+          {/* Split View Content */}
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+            {/* Left Panel: Asset Types */}
+            <div style={{
+              flex: 1,
+              borderRight: '1px solid var(--border-color)',
+              overflowY: 'auto',
+              background: 'var(--bg-main)',
+              padding: '12px 0'
+            }}>
+              {sortedTypes.length === 0 ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}>🏦</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                    Tipe rekening tidak ditemukan.
+                  </div>
+                  <Button
+                    variant="primary"
+                    onClick={() => setIsAddModalOpen(true)}
+                    style={{ fontSize: '12px', padding: '8px 16px', height: 'auto', margin: '0 auto' }}
+                  >
+                    Tambah Rekening
+                  </Button>
                 </div>
-              </div>
-
-              {/* Split View */}
-              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-                {/* Left Panel: Asset Types */}
-                <div style={{
-                  width: '35%',
-                  flexShrink: 0,
-                  borderRight: '1px solid var(--border-color)',
-                  overflowY: 'auto',
-                  background: 'var(--bg-main)',
-                  padding: '8px 0',
-                }}>
-                  {availableTypes.map(type => {
-                    const meta = ASSET_TYPE_META[type];
-                    const isActive = type === activeType;
-                    const query = searchQuery.trim().toLowerCase();
-                    const count = assets.filter(a => {
-                      if (a.isDeleted && a.id !== selectedAssetId) return false;
-                      if (a.type !== type) return false;
-                      if (!query) return true;
-                      const labelLower = meta ? meta.label.toLowerCase() : '';
-                      return (
-                        a.name.toLowerCase().includes(query) ||
-                        type.toLowerCase().includes(query) ||
-                        labelLower.includes(query)
-                      );
-                    }).length;
-
+              ) : (
+                sortedTypes.map(type => {
+                  const meta = ASSET_TYPE_META[type];
+                  const isActive = type === activeType;
+                  const query = searchQuery.trim().toLowerCase();
+                  const count = assets.filter(a => {
+                    if (a.isDeleted && a.id !== selectedAssetId) return false;
+                    if (a.type !== type) return false;
+                    if (!query) return true;
+                    const labelLower = meta ? meta.label.toLowerCase() : '';
                     return (
-                      <button
-                        key={type}
-                        onClick={() => {
-                          setActiveType(type);
-                          setSearchQuery('');
-                        }}
-                        style={{
-                          width: '100%', padding: '12px 16px', background: isActive ? 'var(--bg-card)' : 'transparent',
-                          border: 'none', borderLeft: `3px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
-                          display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-                          cursor: 'pointer', transition: 'background 0.2s', textAlign: 'left', gap: '4px',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <div style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>
-                            {meta.icon}
-                          </div>
-                          {count > 0 && (
-                            <span style={{ fontSize: '10px', background: isActive ? 'var(--primary)' : 'var(--border-color)', color: isActive ? 'white' : 'var(--text-muted)', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>
-                              {count}
-                            </span>
-                          )}
+                      a.name.toLowerCase().includes(query) ||
+                      type.toLowerCase().includes(query) ||
+                      labelLower.includes(query)
+                    );
+                  }).length;
+
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setActiveType(type)}
+                      style={{
+                        width: '100%', padding: '14px 16px', background: isActive ? 'var(--bg-card)' : 'transparent',
+                        border: 'none', borderLeft: `4px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        cursor: 'pointer', transition: 'background 0.2s', textAlign: 'left',
+                        boxShadow: isActive ? '0 2px 10px rgba(0,0,0,0.02)' : 'none'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        <div style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)', flexShrink: 0 }}>
+                          <MaterialIcon name={meta.icon} className="text-[18px]" />
                         </div>
                         <span style={{
-                          fontSize: '11px',
+                          fontSize: '14px',
                           fontWeight: isActive ? 700 : 500,
                           color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
-                          lineHeight: 1.2,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          minWidth: 0
                         }}>
                           {meta.label}
                         </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Right Panel: Assets of selected type */}
-                <div style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  background: 'var(--bg-card-solid)',
-                  padding: '8px 0',
-                }}>
-                  {filteredAssets.length === 0 ? (
-                    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}>🏦</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                        Belum ada akun {ASSET_TYPE_META[activeType].label}.
                       </div>
-                      <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="btn btn-primary"
-                        style={{ fontSize: '12px', padding: '8px 16px', height: 'auto', margin: '0 auto' }}
-                      >
-                        Tambah Rekening
-                      </button>
-                    </div>
-                  ) : (
-                    filteredAssets.map(asset => {
-                      const isSelected = asset.id === selectedAssetId;
-                      return (
-                        <button
-                          key={asset.id}
-                          onClick={() => handleSelect(asset.id)}
-                          style={{
-                            width: '100%', padding: '16px 20px',
-                            background: isSelected ? 'var(--bg-income)' : 'transparent',
-                            border: 'none', borderBottom: '1px solid var(--border-color)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            cursor: 'pointer', textAlign: 'left',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            {(() => {
-                              let iconName = 'account_balance_wallet';
-                              let colorClass = isSelected ? 'text-primary' : 'text-on-surface-variant';
-                              switch (asset.type) {
-                                case 'Cash': iconName = 'account_balance_wallet'; if (!isSelected) colorClass = 'text-secondary'; break;
-                                case 'Bank Account': iconName = 'account_balance'; if (!isSelected) colorClass = 'text-primary'; break;
-                                case 'Credit Card': iconName = 'credit_card'; if (!isSelected) colorClass = 'text-error'; break;
-                                case 'eWallet': iconName = 'smartphone'; if (!isSelected) colorClass = 'text-success'; break;
-                                case 'Savings': iconName = 'savings'; if (!isSelected) colorClass = 'text-blue-500'; break;
-                                case 'Investment': iconName = 'trending_up'; if (!isSelected) colorClass = 'text-emerald-500'; break;
-                                case 'Loan': iconName = 'payments'; if (!isSelected) colorClass = 'text-error'; break;
-                              }
-                              return <MaterialIcon name={iconName} className={`text-[16px] ${colorClass}`} />;
-                            })()}
-                            <div>
-                              <div style={{ fontSize: '14px', fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--primary)' : 'var(--text-main)' }}>
-                                {asset.name}
-                              </div>
-                              {asset.isDeleted && (
-                                <div style={{ fontSize: '11px', color: 'var(--danger)', marginTop: 2 }}>Dihapus</div>
-                              )}
-                            </div>
-                          </div>
-                          {isSelected && <MaterialIcon name="check" className="text-[18px]" />}
-                        </button>
-                      );
-                    })
-                  )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {count > 0 && (
+                          <span style={{
+                            fontSize: '10px',
+                            background: isActive ? 'var(--primary)' : 'var(--border-color)',
+                            color: isActive ? 'white' : 'var(--text-muted)',
+                            padding: '2px 6px',
+                            borderRadius: '10px',
+                            fontWeight: 700
+                          }}>
+                            {count}
+                          </span>
+                        )}
+                        <MaterialIcon name="chevron_right" />
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Right Panel: Assets of active type */}
+            <div style={{
+              flex: 1.2,
+              overflowY: 'auto',
+              background: 'var(--bg-card-solid)',
+              padding: '12px 0'
+            }}>
+              {sortedAssets.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '20px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}>🏦</div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: 4 }}>
+                    Belum ada akun {ASSET_TYPE_META[activeType]?.label || ''}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 20 }}>
+                    Tambahkan rekening baru untuk kategori tipe ini.
+                  </div>
+                  <Button
+                    variant="primary"
+                    onClick={() => setIsAddModalOpen(true)}
+                    style={{ fontSize: '12px', padding: '8px 16px', height: 'auto', margin: '0 auto' }}
+                  >
+                    Tambah Rekening
+                  </Button>
                 </div>
-              </div>
+              ) : (
+                sortedAssets.map(asset => {
+                  const isSelected = asset.id === selectedAssetId;
+                  const meta = ASSET_TYPE_META[asset.type] || { icon: 'account_balance_wallet', colorClass: 'text-primary' };
+
+                  return (
+                    <button
+                      key={asset.id}
+                      onClick={() => handleSelect(asset.id)}
+                      style={{
+                        width: '100%', padding: '14px 20px',
+                        background: isSelected ? 'var(--bg-income)' : 'transparent',
+                        border: 'none', borderBottom: '1px solid var(--border-color)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        cursor: 'pointer', textAlign: 'left',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                        <div style={{ flexShrink: 0 }}>
+                          <MaterialIcon name={meta.icon} className={`text-[18px] ${meta.colorClass}`} />
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            fontSize: '14px',
+                            fontWeight: isSelected ? 700 : 500,
+                            color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            marginRight: '8px'
+                          }}>
+                            {asset.name}
+                          </div>
+                          {asset.isDeleted && (
+                            <div style={{ fontSize: '11px', color: 'var(--danger)', marginTop: 2 }}>Dihapus</div>
+                          )}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <span style={{ flexShrink: 0 }}>
+                          <MaterialIcon name="check" className="text-[16px] text-primary" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+          </div>
+
         </div>
       </Modal>
 

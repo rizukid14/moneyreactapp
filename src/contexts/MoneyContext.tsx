@@ -414,7 +414,7 @@ interface MoneyContextType {
   markNotifAsRead: (id: string) => void;
   deleteNotif: (id: string) => void;
   clearAllNotifs: () => void;
-  updateUser: (user: UserProfile) => void;
+  updateUser: (user: Partial<UserProfile> | UserProfile) => void;
   setAppPin: (newPin: string | null) => Promise<void>;
   unlockApp: (enteredPin: string) => Promise<boolean>;
   lockApp: () => void;
@@ -931,12 +931,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Auto-fill profile from Firebase Auth if empty or default
       if (isFirebaseConfigured && auth.currentUser) {
         const u = auth.currentUser;
-        if (!profile || profile.name === 'Pengguna MoneyApp' || profile.email === 'pengguna@email.com') {
+        if (!profile || !profile.name || profile.name === 'Pengguna MoneyApp' || profile.email === 'pengguna@email.com') {
           profile = {
             ...profile,
-            name: u.displayName || profile?.name || 'Pengguna MoneyApp',
-            email: u.email || profile?.email || '',
-            avatar: u.photoURL || profile?.avatar || ''
+            name: (profile?.name && profile.name !== 'Pengguna MoneyApp') ? profile.name : (u.displayName || profile?.name || 'Pengguna MoneyApp'),
+            email: (profile?.email && profile.email !== 'pengguna@email.com') ? profile.email : (u.email || profile?.email || ''),
+            avatar: profile?.avatar || u.photoURL || ''
           };
           await dbPutSetting('user', profile);
         }
@@ -2362,9 +2362,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   // ─── User & Settings ─────────────────────────────────────────────────────
-  const updateUser = useCallback((newUser: UserProfile) => {
-    setUser(newUser);
-    dbPutSetting('user', newUser).then(refreshSyncCount);
+  const updateUser = useCallback((newUser: Partial<UserProfile> | UserProfile) => {
+    setUser(prev => {
+      const merged = { ...prev, ...newUser };
+      dbPutSetting('user', merged).then(refreshSyncCount);
+      return merged;
+    });
   }, [refreshSyncCount]);
 
   const setAppPin = useCallback(async (newPin: string | null) => {

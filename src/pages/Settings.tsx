@@ -28,7 +28,7 @@ import ContactModal from '../components/modals/ContactModal';
 import ContactManagerModal from '../components/modals/ContactManagerModal';
 import ReauthenticateModal from '../components/modals/ReauthenticateModal';
 import { auth } from '../lib/firebase';
-import { verifyBeforeUpdateEmail } from 'firebase/auth';
+import { verifyBeforeUpdateEmail, updateProfile } from 'firebase/auth';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -619,7 +619,18 @@ const Settings: React.FC = () => {
       }
     }
 
-    updateUser({ name: tempName, email: finalEmail, avatar: tempAvatar });
+    if (auth.currentUser) {
+      try {
+        await updateProfile(auth.currentUser, {
+          displayName: tempName,
+          photoURL: tempAvatar || undefined
+        });
+      } catch (err) {
+        console.warn('Failed to update auth profile:', err);
+      }
+    }
+
+    updateUser({ ...user, name: tempName, email: finalEmail, avatar: tempAvatar });
     setActiveModal(null);
     setIsEditingProfile(false);
   };

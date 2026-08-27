@@ -128,9 +128,11 @@ const BulkInput: React.FC = () => {
         let matchedCategoryId = '';
         let matchedSubCategoryId = '';
         if (tx.type !== 'transfer') {
+          const rawCategory = tx.category || tx.categoryId;
+          const rawSubCategory = tx.subCategory || tx.subCategoryId;
           const matchResult = findBestCategoryMatch(
-            tx.category,
-            tx.subCategory,
+            rawCategory,
+            rawSubCategory,
             tx.note,
             categories,
             tx.type
