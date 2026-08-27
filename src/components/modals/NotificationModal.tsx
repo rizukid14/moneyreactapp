@@ -34,6 +34,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
       });
     }
 
+    // Sort strictly descending by createdAt (newest notifications first)
+    combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     return combined;
   }, [notifications, pendingSyncCount]);
 
@@ -52,15 +55,19 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
   const getRelativeTime = (isoString: string) => {
     const d = new Date(isoString);
     const now = new Date();
-    const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (diff === 0) {
-      const hours = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60));
-      if (hours === 0) return 'Baru saja';
-      return `${hours} jam lalu`;
+    // Normalize to calendar day comparison
+    const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round((nowDate.getTime() - dDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      const diffHours = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60));
+      if (diffHours <= 0) return 'Hari ini';
+      return `${diffHours} jam lalu`;
     }
-    if (diff === 1) return 'Kemarin';
-    if (diff <= 7) return `${diff} hari lalu`;
+    if (diffDays === 1) return 'Kemarin';
+    if (diffDays > 1 && diffDays <= 7) return `${diffDays} hari lalu`;
     
     return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
   };

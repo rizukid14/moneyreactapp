@@ -914,8 +914,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setTrips(dbTrips as Trip[]);
       setTripExpenses(dbTripExpenses as TripExpense[]);
       setMonthlyIncomes(dbMonthlyIncomes as MonthlyIncome[]);
-      setBudgetReallocations(dbReallocations as BudgetReallocation[]);
-      setNotifications(dbNotifications as NotificationItem[]);
+      const loadedNotifs = (dbNotifications as NotificationItem[] || []);
+      loadedNotifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setNotifications(loadedNotifs);
 
       // Load settings
       let profile = await dbGetSetting('user') as UserProfile | undefined;
@@ -2862,7 +2863,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             message: `Kamu mencatat pengeluaran sebesar ${fmt(tx.amount)} untuk kategori ${cat?.name || 'Lainnya'}.`,
             icon: 'warning',
             color: 'error',
-            createdAt: new Date(tx.date).toISOString()
+            createdAt: tx.date ? new Date(`${tx.date}T${tx.time || '12:00'}:00`).toISOString() : now.toISOString()
           });
         }
       });
