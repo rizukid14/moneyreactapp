@@ -1,6 +1,6 @@
 import MaterialIcon from '../components/common/MaterialIcon';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
 
 import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
@@ -11,30 +11,17 @@ import { calculateDebtBalance } from '../lib/debtCalculations';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import { MONTH_NAMES } from '../lib/constants';
-import { ALL_STATS_VIEWS } from './Settings';
 import { PremiumGate } from '../components/common/PremiumGate';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PageHeader } from '../components/ui/PageHeader';
 import { BentoCard } from '../components/ui/Card';
 import { IconBlock } from '../components/ui/IconBlock';
-import { StatusBadge } from '../components/ui/StatusBadge';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { ListItem } from '../components/ui/ListItem';
-
+import { SegmentedControl } from '../components/ui/TabBar';
 import { DailyFinancialCalendar } from '../components/DailyFinancialCalendar';
 import { EmptyState } from '../components/ui/EmptyState';
-
-const VIEW_ICONS: Record<string, string> = {
-  all: 'stacked_bar_chart',
-  calendar: 'calendar_month',
-  cash_bank: 'account_balance',
-  investment: 'savings',
-  goals: 'trending_up',
-  subs: 'subscriptions',
-  health: 'local_fire_department',
-  forecast: 'water_drop',
-  detailed_analysis: 'insights',
-};
+import AssetSelectModal, { ASSET_TYPE_META } from '../components/modals/AssetSelectModal';
 
 const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -43,8 +30,8 @@ const COLORS = ['var(--primary)', 'var(--success)', 'var(--warning)', 'var(--dan
 const Statistics: React.FC = () => {
   const {
     transactions, assets, categories,
-    currencySymbol, startOfMonthDay, theme, chartStyle,
-    statsCarouselCards, defaultStatsView
+    currencySymbol, startOfMonthDay, theme,
+    defaultStatsView
   } = useMoney();
   const [detailModalProps, setDetailModalProps] = useState<{
     isOpen: boolean;
@@ -55,7 +42,6 @@ const Statistics: React.FC = () => {
   }>({ isOpen: false, title: '', details: [] });
   const heatmapScrollRef = useRef<HTMLDivElement>(null);
   const [viewDate, setViewDate] = useState(() => {
-    // ... (existing init)
     const d = new Date();
     if (startOfMonthDay > 1 && d.getDate() >= startOfMonthDay) {
       return new Date(d.getFullYear(), d.getMonth() + 1, 1);
@@ -63,7 +49,11 @@ const Statistics: React.FC = () => {
     return d;
   });
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [activeViewId, setActiveViewId] = useState(defaultStatsView);
+  const [activeViewId, setActiveViewId] = useState<'all' | 'health' | 'forecast'>(
+    defaultStatsView === 'health' || defaultStatsView === 'forecast' ? defaultStatsView : 'all'
+  );
+  const [isAssetFilterModalOpen, setIsAssetFilterModalOpen] = useState(false);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [drillDownCategory, setDrillDownCategory] = useState<{ name: string, type: 'pendapatan' | 'pengeluaran', colorIndex: number } | null>(null);
   const [hoveredCell, setHoveredCell] = useState<{
     date: string;
@@ -94,6 +84,55 @@ const Statistics: React.FC = () => {
   // Create Map for O(1) category lookup
   const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
 
+  const activeAssets = useMemo(() => assets.filter(a => !a.isDeleted), [assets]);
+  const isAllAssetsSelected = selectedAssetIds.length === 0 || selectedAssetIds.length === activeAssets.length;
+
+  const filterButtonInfo = useMemo(() => {
+    if (isAllAssetsSelected) {
+      return {
+        label: 'Semua Aset',
+        icon: 'account_balance_wallet',
+        badge: null as number | null
+      };
+    }
+
+    // Check if exactly one category is fully selected
+    const activeTypes = Array.from(new Set(activeAssets.map(a => a.type)));
+    for (const type of activeTypes) {
+      const typeAssets = activeAssets.filter(a => a.type === type);
+      if (typeAssets.length > 0 && typeAssets.length === selectedAssetIds.length && typeAssets.every(a => selectedAssetIds.includes(a.id))) {
+        const meta = ASSET_TYPE_META[type];
+        return {
+          label: `Semua ${meta?.label || type}`,
+          icon: meta?.icon || 'savings',
+          badge: null as number | null
+        };
+      }
+    }
+
+    // If 1 single asset is selected
+    if (selectedAssetIds.length === 1) {
+      const asset = activeAssets.find(a => a.id === selectedAssetIds[0]);
+      if (asset) {
+        const meta = ASSET_TYPE_META[asset.type];
+        return {
+          label: asset.name,
+          icon: meta?.icon || 'account_balance',
+          badge: null as number | null
+        };
+      }
+    }
+
+    // Multiple mixed accounts
+    return {
+      label: `${selectedAssetIds.length} Rekening`,
+      icon: 'tune',
+      badge: selectedAssetIds.length
+    };
+  }, [isAllAssetsSelected, activeAssets, selectedAssetIds]);
+
+  const selectedAssetSet = useMemo(() => new Set(selectedAssetIds), [selectedAssetIds]);
+
   const { chartData, currentMonthIncome, currentMonthExpense, prevMonthIncome, prevMonthExpense, expenseCategoryData, incomeCategoryData, topCategories, insights, dailyExpenseChart, heatmapData } = useMemo((): {
     chartData: { name: string; month: number; year: number; pengeluaran: number; pendapatan: number; periodStart: Date; periodEnd: Date }[];
     currentMonthIncome: number; currentMonthExpense: number;
@@ -113,25 +152,13 @@ const Statistics: React.FC = () => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
-    // ─── Phase 0: Filter Transactions by Active View ───
-
-    // Determine which asset types to include
-    let includedAssetTypes: string[] = [];
-    if (activeViewId === 'cash_bank') includedAssetTypes = ['Cash', 'Bank Account', 'eWallet'];
-    else if (activeViewId === 'investment') includedAssetTypes = ['Investment', 'Savings'];
-
-    const includedAssetIds = new Set(
-      assets
-        .filter(a => includedAssetTypes.includes(a.type))
-        .map(a => a.id)
-    );
-
+    // ─── Phase 0: Filter Transactions by Selected Assets ───
     const getTransferFlowForActiveView = (tx: typeof transactions[number]) => {
       if (tx.type !== 'transfer') return null;
-      if (activeViewId === 'all' || activeViewId === 'health') return null;
+      if (isAllAssetsSelected) return null;
 
-      const fromIncluded = !!tx.fromAssetId && includedAssetIds.has(tx.fromAssetId);
-      const toIncluded = !!tx.toAssetId && includedAssetIds.has(tx.toAssetId);
+      const fromIncluded = tx.fromAssetId ? selectedAssetSet.has(tx.fromAssetId) : false;
+      const toIncluded = tx.toAssetId ? selectedAssetSet.has(tx.toAssetId) : false;
 
       if (toIncluded && !fromIncluded) return 'income' as const;
       if (fromIncluded && !toIncluded) return 'expense' as const;
@@ -139,15 +166,16 @@ const Statistics: React.FC = () => {
     };
 
     const statsTransactions = transactions.filter(tx => {
-      if (activeViewId === 'all' || activeViewId === 'health') return true;
+      if (tx.isDeleted) return false;
+      if (isAllAssetsSelected) return true;
 
       if (tx.type === 'transfer') {
-        const fromIncluded = !!tx.fromAssetId && includedAssetIds.has(tx.fromAssetId);
-        const toIncluded = !!tx.toAssetId && includedAssetIds.has(tx.toAssetId);
-        return fromIncluded || toIncluded;
+        const fromIn = tx.fromAssetId ? selectedAssetSet.has(tx.fromAssetId) : false;
+        const toIn = tx.toAssetId ? selectedAssetSet.has(tx.toAssetId) : false;
+        return fromIn || toIn;
       }
 
-      return !!tx.assetId && includedAssetIds.has(tx.assetId);
+      return tx.assetId ? selectedAssetSet.has(tx.assetId) : false;
     });
 
     // ─── Phase 1: 6-Month Trend Data ───
@@ -392,7 +420,7 @@ const Statistics: React.FC = () => {
         cells: mo.cells.map(c => ({ ...c, level: c.amount === 0 ? 0 : Math.ceil((c.amount / maxVal) * 4) }))
       }));
     }
-  }, [transactions, assets, viewDate, drillDownCategory, activeViewId]);
+  }, [transactions, assets, viewDate, drillDownCategory, selectedAssetIds]);
 
   const scaledDailyChart = useMemo(() => {
     if (chartScale === 'log') {
@@ -477,80 +505,20 @@ const Statistics: React.FC = () => {
         }
       />
 
-      {/* View Carousel Selector */}
-      <div style={{
-        marginBottom: '25px',
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        paddingBottom: '4px',
-        margin: '0 -4px', // negative margin to allow shadow/glow to show
-        scrollSnapType: 'x mandatory'
-      }} className="hide-scrollbar">
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          padding: '4px',
-          width: 'max-content'
-        }}>
-          {statsCarouselCards.map(viewId => {
-            const def = ALL_STATS_VIEWS.find(v => v.id === viewId);
-            if (!def) return null;
-            const isActive = activeViewId === viewId;
-            const iconName = VIEW_ICONS[viewId] || 'dashboard';
-            return (
-              <motion.button
-                key={viewId}
-                data-testid={`stats-view-${viewId}`}
-                layout
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  setActiveViewId(viewId);
-                  setDrillDownCategory(null);
-                }}
-                style={{
-                  padding: isActive ? '14px 20px' : '14px',
-                  borderRadius: '18px',
-                  background: isActive ? 'var(--primary-gradient)' : 'var(--bg-card-solid)',
-                  color: isActive ? 'white' : 'var(--text-muted)',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: isActive ? '8px' : '0px',
-                  minWidth: isActive ? undefined : '50px',
-                  boxShadow: isActive ? '0 10px 25px var(--primary-glow)' : '0 4px 12px rgba(0,0,0,0.03)',
-                  flexShrink: 0,
-                  border: isActive ? 'none' : '1px solid var(--border-color)',
-                  scrollSnapAlign: 'start',
-                  overflow: 'hidden',
-                }}
-              >
-                <MaterialIcon
-                  name={iconName}
-                  className={isActive ? 'text-white text-[20px]' : 'text-[var(--primary)] text-[20px]'}
-                />
-                <motion.span
-                  initial={false}
-                  animate={{
-                    width: isActive ? 'auto' : 0,
-                    opacity: isActive ? 1 : 0,
-                    marginLeft: isActive ? 0 : -8,
-                  }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
-                  style={{
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    lineHeight: 1,
-                  }}
-                >
-                  {def.label}
-                </motion.span>
-              </motion.button>
-            );
-          })}
-        </div>
+      {/* 3 Main View Tabs */}
+      <div className="mb-4">
+        <SegmentedControl
+          tabs={[
+            { id: 'all', label: 'Ringkasan' },
+            { id: 'health', label: 'Kesehatan Finansial' },
+            { id: 'forecast', label: 'Proyeksi Kas' }
+          ]}
+          activeTabId={activeViewId === 'health' ? 'health' : activeViewId === 'forecast' ? 'forecast' : 'all'}
+          onChange={(val) => {
+            setActiveViewId(val as any);
+            setDrillDownCategory(null);
+          }}
+        />
       </div>
 
       <AnimatePresence mode="wait">
@@ -566,40 +534,6 @@ const Statistics: React.FC = () => {
               <FinancialHealth onShowDetail={setDetailModalProps} />
             </PremiumGate>
           </motion.div>
-        ) : activeViewId === 'budget' ? (
-          <motion.div
-            key="budget"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-          >
-            <BudgetStatistics viewDate={viewDate} />
-          </motion.div>
-        ) : activeViewId === 'goals' ? (
-          <motion.div
-            key="goals"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-          >
-            <PremiumGate mode="hard" showOverlay>
-              <GoalStatistics />
-            </PremiumGate>
-          </motion.div>
-        ) : activeViewId === 'subs' ? (
-          <motion.div
-            key="subs"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-          >
-            <PremiumGate mode="hard" showOverlay>
-              <SubscriptionStatistics />
-            </PremiumGate>
-          </motion.div>
         ) : activeViewId === 'forecast' ? (
           <motion.div
             key="forecast"
@@ -612,52 +546,6 @@ const Statistics: React.FC = () => {
               <CashFlowForecast onShowDetail={setDetailModalProps} />
             </PremiumGate>
           </motion.div>
-        ) : activeViewId === 'calendar' ? (
-          <motion.div
-            key="calendar"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-          >
-            <PageHeader
-              className="mt-2"
-              title="Kalender Keuangan Harian"
-              subtitle="Tinjau arus kas masuk dan keluar per hari"
-              action={
-                <div className="flex items-center gap-1 sm:gap-3 justify-end w-full">
-                  <button
-                    onClick={resetToToday}
-                    className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
-                  >
-                    <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
-                  </button>
-                  <div 
-                    className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-1 sm:px-2 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm w-full" 
-                    onClick={() => setIsDatePickerOpen(true)}
-                  >
-                    <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
-                      <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0">
-                        <MaterialIcon name="chevron_left" className="text-on-surface-variant text-[14px] sm:text-base" />
-                      </button>
-                      <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
-                        <MaterialIcon name="calendar_month" className="text-primary text-[14px] sm:text-base shrink-0 hidden sm:block" />
-                        <span className="font-label-sm sm:font-label-md text-[10px] sm:text-sm text-on-surface font-semibold truncate">
-                          {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear().toString().slice(2)}
-                        </span>
-                      </div>
-                      <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0">
-                        <MaterialIcon name="chevron_right" className="text-on-surface-variant text-[14px] sm:text-base" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              }
-            />
-            <div className="mt-4">
-              <DailyFinancialCalendar viewDate={viewDate} />
-            </div>
-          </motion.div>
         ) : (
           <motion.div
             key="analysis"
@@ -666,42 +554,62 @@ const Statistics: React.FC = () => {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
           >
-                {/* Header with Month Selector matching Transactions.tsx */}
-                <PageHeader
-                  className="mt-2"
-                  title="Analisis Statistik"
-                  subtitle="Pantau tren dan riwayat finansial Anda"
-                  action={
-                    <div className="flex items-center gap-1 sm:gap-3 justify-end w-full">
-                      <button
-                        onClick={resetToToday}
-                        className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
-                      >
-                        <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+            {/* Header with Asset Filter & Month Selector */}
+            <PageHeader
+              className="mt-2"
+              title="Analisis Statistik"
+              subtitle="Pantau tren dan riwayat finansial Anda"
+              action={
+                <div className="flex items-center gap-2 justify-end w-full flex-wrap sm:flex-nowrap">
+                  {/* Asset Filter Modal Trigger */}
+                  <button
+                    data-testid="stats-asset-filter-btn"
+                    onClick={() => setIsAssetFilterModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container transition-colors shadow-sm cursor-pointer shrink-0"
+                    title="Filter Akun / Kategori Aset"
+                  >
+                    <MaterialIcon name={filterButtonInfo.icon} className="text-primary text-sm shrink-0" />
+                    <span className="truncate max-w-[100px] sm:max-w-[130px]">
+                      {filterButtonInfo.label}
+                    </span>
+                    {filterButtonInfo.badge !== null && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold shrink-0">
+                        {filterButtonInfo.badge}
+                      </span>
+                    )}
+                    <MaterialIcon name="tune" className="text-xs -ml-0.5 text-on-surface-variant shrink-0" />
+                  </button>
+
+                  <button
+                    onClick={resetToToday}
+                    className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full border-none bg-primary-container/20 text-primary-color font-bold text-xs cursor-pointer shadow-sm hover:opacity-90 transition-opacity shrink-0"
+                  >
+                    <MaterialIcon name="calendar_month" className="text-base" /> Hari Ini
+                  </button>
+
+                  <div 
+                    className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-1 sm:px-2 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm shrink-0" 
+                    onClick={() => setIsDatePickerOpen(true)}
+                    data-tour="month-nav"
+                  >
+                    <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
+                      <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="prev-month-btn">
+                        <MaterialIcon name="chevron_left" className="text-on-surface-variant text-[14px] sm:text-base" />
                       </button>
-                      <div 
-                        className="flex items-center justify-center bg-surface-container-lowest border border-outline-variant rounded-xl px-1 sm:px-2 py-2 cursor-pointer hover:bg-surface-container transition-colors shadow-sm w-full" 
-                        onClick={() => setIsDatePickerOpen(true)}
-                        data-tour="month-nav"
-                      >
-                        <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden">
-                          <button onClick={(e) => { e.stopPropagation(); changeMonth(-1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="prev-month-btn">
-                            <MaterialIcon name="chevron_left" className="text-on-surface-variant text-[14px] sm:text-base" />
-                          </button>
-                          <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden" data-testid="month-picker-toggle">
-                            <MaterialIcon name="calendar_month" className="text-primary text-[14px] sm:text-base shrink-0 hidden sm:block" />
-                            <span className="font-label-sm sm:font-label-md text-[10px] sm:text-sm text-on-surface font-semibold truncate" data-testid="month-label">
-                              {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear().toString().slice(2)}
-                            </span>
-                          </div>
-                          <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="next-month-btn">
-                            <MaterialIcon name="chevron_right" className="text-on-surface-variant text-[14px] sm:text-base" />
-                          </button>
-                        </div>
+                      <div className="flex items-center justify-center gap-0.5 sm:gap-1 overflow-hidden" data-testid="month-picker-toggle">
+                        <MaterialIcon name="calendar_month" className="text-primary text-[14px] sm:text-base shrink-0 hidden sm:block" />
+                        <span className="font-label-sm sm:font-label-md text-[10px] sm:text-sm text-on-surface font-semibold truncate" data-testid="month-label">
+                          {MONTH_NAMES[viewDate.getMonth()]} {viewDate.getFullYear().toString().slice(2)}
+                        </span>
                       </div>
+                      <button onClick={(e) => { e.stopPropagation(); changeMonth(1); }} className="hover:bg-surface-container-highest rounded p-0 transition-colors shrink-0" data-testid="next-month-btn">
+                        <MaterialIcon name="chevron_right" className="text-on-surface-variant text-[14px] sm:text-base" />
+                      </button>
                     </div>
-                  }
-                />
+                  </div>
+                </div>
+              }
+            />
 
                 {/* Hero Summary Section - Bento Grid */}
                 <section className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6">
@@ -1344,55 +1252,32 @@ const Statistics: React.FC = () => {
                 </div>
                 <div style={{ width: '100%', height: 200 }}>
                   <ResponsiveContainer>
-                    {chartStyle === 'line' ? (
-                      <LineChart data={scaledDailyChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-                        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                        <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
-                        <Tooltip
-                          contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                          formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
-                          labelFormatter={(label: any) => `Tgl ${label}`}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
-                          stroke="var(--secondary)"
-                          strokeWidth={3}
-                          dot={false}
-                          name="amount"
-                          activeDot={{ r: 6, fill: 'var(--secondary)', stroke: theme === 'dark' ? '#14141d' : 'white', strokeWidth: 1.5 }}
-                          style={{ filter: 'drop-shadow(0px 4px 8px rgba(239, 68, 68, 0.35))' }}
-                        />
-                      </LineChart>
-                    ) : (
-                      <AreaChart data={scaledDailyChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
-                            <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-                        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
-                        <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
-                        <Tooltip
-                          contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                          formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
-                          labelFormatter={(label: any) => `Tgl ${label}`}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
-                          stroke="var(--secondary)"
-                          strokeWidth={2}
-                          fill="url(#expGrad)"
-                          dot={false}
-                          name="amount"
-                          activeDot={{ r: 5, fill: 'var(--secondary)' }}
-                        />
-                      </AreaChart>
-                    )}
+                    <AreaChart data={scaledDailyChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--secondary)" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} interval={4} />
+                      <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
+                        formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
+                        labelFormatter={(label: any) => `Tgl ${label}`}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey={chartScale === 'log' ? 'amountScaled' : 'amount'}
+                        stroke="var(--secondary)"
+                        strokeWidth={2}
+                        fill="url(#expGrad)"
+                        dot={false}
+                        name="amount"
+                        activeDot={{ r: 5, fill: 'var(--secondary)' }}
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '8px' }}>
@@ -1662,6 +1547,15 @@ const Statistics: React.FC = () => {
       <StatDetailModal
         {...detailModalProps}
         onClose={() => setDetailModalProps(prev => ({ ...prev, isOpen: false }))}
+      />
+      <AssetSelectModal
+        isOpen={isAssetFilterModalOpen}
+        onClose={() => setIsAssetFilterModalOpen(false)}
+        assets={assets}
+        isMultiSelect={true}
+        selectedAssetIds={selectedAssetIds}
+        onMultiSelect={setSelectedAssetIds}
+        title="Filter Akun & Kategori Aset"
       />
       
       <OnboardingTutorial 
@@ -2045,275 +1939,6 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
           </ResponsiveContainer>
         </div>
       </BentoCard>
-    </div>
-  );
-};
-
-const BudgetStatistics: React.FC<{ viewDate: Date }> = ({ viewDate }) => {
-  const { budgets, transactions, categories, currencySymbol, startOfMonthDay, budgetMode, monthlyIncome } = useMoney();
-
-  const selectedMonth = viewDate.getMonth();
-  const selectedYear = viewDate.getFullYear();
-
-  const spendingMap = useMemo(() => {
-    const map: Record<string, number> = { total: 0 };
-    const periodStart = new Date(selectedYear, selectedMonth - (startOfMonthDay > 1 ? 1 : 0), startOfMonthDay);
-    const periodEnd = new Date(selectedYear, selectedMonth + (startOfMonthDay > 1 ? 0 : 1), startOfMonthDay);
-
-    transactions.forEach(tx => {
-      const d = new Date(tx.date);
-      if (d >= periodStart && d < periodEnd && tx.type === 'pengeluaran') {
-        map.total += tx.amount;
-        const cat = categories?.find(c => c.id === tx.categoryId && c.type === 'pengeluaran' && !c.isDeleted) ||
-                    categories?.find(c => c.id === tx.categoryId && c.type === 'pengeluaran');
-        if (cat) map[cat.id] = (map[cat.id] || 0) + tx.amount;
-      }
-    });
-    return map;
-  }, [transactions, selectedMonth, selectedYear, categories, startOfMonthDay]);
-
-  const currentMonthBudgets = budgets.filter(b => b.month === selectedMonth && b.year === selectedYear);
-  const globalBudget = currentMonthBudgets.find(b => b.categoryId === null);
-  const categoryIdBudgets = currentMonthBudgets.filter(b => b.categoryId !== null);
-
-  const totalBudgeted = useMemo(() =>
-    categoryIdBudgets.reduce((sum, b) => sum + b.limit, 0),
-    [categoryIdBudgets]);
-
-  const unassignedMoney = monthlyIncome - totalBudgeted;
-
-  const fmt = (v: number) => formatCurrency(v, currencySymbol);
-
-  return (
-    <div className="space-y-6 pb-10">
-      {/* Global Budget / Zero-Based Hero Card */}
-      {budgetMode === 'zero-based' ? (
-        <BentoCard
-          variant="solid"
-          className="text-white shadow-bento-lg p-6 relative overflow-hidden"
-          style={{ background: 'var(--primary-gradient)' }}
-        >
-          <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
-            <MaterialIcon name="payments" className="text-[120px]" />
-          </div>
-          <div className="relative z-10 space-y-4">
-            <div>
-              <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Total Pendapatan</div>
-              <div className="text-3xl font-black">{fmt(monthlyIncome)}</div>
-            </div>
-
-            <div className="flex gap-5 pt-3 border-t border-white/10">
-              <div className="flex-1">
-                <div className="text-[10px] font-bold opacity-80 uppercase mb-0.5">Dialokasikan</div>
-                <div className="text-base font-extrabold">{fmt(totalBudgeted)}</div>
-              </div>
-              <div className="flex-1">
-                <div className="text-[10px] font-bold opacity-80 uppercase mb-0.5">Sisa</div>
-                <div className="text-base font-extrabold">{fmt(unassignedMoney)}</div>
-              </div>
-            </div>
-          </div>
-        </BentoCard>
-      ) : globalBudget ? (
-        <BentoCard
-          variant="solid"
-          className="text-white shadow-bento-lg p-6 relative overflow-hidden"
-          style={{ background: 'var(--primary-gradient)' }}
-        >
-          <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Total Anggaran</div>
-          <div className="text-3xl font-black mb-1">{fmt(globalBudget.limit)}</div>
-          <div className="flex justify-between items-center mt-4 text-xs font-bold">
-            <span className="opacity-90">Terpakai: {fmt(spendingMap.total)}</span>
-            <span>{Math.round((spendingMap.total / globalBudget.limit) * 100)}%</span>
-          </div>
-          <div className="mt-2">
-            <ProgressBar
-              segments={[{
-                percent: Math.min((spendingMap.total / globalBudget.limit) * 100, 100),
-                color: 'white'
-              }]}
-              height="sm"
-            />
-          </div>
-          {spendingMap.total > globalBudget.limit && (
-            <div className="flex items-center gap-1.5 mt-3.5 px-3 py-2 bg-white/20 rounded-xl text-[11px] font-extrabold">
-              <MaterialIcon name="warning" className="text-sm" /> Melebihi anggaran sebesar {fmt(spendingMap.total - globalBudget.limit)}
-            </div>
-          )}
-        </BentoCard>
-      ) : (
-        <BentoCard variant="glass" className="text-center py-10 px-5 border border-dashed border-outline-variant">
-          <div className="text-4xl mb-3">📊</div>
-          <div className="font-bold text-on-surface text-sm">Belum ada anggaran global</div>
-          <div className="text-xs text-on-surface-variant mt-1">Atur anggaran di menu Pengaturan</div>
-        </BentoCard>
-      )}
-
-      {/* Category Budgets */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-bold text-on-surface pl-1">Anggaran Kategori</h3>
-        {categoryIdBudgets.length > 0 ? categoryIdBudgets.map(b => {
-          const cat = categories?.find(c => c.id === b.categoryId);
-          const spent = spendingMap[b.categoryId!] || 0;
-          const percent = b.limit > 0 ? (spent / b.limit) * 100 : 0;
-          const statusColor = percent > 100 ? 'error' : percent >= 75 ? 'secondary' : 'primary';
-          const textDanger = percent > 100 ? 'text-error' : 'text-on-surface';
-          return (
-            <BentoCard key={b.id} variant="glass" className="border border-outline-variant/60">
-              <div className="flex justify-between items-center mb-3">
-                <div className="flex items-center gap-3">
-                  <IconBlock icon="account_balance_wallet" color={statusColor as any} size="sm" />
-                  <span className="font-bold text-sm text-on-surface">{cat?.name || 'Kategori'}</span>
-                </div>
-                <div className="text-right text-xs font-bold">
-                  <span className={textDanger}>{fmt(spent)}</span>
-                  <span className="text-[10px] text-on-surface-variant font-medium"> / {fmt(b.limit)}</span>
-                </div>
-              </div>
-              <ProgressBar
-                segments={[{ percent: Math.min(percent, 100), color: statusColor }]}
-                height="xs"
-              />
-            </BentoCard>
-          );
-        }) : (
-          <div className="text-center py-6 text-xs text-on-surface-variant bg-surface-container/30 rounded-2xl border border-outline-variant/40">
-            Tidak ada anggaran kategori
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ─── GoalStatistics Component ────────────────────────────────────────────────
-const GoalStatistics: React.FC = () => {
-  const { goals, transactions, currencySymbol } = useMoney();
-
-  const goalAllocations = useMemo(() => {
-    const map: Record<string, number> = {};
-    goals.forEach(g => {
-      const linkedTxs = transactions.filter(tx => tx.goalId === g.id);
-      let total = linkedTxs.reduce((sum, tx) => {
-        if (tx.type === 'pendapatan') return sum + tx.amount;
-        if (tx.type === 'transfer') return sum + tx.amount;
-        if (tx.type === 'pengeluaran') return sum - tx.amount;
-        return sum;
-      }, 0);
-      map[g.id] = Math.max(0, total);
-    });
-    return map;
-  }, [goals, transactions]);
-
-  const fmt = (v: number) => formatCurrency(v, currencySymbol);
-
-  return (
-    <div className="space-y-4 pb-10">
-      <h3 className="text-sm font-bold text-on-surface pl-1">Target Tabungan</h3>
-      {goals.length > 0 ? goals.map(g => {
-        const current = goalAllocations[g.id] || 0;
-        const percent = (current / g.targetAmount) * 100;
-        const isCompleted = percent >= 100;
-        return (
-          <BentoCard
-            key={g.id}
-            variant="glass"
-            className={`border border-outline-variant/60 ${isCompleted ? 'border-l-4 border-l-primary-color' : ''}`}
-          >
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex items-center gap-3">
-                <IconBlock
-                  icon={isCompleted ? 'check_circle' : 'track_changes'}
-                  color={isCompleted ? 'income' : 'primary'}
-                  size="md"
-                />
-                <div>
-                  <div className="font-extrabold text-sm text-on-surface">{g.name}</div>
-                  <div className="text-[10px] text-on-surface-variant mt-0.5">
-                    Target: {new Date(g.targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className={`text-base font-extrabold ${isCompleted ? 'text-primary-color' : 'text-primary'}`}>{Math.floor(percent)}%</div>
-                <div className="text-[10px] text-on-surface-variant font-bold">Tercapai</div>
-              </div>
-            </div>
-
-            <ProgressBar
-              segments={[{ percent: Math.min(percent, 100), color: isCompleted ? 'primary-color' : 'primary' }]}
-              height="xs"
-              className="my-3"
-            />
-
-            <div className="flex justify-between text-xs font-semibold pt-1">
-              <span className="text-on-surface-variant">{fmt(current)} / {fmt(g.targetAmount)}</span>
-              {isCompleted ? (
-                <span className="text-primary-color font-bold">Selesai! ✨</span>
-              ) : (
-                <span className="text-primary font-bold">Sisa {fmt(g.targetAmount - current)}</span>
-              )}
-            </div>
-          </BentoCard>
-        );
-      }) : (
-        <EmptyState
-          icon="track_changes"
-          title="Belum ada target tabungan"
-          description="Mulai buat rencana untuk impian Anda!"
-        />
-      )}
-    </div>
-  );
-};
-
-// ─── SubscriptionStatistics Component ─────────────────────────────────────────
-const SubscriptionStatistics: React.FC = () => {
-  const { subscriptions, currencySymbol } = useMoney();
-
-  const totalMonthly = subscriptions
-    .filter(s => s.isActive)
-    .reduce((sum, s) => sum + (s.billingCycle === 'monthly' ? s.amount : s.amount / 12), 0);
-
-  const fmt = (v: number) => formatCurrency(v, currencySymbol);
-
-  return (
-    <div className="space-y-5 pb-10">
-      <BentoCard
-        variant="solid"
-        className="bg-primary text-white shadow-bento-lg p-6 relative overflow-hidden"
-      >
-        <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
-          <MaterialIcon name="credit_card" className="text-[120px]" />
-        </div>
-        <div className="relative z-10">
-          <div className="text-[11px] font-black opacity-80 uppercase tracking-wider mb-1">Estimasi Biaya Langganan</div>
-          <div className="text-3xl font-black mb-1">{fmt(totalMonthly)}</div>
-          <div className="text-xs opacity-90 mt-2">Per bulan dari {subscriptions.filter(s => s.isActive).length} layanan aktif</div>
-        </div>
-      </BentoCard>
-
-      <div className="space-y-3">
-        <h3 className="text-sm font-bold text-on-surface pl-1">Daftar Layanan</h3>
-        <div className="space-y-2">
-          {subscriptions.length > 0 ? subscriptions.map(s => (
-            <ListItem
-              key={s.id}
-              left={<IconBlock icon="credit_card" color="primary" size="md" />}
-              title={s.name}
-              subtitle={`${s.billingCycle === 'monthly' ? 'Bulanan' : 'Tahunan'} • ${fmt(s.amount)}`}
-              right={!s.isActive ? <StatusBadge type="neutral" label="NONAKTIF" /> : null}
-              className={s.isActive ? '' : 'opacity-60'}
-            />
-          )) : (
-            <EmptyState
-              icon="credit_card"
-              title="Belum ada data langganan"
-              description="Tambahkan data langganan Anda untuk melacak biaya rutin."
-            />
-          )}
-        </div>
-      </div>
     </div>
   );
 };

@@ -17,50 +17,147 @@ export interface Category {
   isDeleted?: boolean;
 }
 
-// Map of common keywords to candidate category/subcategory names
-const KEYWORD_MAP: Record<string, string[]> = {
-  laundry: ['belanja', 'tagihan', 'kebersihan', 'jasa', 'layanan', 'rumah tangga', 'operasional'],
-  cuci: ['belanja', 'tagihan', 'kebersihan', 'jasa', 'layanan', 'rumah tangga'],
-  wash: ['belanja', 'tagihan', 'kebersihan', 'jasa'],
-  dryclean: ['belanja', 'tagihan', 'kebersihan', 'jasa'],
-  pln: ['tagihan', 'utilitas', 'rumah tangga'],
-  listrik: ['tagihan', 'utilitas', 'rumah tangga'],
-  pdam: ['tagihan', 'utilitas', 'rumah tangga'],
-  air: ['tagihan', 'utilitas', 'rumah tangga'],
-  pulsa: ['tagihan', 'komunikasi', 'operasional'],
-  internet: ['tagihan', 'komunikasi', 'operasional'],
-  wifi: ['tagihan', 'komunikasi', 'operasional'],
-  indomaret: ['makanan', 'belanja', 'groceries', 'kebutuhan'],
-  alfamart: ['makanan', 'belanja', 'groceries', 'kebutuhan'],
-  supermarket: ['makanan', 'belanja', 'groceries', 'kebutuhan'],
-  gojek: ['transportasi', 'makanan'],
-  grab: ['transportasi', 'makanan'],
-  bensin: ['transportasi'],
-  pertamina: ['transportasi'],
-  parkir: ['transportasi'],
-};
+/**
+ * Extracts top frequent & recent user merchant-to-category mappings from past transactions.
+ * Dynamically generated from the user's personal IndexedDB records.
+ */
+export function extractUserHistoricalMappings(
+  transactions: any[],
+  categories: Category[],
+  limit = 35
+): { note: string; category: string; subCategory?: string }[] {
+  if (!transactions || transactions.length === 0 || !categories) return [];
+
+  const catMap = new Map<string, Category>();
+  categories.forEach(c => catMap.set(c.id, c));
+
+  const noteFreq = new Map<string, {
+    rawNote: string;
+    catId: string;
+    subId?: string;
+    count: number;
+    lastDate: string;
+  }>();
+
+  // Process transactions from newest to oldest
+  for (const tx of transactions) {
+    if (tx.isDeleted || !tx.note || !tx.categoryId) continue;
+    const cleaned = cleanMerchantNote(tx.note);
+    if (!cleaned || cleaned.length < 2) continue;
+
+    const key = cleaned.toLowerCase();
+    const existing = noteFreq.get(key);
+    if (existing) {
+      existing.count += 1;
+      if (tx.date && tx.date > existing.lastDate) {
+        existing.lastDate = tx.date;
+        existing.catId = tx.categoryId;
+        existing.subId = tx.subCategoryId;
+        existing.rawNote = cleaned;
+      }
+    } else {
+      noteFreq.set(key, {
+        rawNote: cleaned,
+        catId: tx.categoryId,
+        subId: tx.subCategoryId,
+        count: 1,
+        lastDate: tx.date || ''
+      });
+    }
+  }
+
+  // Sort by frequency and recency
+  const sorted = Array.from(noteFreq.values())
+    .sort((a, b) => b.count - a.count || b.lastDate.localeCompare(a.lastDate))
+    .slice(0, limit);
+
+  const results: { note: string; category: string; subCategory?: string }[] = [];
+
+  for (const item of sorted) {
+    const cat = catMap.get(item.catId);
+    if (!cat) continue;
+
+    let subName: string | undefined = undefined;
+    if (item.subId && cat.subcategories) {
+      const sub = cat.subcategories.find(s => s.id === item.subId);
+      if (sub) subName = sub.name;
+    }
+
+    results.push({
+      note: item.rawNote,
+      category: cat.name,
+      ...(subName ? { subCategory: subName } : {})
+    });
+  }
+
+  return results;
+}
 
 /**
- * Robustly matches AI suggested category/subcategory or raw transaction text
- * to the best available user category and subcategory.
+ * 100% Dynamic Category Matcher:
+ * 1. Matches against the user's personal past transactions (Personal RAG / Memory).
+ * 2. Matches against AI suggestions mapped to user's active categories.
+ * 3. Matches if the transaction note directly mentions any category or subcategory created by the user.
+ * 
+ * NO static hardcoded keyword dictionaries. Everything is derived dynamically from user data.
  */
 export function findBestCategoryMatch(
   suggestedCategory: string | undefined,
   suggestedSubCategory: string | undefined,
   note: string | undefined,
   categories: Category[],
-  type: 'pengeluaran' | 'pendapatan' = 'pengeluaran'
+  type: 'pengeluaran' | 'pendapatan' = 'pengeluaran',
+  userTransactions?: any[]
 ): CategorySubMatch {
   const availableCats = categories.filter(c => c.type === type && !c.isDeleted);
   if (availableCats.length === 0) {
     return { categoryId: '', subCategoryId: '' };
   }
 
+  const noteCleaned = cleanMerchantNote(note || '').toLowerCase();
+
+  // 1. PERSONAL HISTORY MATCH (Highest Priority - 100% user-driven)
+  if (noteCleaned && userTransactions && userTransactions.length > 0) {
+    // 1a. Exact match on cleaned merchant note
+    const exactHistory = userTransactions.find(
+      t => !t.isDeleted && cleanMerchantNote(t.note || '').toLowerCase() === noteCleaned && t.categoryId
+    );
+    if (exactHistory) {
+      const cat = availableCats.find(c => c.id === exactHistory.categoryId);
+      if (cat) {
+        let matchedSubId = '';
+        if (exactHistory.subCategoryId && cat.subcategories) {
+          const sub = cat.subcategories.find(s => !s.isDeleted && s.id === exactHistory.subCategoryId);
+          if (sub) matchedSubId = sub.id;
+        }
+        return { categoryId: cat.id, subCategoryId: matchedSubId };
+      }
+    }
+
+    // 1b. Fuzzy/Substring match on past transactions (e.g. "Kopi Kenangan" matches "Kopi Kenangan Mall X")
+    const substringHistory = userTransactions.find(t => {
+      if (t.isDeleted || !t.note || !t.categoryId) return false;
+      const pastCleaned = cleanMerchantNote(t.note).toLowerCase();
+      if (pastCleaned.length < 3) return false;
+      return noteCleaned.includes(pastCleaned) || pastCleaned.includes(noteCleaned);
+    });
+    if (substringHistory) {
+      const cat = availableCats.find(c => c.id === substringHistory.categoryId);
+      if (cat) {
+        let matchedSubId = '';
+        if (substringHistory.subCategoryId && cat.subcategories) {
+          const sub = cat.subcategories.find(s => !s.isDeleted && s.id === substringHistory.subCategoryId);
+          if (sub) matchedSubId = sub.id;
+        }
+        return { categoryId: cat.id, subCategoryId: matchedSubId };
+      }
+    }
+  }
+
   const suggCatLower = (suggestedCategory || '').trim().toLowerCase();
   const suggSubLower = (suggestedSubCategory || '').trim().toLowerCase();
-  const noteLower = (note || '').trim().toLowerCase();
 
-  // 1. Exact match on main Category name
+  // 2. AI MATCH: Exact match on user's category name
   if (suggCatLower) {
     const exactCat = availableCats.find(c => c.name.toLowerCase() === suggCatLower);
     if (exactCat) {
@@ -73,7 +170,7 @@ export function findBestCategoryMatch(
     }
   }
 
-  // 2. Match suggestedSubCategory or suggestedCategory against Subcategories in all categories
+  // 3. AI MATCH: Match suggestedSubCategory or suggestedCategory against all Subcategories of the user
   const targetSubName = suggSubLower || suggCatLower;
   if (targetSubName) {
     for (const cat of availableCats) {
@@ -92,7 +189,7 @@ export function findBestCategoryMatch(
     }
   }
 
-  // 3. Partial match on Category name
+  // 4. AI MATCH: Partial match on Category name
   if (suggCatLower) {
     const partialCat = availableCats.find(
       c => c.name.toLowerCase().includes(suggCatLower) || suggCatLower.includes(c.name.toLowerCase())
@@ -102,40 +199,28 @@ export function findBestCategoryMatch(
     }
   }
 
-  // 4. Keyword Fallback Matching based on suggestedCategory or transaction note
-  const textToTest = `${suggCatLower} ${suggSubLower} ${noteLower}`;
-  for (const [kw, candidates] of Object.entries(KEYWORD_MAP)) {
-    if (textToTest.includes(kw)) {
-      // First check if any category or subcategory has kw directly in its name
-      for (const cat of availableCats) {
-        if (cat.name.toLowerCase().includes(kw)) {
-          return { categoryId: cat.id, subCategoryId: '' };
-        }
-        if (cat.subcategories) {
-          const kwSub = cat.subcategories.find(s => !s.isDeleted && s.name.toLowerCase().includes(kw));
-          if (kwSub) {
-            return { categoryId: cat.id, subCategoryId: kwSub.id };
+  // 5. DIRECT NOTE MATCH: Check if note directly mentions any category or subcategory created by user
+  if (noteCleaned) {
+    // 5a. Match subcategories in note
+    for (const cat of availableCats) {
+      if (cat.subcategories) {
+        for (const sub of cat.subcategories) {
+          if (!sub.isDeleted && sub.name.length >= 3 && noteCleaned.includes(sub.name.toLowerCase())) {
+            return { categoryId: cat.id, subCategoryId: sub.id };
           }
         }
       }
+    }
 
-      // Check against candidate category names
-      for (const candidate of candidates) {
-        const candCat = availableCats.find(c => c.name.toLowerCase().includes(candidate));
-        if (candCat) {
-          // Check if candCat has a subcategory matching any keyword
-          let subId = '';
-          if (candCat.subcategories) {
-            const sub = candCat.subcategories.find(s => !s.isDeleted && (s.name.toLowerCase().includes(kw) || s.name.toLowerCase().includes(candidate)));
-            if (sub) subId = sub.id;
-          }
-          return { categoryId: candCat.id, subCategoryId: subId };
-        }
+    // 5b. Match main categories in note
+    for (const cat of availableCats) {
+      if (cat.name.length >= 3 && noteCleaned.includes(cat.name.toLowerCase())) {
+        return { categoryId: cat.id, subCategoryId: '' };
       }
     }
   }
 
-  // 5. Default fallback to first category of matching type if available
+  // 6. Default fallback to the user's first available category of matching type
   return { categoryId: availableCats[0]?.id || '', subCategoryId: '' };
 }
 

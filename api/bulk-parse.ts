@@ -32,7 +32,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { text, image, categories, assets, currentDate, defaultAssetId } = req.body;
+    const { text, image, categories, assets, currentDate, defaultAssetId, userHistory } = req.body;
 
     if (!text && !image) {
       return res.status(400).json({ message: 'No text or image provided' });
@@ -54,6 +54,13 @@ export default async function handler(req: any, res: any) {
     const defaultAsset = assets?.find((a: any) => a.id === defaultAssetId);
     const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
     const dateContext = currentDate || new Date().toISOString().split('T')[0];
+
+    const userHistorySection = userHistory?.length > 0
+      ? `\n\n    USER'S PERSONAL TRANSACTION HISTORY & HABITS (RAG Context):
+    The user has previously categorized similar merchants/notes as follows:
+${userHistory.map((h: any) => `    - "${h.note}" -> Category: "${h.category}"${h.subCategory ? `, Sub-kategori: "${h.subCategory}"` : ''}`).join('\n')}
+    CRITICAL PERSONALIZATION RULE: If the merchant/item relates to any of the user's past habits above (e.g. coffee/kopi shops, grocery stores, recurring bills), you MUST strictly adopt their category/subcategory style instead of generic defaults!`
+      : '';
 
     const prompt = `You are a fin-tech document and text parser. Parse transactions and classify the input.
     
@@ -77,7 +84,7 @@ export default async function handler(req: any, res: any) {
     
     Context:
     - Current date: ${dateContext}
-    - Relative dates: If "kemarin", "tadi", or day names are used, calculate the date relative to ${dateContext}.
+    - Relative dates: If "kemarin", "tadi", or day names are used, calculate the date relative to ${dateContext}.${userHistorySection}
 
     For each transaction, extract:
     - type: "pengeluaran", "pendapatan", or "transfer"

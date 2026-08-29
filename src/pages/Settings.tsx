@@ -47,6 +47,13 @@ interface CarouselCardSettingsProps {
   onChange: (cards: string[]) => void;
 }
 
+const EXCEL_PRESETS = [
+  { id: 'default', label: 'Default Template', desc: 'Tanggal, Tipe, Kategori, Nominal', icon: 'table_chart' },
+  { id: 'custom', label: 'Custom Mapping', desc: 'Pilih Kolom Sendiri saat import', icon: 'tune' },
+  { id: 'bca', label: 'Mutasi Bank BCA', desc: 'Format mutasi e-Statement CSV BCA', icon: 'account_balance' },
+  { id: 'mandiri', label: 'Mutasi Bank Mandiri', desc: 'Format mutasi Excel Bank Mandiri', icon: 'account_balance' },
+] as const;
+
 const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards, onChange }) => {
   const { assets, getAssetBalance, currencySymbol } = useMoney();
   const balances = React.useMemo(() => {
@@ -197,154 +204,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
   );
 };
 
-// ─── StatsViewSettings ────────────────────────────────────────────────────────
-export const ALL_STATS_VIEWS = [
-  { id: 'all', label: 'Ringkasan Umum', description: 'Analisis semua aset' },
-  { id: 'calendar', label: 'Kalender Keuangan', description: 'Grid kalender harian masuk & keluar' },
-  { id: 'cash_bank', label: 'Kas & Bank', description: 'Analisis tunai & rekening' },
-  { id: 'investment', label: 'Investasi & Tabungan', description: 'Analisis aset produktif' },
-  { id: 'goals', label: 'Tabungan', description: 'Progres target impian', pro: true },
-  { id: 'subs', label: 'Langganan', description: 'Biaya rutin bulanan', pro: true },
-  { id: 'health', label: 'Kesehatan Finansial', description: 'Skor kesehatan finansial', pro: true },
-  { id: 'forecast', label: 'Proyeksi Kas', description: 'Prediksi saldo 90 hari ke depan', pro: true },
-  { id: 'detailed_analysis', label: 'Analisis Detail', description: 'Heatmap & Grafik Kategori', pro: true },
-];
 
-interface StatsViewSettingsProps {
-  activeViews: string[];
-  onChange: (views: string[]) => void;
-  defaultView: string;
-  onDefaultChange: (id: string) => void;
-}
-
-const StatsViewSettings: React.FC<StatsViewSettingsProps> = ({ activeViews, onChange, defaultView, onDefaultChange }) => {
-  const dragIdx = useRef<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-
-  const toggleView = (id: string) => {
-    if (activeViews.includes(id)) {
-      if (activeViews.length <= 1) return;
-      onChange(activeViews.filter(v => v !== id));
-      if (defaultView === id) {
-        const remaining = activeViews.filter(v => v !== id);
-        onDefaultChange(remaining[0]);
-      }
-    } else {
-      onChange([...activeViews, id]);
-    }
-  };
-
-  const handleDragStart = (i: number) => { dragIdx.current = i; };
-  const handleDragOver = (e: React.DragEvent, i: number) => {
-    e.preventDefault();
-    setDragOverIdx(i);
-  };
-  const handleDrop = (i: number) => {
-    if (dragIdx.current === null || dragIdx.current === i) { setDragOverIdx(null); return; }
-    const next = [...activeViews];
-    const [moved] = next.splice(dragIdx.current, 1);
-    next.splice(i, 0, moved);
-    onChange(next);
-    dragIdx.current = null;
-    setDragOverIdx(null);
-  };
-
-  return (
-    <div style={{ marginBottom: 20, marginTop: 30, paddingTop: 30, borderTop: '1px solid var(--border-color)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <MaterialIcon name="trending_up" className="text-[18px]" />
-        <span style={{ fontWeight: 700, fontSize: 14 }}>Tampilan Statistik</span>
-      </div>
-      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
-        Atur urutan dan tampilan di halaman Statistik.
-      </p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-        {activeViews.map((id, i) => {
-          const def = ALL_STATS_VIEWS.find(v => v.id === id);
-          if (!def) return null;
-          const isDragOver = dragOverIdx === i;
-          const isDefault = defaultView === id;
-
-          return (
-            <div
-              key={id}
-              draggable
-              onDragStart={() => handleDragStart(i)}
-              onDragOver={e => handleDragOver(e, i)}
-              onDrop={() => handleDrop(i)}
-              onDragEnd={() => setDragOverIdx(null)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                borderRadius: 14, background: isDragOver ? 'var(--primary-glow)' : 'var(--bg-main)',
-                border: isDragOver ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)',
-                cursor: 'grab', transition: 'all 0.15s'
-              }}
-            >
-              <MaterialIcon name="drag_indicator" className="text-[16px]" />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {def.label}
-                  {(def as any).pro && (
-                    <span className="px-1.5 py-0.5 rounded bg-primary-container text-primary-color text-[9px] font-extrabold uppercase tracking-wider">PRO</span>
-                  )}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  onClick={() => onDefaultChange(id)}
-                  style={{
-                    padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
-                    background: isDefault ? 'var(--primary)' : 'var(--bg-card)',
-                    color: isDefault ? 'white' : 'var(--text-muted)',
-                    border: '1px solid var(--border-color)', cursor: 'pointer'
-                  }}
-                >
-                  {isDefault ? 'Default' : 'Set Default'}
-                </button>
-                <button
-                  onClick={() => toggleView(id)}
-                  disabled={activeViews.length <= 1}
-                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', opacity: activeViews.length <= 1 ? 0.3 : 0.7 }}
-                >
-                  <MaterialIcon name="close" className="text-[14px]" />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
-        Tambah Tampilan
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {ALL_STATS_VIEWS.filter(v => !activeViews.includes(v.id)).map(def => (
-          <button
-            key={def.id}
-            onClick={() => toggleView(def.id)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14,
-              background: 'var(--bg-card)', border: '1.5px dashed var(--border-color)', cursor: 'pointer', textAlign: 'left'
-            }}
-          >
-            <MaterialIcon name="add" className="text-[14px]" />
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {def.label}
-                {(def as any).pro && (
-                  <span className="px-1.5 py-0.5 rounded bg-primary-container text-primary-color text-[9px] font-extrabold uppercase tracking-wider">PRO</span>
-                )}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{def.description}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
@@ -368,7 +228,7 @@ const Settings: React.FC = () => {
 
   const { showToast } = useToast();
   const { premium, setShowUpgradeModal } = usePremium();
-  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, autoOffsetDebts, setAutoOffsetDebts, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, autoOffsetDebts, setAutoOffsetDebts, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, pullFromCloud, contacts, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
   const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -388,6 +248,21 @@ const Settings: React.FC = () => {
   }, [location.state]);
   const excelImportRef = useRef<HTMLInputElement>(null);
   const [excelMappingPreset, setExcelMappingPreset] = useState<'default' | 'custom' | 'bca' | 'mandiri'>('default');
+  const [isExcelPresetOpen, setIsExcelPresetOpen] = useState(false);
+  const excelPresetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (excelPresetRef.current && !excelPresetRef.current.contains(event.target as Node)) {
+        setIsExcelPresetOpen(false);
+      }
+    };
+    if (isExcelPresetOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isExcelPresetOpen]);
+
   const [isImportingExcel, setIsImportingExcel] = useState(false);
   const [excelResult, setExcelResult] = useState<ImportResult | null>(null);
   const [mappingModalOpen, setMappingModalOpen] = useState(false);
@@ -947,55 +822,7 @@ const Settings: React.FC = () => {
             </div>
 
 
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <MaterialIcon name="dark_mode" className="text-[18px]" />
-                <span style={{ fontWeight: 700, fontSize: 14 }}>Gaya Grafik Transaksi Harian</span>
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-                Pilih jenis grafik yang digunakan untuk menampilkan aktivitas pengeluaran harian Anda.
-              </p>
-              <div style={{ display: 'flex', background: 'var(--bg-card-solid)', borderRadius: '12px', padding: '4px', border: '1px solid var(--border-color)' }}>
-                <button
-                  type="button"
-                  onClick={() => setChartStyle('area')}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: chartStyle === 'area' ? 'var(--bg-neutral)' : 'transparent',
-                    color: chartStyle === 'area' ? 'var(--text-main)' : 'var(--text-muted)',
-                    fontSize: '14px',
-                    fontWeight: chartStyle === 'area' ? 700 : 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    textAlign: 'center'
-                  }}
-                >
-                  Area Chart (Gradasi & Isian)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChartStyle('line')}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: chartStyle === 'line' ? 'var(--bg-neutral)' : 'transparent',
-                    color: chartStyle === 'line' ? 'var(--text-main)' : 'var(--text-muted)',
-                    fontSize: '14px',
-                    fontWeight: chartStyle === 'line' ? 700 : 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    textAlign: 'center'
-                  }}
-                >
-                  Line Chart (Garis Glowing)
-                </button>
-              </div>
-            </div>
+
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -1077,14 +904,6 @@ const Settings: React.FC = () => {
             <CarouselCardSettings
               activeCards={assetCarouselCards}
               onChange={setAssetCarouselCards}
-            />
-
-            {/* ─── Statistik View Selector ─────────────────────────── */}
-            <StatsViewSettings
-              activeViews={statsCarouselCards}
-              onChange={setStatsCarouselCards}
-              defaultView={defaultStatsView}
-              onDefaultChange={setDefaultStatsView}
             />
 
             <div className="card shadow-soft" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '12px' }}>
@@ -2045,10 +1864,12 @@ const Settings: React.FC = () => {
                   type="button"
                   data-tour="pref-default-wallet"
                   onClick={() => setIsAssetSelectOpen(true)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors text-left"
+                  className="w-full h-12 flex items-center justify-between px-3.5 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors text-left"
                 >
-                  <div className="flex items-center gap-2">
-                    <MaterialIcon name="account_balance_wallet" className="text-primary text-base" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-5 h-5 flex items-center justify-center text-primary">
+                      <MaterialIcon name="account_balance_wallet" className="text-base" />
+                    </div>
                     <span className="font-bold text-sm text-on-surface">
                       {assets.find(a => a.id === defaultAssetId)?.name || 'Pilih Dompet Utama...'}
                     </span>
@@ -2060,29 +1881,77 @@ const Settings: React.FC = () => {
               {/* Siklus Finansial */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Awal Siklus Bulanan (Gajian)</label>
-                <select
-                  data-tour="pref-financial-cycle"
-                  value={startOfMonthDay}
-                  onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
-                  className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
-                >
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                    <option key={day} value={day}>Tanggal {day}</option>
-                  ))}
-                </select>
+                <div className="relative flex items-center">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center pointer-events-none text-primary">
+                    <MaterialIcon name="calendar_month" className="text-base" />
+                  </div>
+                  <select
+                    data-tour="pref-financial-cycle"
+                    value={startOfMonthDay}
+                    onChange={(e) => setStartOfMonthDay(parseInt(e.target.value))}
+                    className="w-full h-12 pl-11 pr-10 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer appearance-none"
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <option key={day} value={day}>Tanggal {day}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center pointer-events-none text-on-surface-variant">
+                    <MaterialIcon name="unfold_more" className="text-base" />
+                  </div>
+                </div>
               </div>
 
               {/* Simbol Mata Uang */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Simbol Mata Uang</label>
-                <input
-                  type="text"
-                  data-tour="pref-currency"
-                  value={currencySymbol}
-                  onChange={(e) => setCurrencySymbol(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
-                  placeholder="Simbol Mata Uang..."
-                />
+                <div className="relative flex items-center">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center pointer-events-none text-primary">
+                    <MaterialIcon name="payments" className="text-base" />
+                  </div>
+                  <input
+                    type="text"
+                    data-tour="pref-currency"
+                    value={currencySymbol}
+                    onChange={(e) => setCurrencySymbol(e.target.value)}
+                    className="w-full h-12 pl-11 pr-4 rounded-xl border border-outline-variant bg-surface-container-low font-bold text-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none"
+                    placeholder="Simbol Mata Uang..."
+                  />
+                </div>
+              </div>
+
+              {/* Manajemen Kategori Button */}
+              <button
+                type="button"
+                onClick={() => setShowCategoryManager(true)}
+                className="w-full h-12 px-3.5 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-on-surface font-bold text-sm flex items-center justify-between cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 flex items-center justify-center text-primary">
+                    <MaterialIcon name="category" className="text-base" />
+                  </div>
+                  <span>Kelola Kategori ({categories.length})</span>
+                </div>
+                <MaterialIcon name="chevron_right" className="text-base text-on-surface-variant" />
+              </button>
+
+              {/* Transaksi Rutin & Langganan Quick Links */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleMenuClick('recurring')}
+                  className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <MaterialIcon name="autorenew" className="text-primary text-sm" />
+                  Jadwal Transaksi Rutin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMenuClick('subscriptions')}
+                  className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <MaterialIcon name="credit_card" className="text-secondary text-sm" />
+                  Biaya Langganan ({subscriptions.filter(s => s.isActive).length})
+                </button>
               </div>
 
             </div>
@@ -2096,28 +1965,7 @@ const Settings: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {/* Gaya Grafik */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Gaya Grafik Harian</label>
-                <div className="flex bg-surface-container-low rounded-xl p-1 border border-outline-variant">
-                  <button
-                    type="button"
-                    onClick={() => setChartStyle('area')}
-                    className={`flex-1 py-2 rounded-lg border-none font-bold text-xs cursor-pointer transition-all ${chartStyle === 'area' ? 'bg-bg-card text-on-surface shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
-                      }`}
-                  >
-                    Area Chart
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setChartStyle('line')}
-                    className={`flex-1 py-2 rounded-lg border-none font-bold text-xs cursor-pointer transition-all ${chartStyle === 'line' ? 'bg-bg-card text-on-surface shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
-                      }`}
-                  >
-                    Line Chart
-                  </button>
-                </div>
-              </div>
+
 
               {/* Tampilkan Hutang */}
               <label className="flex items-center justify-between p-3.5 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors">
@@ -2153,15 +2001,86 @@ const Settings: React.FC = () => {
               onChange={setAssetCarouselCards}
             />
           </section>
+        </div>
+
+        {/* Kolom Kanan */}
+        <div className="flex-1 flex flex-col gap-8 w-full">
+
+          <FamilyManagement />
+
+          {/* Budgeting Mode Card */}
+          <section data-tour="pref-budget-mode" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary">track_changes</span>
+                <h3 className="font-headline-md text-headline-md text-on-surface">Mode Budgeting</h3>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/goals')}
+              className="w-full py-3 px-4 rounded-xl bg-primary text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-opacity hover:opacity-90 border-none shadow-sm"
+            >
+              <MaterialIcon name="track_changes" className="text-base" />
+              Buka Manajemen Anggaran &amp; Target
+              <MaterialIcon name="arrow_forward" className="text-sm ml-auto" />
+            </button>
+
+            <div className="flex flex-col gap-2 p-1 bg-surface-container-low rounded-xl border border-outline-variant/60">
+              <button
+                type="button"
+                onClick={() => setBudgetMode('regular')}
+                className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'regular'
+                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+              >
+                <span>Batas Pengeluaran Bulanan</span>
+                {budgetMode === 'regular' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBudgetMode('zero-based')}
+                className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'zero-based'
+                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+              >
+                <span>Zero-Based Budgeting (ZBB)</span>
+                {budgetMode === 'zero-based' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
+              </button>
+            </div>
+
+            {budgetMode === 'zero-based' && (
+              <div className="mt-3 p-4 rounded-xl bg-bg-card border border-outline-variant/80 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-xs text-on-surface">Disiplin ZBB (Strict Mode)</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={zbbMode === 'strict'}
+                      onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                  Jika aktif, setiap transaksi wajib dialokasikan. Jika kategori defisit, Anda dipaksa memindahkan saldo anggaran dari kategori lain.
+                </p>
+              </div>
+            )}
+          </section>
+
+
 
           {/* Excel Import & Cloud Backup Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
+          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">cloud_sync</span>
               <h3 className="font-headline-md text-headline-md text-on-surface">Data &amp; Sinkronisasi</h3>
             </div>
-
-
 
             <div
               onClick={() => excelImportRef.current?.click()}
@@ -2176,8 +2095,6 @@ const Settings: React.FC = () => {
               </div>
             </div>
 
-
-
             {excelResult && (
               <div className={`p-4 rounded-xl border text-xs leading-relaxed ${excelResult.errors.length > 0 ? 'bg-error-container/10 border-error/20 text-error' : 'bg-primary-container/10 border-primary/20 text-primary'
                 }`}>
@@ -2191,22 +2108,76 @@ const Settings: React.FC = () => {
               </div>
             )}
 
-            <div>
+            {/* Konfigurasi Kolom Excel Custom Dropdown */}
+            <div className="relative" ref={excelPresetRef}>
               <label className="block font-bold text-xs text-on-surface-variant mb-2">Konfigurasi Kolom Excel</label>
-              <select
-                className="w-full p-3 rounded-lg border border-outline-variant bg-surface-container-low font-body-md focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer text-on-surface"
-                value={excelMappingPreset}
-                onChange={(e) => setExcelMappingPreset(e.target.value as any)}
+              <button
+                type="button"
+                onClick={() => setIsExcelPresetOpen(prev => !prev)}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer text-left"
               >
-                <option value="default">Default Template (Tanggal, Tipe, Kategori, Nominal)</option>
-                <option value="custom">Custom Mapping (Pilih Kolom Sendiri)</option>
-                <option value="bca">Mutasi e-Statement Bank BCA (CSV)</option>
-                <option value="mandiri">Mutasi Bank Mandiri (Excel)</option>
-              </select>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary-container text-primary flex items-center justify-center">
+                    <MaterialIcon
+                      name={EXCEL_PRESETS.find(p => p.id === excelMappingPreset)?.icon || 'table_chart'}
+                      className="text-base"
+                    />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-on-surface">
+                      {EXCEL_PRESETS.find(p => p.id === excelMappingPreset)?.label}
+                    </div>
+                    <div className="text-[10px] text-on-surface-variant font-medium">
+                      {EXCEL_PRESETS.find(p => p.id === excelMappingPreset)?.desc}
+                    </div>
+                  </div>
+                </div>
+                <MaterialIcon
+                  name={isExcelPresetOpen ? 'expand_less' : 'expand_more'}
+                  className="text-base text-on-surface-variant transition-transform"
+                />
+              </button>
+
+              {isExcelPresetOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 p-1 bg-surface-container rounded-xl shadow-bento-lg border border-outline-variant z-30 space-y-1 backdrop-blur-md">
+                  {EXCEL_PRESETS.map((preset) => {
+                    const isSelected = excelMappingPreset === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          setExcelMappingPreset(preset.id as any);
+                          setIsExcelPresetOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-lg border-none cursor-pointer transition-colors text-left ${
+                          isSelected
+                            ? 'bg-primary-container/20 text-primary font-bold'
+                            : 'bg-transparent text-on-surface hover:bg-surface-container-high font-medium'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <MaterialIcon
+                            name={preset.icon}
+                            className={`text-sm ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}
+                          />
+                          <div>
+                            <div className="text-xs">{preset.label}</div>
+                            <div className="text-[10px] text-on-surface-variant">{preset.desc}</div>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <MaterialIcon name="check_circle" className="text-primary text-base shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Cloud sync section */}
-            <div className="pt-6 border-t border-border-light space-y-4">
+            <div className="pt-4 border-t border-border-light space-y-4">
               <PremiumGate mode="hard" showOverlay>
                 <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
                   <span>Cloud Sync Manual & Ekspor JSON</span>
@@ -2291,176 +2262,6 @@ const Settings: React.FC = () => {
                 </div>
               </PremiumGate>
             </div>
-          </section>
-        </div>
-
-        {/* Kolom Kanan */}
-        <div className="flex-1 flex flex-col gap-8 w-full">
-
-          <FamilyManagement />
-
-          {/* Budgeting Mode Card */}
-          <section data-tour="pref-budget-mode" className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-primary">track_changes</span>
-                <h3 className="font-headline-md text-headline-md text-on-surface">Mode Budgeting</h3>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate('/goals')}
-              className="w-full py-3 px-4 rounded-xl bg-primary text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-opacity hover:opacity-90 border-none shadow-sm"
-            >
-              <MaterialIcon name="track_changes" className="text-base" />
-              Buka Manajemen Anggaran &amp; Target
-              <MaterialIcon name="arrow_forward" className="text-sm ml-auto" />
-            </button>
-
-            <div className="flex flex-col gap-2 p-1 bg-surface-container-low rounded-xl border border-outline-variant/60">
-              <button
-                type="button"
-                onClick={() => setBudgetMode('regular')}
-                className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'regular'
-                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-                  }`}
-              >
-                <span>Batas Pengeluaran Bulanan</span>
-                {budgetMode === 'regular' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => setBudgetMode('zero-based')}
-                className={`flex items-center justify-between px-4 py-3 rounded-lg font-label-md transition-all border border-transparent cursor-pointer ${budgetMode === 'zero-based'
-                  ? 'bg-bg-card shadow-sm border-outline-variant text-primary font-bold'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-                  }`}
-              >
-                <span>Zero-Based Budgeting (ZBB)</span>
-                {budgetMode === 'zero-based' && <MaterialIcon name="check_circle" className="text-xl text-primary" />}
-              </button>
-            </div>
-
-            {budgetMode === 'zero-based' && (
-              <div className="mt-3 p-4 rounded-xl bg-bg-card border border-outline-variant/80 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-xs text-on-surface">Disiplin ZBB (Strict Mode)</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={zbbMode === 'strict'}
-                      onChange={(e) => setZbbMode(e.target.checked ? 'strict' : 'flexible')}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
-                </div>
-                <p className="text-[10px] text-on-surface-variant leading-relaxed">
-                  Jika aktif, setiap transaksi wajib dialokasikan. Jika kategori defisit, Anda dipaksa memindahkan saldo anggaran dari kategori lain.
-                </p>
-              </div>
-            )}
-          </section>
-
-          {/* Sosial & Fitur Berbagi Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary">groups</span>
-              <h3 className="font-headline-md text-headline-md text-on-surface">Fitur Sosial &amp; Berbagi</h3>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                onClick={() => handleMenuClick('contacts')}
-                className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-              >
-                <MaterialIcon name="contact_phone" className="text-2xl text-primary" />
-                <div className="font-bold text-xs text-on-surface">Daftar Kontak</div>
-              </button>
-              <button
-                onClick={() => setIsSharedBillsOpen(true)}
-                className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-              >
-                <MaterialIcon name="splitscreen" className="text-2xl text-secondary" />
-                <div className="font-bold text-xs text-on-surface">Split Bills</div>
-              </button>
-              <button
-                onClick={() => navigate('/trips')}
-                className="p-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container text-center space-y-2 cursor-pointer transition-colors"
-              >
-                <MaterialIcon name="flight_takeoff" className="text-2xl text-tertiary" />
-                <div className="font-bold text-xs text-on-surface">Holiday Trip</div>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <button
-                onClick={() => navigate('/debts')}
-                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                <MaterialIcon name="handshake" className="text-sm" />
-                Hutang &amp; Piutang
-              </button>
-              <button
-                onClick={() => handleMenuClick('recurring')}
-                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                <MaterialIcon name="autorenew" className="text-sm" />
-                Jadwal Transaksi Rutin
-              </button>
-              <button
-                onClick={() => handleMenuClick('subscriptions')}
-                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
-              >
-                <MaterialIcon name="credit_card" className="text-sm" />
-                Kelola Biaya Langganan ({subscriptions.length})
-              </button>
-              <button
-                onClick={() => navigate('/goals')}
-                className="py-3 px-4 rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container font-bold text-xs text-on-surface flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-1 sm:col-span-2"
-              >
-                <MaterialIcon name="track_changes" className="text-sm" />
-                Manajemen Anggaran &amp; Target
-              </button>
-            </div>
-          </section>
-
-          {/* Category Management Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-4">
-            <div className="flex items-center gap-3 border-b border-border-light pb-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined">category</span>
-              </div>
-              <div>
-                <h3 className="font-headline-md text-headline-md text-on-surface">Manajemen Kategori</h3>
-                <p className="text-xs text-on-surface-variant mt-1">Tambah, edit, atau hapus kategori dan subkategori transaksi Anda.</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowCategoryManager(true)}
-              className="w-full py-3 px-4 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-90 border-none"
-            >
-              Buka Manajemen Kategori
-              <MaterialIcon name="arrow_forward" className="text-sm" />
-            </button>
-          </section>
-
-
-          {/* Tampilan Statistik Card */}
-          <section className="bg-bg-card p-6 rounded-xl border border-border-light shadow-sm space-y-6">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary">pie_chart</span>
-              <h3 className="font-headline-md text-headline-md text-on-surface">Tampilan Statistik</h3>
-            </div>
-
-            <StatsViewSettings
-              activeViews={statsCarouselCards}
-              onChange={setStatsCarouselCards}
-              defaultView={defaultStatsView}
-              onDefaultChange={setDefaultStatsView}
-            />
           </section>
 
           {/* Sistem & Preferensi Card */}

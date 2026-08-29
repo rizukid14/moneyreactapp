@@ -5,8 +5,8 @@ import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI'
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../components/common/Toast';
-import { findBestCategoryMatch } from '../utils/categoryMatcher';
-import { lazy, Suspense } from 'react';
+import { findBestCategoryMatch, extractUserHistoricalMappings } from '../utils/categoryMatcher';
+import { lazy, Suspense, useMemo } from 'react';
 const OverspendReallocationModal = lazy(() => import('../components/modals/OverspendReallocationModal'));
 import { PageWrapper } from '../components/ui/PageWrapper';
 import MaterialIcon from '../components/common/MaterialIcon';
@@ -16,10 +16,14 @@ import { useSpeechToText } from '../hooks/useSpeechToText';
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { addTransaction, assets, categories, currencySymbol, validateTransactionBudget, zbbMode } = useMoney();
+  const { addTransaction, assets, categories, transactions, currencySymbol, validateTransactionBudget, zbbMode } = useMoney();
   const { parseData, isParsing, error, setError } = useBulkParseAI();
   const { checkQuota, updatePremiumDataFromServer, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
+
+  const userHistory = useMemo(() => {
+    return extractUserHistoricalMappings(transactions, categories);
+  }, [transactions, categories]);
 
   const [stage, setStage] = useState<'input' | 'results'>('input');
   const [inputText, setInputText] = useState('');
@@ -104,7 +108,7 @@ const BulkInput: React.FC = () => {
     }
 
     const activeAssets = assets.filter(a => !a.isDeleted);
-    const parsedData = await parseData({ text, categories, assets: activeAssets });
+    const parsedData = await parseData({ text, categories, assets: activeAssets, userHistory });
     if (parsedData?.quotaUsed !== undefined) {
       await updatePremiumDataFromServer('bulk', parsedData.quotaUsed, parsedData.isPremium);
     }
@@ -135,7 +139,8 @@ const BulkInput: React.FC = () => {
             rawSubCategory,
             tx.note,
             categories,
-            tx.type
+            tx.type,
+            transactions
           );
           matchedCategoryId = matchResult.categoryId;
           matchedSubCategoryId = matchResult.subCategoryId;

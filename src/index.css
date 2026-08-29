@@ -232,6 +232,7 @@ button, .card, .nav-item, .fab-mini, .close-btn, .btn-icon, .budget-card-v2 {
 
 html, body, #root {
   min-height: 100%;
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -707,14 +708,7 @@ textarea {
 
 input,
 select {
-  width: 100%;
-  padding: 20px;
-  background: var(--bg-card-solid);
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-sm);
   color: var(--text-main);
-  font-size: 14px;
-  margin-bottom: 16px;
 }
 
 input:focus,

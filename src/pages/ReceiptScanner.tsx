@@ -6,13 +6,13 @@ import { useReceiptOCR, type OCRResult, type LineItem } from '../hooks/useReceip
 import { useBulkParseAI, type ParsedTransaction } from '../hooks/useBulkParseAI';
 import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
-import { findBestCategoryMatch } from '../utils/categoryMatcher';
+import { findBestCategoryMatch, extractUserHistoricalMappings } from '../utils/categoryMatcher';
 import { validateFileSecure } from '../lib/fileValidation';
 import SplitBillModal from '../components/modals/SplitBillModal';
 import { ReceiptItemizerModal } from '../components/modals/ReceiptItemizerModal';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 const OverspendReallocationModal = lazy(() => import('../components/modals/OverspendReallocationModal'));
 import { useNavigate } from 'react-router-dom';
 import CurrencyInput from '../components/common/CurrencyInput';
@@ -34,11 +34,15 @@ const CONFIDENCE_BADGE = {
 
 const ReceiptScanner: React.FC = () => {
   const navigate = useNavigate();
-  const { categories, assets, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId, validateTransactionBudget, zbbMode } = useMoney();
+  const { categories, assets, transactions, addTransaction, addDebt, currencySymbol, defaultAssetId: contextDefaultAssetId, validateTransactionBudget, zbbMode } = useMoney();
   const { scanReceipt, isInitializing, progress: strukProgress, error: strukError, setError: setStrukError } = useReceiptOCR();
   const { parseData: parseMutasi, progress: mutasiProgress, error: mutasiError, setError: setMutasiError } = useBulkParseAI();
   const { checkQuota, updatePremiumDataFromServer, setShowUpgradeModal } = usePremium();
   const { showToast } = useToast();
+
+  const userHistory = useMemo(() => {
+    return extractUserHistoricalMappings(transactions, categories);
+  }, [transactions, categories]);
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
   const [pendingAction, setPendingAction] = useState<{ type: 'save_main' | 'save_line_items' | 'save_mutasi' | 'split', data?: any } | null>(null);
@@ -317,7 +321,13 @@ const ReceiptScanner: React.FC = () => {
     const activeAssets = assets.filter(a => !a.isDeleted);
 
     if (scanMode === 'mutasi') {
-      const parsedData = await parseMutasi({ imageBlob: blob as Blob, categories, assets: activeAssets, defaultAssetId: contextDefaultAssetId || undefined });
+      const parsedData = await parseMutasi({ 
+        imageBlob: blob as Blob, 
+        categories, 
+        assets: activeAssets, 
+        defaultAssetId: contextDefaultAssetId || undefined,
+        userHistory 
+      });
       if (parsedData?.quotaUsed !== undefined) {
         await updatePremiumDataFromServer('bulk', parsedData.quotaUsed, parsedData.isPremium);
       }
@@ -352,7 +362,7 @@ const ReceiptScanner: React.FC = () => {
       return;
     }
 
-    const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets, contextDefaultAssetId || undefined);
+    const ocrResult = await scanReceipt(blob as Blob, categories, activeAssets, contextDefaultAssetId || undefined, userHistory);
 
     if (ocrResult?.quotaUsed !== undefined) {
       await updatePremiumDataFromServer('scan', ocrResult.quotaUsed, ocrResult.isPremium);
@@ -382,7 +392,7 @@ const ReceiptScanner: React.FC = () => {
       }
       setStage('crop');
     }
-  }, [imageFile, scanReceipt, parseMutasi, assets, categories, setError, selectedAssetId, selectedCategory, selectedDate, selectedTime, merchantName, editableAmount, selectedType, strukError, mutasiError, showToast, contextDefaultAssetId, scanMode]);
+  }, [imageFile, scanReceipt, parseMutasi, assets, categories, setError, selectedAssetId, selectedCategory, selectedDate, selectedTime, merchantName, editableAmount, selectedType, strukError, mutasiError, showToast, contextDefaultAssetId, scanMode, userHistory]);
 
   const applyReceiptData = useCallback((ocrResult: OCRResult) => {
     const activeAssets = assets.filter(a => !a.isDeleted);
@@ -420,7 +430,8 @@ const ReceiptScanner: React.FC = () => {
       ocrResult.suggestedSubCategory,
       ocrResult.merchantName,
       categories,
-      'pengeluaran'
+      'pengeluaran',
+      transactions
     );
     if (matched.categoryId) {
       setSelectedCategory(matched.categoryId);
@@ -429,11 +440,11 @@ const ReceiptScanner: React.FC = () => {
       }
     }
     setStage('results');
-  }, [assets, categories, contextDefaultAssetId, showToast]);
+  }, [assets, categories, contextDefaultAssetId, showToast, transactions]);
 
-  const applyMutasiData = useCallback((transactions: ParsedTransaction[]) => {
+  const applyMutasiData = useCallback((mutasiTransactions: ParsedTransaction[]) => {
     const activeAssets = assets.filter(a => !a.isDeleted);
-    const augmented = transactions.map(tx => {
+    const augmented = mutasiTransactions.map(tx => {
       const mapAsset = (assetName: string | undefined, defaultId = '') => {
         if (!assetName) return defaultId;
         const matched = activeAssets.find(a => a.name.toLowerCase().includes(assetName.toLowerCase()) || assetName.toLowerCase().includes(a.name.toLowerCase()));
@@ -455,7 +466,8 @@ const ReceiptScanner: React.FC = () => {
           rawSubCategory,
           tx.note,
           categories,
-          tx.type
+          tx.type,
+          transactions
         );
         matchedCategoryId = matchResult.categoryId;
         matchedSubCategoryId = matchResult.subCategoryId;
@@ -473,7 +485,7 @@ const ReceiptScanner: React.FC = () => {
 
     setMutasiResults(augmented);
     setStage('results');
-  }, [assets, categories, contextDefaultAssetId]);
+  }, [assets, categories, contextDefaultAssetId, transactions]);
 
   const handleSwitchMode = async () => {
     if (!docTypeMismatch) return;

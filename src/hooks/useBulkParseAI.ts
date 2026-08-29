@@ -34,13 +34,15 @@ export const useBulkParseAI = () => {
     imageBlob,
     categories,
     assets,
-    defaultAssetId
+    defaultAssetId,
+    userHistory
   }: {
     text?: string;
     imageBlob?: Blob;
     categories?: any[];
     assets?: any[];
-    defaultAssetId?: string
+    defaultAssetId?: string;
+    userHistory?: any[];
   }): Promise<{ 
     transactions: ParsedTransaction[]; 
     documentType?: 'bank_statement' | 'receipt' | 'invalid';
@@ -93,7 +95,8 @@ export const useBulkParseAI = () => {
               })),
             assets: assets?.map(a => ({ name: a.name, id: a.id })),
             defaultAssetId,
-            currentDate: getLocalDate()
+            currentDate: getLocalDate(),
+            userHistory: userHistory || []
           }),
         });
       } finally {

@@ -49,7 +49,8 @@ export const useReceiptOCR = () => {
     imageBlob: Blob, 
     categories?: any[], 
     assets?: any[],
-    defaultAssetId?: string
+    defaultAssetId?: string,
+    userHistory?: any[]
   ): Promise<OCRResult | null> => {
     const logs: string[] = [];
     const addLog = (m: string) => { 
@@ -101,6 +102,7 @@ export const useReceiptOCR = () => {
               })),
             assets: assets?.map(a => ({ name: a.name, id: a.id })),
             defaultAssetId,
+            userHistory: userHistory || []
           }),
         });
       } finally {
