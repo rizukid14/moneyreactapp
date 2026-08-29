@@ -20,6 +20,10 @@ export const changelogData: ChangelogVersion[] = [
   {
     version: 'v2.3.3', date: 'Agu 2026', badge: 'Terbaru',
     entries: [
+      { type: 'new', text: 'Multi-Select Filter Akun & Kategori Aset di Statistik: Analisis statistik kini mendukung filter multi-rekening yang fleksibel (bisa pilih kombinasi rekening apa saja atau per kategori seperti Semua Tabungan, Semua Bank, Semua E-Wallet) berbasis modal split-view.' },
+      { type: 'improve', text: 'Personal AI Memory & Dynamic Category RAG: AI Scan Struk dan Bulk Parse kini mempelajari pola transaksi historis Anda langsung dari database lokal untuk memberikan rekomendasi kategori yang akurat dan dinamis sesuai kebiasaan personal Anda.' },
+      { type: 'improve', text: 'Redesain Modal Kelola Kategori: Tampilan pengelola kategori kini selaras total dengan modal pilih kategori lengkap dengan tab pengeluaran/pendapatan, search bar, dan tata letak split-view interaktif.' },
+      { type: 'fix', text: 'Anti Pull-Down Reload pada Mobile: Memblokir gesture tarik-ke-bawah (overscroll reload) browser yang tidak disengaja agar foto struk dan teks input mutasi tidak ter-reset saat di-scroll.' },
       { type: 'improve', text: 'Debt Engine 2.0 (Pembaruan Inti Hutang & Piutang): Penulisan ulang sistem kalkulasi hutang dengan akurasi tinggi, penanda peran transaksi (Pokok, Cicilan, Offset), dan pencegahan kehilangan data riwayat transaksi saat mengedit atau menghapus penambahan pokok hutang.' },
       { type: 'new', text: 'Modernisasi Tab Lunas: Tampilan catatan hutang/piutang yang telah selesai kini dilengkapi opsi Pengelompokan (Per Bulan, Per Kontak, atau Flat List), Pengurutan (Terbaru, Nominal Terbesar, Nama Kontak A-Z), serta Sub-filter cepat.' },
       { type: 'new', text: 'Pengaturan Potong Silang (Auto-Offset): Pilihan di Pengaturan untuk mengaktifkan potong silang otomatis per kontak atau secara manual melalui tombol konfirmasi.' },
