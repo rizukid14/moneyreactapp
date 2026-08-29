@@ -12,13 +12,13 @@ const getCachedTheme = (): 'light' | 'dark' => {
 const THEME_COLORS = {
   light: {
     bg: '#f8f9fb',
-    logoGlow: 'rgba(245, 158, 11, 0.18)',
-    logoGlowLarge: 'rgba(245, 158, 11, 0.08)',
+    logoGlow: 'rgba(16, 185, 129, 0.22)',
+    logoGlowLarge: 'rgba(16, 185, 129, 0.1)',
   },
   dark: {
     bg: '#0f172a',
-    logoGlow: 'rgba(245, 158, 11, 0.3)',
-    logoGlowLarge: 'rgba(245, 158, 11, 0.15)',
+    logoGlow: 'rgba(16, 185, 129, 0.35)',
+    logoGlowLarge: 'rgba(16, 185, 129, 0.15)',
   },
 };
 
@@ -65,7 +65,7 @@ const SplashScreen: React.FC = () => {
           width: 88,
           height: 88,
           borderRadius: '24px',
-          background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+          background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -75,8 +75,8 @@ const SplashScreen: React.FC = () => {
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="56" height="56">
             <ellipse cx="24" cy="26" rx="16" ry="14" fill="rgba(255,255,255,0.95)"/>
             <ellipse cx="36" cy="27" rx="5" ry="4" fill="rgba(255,255,255,0.7)"/>
-            <circle cx="35" cy="26" r="1" fill="#D97706"/>
-            <circle cx="38" cy="26" r="1" fill="#D97706"/>
+            <circle cx="35" cy="26" r="1" fill="#059669"/>
+            <circle cx="38" cy="26" r="1" fill="#059669"/>
             <circle cx="30" cy="21" r="2.5" fill="white"/>
             <circle cx="30.5" cy="20.5" r="1.2" fill="#1E293B"/>
             <circle cx="31" cy="20" r="0.4" fill="white"/>
@@ -84,7 +84,7 @@ const SplashScreen: React.FC = () => {
             <ellipse cx="17" cy="14" rx="2.5" ry="3.5" fill="rgba(255,255,255,0.7)" transform="rotate(-20 17 14)"/>
             <ellipse cx="27" cy="13" rx="4" ry="5" fill="rgba(255,255,255,0.95)" transform="rotate(10 27 13)"/>
             <ellipse cx="27" cy="13" rx="2.5" ry="3.5" fill="rgba(255,255,255,0.7)" transform="rotate(10 27 13)"/>
-            <rect x="20" y="12" width="6" height="2" rx="1" fill="#D97706"/>
+            <rect x="20" y="12" width="6" height="2" rx="1" fill="#059669"/>
             <rect x="13" y="36" width="4" height="5" rx="2" fill="rgba(255,255,255,0.95)"/>
             <rect x="29" y="36" width="4" height="5" rx="2" fill="rgba(255,255,255,0.95)"/>
             <path d="M8 24 Q4 22 5 18 Q6 15 8 17" stroke="rgba(255,255,255,0.95)" strokeWidth="2" fill="none" strokeLinecap="round"/>
@@ -102,14 +102,14 @@ const SplashScreen: React.FC = () => {
           fontSize: '28px',
           fontWeight: 800,
           letterSpacing: '-0.5px',
-          background: 'linear-gradient(135deg, #FBBF24, #F59E0B, #D97706)',
+          background: 'linear-gradient(135deg, #10b981, #059669, #047857)',
           backgroundSize: '200% auto',
           animation: 'splash-shimmer 3s linear infinite',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           backgroundClip: 'text',
         }}>
-          MoneyApp
+          Monetiq
         </h1>
       </div>
 
@@ -125,7 +125,7 @@ const SplashScreen: React.FC = () => {
             width: 6,
             height: 6,
             borderRadius: '50%',
-            backgroundColor: '#F59E0B',
+            backgroundColor: '#10B981',
             opacity: 0,
             animation: `splash-dots 1.4s ease-in-out ${i * 0.2}s infinite`,
           }} />

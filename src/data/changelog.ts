@@ -18,7 +18,16 @@ export const changelogTypeMeta = {
 
 export const changelogData: ChangelogVersion[] = [
   {
-    version: 'v2.3.2', date: 'Agu 2026', badge: 'Terbaru',
+    version: 'v2.3.3', date: 'Agu 2026', badge: 'Terbaru',
+    entries: [
+      { type: 'improve', text: 'Debt Engine 2.0 (Pembaruan Inti Hutang & Piutang): Penulisan ulang sistem kalkulasi hutang dengan akurasi tinggi, penanda peran transaksi (Pokok, Cicilan, Offset), dan pencegahan kehilangan data riwayat transaksi saat mengedit atau menghapus penambahan pokok hutang.' },
+      { type: 'new', text: 'Modernisasi Tab Lunas: Tampilan catatan hutang/piutang yang telah selesai kini dilengkapi opsi Pengelompokan (Per Bulan, Per Kontak, atau Flat List), Pengurutan (Terbaru, Nominal Terbesar, Nama Kontak A-Z), serta Sub-filter cepat.' },
+      { type: 'new', text: 'Pengaturan Potong Silang (Auto-Offset): Pilihan di Pengaturan untuk mengaktifkan potong silang otomatis per kontak atau secara manual melalui tombol konfirmasi.' },
+      { type: 'fix', text: 'Penyelarasan Branding & Perbaikan UI: Memperbarui tampilan splash card ke Monetiq, menyelaraskan kartu ringkasan, dan memperbaiki layering menu dropdown agar tidak tertutup kartu.' }
+    ]
+  },
+  {
+    version: 'v2.3.2', date: 'Agu 2026',
     entries: [
       { type: 'improve', text: 'AI Financial Advisor & Survival Guide: MoneyBot kini lebih cerdas dan empatik dalam memberikan strategi penghematan saat uang menipis di pertengahan bulan, lengkap dengan kalkulasi batas belanja harian (Daily Spending Cap) dan audit pengeluaran.' },
       { type: 'improve', text: 'Keamanan Prompt Injection AI: Perlindungan menyeluruh pada MoneyBot, OCR Scanner, dan Bulk Input dari upaya manipulasi instruksi maupun injeksi data tidak sah.' },

@@ -185,7 +185,7 @@ const ChatBot: React.FC = () => {
           budgets,
           goals,
           appKnowledge: {
-            currentVersion: 'v2.3.2',
+            currentVersion: 'v2.3.3',
             latestFeatures: []
           }
         })
@@ -303,11 +303,11 @@ const ChatBot: React.FC = () => {
           budgets,
           goals,
           appKnowledge: {
-            currentVersion: 'v2.3.2',
+            currentVersion: 'v2.3.3',
             latestFeatures: [
-              'Zero-Based Budgeting (ZBB): Fitur alokasi pendapatan secara ketat di mana setiap pemasukan harus dialokasikan ke amplop kategori sampai habis bersisa 0.',
-              'ZBB Strict Mode: Sistem pemblokiran/pencegatan otomatis pada transaksi (manual, struk OCR, maupun mutasi) jika nominal melebihi sisa limit kategori, mengharuskan pemindahan/realokasi anggaran sebelum lanjut.',
-              'Tampilan UI Envelope System pada halaman budgeting dengan dukungan penguncian (lock) pendapatan.'
+              'Debt Engine 2.0: Sistem kalkulasi hutang & piutang baru dengan pelacakan peran transaksi (Pokok, Cicilan, Offset) dan perlindungan riwayat pembayaran.',
+              'Modernisasi Tab Lunas: Pengelompokan (Per Bulan, Per Kontak, Flat List) dan pengurutan (Terbaru, Nominal, Nama) untuk catatan hutang/piutang yang telah selesai.',
+              'Potong Silang Otomatis (Auto-Offset): Pengaturan fleksibel untuk menyeimbangkan hutang & piutang per kontak secara otomatis atau manual.'
             ]
           }
         })
@@ -430,9 +430,8 @@ const ChatBot: React.FC = () => {
         isInstallment: toolArgs.isInstallment || false,
         totalInstallments: toolArgs.totalInstallments,
         paidInstallments: 0,
-        liabilityAssetId: toolArgs.type === 'hutang' ? toolArgs.assetId : undefined,
-        paymentAssetId: toolArgs.type === 'piutang' ? toolArgs.assetId : undefined
-      }, toolArgs.type === 'hutang' ? 'cash' : 'none', toolArgs.categoryId, toolArgs.subCategoryId);
+        paymentAssetId: toolArgs.assetId || undefined,
+      }, toolArgs.assetId ? (toolArgs.type === 'hutang' ? 'cash' : 'none') : 'none', toolArgs.categoryId, toolArgs.subCategoryId);
 
       setMessages(prev => prev.map((m, i) => 
         i === msgIndex ? { ...m, toolCall: undefined, content: `✅ ${toolArgs.type === 'hutang' ? 'Hutang' : 'Piutang'} berhasil dicatat!` } : m

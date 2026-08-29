@@ -7,7 +7,8 @@ import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
 import ContactSelectModal from './ContactSelectModal';
 import GoalSelectModal from './GoalSelectModal';
-import { getLocalDate, getLocalTime, formatCurrency, isPrincipalTx } from '../../lib/utils';
+import { getLocalDate, getLocalTime, formatCurrency } from '../../lib/utils';
+import { calculateDebtBalance } from '../../lib/debtCalculations';
 import { useToast } from '../common/Toast';
 import { lazy, Suspense } from 'react';
 const OverspendReallocationModal = lazy(() => import('./OverspendReallocationModal'));
@@ -82,12 +83,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     return debts
       .filter(d => !d.isPaid && !d.isDeleted)
       .map(d => {
-        const paid = transactions
-          .filter(t => t.relatedId === d.id && !t.isDeleted)
-          .reduce((sum, tx) => isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0), 0);
-        const remaining = Math.max(0, Number(d.totalAmount || 0) - paid);
-        return { ...d, remaining, paid };
-      });
+        const calc = calculateDebtBalance(d, transactions, categories);
+        return { ...d, remaining: calc.remaining, paid: calc.totalPaid, isPaid: calc.isPaid };
+      })
+      .filter(d => !d.isPaid && d.remaining > 0);
   }, [debts, transactions, categories]);
 
   // Filter matching unpaid debts by type and contact

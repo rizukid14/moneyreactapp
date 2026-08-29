@@ -216,7 +216,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
                 </button>
 
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
-                  MoneyApp akan membantu memantau progres tabungan Anda berdasarkan transaksi yang dihubungkan ke target ini.
+                  Monetiq akan membantu memantau progres tabungan Anda berdasarkan transaksi yang dihubungkan ke target ini.
                 </p>
 
                 {!editingGoal && (

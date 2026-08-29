@@ -92,7 +92,7 @@ export const SubscriptionModal: React.FC = () => {
         <div className="relative z-10 flex justify-between items-start pt-4 px-4 pb-4 text-white">
           <div className="flex items-center gap-2 mt-2">
             <MaterialIcon name="stars" className="text-3xl drop-shadow-sm" />
-            <h2 className="text-xl font-extrabold tracking-tight drop-shadow-sm">MoneyApp Premium</h2>
+            <h2 className="text-xl font-extrabold tracking-tight drop-shadow-sm">Monetiq Premium</h2>
           </div>
           <button 
             onClick={() => setShowUpgradeModal(false)}

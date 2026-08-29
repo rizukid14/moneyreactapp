@@ -11,9 +11,10 @@ export interface DropdownItem {
 interface DropdownMenuProps {
   items: DropdownItem[];
   icon?: string;
+  customButton?: React.ReactNode;
 }
 
-const DropdownMenu: React.FC<DropdownMenuProps> = ({ items, icon = 'more_vert' }) => {
+const DropdownMenu: React.FC<DropdownMenuProps> = ({ items, icon = 'more_vert', customButton }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -30,16 +31,22 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ items, icon = 'more_vert' }
   }, [isOpen]);
 
   return (
-    <div className="relative shrink-0" ref={menuRef} onClick={e => e.stopPropagation()}>
-      <button 
-        onClick={() => setIsOpen(p => !p)} 
-        className="p-1 rounded-full text-on-surface-variant hover:bg-surface-subtle transition-colors flex items-center justify-center border-none bg-transparent cursor-pointer"
-      >
-        <MaterialIcon name={icon} className="text-base" />
-      </button>
+    <div className={`relative shrink-0 ${isOpen ? 'z-50' : 'z-auto'}`} ref={menuRef} onClick={e => e.stopPropagation()}>
+      {customButton ? (
+        <div onClick={() => setIsOpen(p => !p)}>
+          {customButton}
+        </div>
+      ) : (
+        <button 
+          onClick={() => setIsOpen(p => !p)} 
+          className="p-1 rounded-full text-on-surface-variant hover:bg-surface-subtle transition-colors flex items-center justify-center border-none bg-transparent cursor-pointer"
+        >
+          <MaterialIcon name={icon} className="text-base" />
+        </button>
+      )}
       
       {isOpen && (
-        <div className="absolute right-0 top-8 bg-surface-container rounded-xl shadow-bento py-1 z-10 min-w-[160px] border border-outline-variant overflow-hidden">
+        <div className="absolute right-0 top-full mt-1.5 bg-surface-container rounded-xl shadow-bento py-1 z-[99] min-w-[160px] border border-outline-variant overflow-hidden backdrop-blur-md">
           {items.map((item, idx) => (
             <button
               key={idx}

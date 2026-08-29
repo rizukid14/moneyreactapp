@@ -7,6 +7,7 @@ import DatePickerModal from '../components/modals/DatePickerModal';
 import StatDetailModal from '../components/modals/StatDetailModal';
 import type { StatDetailItem } from '../components/modals/StatDetailModal';
 import { formatCurrency } from '../lib/utils';
+import { calculateDebtBalance } from '../lib/debtCalculations';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import { MONTH_NAMES } from '../lib/constants';
@@ -1711,11 +1712,12 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
       }
     });
 
-    const totalUnpaidDebt = debts.filter(d => !d.isPaid).reduce((sum, d) => {
-      const history = transactions.filter(t => t.relatedId === d.id);
-      const paidAmt = history.reduce((s, t) => t.type === 'pengeluaran' ? s + t.amount : s, 0);
-      return sum + Math.max(0, d.totalAmount - paidAmt);
-    }, 0);
+    const totalUnpaidDebt = debts
+      .filter(d => !d.isPaid && !d.isDeleted && d.type === 'hutang')
+      .reduce((sum, d) => {
+        const calc = calculateDebtBalance(d, transactions, categories);
+        return calc.isPaid ? sum : sum + calc.remaining;
+      }, 0);
 
     let totalAssetsValue = 0;
     let liquidAssetsValue = 0;

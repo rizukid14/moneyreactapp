@@ -4,7 +4,8 @@ import AssetSelectModal from './AssetSelectModal';
 import CurrencyInput from '../common/CurrencyInput';
 import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
-import { getLocalDate, getLocalTime, isPrincipalTx } from '../../lib/utils';
+import { getLocalDate, getLocalTime } from '../../lib/utils';
+import { calculateDebtBalance } from '../../lib/debtCalculations';
 const SettlementExplanationModal = lazy(() => import('./SettlementExplanationModal'));
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
@@ -261,13 +262,8 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
 
         // Calculate remaining amount for each related debt
         const activeDebts = sortedDebts.map(d => {
-          const history = transactions.filter(tx => tx.relatedId === d.id);
-          const paidAmt = history.reduce((sum, tx) => {
-            if (isPrincipalTx(tx.note, tx.categoryId, categories)) return sum;
-            return sum + Number(tx.amount || 0);
-          }, 0);
-          const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
-          return { debt: d, remaining };
+          const calc = calculateDebtBalance(d, transactions, categories);
+          return { debt: d, remaining: calc.remaining };
         }).filter(item => item.remaining > 0);
 
         if (activeDebts.length > 0) {

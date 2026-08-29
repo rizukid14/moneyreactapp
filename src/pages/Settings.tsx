@@ -366,10 +366,9 @@ const Settings: React.FC = () => {
     }
   }, [location]);
 
-  // Auth context for manual sync
   const { showToast } = useToast();
   const { premium, setShowUpgradeModal } = usePremium();
-  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
+  const { user, updateUser, pin, setAppPin, lockApp, categories, assets, exportData, importData, logOut, defaultAssetId, setDefaultAssetId, startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, autoOffsetDebts, setAutoOffsetDebts, currencySymbol, setCurrencySymbol, assetCarouselCards, setAssetCarouselCards, statsCarouselCards, setStatsCarouselCards, defaultStatsView, setDefaultStatsView, chartStyle, setChartStyle, pullFromCloud, contacts, subscriptions, addSubscription, updateSubscription, deleteSubscription, transactions, getAssetBalance, budgetMode, setBudgetMode, zbbMode, setZbbMode, addRecurringTransaction, syncData, pendingSyncCount } = useMoney();
   const { resetAllTutorials } = useOnboarding();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -904,6 +903,25 @@ const Settings: React.FC = () => {
                   type="checkbox"
                   checked={showDebtInTransactions}
                   onChange={(e) => setShowDebtInTransactions(e.target.checked)}
+                  style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
+                />
+              </label>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <MaterialIcon name="swap_horiz" className="text-[18px]" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Potong Silang Otomatis (Auto-Offset)</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Otomatis memotong silang hutang dan piutang jika ada kontak yang sama saat membuka halaman Hutang. Jika dinonaktifkan, potong silang hanya dijalankan saat Anda menekan tombol manual.
+              </p>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-card-solid)', border: '1px solid var(--border-color)', borderRadius: '12px', cursor: 'pointer' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600 }}>Potong Silang Otomatis</span>
+                <input
+                  type="checkbox"
+                  checked={autoOffsetDebts}
+                  onChange={(e) => setAutoOffsetDebts(e.target.checked)}
                   style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
                 />
               </label>
@@ -2114,6 +2132,20 @@ const Settings: React.FC = () => {
                   className="w-5 h-5 accent-primary cursor-pointer"
                 />
               </label>
+
+              {/* Potong Silang Otomatis */}
+              <label className="flex items-center justify-between p-3.5 bg-surface-container-low border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container transition-colors">
+                <div className="flex flex-col">
+                  <span className="font-bold text-xs text-on-surface">Potong Silang Otomatis</span>
+                  <span className="text-[10px] text-on-surface-variant mt-0.5">Otomatis seimbangkan hutang & piutang per kontak</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={autoOffsetDebts}
+                  onChange={(e) => setAutoOffsetDebts(e.target.checked)}
+                  className="w-5 h-5 accent-primary cursor-pointer"
+                />
+              </label>
             </div>
 
             <CarouselCardSettings
@@ -2486,7 +2518,7 @@ const Settings: React.FC = () => {
               <div className="font-semibold flex items-center justify-center gap-1 cursor-pointer hover:underline" onClick={() => window.location.href = 'mailto:rizqydaffa14@gmail.com?subject=Bantuan Monetiq'}>
                 <MaterialIcon name="mail" className="text-sm" /> Hubungi Dukungan (rizqydaffa14@gmail.com)
               </div>
-              <div className="text-[10px] opacity-75">Monetiq v2.3.2 • Dibuat dengan ❤️ by Dappal</div>
+              <div className="text-[10px] opacity-75">Monetiq {changelogData[0]?.version || 'v2.3.3'} • Dibuat dengan ❤️ by Dappal</div>
             </div>
 
             <button

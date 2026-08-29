@@ -1,13 +1,12 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMoney, type Debt, type Transaction, type AutoSettleOptions } from '../contexts/MoneyContext';
-import { isPrincipalTx } from '../lib/utils';
+import { calculateDebtBalance, calculateContactOffsetPotentials } from '../lib/debtCalculations';
 import DropdownMenu from '../components/common/DropdownMenu';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
 import DebtAddPrincipalModal from '../components/modals/DebtAddPrincipalModal';
 import DebtOffsetModal from '../components/modals/DebtOffsetModal';
-import { lazy, Suspense } from 'react';
 const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
@@ -55,264 +54,295 @@ const DebtCard = React.memo<DebtCardProps>(({
   liabilityName, paymentName, receiveName, history, onToggleExpand, isExpanded,
   currencySymbol, onHistoryClick
 }) => {
-    const { categories } = useMoney();
+  const { categories } = useMoney();
 
-    const isHutang = debt.type === 'hutang';
-    const daysLeft = getDaysUntilDue(debt.dueDate);
-    const isOverdue = daysLeft !== null && daysLeft < 0 && !debt.isPaid;
-    const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && !debt.isPaid;
+  const isHutang = debt.type === 'hutang';
+  const daysLeft = getDaysUntilDue(debt.dueDate);
+  const isOverdue = daysLeft !== null && daysLeft < 0 && !debt.isPaid;
+  const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && !debt.isPaid;
 
-    const progressPct = debt.isInstallment && debt.totalInstallments
-      ? Math.round((debt.paidInstallments / debt.totalInstallments) * 100)
-      : null;
+  const balance = useMemo(
+    () => calculateDebtBalance(debt, history, categories),
+    [debt, history, categories]
+  );
 
-    const paidAmount = history.reduce((sum, tx) => {
-      if (isPrincipalTx(tx.note, tx.categoryId, categories)) return sum;
-      return sum + Number(tx.amount || 0);
-    }, 0);
+  let borderClass = 'border-outline-variant';
+  if (debt.isPaid || balance.isPaid) borderClass = 'border-success';
+  else if (isOverdue) borderClass = 'border-error';
+  else if (isDueSoon) borderClass = 'border-secondary';
 
-    const remainingAmount = Number(debt.totalAmount || 0) - paidAmount;
+  const shadowClass = (debt.isPaid || balance.isPaid) ? 'shadow-none' : isOverdue ? 'shadow-error-glow' : 'shadow-bento';
+  
+  const { dragProps, swipeOffset, reset } = useSwipeGesture({
+    onSwipeLeft: () => {
+      reset();
+      onDelete();
+    },
+    onSwipeRight: () => {
+      reset();
+      onEdit();
+    },
+  });
 
-    let borderClass = 'border-outline-variant';
-    if (debt.isPaid) borderClass = 'border-success';
-    else if (isOverdue) borderClass = 'border-error';
-    else if (isDueSoon) borderClass = 'border-secondary';
-
-    let shadowClass = debt.isPaid ? 'shadow-none' : isOverdue ? 'shadow-error-glow' : 'shadow-bento';
-    
-    const { dragProps, swipeOffset, reset } = useSwipeGesture({
-      onSwipeLeft: () => {
-        reset();
-        onDelete();
-      },
-      onSwipeRight: () => {
-        reset();
-        onEdit();
-      },
-    });
-
-    return (
-      <div className="relative overflow-hidden rounded-3xl w-full h-full">
-        {/* Swipe Action Backgrounds */}
-        <div className="absolute inset-0 flex justify-between items-center pointer-events-none rounded-3xl">
-          <div 
-            className="h-full bg-secondary/15 flex items-center pl-6 text-secondary font-extrabold text-xs transition-opacity duration-150" 
-            style={{ opacity: swipeOffset > 20 ? 1 : 0 }}
-          >
-            <MaterialIcon name="edit" className="mr-1.5 text-base animate-pulse" />
-            Edit
-          </div>
-          <div 
-            className="h-full bg-error/15 flex items-center pr-6 text-error font-extrabold text-xs ml-auto transition-opacity duration-150" 
-            style={{ opacity: swipeOffset < -20 ? 1 : 0 }}
-          >
-            Hapus
-            <MaterialIcon name="delete" className="ml-1.5 text-base animate-pulse" />
-          </div>
+  return (
+    <div className="relative overflow-hidden rounded-3xl w-full h-full">
+      {/* Swipe Action Backgrounds */}
+      <div className="absolute inset-0 flex justify-between items-center pointer-events-none rounded-3xl">
+        <div 
+          className="h-full bg-secondary/15 flex items-center pl-6 text-secondary font-extrabold text-xs transition-opacity duration-150" 
+          style={{ opacity: swipeOffset > 20 ? 1 : 0 }}
+        >
+          <MaterialIcon name="edit" className="mr-1.5 text-base animate-pulse" />
+          Edit
         </div>
-
-        <motion.div {...dragProps} className="relative z-10 h-full w-full">
-          <Card
-            interactive
-            data-testid={`debt-card-${debt.id}`} 
-            onClick={onToggleExpand}
-            className={`relative transition-all h-full border-2 ${borderClass} ${shadowClass} ${debt.isPaid ? 'opacity-65' : 'opacity-100'}`}
-          >
-        {/* Header row */}
-        <div className="flex items-start gap-3 mb-3">
-          {/* Icon */}
-          <IconBlock 
-            icon={isHutang ? 'trending_down' : 'trending_up'} 
-            color={isHutang ? 'error' : 'success'} 
-            size="md" 
-          />
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="font-bold text-sm text-on-surface">{debt.contact}</span>
-              {debt.isPaid && (
-                <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full tracking-wider">LUNAS</span>
-              )}
-              {isOverdue && (
-                <span className="text-[10px] font-bold text-error bg-error/10 px-2 py-0.5 rounded-full tracking-wider">JATUH TEMPO</span>
-              )}
-              {isDueSoon && (
-                <span className="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-full tracking-wider">SEGERA</span>
-              )}
-              {debt.excludeAutoOffset && !debt.isPaid && (
-                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full tracking-wider" title="Catatan Mandiri (Dilewati dari Auto Potong Silang)">🔒 MANDIRI</span>
-              )}
-            </div>
-            <div className="text-xs text-on-surface-variant truncate">{debt.description || (isHutang ? 'Hutang' : 'Piutang')}</div>
-          </div>
-
-          {/* Menu */}
-          <DropdownMenu 
-            items={[
-              { icon: 'edit', label: 'Edit Catatan', onClick: onEdit },
-              { icon: 'add', label: 'Tambah Nominal', onClick: onAddPrincipal },
-              !debt.isPaid 
-                ? { icon: 'check_circle', label: 'Tandai Lunas', onClick: onSettle }
-                : { icon: 'check_circle', label: 'Tandai Belum Lunas', onClick: onUnpay },
-              { icon: 'delete', label: 'Hapus', danger: true, onClick: onDelete }
-            ]}
-          />
+        <div 
+          className="h-full bg-error/15 flex items-center pr-6 text-error font-extrabold text-xs ml-auto transition-opacity duration-150" 
+          style={{ opacity: swipeOffset < -20 ? 1 : 0 }}
+        >
+          Hapus
+          <MaterialIcon name="delete" className="ml-1.5 text-base animate-pulse" />
         </div>
+      </div>
 
-        {/* Amount */}
-        <div className={`flex justify-between items-end ${(debt.isInstallment || paidAmount > 0) ? 'mb-3' : 'mb-0'}`}>
-          <div>
-            <div className="text-[11px] text-on-surface-variant font-semibold mb-0.5">
-              {isHutang ? 'Total Hutang' : 'Total Piutang'}
-            </div>
-            <div className={`text-xl font-extrabold tracking-tight ${isHutang ? 'text-error' : 'text-success'}`}>
-              {fmt(debt.totalAmount, currencySymbol)}
-            </div>
-          </div>
-          {paidAmount > 0 && (
-            <div className="text-right shrink-0">
-              <div className="text-[11px] text-on-surface-variant font-semibold mb-0.5">
-                {remainingAmount <= 0 ? 'Status' : (isHutang ? 'Sisa Hutang' : 'Sisa Piutang')}
+      <motion.div {...dragProps} className="relative z-10 h-full w-full">
+        <Card
+          interactive
+          data-testid={`debt-card-${debt.id}`} 
+          onClick={onToggleExpand}
+          className={`relative transition-all h-full border-2 ${borderClass} ${shadowClass} ${(debt.isPaid || balance.isPaid) ? 'opacity-75' : 'opacity-100'}`}
+        >
+          {/* Header row */}
+          <div className="flex items-start gap-3 mb-3">
+            <IconBlock 
+              icon={isHutang ? 'trending_down' : 'trending_up'} 
+              color={isHutang ? 'error' : 'success'} 
+              size="md" 
+            />
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                <span className="font-bold text-sm text-on-surface">{debt.contact}</span>
+                {(debt.isPaid || balance.isPaid) && (
+                  <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full tracking-wider">LUNAS</span>
+                )}
+                {isOverdue && (
+                  <span className="text-[10px] font-bold text-error bg-error/10 px-2 py-0.5 rounded-full tracking-wider">JATUH TEMPO</span>
+                )}
+                {isDueSoon && (
+                  <span className="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-full tracking-wider">SEGERA</span>
+                )}
+                {debt.excludeAutoOffset && !debt.isPaid && !balance.isPaid && (
+                  <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full tracking-wider" title="Catatan Mandiri (Dilewati dari Auto Potong Silang)">🔒 MANDIRI</span>
+                )}
               </div>
-              <div className={`text-xl font-extrabold tracking-tight ${remainingAmount <= 0 ? 'text-success' : (isHutang ? 'text-error' : 'text-success')}`}>
-                {remainingAmount > 0 ? fmt(remainingAmount, currencySymbol) : (remainingAmount < 0 ? `Surplus ${fmt(remainingAmount, currencySymbol)}` : 'LUNAS')}
+              <div className="text-xs text-on-surface-variant truncate">{debt.description || (isHutang ? 'Hutang' : 'Piutang')}</div>
+            </div>
+
+            {/* Menu */}
+            <DropdownMenu 
+              items={[
+                { icon: 'edit', label: 'Edit Catatan', onClick: onEdit },
+                { icon: 'add', label: 'Tambah Nominal Pokok', onClick: onAddPrincipal },
+                !(debt.isPaid || balance.isPaid) 
+                  ? { icon: 'check_circle', label: 'Tandai Lunas', onClick: onSettle }
+                  : { icon: 'undo', label: 'Tandai Belum Lunas', onClick: onUnpay },
+                { icon: 'delete', label: 'Hapus Catatan', danger: true, onClick: onDelete }
+              ]}
+            />
+          </div>
+
+          {/* Amount info */}
+          <div className={`flex justify-between items-end ${(debt.isInstallment || balance.totalPaid > 0) ? 'mb-3' : 'mb-0'}`}>
+            <div>
+              <div className="text-[11px] text-on-surface-variant font-semibold mb-0.5">
+                {isHutang ? 'Total Hutang' : 'Total Piutang'}
+              </div>
+              <div className={`text-xl font-extrabold tracking-tight ${isHutang ? 'text-error' : 'text-success'}`}>
+                {fmt(balance.totalPrincipal, currencySymbol)}
+              </div>
+            </div>
+            {balance.totalPaid > 0 && (
+              <div className="text-right shrink-0">
+                <div className="text-[11px] text-on-surface-variant font-semibold mb-0.5">
+                  {balance.remaining <= 0 ? 'Status' : (isHutang ? 'Sisa Hutang' : 'Sisa Piutang')}
+                </div>
+                <div className={`text-xl font-extrabold tracking-tight ${balance.remaining <= 0 ? 'text-success' : (isHutang ? 'text-error' : 'text-success')}`}>
+                  {balance.remaining > 0 ? fmt(balance.remaining, currencySymbol) : 'LUNAS'}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Installment / Payment progress bar */}
+          {debt.isInstallment ? (
+            <div className="mb-3">
+              <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden mb-1.5">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${(debt.isPaid || balance.isPaid) ? 'bg-success' : (isHutang ? 'bg-error' : 'bg-success')}`}
+                  style={{ width: `${balance.progressPercent}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[11px] text-on-surface-variant font-semibold">
+                <span>{balance.paidInstallmentCount} / {debt.totalInstallments || '?'} cicilan</span>
+                <span>{fmt(debt.installmentAmount || 0, currencySymbol)} / bln</span>
+              </div>
+            </div>
+          ) : balance.totalPaid > 0 && !debt.isPaid && !balance.isPaid && (
+            <div className="mb-3">
+              <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden mb-1.5">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${isHutang ? 'bg-error' : 'bg-success'}`}
+                  style={{ width: `${balance.progressPercent}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[11px] text-on-surface-variant font-semibold">
+                <span>Terbayar: {fmt(balance.totalPaid, currencySymbol)}</span>
+                <span>{balance.progressPercent}%</span>
               </div>
             </div>
           )}
-        </div>
 
-        {/* Installment progress */}
-        {debt.isInstallment && (
-          <div className="mb-3">
-            <div className="h-1.5 bg-surface-subtle rounded-full overflow-hidden mb-1.5">
-              <div className={`h-full rounded-full transition-all duration-500 ease-out ${debt.isPaid ? 'bg-success' : (isHutang ? 'bg-error' : 'bg-success')}`}
-                style={{ width: `${progressPct ?? 0}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-[11px] text-on-surface-variant font-semibold">
-              <span>{debt.paidInstallments} / {debt.totalInstallments || '?'} cicilan</span>
-              <span>{fmt(debt.installmentAmount || 0, currencySymbol)} / bulan</span>
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="mt-2.5">
-          {/* Info row — wraps on mobile */}
-          <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-on-surface-variant mb-2.5">
-            {debt.dueDate && (
-              <div className="flex items-center gap-1">
-                <MaterialIcon name="schedule" className="text-[11px]" />
-                <span className={isOverdue ? 'text-error font-bold' : isDueSoon ? 'text-secondary font-bold' : ''}>
-                  {isOverdue
-                    ? `Telat ${Math.abs(daysLeft!)} hari`
-                    : daysLeft === 0 ? 'Jatuh tempo hari ini'
-                      : `${daysLeft} hari lagi`}
-                </span>
-              </div>
-            )}
-            {/* Show asset info */}
-            {debt.type === 'hutang' ? (
-              <>
-                {liabilityName && (
-                  <div className="flex items-center gap-1">
-                    <span className="opacity-70">Hutang di:</span>
-                    <span className="font-bold text-error">{liabilityName}</span>
-                  </div>
-                )}
-                {paymentName && (
+          {/* Footer */}
+          <div className="mt-2.5">
+            {/* Info row */}
+            <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-on-surface-variant mb-2.5">
+              {debt.dueDate && (
+                <div className="flex items-center gap-1">
+                  <MaterialIcon name="schedule" className="text-[11px]" />
+                  <span className={isOverdue ? 'text-error font-bold' : isDueSoon ? 'text-secondary font-bold' : ''}>
+                    {isOverdue
+                      ? `Telat ${Math.abs(daysLeft!)} hari`
+                      : daysLeft === 0 ? 'Jatuh tempo hari ini'
+                        : `${daysLeft} hari lagi`}
+                  </span>
+                </div>
+              )}
+              {debt.type === 'hutang' ? (
+                <>
+                  {liabilityName && (
+                    <div className="flex items-center gap-1">
+                      <span className="opacity-70">Hutang di:</span>
+                      <span className="font-bold text-error">{liabilityName}</span>
+                    </div>
+                  )}
+                  {paymentName && (
+                    <div className="flex items-center gap-1">
+                      <MaterialIcon name="sync_alt" className="text-[10px]" />
+                      <span className="opacity-70">Bayar via:</span>
+                      <span className="font-bold">{paymentName}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                receiveName && (
                   <div className="flex items-center gap-1">
                     <MaterialIcon name="sync_alt" className="text-[10px]" />
-                    <span className="opacity-70">Bayar via:</span>
-                    <span className="font-bold">{paymentName}</span>
+                    <span className="opacity-70">Terima ke:</span>
+                    <span className="font-bold text-success">{receiveName}</span>
                   </div>
-                )}
-              </>
-            ) : (
-              receiveName && (
-                <div className="flex items-center gap-1">
-                  <MaterialIcon name="sync_alt" className="text-[10px]" />
-                  <span className="opacity-70">Terima ke:</span>
-                  <span className="font-bold text-success">{receiveName}</span>
-                </div>
-              )
-            )}
-          </div>
-
-          {/* Action buttons row */}
-          <div className="flex justify-end gap-2">
-            {!debt.isPaid && (
-              <Button
-                variant={isHutang ? 'danger' : 'primary'}
-                size="sm"
-                data-testid={`debt-pay-${debt.id}`}
-                onClick={(e) => { e.stopPropagation(); onPay(); }}
-                className="py-1.5 h-auto text-xs"
-              >
-                <MaterialIcon name="play_circle" className="text-sm mr-1" /> Cicil / Lunas
-              </Button>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
-              className={`p-1 rounded-full text-on-surface-variant hover:bg-surface-subtle transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-            >
-              <MaterialIcon name="chevron_right" className="text-lg" />
-            </button>
-          </div>
-        </div>
-
-        {/* History section */}
-        {isExpanded && (
-          <div className="mt-4 pt-4 border-t border-dashed border-outline-variant animate-in fade-in">
-            <div className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2.5">
-              Riwayat Transaksi
+                )
+              )}
             </div>
-            {history.length === 0 ? (
-              <div className="text-xs text-on-surface-variant italic py-2">
-                Belum ada riwayat pembayaran.
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2.5">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[13px] text-on-surface-variant">Total Pinjaman:</span>
-                  <span className="text-[13px] font-bold text-on-surface">{fmt(debt.totalAmount, currencySymbol)}</span>
-                </div>
-                {history.map(tx => (
-                  <div key={tx.id} onClick={() => onHistoryClick?.(tx)} className={`flex justify-between items-center ${onHistoryClick ? 'cursor-pointer hover:bg-surface-subtle rounded-lg p-1.5 -mx-1.5' : ''}`}>
-                    <div>
-                      <div className="text-[13px] font-bold text-on-surface">{tx.note}</div>
-                      <div className="text-[11px] text-on-surface-variant">{tx.date}</div>
-                    </div>
-                    <div className={`font-extrabold text-[13px] ${tx.type === 'pendapatan' ? 'text-success' : 'text-on-surface'}`}>
-                      {tx.type === 'pengeluaran' ? '-' : tx.type === 'pendapatan' ? '+' : ''}{fmt(tx.amount, currencySymbol)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+
+            {/* Action buttons */}
+            <div className="flex justify-end gap-2 items-center">
+              {!(debt.isPaid || balance.isPaid) && (
+                <Button
+                  variant={isHutang ? 'danger' : 'primary'}
+                  size="sm"
+                  data-testid={`debt-pay-${debt.id}`}
+                  onClick={(e) => { e.stopPropagation(); onPay(); }}
+                  className="py-1.5 h-auto text-xs"
+                >
+                  <MaterialIcon name="play_circle" className="text-sm mr-1" /> Cicil / Lunas
+                </Button>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+                className={`p-1 rounded-full text-on-surface-variant hover:bg-surface-subtle transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                aria-label="Riwayat Transaksi"
+              >
+                <MaterialIcon name="chevron_right" className="text-lg" />
+              </button>
+            </div>
           </div>
-        )}
-      </Card>
+
+          {/* History drawer */}
+          {isExpanded && (
+            <div className="mt-4 pt-4 border-t border-dashed border-outline-variant animate-in fade-in">
+              <div className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2.5">
+                Riwayat Transaksi
+              </div>
+              {history.length === 0 ? (
+                <div className="text-xs text-on-surface-variant italic py-2">
+                  Belum ada riwayat transaksi tercatat.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex justify-between items-center mb-1 text-xs">
+                    <span className="text-on-surface-variant">Pokok Hutang/Piutang:</span>
+                    <span className="font-bold text-on-surface">{fmt(balance.totalPrincipal, currencySymbol)}</span>
+                  </div>
+                  {history.map(tx => (
+                    <div 
+                      key={tx.id} 
+                      onClick={() => onHistoryClick?.(tx)} 
+                      className={`flex justify-between items-center p-2 rounded-xl transition-colors ${onHistoryClick ? 'cursor-pointer hover:bg-surface-subtle bg-surface-container-low/50' : 'bg-surface-container-low/30'}`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="text-xs font-bold text-on-surface truncate">{tx.note || 'Transaksi Hutang'}</div>
+                        <div className="text-[10px] text-on-surface-variant flex items-center gap-1.5 mt-0.5">
+                          <span>{tx.date}</span>
+                          {tx.debtRole && (
+                            <span className="text-[9px] px-1.5 py-0.2 bg-primary/10 text-primary font-bold rounded">
+                              {tx.debtRole === 'principal' ? 'Pokok' : tx.debtRole === 'offset' ? 'Potong Silang' : 'Cicilan'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`font-extrabold text-xs shrink-0 ${tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk' ? 'text-success' : 'text-on-surface'}`}>
+                        {tx.type === 'pengeluaran' || tx.type === 'hutang_keluar' || tx.type === 'piutang_keluar' ? '-' : '+'}{fmt(tx.amount, currencySymbol)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
       </motion.div>
-      </div>
-    );
+    </div>
+  );
 });
 
 const Debts: React.FC = () => {
   const navigate = useNavigate();
-  const { debts, transactions, assets, categories, addDebt, updateDebt, deleteDebt, settleDebt, addDebtPayment, addDebtPrincipal, offsetDebt, currencySymbol, updateTransaction, deleteTransaction } = useMoney();
+  const { 
+    debts, transactions, assets, categories, 
+    addDebt, updateDebt, deleteDebt, settleDebt, 
+    addDebtPayment, addDebtPrincipal, offsetDebt, 
+    currencySymbol, updateTransaction, deleteTransaction,
+    autoOffsetDebts
+  } = useMoney();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
   const [editingHistoryTx, setEditingHistoryTx] = useState<Transaction | null>(null);
-  const [filter, setFilter] = useState<'all' | 'hutang' | 'piutang' | 'lunas'>('all');
+  
+  // Option 2: 2 Main Status Tabs + Unified Type Filter & Sort/Group Toolbar
+  const [statusTab, setStatusTab] = useState<'active' | 'settled'>('active');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'hutang' | 'piutang'>('all');
+  const [sortOption, setSortOption] = useState<'due_date' | 'newest' | 'amount_desc' | 'contact_asc'>('due_date');
+  const [grouping, setGrouping] = useState<'none' | 'month' | 'contact'>('none');
+
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [principalModalDebtId, setPrincipalModalDebtId] = useState<string | null>(null);
-  const [offsetTarget, setOffsetTarget] = useState<{ contact: string; h: number; p: number; amt: number } | null>(null);
+  const [offsetTarget, setOffsetTarget] = useState<{ contact: string; hutangTotal: number; piutangTotal: number; offsetAmount: number } | null>(null);
   const [isOffsetModalOpen, setIsOffsetModalOpen] = useState(false);
 
   const openAdd = () => { setEditingDebt(null); setIsModalOpen(true); };
@@ -329,84 +359,135 @@ const Debts: React.FC = () => {
     else addDebt(data, initialMode ?? 'none', categoryName, subCategoryName, autoSettleOptions);
   };
 
-  // Create Map for fast asset lookup
   const assetMap = useMemo(() => new Map(assets.map(a => [a.id, a])), [assets]);
-
   const getAssetName = (id?: string) => id ? assetMap.get(id)?.name : undefined;
 
+  // Active Summary
   const summary = useMemo(() => {
-    let totalHutang = 0, totalPiutang = 0;
-    debts.forEach(d => {
-      if (d.isPaid) return;
-      const history = transactions.filter(t => t.relatedId === d.id);
-      const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
-      }, 0);
+    let totalHutang = 0;
+    let totalPiutang = 0;
 
-      const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
-      if (d.type === 'hutang') totalHutang += remaining;
-      else totalPiutang += remaining;
+    debts.forEach(d => {
+      if (d.isPaid || d.isDeleted) return;
+      const calc = calculateDebtBalance(d, transactions, categories);
+      if (calc.isPaid || calc.remaining <= 0) return;
+
+      if (d.type === 'hutang') totalHutang += calc.remaining;
+      else totalPiutang += calc.remaining;
     });
+
     return { totalHutang, totalPiutang, net: totalPiutang - totalHutang };
-  }, [debts, transactions]);
+  }, [debts, transactions, categories]);
 
-  const offsetPotentials = useMemo(() => {
-    const contactMap: Record<string, { h: number; p: number }> = {};
+  // Settled Summary for Selesai tab
+  const lunasSummary = useMemo(() => {
+    let settledHutang = 0;
+    let settledPiutang = 0;
+    let settledCount = 0;
+
     debts.forEach(d => {
-      if (d.isPaid || d.excludeAutoOffset) return;
-      const history = transactions.filter(t => t.relatedId === d.id);
-      const paidAmt = history.reduce((sum, tx) => {
-        return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + Number(tx.amount || 0);
-      }, 0);
-      const remaining = Math.max(0, Number(d.totalAmount || 0) - paidAmt);
-      if (remaining <= 0) return;
-
-      if (!contactMap[d.contact]) contactMap[d.contact] = { h: 0, p: 0 };
-      if (d.type === 'hutang') contactMap[d.contact].h += remaining;
-      else contactMap[d.contact].p += remaining;
+      if (d.isDeleted) return;
+      const calc = calculateDebtBalance(d, transactions, categories);
+      if (d.isPaid || calc.isPaid || calc.remaining <= 0) {
+        settledCount++;
+        if (d.type === 'hutang') settledHutang += calc.totalPrincipal;
+        else settledPiutang += calc.totalPrincipal;
+      }
     });
 
-    return Object.entries(contactMap)
-      .filter(([_, vals]) => vals.h > 0 && vals.p > 0)
-      .map(([name, vals]) => ({
-        contact: name,
-        h: vals.h,
-        p: vals.p,
-        amt: Math.min(vals.h, vals.p)
-      }));
-  }, [debts, transactions]);
+    return { settledHutang, settledPiutang, settledCount };
+  }, [debts, transactions, categories]);
+
+  // Potentials for Potong Silang (Auto & Manual)
+  const offsetPotentials = useMemo(() => {
+    return calculateContactOffsetPotentials(debts, transactions, categories);
+  }, [debts, transactions, categories]);
 
   const { showToast } = useToast();
-
-  // Always keep ref to latest offsetDebt to avoid stale closure in the effect below
   const offsetDebtRef = useRef(offsetDebt);
   useEffect(() => { offsetDebtRef.current = offsetDebt; });
 
-  // Auto-offset: cascade — processes one contact per render cycle to stay fresh
+  // Auto-offset effect
   useEffect(() => {
+    if (!autoOffsetDebts) return;
     if (offsetPotentials.length === 0) return;
+
     const p = offsetPotentials[0];
     offsetDebtRef.current(p.contact);
     showToast(
-      `↔ Potong silang otomatis: ${p.contact} · ${currencySymbol}${p.amt.toLocaleString('id-ID')}`,
+      `↔ Potong silang otomatis: ${p.contact} · ${currencySymbol}${p.offsetAmount.toLocaleString('id-ID')}`,
       'success'
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offsetPotentials]);
+  }, [offsetPotentials, autoOffsetDebts]);
 
+  // Filtered & Sorted Debts
   const filtered = useMemo(() => {
-    return debts.filter(d => {
-      if (filter === 'lunas') return d.isPaid;
-      if (filter === 'hutang') return d.type === 'hutang' && !d.isPaid;
-      if (filter === 'piutang') return d.type === 'piutang' && !d.isPaid;
-      return !d.isPaid; // 'all' shows active only
-    }).sort((a, b) => {
-      // Sort: overdue first → due soon → no due date
+    const isSettledView = statusTab === 'settled';
+
+    let result = debts.filter(d => {
+      if (d.isDeleted) return false;
+      const calc = calculateDebtBalance(d, transactions, categories);
+      const isSettled = Boolean(d.isPaid || calc.isPaid || calc.remaining <= 0);
+
+      // Status check
+      if (isSettledView !== isSettled) return false;
+
+      // Type check
+      if (typeFilter === 'hutang' && d.type !== 'hutang') return false;
+      if (typeFilter === 'piutang' && d.type !== 'piutang') return false;
+
+      return true;
+    });
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortOption === 'amount_desc') {
+        return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
+      }
+      if (sortOption === 'contact_asc') {
+        return (a.contact || '').localeCompare(b.contact || '');
+      }
+      if (sortOption === 'newest') {
+        const aDate = a.date || a.createdAt || '';
+        const bDate = b.date || b.createdAt || '';
+        return bDate.localeCompare(aDate);
+      }
+      // 'due_date'
       const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
       const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
       return aDue - bDue;
     });
-  }, [debts, filter]);
+
+    return result;
+  }, [debts, statusTab, typeFilter, sortOption, transactions, categories]);
+
+  // Grouped records
+  const groupedDebts = useMemo(() => {
+    if (grouping === 'none') return null;
+
+    const groups: Record<string, Debt[]> = {};
+
+    filtered.forEach(d => {
+      let groupKey = 'Lainnya';
+      if (grouping === 'month') {
+        const dStr = d.date || d.createdAt;
+        if (dStr) {
+          const dateObj = new Date(dStr);
+          if (!isNaN(dateObj.getTime())) {
+            groupKey = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+          }
+        }
+      } else if (grouping === 'contact') {
+        groupKey = d.contact || 'Tanpa Nama';
+      }
+
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(d);
+    });
+
+    return groups;
+  }, [filtered, grouping]);
 
   return (
     <PageWrapper>
@@ -425,49 +506,75 @@ const Debts: React.FC = () => {
       />
 
       {/* Summary cards */}
-      <div data-tour="debt-summary" className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-        <MetricCard
-          label="Total Hutang"
-          value={fmt(summary.totalHutang, currencySymbol)}
-          icon="trending_down"
-          iconColor="error"
-          valueColor="text-error"
-          glowColor="error"
-          data-testid="debt-summary-hutang"
-        />
-        <MetricCard
-          label="Total Piutang"
-          value={fmt(summary.totalPiutang, currencySymbol)}
-          icon="trending_up"
-          iconColor="success"
-          valueColor="text-success"
-          glowColor="success"
-          data-testid="debt-summary-piutang"
-        />
-      </div>
+      {statusTab === 'active' ? (
+        <>
+          <div data-tour="debt-summary" className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <MetricCard
+              label="Total Hutang Aktif"
+              value={fmt(summary.totalHutang, currencySymbol)}
+              icon="trending_down"
+              iconColor="error"
+              valueColor="text-error"
+              glowColor="error"
+              data-testid="debt-summary-hutang"
+            />
+            <MetricCard
+              label="Total Piutang Aktif"
+              value={fmt(summary.totalPiutang, currencySymbol)}
+              icon="trending_up"
+              iconColor="success"
+              valueColor="text-success"
+              glowColor="success"
+              data-testid="debt-summary-piutang"
+            />
+          </div>
 
-      {/* Net position */}
-      {(summary.totalHutang > 0 || summary.totalPiutang > 0) && (
-        <div data-testid="debt-net-position" className={`flex items-center gap-2 p-3 rounded-2xl mb-3 ${summary.net >= 0 ? 'bg-success/10 border border-success/20 text-success' : 'bg-error text-white shadow-error-glow'}`}>
-          <MaterialIcon name="chevron_right" className="text-sm" />
-          <span className="text-sm font-bold">
-            {summary.net >= 0
-               ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
-               : `Neto: kamu berhutang lebih banyak ${fmt(Math.abs(summary.net), currencySymbol)}`}
-          </span>
+          {/* Net position */}
+          {(summary.totalHutang > 0 || summary.totalPiutang > 0) && (
+            <div data-testid="debt-net-position" className={`flex items-center gap-2 p-3 rounded-2xl mb-4 ${summary.net >= 0 ? 'bg-success/10 border border-success/20 text-success' : 'bg-error text-white shadow-error-glow'}`}>
+              <MaterialIcon name={summary.net >= 0 ? 'verified' : 'priority_high'} className="text-sm" />
+              <span className="text-sm font-bold">
+                {summary.net >= 0
+                   ? `Neto: kamu memiliki piutang lebih banyak ${fmt(summary.net, currencySymbol)}`
+                   : `Neto: kamu berhutang lebih banyak ${fmt(Math.abs(summary.net), currencySymbol)}`}
+              </span>
+            </div>
+          )}
+        </>
+      ) : (
+        /* Selesai / Lunas Tab Metric Cards matching active debts */
+        <div data-tour="debt-summary-lunas" className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <MetricCard
+            label="Total Hutang Terselesaikan"
+            value={fmt(lunasSummary.settledHutang, currencySymbol)}
+            icon="task_alt"
+            iconColor="primary"
+            valueColor="text-on-surface"
+            glowColor="primary"
+            data-testid="debt-lunas-hutang"
+          />
+          <MetricCard
+            label="Total Piutang Tertagih"
+            value={fmt(lunasSummary.settledPiutang, currencySymbol)}
+            icon="savings"
+            iconColor="success"
+            valueColor="text-success"
+            glowColor="success"
+            data-testid="debt-lunas-piutang"
+          />
         </div>
       )}
 
-      {/* Offset Banner */}
-      {offsetPotentials.length > 0 && (
-        <div data-testid="debt-offset-banner" className="mb-5 p-4 rounded-3xl bg-gradient-to-br from-success to-[#1e7e46] text-white shadow-success-glow flex items-center gap-3">
+      {/* Offset Banner (for Manual or Active Potentials) */}
+      {offsetPotentials.length > 0 && statusTab === 'active' && (
+        <div data-testid="debt-offset-banner" className="mb-4 p-4 rounded-3xl bg-gradient-to-br from-success to-[#1e7e46] text-white shadow-success-glow flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
             <MaterialIcon name="sync_alt" className="text-xl" />
           </div>
           <div className="flex-1">
             <div className="text-sm font-extrabold">Tersedia Potong Silang (Offset)</div>
             <div className="text-xs font-semibold opacity-90">
-              Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif.
+              Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif yang impas.
             </div>
           </div>
           <Button
@@ -483,60 +590,190 @@ const Debts: React.FC = () => {
         </div>
       )}
 
-      {/* Filter tabs */}
-      <div className="mb-4">
+      {/* Main Status Tabs (Option 2: 2 Status Tabs Only) */}
+      <div className="mb-3">
         <SegmentedControl
           tabs={[
-            { id: 'all', label: 'Aktif' },
-            { id: 'hutang', label: 'Hutang' },
-            { id: 'piutang', label: 'Piutang' },
-            { id: 'lunas', label: 'Lunas' }
+            { id: 'active', label: 'Aktif' },
+            { id: 'settled', label: 'Selesai / Lunas' }
           ]}
-          activeTabId={filter}
-          onChange={(val) => setFilter(val as any)}
+          activeTabId={statusTab}
+          onChange={(val) => {
+            const nextStatus = val as 'active' | 'settled';
+            setStatusTab(nextStatus);
+            if (nextStatus === 'settled' && sortOption === 'due_date') {
+              setSortOption('newest');
+            }
+          }}
         />
       </div>
 
-      {/* Debt list */}
-      <div className={filtered.length === 0 ? "pb-24" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-24"}>
+      {/* Unified Filter & Toolbar Row */}
+      <div className="relative z-30 flex items-center justify-between gap-2 mb-4 animate-in fade-in duration-200">
+        {/* Type Filter Pills (Semua / Hutang / Piutang) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
+          {[
+            { id: 'all', label: 'Semua' },
+            { id: 'hutang', label: 'Hutang' },
+            { id: 'piutang', label: 'Piutang' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setTypeFilter(item.id as any)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer ${
+                typeFilter === item.id
+                  ? 'bg-primary text-white border-primary shadow-sm'
+                  : 'bg-surface-container text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort & Group Dropdowns */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Sort Menu */}
+          <DropdownMenu
+            items={[
+              ...(statusTab === 'active' ? [{ label: 'Jatuh Tempo', icon: 'event', onClick: () => setSortOption('due_date') }] : []),
+              { label: 'Terbaru', icon: 'schedule', onClick: () => setSortOption('newest') },
+              { label: 'Nominal Terbesar', icon: 'trending_up', onClick: () => setSortOption('amount_desc') },
+              { label: 'Nama Kontak (A-Z)', icon: 'sort_by_alpha', onClick: () => setSortOption('contact_asc') },
+            ]}
+            customButton={
+              <button
+                className="px-2.5 py-1.5 rounded-full text-xs font-bold bg-surface-container border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1 cursor-pointer shadow-sm"
+                title="Urutkan"
+              >
+                <MaterialIcon name="swap_vert" className="text-sm" />
+                <span className="hidden sm:inline">
+                  {sortOption === 'due_date' ? 'Jatuh Tempo' : sortOption === 'newest' ? 'Terbaru' : sortOption === 'amount_desc' ? 'Nominal' : 'A-Z'}
+                </span>
+                <MaterialIcon name="arrow_drop_down" className="text-xs -ml-0.5" />
+              </button>
+            }
+          />
+
+          {/* Group Menu */}
+          <DropdownMenu
+            items={[
+              { label: 'Daftar Rata (Flat)', icon: 'list', onClick: () => setGrouping('none') },
+              { label: 'Per Bulan', icon: 'calendar_month', onClick: () => setGrouping('month') },
+              { label: 'Per Kontak', icon: 'person', onClick: () => setGrouping('contact') },
+            ]}
+            customButton={
+              <button
+                className="px-2.5 py-1.5 rounded-full text-xs font-bold bg-surface-container border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1 cursor-pointer shadow-sm"
+                title="Pengelompokan"
+              >
+                <MaterialIcon name="folder_open" className="text-sm" />
+                <span className="hidden sm:inline">
+                  {grouping === 'month' ? 'Bulan' : grouping === 'contact' ? 'Kontak' : 'Rata'}
+                </span>
+                <MaterialIcon name="arrow_drop_down" className="text-xs -ml-0.5" />
+              </button>
+            }
+          />
+        </div>
+      </div>
+
+      {/* Debt Cards List */}
+      <div className="pb-24">
         {filtered.length === 0 ? (
           <EmptyState 
             icon="receipt_long" 
-            title={filter === 'lunas' ? 'Belum ada yang lunas' : 'Tidak ada catatan hutang/piutang'} 
-            description="Tambah catatan hutang atau piutang kamu." 
-            actionLabel={filter !== 'lunas' ? "+ Tambah Sekarang" : undefined}
-            onAction={filter !== 'lunas' ? openAdd : undefined}
+            title={statusTab === 'settled' ? 'Belum ada catatan yang lunas' : 'Tidak ada catatan hutang/piutang aktif'} 
+            description={statusTab === 'settled' ? 'Semua hutang atau piutang yang telah terlunasi akan tercatat rapi di sini.' : 'Tambah catatan hutang atau piutang barumu.'} 
+            actionLabel={statusTab === 'active' ? "+ Tambah Sekarang" : undefined}
+            onAction={statusTab === 'active' ? openAdd : undefined}
           />
+        ) : groupedDebts ? (
+          /* Render grouped list */
+          <div className="space-y-6">
+            {Object.entries(groupedDebts).map(([groupTitle, groupItems]) => {
+              const groupTotal = groupItems.reduce((sum, d) => sum + Number(d.totalAmount || 0), 0);
+              return (
+                <div key={groupTitle} className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                      <MaterialIcon name={grouping === 'month' ? 'calendar_month' : 'person'} className="text-primary text-base" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-on-surface">{groupTitle}</h4>
+                      <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">
+                        {groupItems.length} item
+                      </span>
+                    </div>
+                    <span className="text-xs font-black text-on-surface-variant">{fmt(groupTotal, currencySymbol)}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {groupItems.map(d => (
+                      <DebtCard
+                        key={d.id}
+                        debt={d}
+                        liabilityName={getAssetName(d.liabilityAssetId)}
+                        paymentName={getAssetName(d.paymentAssetId)}
+                        receiveName={getAssetName(d.receiveAssetId)}
+                        onEdit={() => openEdit(d)}
+                        onAddPrincipal={() => setPrincipalModalDebtId(d.id)}
+                        onDelete={() => {
+                          setDeletingId(d.id);
+                          setIsConfirmOpen(true);
+                        }}
+                        onPay={() => {
+                          setPayingDebt(d);
+                          setIsPaymentModalOpen(true);
+                        }}
+                        onSettle={() => {
+                          setPayingDebt(d);
+                          setIsPaymentModalOpen(true);
+                        }}
+                        onUnpay={() => updateDebt(d.id, { isPaid: false })}
+                        history={transactions.filter(t => t.relatedId === d.id && !t.isDeleted).sort((a, b) => b.date.localeCompare(a.date))}
+                        onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
+                        isExpanded={expandedDebtId === d.id}
+                        currencySymbol={currencySymbol}
+                        onHistoryClick={(tx) => setEditingHistoryTx(tx)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          filtered.map(d => (
-            <DebtCard
-              key={d.id}
-              debt={d}
-              liabilityName={getAssetName(d.liabilityAssetId)}
-              paymentName={getAssetName(d.paymentAssetId)}
-              receiveName={getAssetName(d.receiveAssetId)}
-              onEdit={() => openEdit(d)}
-              onAddPrincipal={() => setPrincipalModalDebtId(d.id)}
-              onDelete={() => {
-                setDeletingId(d.id);
-                setIsConfirmOpen(true);
-              }}
-              onPay={() => {
-                setPayingDebt(d);
-                setIsPaymentModalOpen(true);
-              }}
-              onSettle={() => {
-                setPayingDebt(d);
-                setIsPaymentModalOpen(true);
-              }}
-              onUnpay={() => updateDebt(d.id, { isPaid: false })}
-              history={transactions.filter(t => t.relatedId === d.id).sort((a, b) => b.date.localeCompare(a.date))}
-              onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
-              isExpanded={expandedDebtId === d.id}
-              currencySymbol={currencySymbol}
-              onHistoryClick={(tx) => setEditingHistoryTx(tx)}
-            />
-          ))
+          /* Render flat grid list */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(d => (
+              <DebtCard
+                key={d.id}
+                debt={d}
+                liabilityName={getAssetName(d.liabilityAssetId)}
+                paymentName={getAssetName(d.paymentAssetId)}
+                receiveName={getAssetName(d.receiveAssetId)}
+                onEdit={() => openEdit(d)}
+                onAddPrincipal={() => setPrincipalModalDebtId(d.id)}
+                onDelete={() => {
+                  setDeletingId(d.id);
+                  setIsConfirmOpen(true);
+                }}
+                onPay={() => {
+                  setPayingDebt(d);
+                  setIsPaymentModalOpen(true);
+                }}
+                onSettle={() => {
+                  setPayingDebt(d);
+                  setIsPaymentModalOpen(true);
+                }}
+                onUnpay={() => updateDebt(d.id, { isPaid: false })}
+                history={transactions.filter(t => t.relatedId === d.id && !t.isDeleted).sort((a, b) => b.date.localeCompare(a.date))}
+                onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
+                isExpanded={expandedDebtId === d.id}
+                currencySymbol={currencySymbol}
+                onHistoryClick={(tx) => setEditingHistoryTx(tx)}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -548,7 +785,7 @@ const Debts: React.FC = () => {
         assets={assets}
         categories={categories.filter(c => c.type === 'pengeluaran')}
         currencySymbol={currencySymbol}
-        defaultType={filter === 'piutang' ? 'piutang' : 'hutang'}
+        defaultType={typeFilter === 'piutang' ? 'piutang' : 'hutang'}
       />
 
       {payingDebt && (
@@ -558,9 +795,7 @@ const Debts: React.FC = () => {
           debt={payingDebt}
           assets={assets}
           currencySymbol={currencySymbol}
-          paidAmountFromTxs={transactions.filter(t => t.relatedId === payingDebt.id).reduce((sum, tx) => {
-            return isPrincipalTx(tx.note, tx.categoryId, categories) ? sum : sum + tx.amount;
-          }, 0)}
+          paidAmountFromTxs={calculateDebtBalance(payingDebt, transactions, categories).totalPaid}
           onConfirm={(amt, assetId, date, time, note, isFull) => {
             if (isFull) {
               settleDebt(payingDebt.id, assetId, date, time, amt);
@@ -609,9 +844,9 @@ const Debts: React.FC = () => {
             setOffsetTarget(null);
           }}
           contactName={offsetTarget.contact}
-          totalHutang={offsetTarget.h}
-          totalPiutang={offsetTarget.p}
-          offsetAmount={offsetTarget.amt}
+          totalHutang={offsetTarget.hutangTotal}
+          totalPiutang={offsetTarget.piutangTotal}
+          offsetAmount={offsetTarget.offsetAmount}
           currencySymbol={currencySymbol}
         />
       )}
@@ -622,7 +857,7 @@ const Debts: React.FC = () => {
             isOpen={!!editingHistoryTx}
             onClose={() => setEditingHistoryTx(null)}
             assets={assets}
-            addTransaction={() => ({} as any)} // Not used when editing
+            addTransaction={() => ({} as any)}
             updateTransaction={updateTransaction}
             deleteTransaction={deleteTransaction}
             editingTransaction={editingHistoryTx}
@@ -630,12 +865,12 @@ const Debts: React.FC = () => {
         </Suspense>
       )}
 
-      {/* Floating Action Button (FAB) matching Transactions page (Dynamic Theme & Visibility) */}
-      {filter !== 'lunas' && (
+      {/* Floating Action Button (FAB) */}
+      {statusTab === 'active' && (
         <button
           data-tour="add-debt"
           data-testid="add-debt-fab"
-          className={`fixed bottom-20 right-4 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-bento z-50 transition-all active:scale-95 ${filter === 'piutang' ? 'bg-success shadow-success-glow' : 'bg-error shadow-error-glow'}`}
+          className={`fixed bottom-20 right-4 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-bento z-50 transition-all active:scale-95 ${typeFilter === 'piutang' ? 'bg-success shadow-success-glow' : 'bg-error shadow-error-glow'}`}
           onClick={openAdd}
           aria-label="Tambah Hutang/Piutang"
         >
