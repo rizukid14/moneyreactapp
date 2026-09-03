@@ -739,7 +739,18 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         placeholder={`Nominal (${currencySymbol})`}
                         value={amount}
                         onChange={handleRawAmountChange}
-                        style={{ flex: 1, height: '48px', padding: '12px 14px', marginBottom: 0, border: (!amount || Number(amount.replace(/\./g, '')) <= 0) ? '2px solid var(--danger)' : undefined }}
+                        style={{
+                          flex: 1,
+                          height: '48px',
+                          padding: '12px 14px',
+                          marginBottom: 0,
+                          borderRadius: '12px',
+                          border: (!amount || Number(amount.replace(/\./g, '')) <= 0) ? '2px solid var(--danger)' : '1.5px solid var(--border-color)',
+                          background: 'var(--bg-card-solid)',
+                          color: 'var(--text-main)',
+                          fontSize: '15px',
+                          fontWeight: 700
+                        }}
                         data-tour="modal-amount"
                       />
                       <button

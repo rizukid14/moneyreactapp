@@ -278,7 +278,18 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
                 placeholder="0"
                 value={principalAmount}
                 onChange={setPrincipalAmount}
-                style={{ flex: 1, marginBottom: 0 }}
+                style={{
+                  flex: 1,
+                  height: '48px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: '1.5px solid var(--border-color)',
+                  background: 'var(--bg-card-solid)',
+                  color: 'var(--text-main)',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  marginBottom: 0
+                }}
                 data-tour="debt-modal-amount"
               />
               <button

@@ -38,6 +38,7 @@ export default async function handler(req: any, res: any) {
     return res.status(e.status || 500).json({ message: e.message });
   }
 
+  try {
     const { image, categories, assets, defaultAssetId, userHistory } = req.body;
 
     if (!image) {

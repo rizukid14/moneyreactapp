@@ -3,6 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 :root {
+  color-scheme: light;
   /* Minimalis Monokrom Palette - Zinc Greys, White/Black, Emerald Accent */
   --p-h: 160; /* Emerald Accent */
   --s-h: 220; /* Slate */
@@ -140,6 +141,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   /* Nordic Bento Dark Mode - Warm Dark Chocolate/Grey */
   --bg-main: #1a1918; /* Very dark warm grey */
   --bg-card: #242322; /* Elevated warm grey cards */
@@ -707,8 +709,17 @@ textarea {
 }
 
 input,
-select {
+select,
+textarea {
   color: var(--text-main);
+  background-color: var(--bg-card-solid);
+  border-color: var(--border-color);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
 input:focus,

@@ -155,7 +155,18 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
                     placeholder="Contoh: 1.000.000" 
                     value={limit} 
                     onChange={setLimit}
-                    style={{ flex: 1, marginBottom: 0 }}
+                    style={{
+                      flex: 1,
+                      height: '48px',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1.5px solid var(--border-color)',
+                      background: 'var(--bg-card-solid)',
+                      color: 'var(--text-main)',
+                      fontSize: '15px',
+                      fontWeight: 700,
+                      marginBottom: 0
+                    }}
                   />
                   <button 
                     type="button" 

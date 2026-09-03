@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "MoneyApp Architecture & Data Flow",
+    "quality_profile": "showcase",
+    "viewBox": [1240, 640],
+    "views": [
+      {
+        "id": "full-flow",
+        "label": "Full System Map",
+        "focus": ["user_client", "react_ui", "vercel_api", "openai_gpt", "firebase_auth", "money_context", "indexed_db", "delta_sync", "firestore_db", "fcm_push"],
+        "note": "Complete end-to-end architecture from user interactions to AI processing and cloud sync."
+      },
+      {
+        "id": "offline-first-path",
+        "label": "Offline-First Sync Path",
+        "focus": ["user_client", "react_ui", "money_context", "indexed_db", "delta_sync", "firestore_db"],
+        "note": "Trace how mutations are stored immediately in IndexedDB and synchronized to Firestore."
+      },
+      {
+        "id": "ai-intelligence-path",
+        "label": "AI OCR & Chatbot Path",
+        "focus": ["user_client", "react_ui", "vercel_api", "openai_gpt"],
+        "note": "Follow receipt scanning, bulk mutation parsing, and financial chatbot advisory."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "user_client",
+      "type": "external",
+      "label": "User & Devices",
+      "sublabel": "PWA / Mobile Web",
+      "pos": [40, 180],
+      "size": [140, 70]
+    },
+    {
+      "id": "react_ui",
+      "type": "frontend",
+      "label": "React 19 App",
+      "sublabel": "Router v7 & Views",
+      "brand": "react",
+      "pos": [260, 180],
+      "size": [150, 70]
+    },
+    {
+      "id": "vercel_api",
+      "type": "backend",
+      "label": "Vercel API",
+      "sublabel": "Serverless Functions",
+      "brand": "vercel",
+      "pos": [520, 180],
+      "size": [150, 70]
+    },
+    {
+      "id": "openai_gpt",
+      "type": "external",
+      "label": "OpenAI GPT-4o-mini",
+      "sublabel": "Vision OCR & Chat AI",
+      "brand": "openai",
+      "pos": [780, 180],
+      "size": [150, 70]
+    },
+    {
+      "id": "fcm_push",
+      "type": "cloud",
+      "label": "Firebase FCM",
+      "sublabel": "Daily & Weekly Push",
+      "brand": "firebase",
+      "pos": [1020, 180],
+      "size": [150, 70]
+    },
+    {
+      "id": "firebase_auth",
+      "type": "security",
+      "label": "Firebase Auth",
+      "sublabel": "Google OAuth & PIN",
+      "brand": "firebase",
+      "pos": [40, 360],
+      "size": [140, 70]
+    },
+    {
+      "id": "money_context",
+      "type": "frontend",
+      "label": "MoneyContext",
+      "sublabel": "ZBB & State Engine",
+      "pos": [260, 360],
+      "size": [150, 70]
+    },
+    {
+      "id": "indexed_db",
+      "type": "database",
+      "label": "IndexedDB",
+      "sublabel": "Offline-first Local DB",
+      "pos": [520, 360],
+      "size": [150, 70]
+    },
+    {
+      "id": "delta_sync",
+      "type": "messagebus",
+      "label": "DeltaSync Engine",
+      "sublabel": "Queue & Conflict Sync",
+      "pos": [780, 360],
+      "size": [150, 70]
+    },
+    {
+      "id": "firestore_db",
+      "type": "cloud",
+      "label": "Firebase Firestore",
+      "sublabel": "Multi-Tenant Cloud DB",
+      "brand": "firebase",
+      "pos": [1020, 360],
+      "size": [150, 70]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-to-auth",
+      "from": "user_client",
+      "to": "firebase_auth",
+      "label": "OAuth sign-in",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [110, 305]
+    },
+    {
+      "id": "user-to-ui",
+      "from": "user_client",
+      "to": "react_ui",
+      "label": "HTTPS PWA",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ui-to-context",
+      "from": "react_ui",
+      "to": "money_context",
+      "label": "state & actions",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [335, 305]
+    },
+    {
+      "id": "ui-to-api",
+      "from": "react_ui",
+      "to": "vercel_api",
+      "label": "POST /api",
+      "variant": "dashed"
+    },
+    {
+      "id": "api-to-openai",
+      "from": "vercel_api",
+      "to": "openai_gpt",
+      "label": "LLM & OCR",
+      "variant": "emphasis"
+    },
+    {
+      "id": "context-to-idb",
+      "from": "money_context",
+      "to": "indexed_db",
+      "label": "read / write"
+    },
+    {
+      "id": "idb-to-sync",
+      "from": "indexed_db",
+      "to": "delta_sync",
+      "label": "pending queue"
+    },
+    {
+      "id": "sync-to-firestore",
+      "from": "delta_sync",
+      "to": "firestore_db",
+      "label": "delta sync",
+      "variant": "emphasis"
+    },
+    {
+      "id": "firestore-to-fcm",
+      "from": "firestore_db",
+      "to": "fcm_push",
+      "label": "cron triggers",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [1095, 305]
+    },
+    {
+      "id": "fcm-to-user",
+      "from": "fcm_push",
+      "to": "user_client",
+      "label": "push alerts",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [[1095, 90], [110, 90]]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Offline-First Resilience",
+      "items": [
+        "Instant local write to IndexedDB without waiting for network",
+        "DeltaSync engine handles background retries and conflict resolution"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "AI & Smart Automation",
+      "items": [
+        "GPT-4o-mini powers OCR itemization, bank mutation parsing, and financial chat",
+        "Zero-Based Budgeting (ZBB) strict guard intercepts overspending in real-time"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Real-time Multi-Workspace",
+      "items": [
+        "Cloud Firestore snapshot listeners sync family workspaces instantly",
+        "Automated daily reminder & weekly report cron notifications via FCM"
+      ]
+    }
+  ]
+}

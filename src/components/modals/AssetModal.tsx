@@ -308,7 +308,17 @@ const AssetModal: React.FC<AssetModalProps> = ({
                     value={initialBalance}
                     onChange={handleInitialChange}
                     allowDecimals={currency !== 'IDR'}
-                    style={{ marginBottom: 0 }}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1.5px solid var(--border-color)',
+                      background: 'var(--bg-card-solid)',
+                      color: 'var(--text-main)',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      marginBottom: 0
+                    }}
                   />
                 </div>
               )}

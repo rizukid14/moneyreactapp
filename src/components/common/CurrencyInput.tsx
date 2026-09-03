@@ -51,6 +51,13 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       }, 0);
     };
 
+    const mergedStyle: React.CSSProperties = {
+      background: 'var(--bg-card-solid)',
+      color: 'var(--text-main)',
+      borderColor: 'var(--border-color)',
+      ...style,
+    };
+
     return (
       <input
         ref={inputRef}
@@ -59,7 +66,7 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
         value={displayValue}
         onChange={handleChange}
         placeholder={placeholder}
-        style={style}
+        style={mergedStyle}
         className={className}
         required={required}
         autoFocus={autoFocus}
