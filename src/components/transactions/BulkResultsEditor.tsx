@@ -242,7 +242,14 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
                   type="date"
                   value={item.date}
                   onChange={(e) => updateResult(item.id, 'date', e.target.value)}
-                  style={{ width: '100%', fontSize: '13px', fontWeight: 700, padding: 0, border: 'none', background: 'transparent', margin: 0, color: 'var(--text-main)', outline: 'none' }}
+                  style={{ flex: 1, fontSize: '13px', fontWeight: 700, padding: 0, border: 'none', background: 'transparent', margin: 0, color: 'var(--text-main)', outline: 'none' }}
+                />
+                <input
+                  type="time"
+                  value={item.time || ''}
+                  onChange={(e) => updateResult(item.id, 'time', e.target.value || undefined)}
+                  title="Waktu Transaksi (Opsional)"
+                  style={{ fontSize: '12px', fontWeight: 600, padding: '2px 4px', border: 'none', background: 'transparent', margin: 0, color: 'var(--text-muted)', outline: 'none' }}
                 />
               </div>
             </div>
@@ -403,19 +410,21 @@ const BulkResultsEditor: React.FC<BulkResultsEditorProps> = ({
               setIsSubmitting(false);
               return;
             }
-            if (isMutation && !batchAssetId) {
-              showToast('Pilih rekening asal terlebih dahulu', 'warning');
-              setIsSubmitting(false);
-              return;
-            }
-            const invalid = selected.filter(r => !r.amount || (r.type !== 'transfer' && !r.categoryId));
-            if (invalid.length > 0) {
-              showToast(`${invalid.length} transaksi belum memiliki nominal atau kategori lengkap`, 'warning');
-              setIsSubmitting(false);
-              return;
+            if (isMutation) {
+              if (!batchAssetId) {
+                showToast('Pilih rekening asal terlebih dahulu', 'warning');
+                setIsSubmitting(false);
+                return;
+              }
+              const invalid = selected.filter(r => !r.amount || (r.type !== 'transfer' && !r.categoryId));
+              if (invalid.length > 0) {
+                showToast(`${invalid.length} transaksi belum memiliki nominal atau kategori lengkap`, 'warning');
+                setIsSubmitting(false);
+                return;
+              }
             }
             onSave(batchAssetId);
-            setTimeout(() => setIsSubmitting(false), 1000);
+            setTimeout(() => setIsSubmitting(false), 800);
           }}
           disabled={isSubmitting}
           data-testid="bulk-save-btn"

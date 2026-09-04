@@ -713,7 +713,8 @@ select,
 textarea {
   color: var(--text-main);
   background-color: var(--bg-card-solid);
-  border-color: var(--border-color);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
 }
 
 input::placeholder,

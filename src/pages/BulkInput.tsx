@@ -12,6 +12,7 @@ import { PageWrapper } from '../components/ui/PageWrapper';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { PremiumBadge } from '../components/common/PremiumBadge';
 import { useSpeechToText } from '../hooks/useSpeechToText';
+import { getLocalDate } from '../lib/utils';
 
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
@@ -39,14 +40,16 @@ const BulkInput: React.FC = () => {
     toggleListening(inputText, setInputText);
   };
 
-  const performSave = () => {
-    const toSave = results.filter(r => r.selected);
+  const pendingBatchRef = React.useRef<{ validToSave: ParsedTransaction[]; invalidRemaining: ParsedTransaction[] } | null>(null);
+
+  const performSave = (toSave: ParsedTransaction[], invalidRemaining: ParsedTransaction[]) => {
     toSave.forEach(tx => {
       if (tx.type === 'transfer') {
         addTransaction({
           type: 'transfer',
           amount: tx.amount,
           date: tx.date,
+          time: tx.time || undefined,
           note: tx.note || 'Transfer',
           categoryId: undefined,
           fromAssetId: tx.fromAsset,
@@ -61,6 +64,7 @@ const BulkInput: React.FC = () => {
             amount: tx.adminFee,
             categoryId: 'Biaya Admin',
             date: tx.date,
+            time: tx.time || undefined,
             note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
             assetId: feeAssetId,
           });
@@ -70,6 +74,7 @@ const BulkInput: React.FC = () => {
           type: tx.type,
           amount: tx.amount,
           date: tx.date,
+          time: tx.time || undefined,
           note: tx.note,
           categoryId: tx.categoryId,
           subCategoryId: tx.subCategoryId || undefined,
@@ -78,18 +83,28 @@ const BulkInput: React.FC = () => {
       }
     });
 
-    showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
-    setTimeout(() => {
-      setStage('input');
-      setInputText('');
-      setResults([]);
-    }, 600);
+    const unselectedRemaining = results.filter(r => !r.selected);
+    const remainingToKeep = [...invalidRemaining, ...unselectedRemaining];
+
+    if (invalidRemaining.length > 0) {
+      setResults(remainingToKeep);
+      showToast(`${toSave.length} transaksi berhasil disimpan! Sisa ${invalidRemaining.length} transaksi yang belum lengkap tetap ditampilkan.`, 'info');
+    } else {
+      showToast(`${toSave.length} transaksi berhasil disimpan!`, 'success');
+      setTimeout(() => {
+        setStage('input');
+        setInputText('');
+        setResults([]);
+        navigate('/transactions');
+      }, 600);
+    }
   };
 
   const handleReallocationSuccess = () => {
     setReallocationModal({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
-    if (pendingAction) {
-      performSave();
+    if (pendingAction && pendingBatchRef.current) {
+      performSave(pendingBatchRef.current.validToSave, pendingBatchRef.current.invalidRemaining);
+      pendingBatchRef.current = null;
     }
     setPendingAction(false);
   };
@@ -213,7 +228,21 @@ const BulkInput: React.FC = () => {
   useEffect(() => {
     const excelDraft = (location.state as any)?.excelDraftData;
     if (excelDraft && Array.isArray(excelDraft)) {
-      setResults(excelDraft);
+      const formattedDraft: ParsedTransaction[] = excelDraft.map((row: any, index: number) => ({
+        id: `excel-${Date.now()}-${index}`,
+        type: row.type || 'pengeluaran',
+        amount: Number(row.amount) || 0,
+        date: row.date || getLocalDate(),
+        time: row.time,
+        note: row.note || '',
+        categoryId: row.categoryId || '',
+        subCategoryId: row.subCategoryId || '',
+        asset: row.assetId || row.asset || '',
+        fromAsset: row.fromAssetId || row.fromAsset || '',
+        toAsset: row.toAssetId || row.toAsset || '',
+        selected: true
+      }));
+      setResults(formattedDraft);
       setStage('results');
       window.history.replaceState({}, document.title);
     }
@@ -351,18 +380,32 @@ const BulkInput: React.FC = () => {
           currencySymbol={currencySymbol}
           isMutation={false}
           onSave={() => {
-            const toSave = results.filter(r => r.selected);
-            if (toSave.some(r => r.type !== 'transfer' && (!r.amount || !r.categoryId || !r.asset))) {
-              showToast('Pastikan semua transaksi reguler memiliki Nominal, Kategori, dan Rekening!', 'warning');
+            const selected = results.filter(r => r.selected);
+            if (selected.length === 0) {
+              showToast('Pilih minimal satu transaksi terlebih dahulu', 'warning');
               return;
             }
-            if (toSave.some(r => r.type === 'transfer' && (!r.amount || !r.fromAsset || !r.toAsset))) {
-              showToast('Pastikan semua transaksi transfer memiliki Nominal, Dari Rekening, dan Ke Rekening!', 'warning');
+
+            const isValid = (r: ParsedTransaction) => {
+              if (!r.amount || r.amount <= 0) return false;
+              if (r.type === 'transfer') return !!r.fromAsset && !!r.toAsset;
+              return !!r.categoryId && !!r.asset;
+            };
+
+            const validToSave = selected.filter(isValid);
+            const invalidRemaining = selected.filter(r => !isValid(r));
+
+            if (validToSave.length === 0) {
+              if (selected.some(r => r.type === 'transfer' && (!r.fromAsset || !r.toAsset))) {
+                showToast('Transaksi transfer belum memiliki Dari Rekening dan Ke Rekening lengkap!', 'warning');
+              } else {
+                showToast('Pastikan transaksi memiliki Nominal, Kategori, dan Rekening lengkap!', 'warning');
+              }
               return;
             }
 
             if (zbbMode === 'strict') {
-              const expenses = toSave.filter(r => r.type === 'pengeluaran');
+              const expenses = validToSave.filter(r => r.type === 'pengeluaran');
               const grouped = expenses.reduce((acc, tx) => {
                 const key = `${tx.categoryId}_${tx.date}`;
                 acc[key] = (acc[key] || 0) + tx.amount;
@@ -378,6 +421,7 @@ const BulkInput: React.FC = () => {
                   date: dt
                 });
                 if (!validation.isValid) {
+                  pendingBatchRef.current = { validToSave, invalidRemaining };
                   setPendingAction(true);
                   setReallocationModal({
                     isOpen: true,
@@ -391,7 +435,7 @@ const BulkInput: React.FC = () => {
               }
             }
 
-            performSave();
+            performSave(validToSave, invalidRemaining);
           }}
         />
       )}

@@ -9,6 +9,7 @@ export interface ParsedTransaction {
   type: 'pengeluaran' | 'pendapatan' | 'transfer';
   amount: number;
   date: string;
+  time?: string;
   note: string;
   categoryId: string;
   category?: string;
