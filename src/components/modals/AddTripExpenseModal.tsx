@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AssetSelectModal from './AssetSelectModal';
 import { useMoney, type Trip, type TripExpense, type TripExpenseSplit, SYS_CAT } from '../../contexts/MoneyContext';
 import { useReceiptOCR } from '../../hooks/useReceiptOCR';
-import { generateId, getLocalTime } from '../../lib/utils';
+import { generateId, getLocalTime, getLocalDate } from '../../lib/utils';
 import { useToast } from '../common/Toast';
 import { validateFileSecure } from '../../lib/fileValidation';
 import CurrencyInput from '../common/CurrencyInput';
@@ -26,7 +26,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
   const [amount, setAmount] = useState('');
   const [payerId, setPayerId] = useState(trip.members[0]?.id || '');
   const [selectedAssetId, setSelectedAssetId] = useState<string>(defaultAssetId || '');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getLocalDate());
   const [splitMemberIds, setSplitMemberIds] = useState<string[]>(trip.members.map(m => m.id));
   const [isCustomSplit, setIsCustomSplit] = useState(false);
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
@@ -83,7 +83,7 @@ const AddTripExpenseModal: React.FC<AddTripExpenseModalProps> = ({ isOpen, onClo
       setAmount('');
       setPayerId(trip.members[0]?.id || 'me');
       setSelectedAssetId(defaultAssetId || '');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getLocalDate());
       setSplitMemberIds(trip.members.map(m => m.id));
       setIsCustomSplit(false);
       setCustomAmounts({});

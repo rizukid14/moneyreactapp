@@ -14,6 +14,62 @@ export const getLocalDate = (date: Date = new Date()): string => {
 };
 
 /**
+ * Parses YYYY-MM-DD string into a local Date at 00:00:00 local time,
+ * avoiding any UTC parsing quirks.
+ */
+export const parseLocalDate = (dateStr: string): Date => {
+  if (!dateStr) return new Date();
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return new Date(dateStr);
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+};
+
+/**
+ * Advances a date safely based on recurrence frequency,
+ * handling month-end overflows (e.g., 31st) and leap years (Feb 29).
+ * If originalDay is provided, monthly/yearly recalculates against originalDay.
+ */
+export const getNextDateSafe = (
+  date: Date,
+  freq: 'daily' | 'weekly' | 'monthly' | 'yearly' | string,
+  originalDay?: number
+): Date => {
+  const next = new Date(date);
+  if (freq === 'daily') {
+    next.setDate(next.getDate() + 1);
+    return next;
+  }
+  if (freq === 'weekly') {
+    next.setDate(next.getDate() + 7);
+    return next;
+  }
+  if (freq === 'monthly') {
+    const targetDay = originalDay ?? next.getDate();
+    let year = next.getFullYear();
+    let month = next.getMonth() + 1;
+    if (month > 11) {
+      year += Math.floor(month / 12);
+      month = month % 12;
+    }
+    const maxDays = new Date(year, month + 1, 0).getDate();
+    const day = Math.min(targetDay, maxDays);
+    return new Date(year, month, day, 0, 0, 0, 0);
+  }
+  if (freq === 'yearly') {
+    const targetDay = originalDay ?? next.getDate();
+    const month = next.getMonth();
+    const year = next.getFullYear() + 1;
+    const maxDays = new Date(year, month + 1, 0).getDate();
+    const day = Math.min(targetDay, maxDays);
+    return new Date(year, month, day, 0, 0, 0, 0);
+  }
+  return next;
+};
+
+/**
  * Returns local time in HH:mm format
  */
 export const getLocalTime = (date: Date = new Date()): string => {

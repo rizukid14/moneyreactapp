@@ -23,7 +23,7 @@ import { collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
 import SplashScreen from '../components/SplashScreen';
-import { getLocalDate, getLocalTime, generateId, hashPin } from '../lib/utils';
+import { getLocalDate, getLocalTime, generateId, hashPin, parseLocalDate, getNextDateSafe } from '../lib/utils';
 import { calculateDebtBalance, isDebtPrincipalTx, isDebtPaymentTx } from '../lib/debtCalculations';
 import { startDeltaListeners, stopDeltaListeners } from '../lib/deltaSync';
 import { fetchLiveExchangeRates } from '../lib/currency';
@@ -1604,7 +1604,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newDebt: Debt = { ...debtReq, id: debtId };
 
     // Generate initial transaction for the principal
-    const date = newDebt.date || new Date(newDebt.createdAt).toISOString().split('T')[0];
+    const date = newDebt.date || getLocalDate(new Date(newDebt.createdAt));
     const time = new Date(newDebt.createdAt).toTimeString().split(' ')[0].substring(0, 5);
 
     if (newDebt.isPaid) {
@@ -1824,17 +1824,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (activeRts.length === 0) return;
 
     const todayStr = getLocalDate();
-    const today = new Date(todayStr);
-    today.setHours(0, 0, 0, 0);
-
-    const getNextDateHelper = (date: Date, freq: string): Date => {
-      const next = new Date(date);
-      if (freq === 'daily') next.setDate(next.getDate() + 1);
-      else if (freq === 'weekly') next.setDate(next.getDate() + 7);
-      else if (freq === 'monthly') next.setMonth(next.getMonth() + 1);
-      else if (freq === 'yearly') next.setFullYear(next.getFullYear() + 1);
-      return next;
-    };
+    const today = parseLocalDate(todayStr);
 
     const runAutoProcess = async () => {
       const mDb = await import('../lib/db');
@@ -1849,20 +1839,19 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const idbRt = await idb.get('recurring_transactions', rt.id);
         if (idbRt?.isDeleted) continue;
 
-        const startDate = new Date(rt.startDate || todayStr);
-        startDate.setHours(0, 0, 0, 0);
+        const startDate = parseLocalDate(rt.startDate || todayStr);
+        const originalDay = startDate.getDate();
 
-        const lastDate = rt.lastProcessedDate ? new Date(rt.lastProcessedDate) : new Date(startDate);
-        lastDate.setHours(0, 0, 0, 0);
+        const lastDate = rt.lastProcessedDate ? parseLocalDate(rt.lastProcessedDate) : new Date(startDate);
 
         if (lastDate >= today && rt.lastProcessedDate) continue;
 
-        const endDate = rt.endDate ? new Date(rt.endDate) : null;
+        const endDate = rt.endDate ? parseLocalDate(rt.endDate) : null;
         if (endDate) endDate.setHours(23, 59, 59, 999);
 
         let currentCheck = new Date(lastDate);
         if (rt.lastProcessedDate) {
-          currentCheck = getNextDateHelper(currentCheck, rt.frequency);
+          currentCheck = getNextDateSafe(currentCheck, rt.frequency, originalDay);
         }
 
         let latestProcessed = rt.lastProcessedDate || null;
@@ -1870,7 +1859,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         while (currentCheck <= today) {
           if (endDate && currentCheck > endDate) break;
 
-          const txDate = currentCheck.toISOString().split('T')[0];
+          const txDate = getLocalDate(currentCheck);
           const txId = `auto-${rt.id}-${txDate}`;
 
           const exists = transactions.some(t => t.id === txId || (t.note && t.note.includes(`[Auto:${rt.id}]`) && t.date === txDate));
@@ -1896,7 +1885,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           }
 
           latestProcessed = txDate;
-          currentCheck = getNextDateHelper(currentCheck, rt.frequency);
+          currentCheck = getNextDateSafe(currentCheck, rt.frequency, originalDay);
         }
 
         if (latestProcessed && latestProcessed !== rt.lastProcessedDate) {

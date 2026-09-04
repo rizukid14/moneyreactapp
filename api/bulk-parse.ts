@@ -53,7 +53,7 @@ export default async function handler(req: any, res: any) {
     const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
     const defaultAsset = assets?.find((a: any) => a.id === defaultAssetId);
     const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
-    const dateContext = currentDate || new Date().toISOString().split('T')[0];
+    const dateContext = currentDate || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
     const userHistorySection = userHistory?.length > 0
       ? `\n\n    USER'S PERSONAL TRANSACTION HISTORY & HABITS (RAG Context):

@@ -9,6 +9,7 @@ import { setupPushNotifications } from '../lib/notifications';
 import { validateFileSecure } from '../lib/fileValidation';
 import { downloadSampleExcel, parseExcelFile, extractExcelHeaders, type ImportResult } from '../lib/excelImport';
 import { exportAllDataToExcel } from '../lib/excelExport';
+import { getLocalDate } from '../lib/utils';
 import ExcelMappingModal from '../components/modals/ExcelMappingModal';
 import { BudgetManagement } from '../components/BudgetManagement';
 import RewardsStoreModal from '../components/modals/RewardsStoreModal';
@@ -381,7 +382,7 @@ const Settings: React.FC = () => {
   const [newSubName, setNewSubName] = useState('');
   const [newSubAmount, setNewSubAmount] = useState('');
   const [newSubCycle, setNewSubCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [newSubDate, setNewSubDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newSubDate, setNewSubDate] = useState(getLocalDate());
   const [newSubCat, setNewSubCat] = useState('');
   const [newSubAsset, setNewSubAsset] = useState(defaultAssetId || '');
   const [editingSub, setEditingSub] = useState<string | null>(null);
@@ -566,7 +567,7 @@ const Settings: React.FC = () => {
                     setEditingSub(null);
                     setNewSubName('');
                     setNewSubAmount('');
-                    setNewSubDate(new Date().toISOString().split('T')[0]);
+                    setNewSubDate(getLocalDate());
                     setNewSubCycle('monthly');
                     setNewSubAsset(defaultAssetId || '');
                     setActiveModal('subscription_form');

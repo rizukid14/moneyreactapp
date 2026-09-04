@@ -9,6 +9,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { convertToBaseIDR, SUPPORTED_CURRENCIES } from '../lib/currency';
+import { getLocalDate } from '../lib/utils';
 import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
 import type { CardId } from '../components/AssetSummaryCarousel';
 import OnboardingTutorial from '../components/OnboardingTutorial';
@@ -637,7 +638,7 @@ const Assets: React.FC = () => {
 
       const lastCutoffDate = new Date(today.getFullYear(), today.getMonth(), cutoffDay);
       if (currentDay < cutoffDay) lastCutoffDate.setMonth(lastCutoffDate.getMonth() - 1);
-      const lastCutoffStr = lastCutoffDate.toISOString().split('T')[0];
+      const lastCutoffStr = getLocalDate(lastCutoffDate);
 
       const unbilled = transactions
         .filter(t => t.assetId === card.id && t.type === 'pengeluaran' && t.date >= lastCutoffStr && !t.isDeleted)

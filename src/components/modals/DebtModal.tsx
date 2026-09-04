@@ -11,6 +11,7 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import MaterialIcon from '../common/MaterialIcon';
+import { getLocalDate } from '../../lib/utils';
 
 import type { AutoSettleOptions } from '../../contexts/MoneyContext';
 
@@ -51,7 +52,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
   const [settleOutAssetId, setSettleOutAssetId]   = useState('');
   const [settleInAssetId, setSettleInAssetId]     = useState('');
   const [excludeAutoOffset, setExcludeAutoOffset] = useState(false);
-  const [createdAt, setCreatedAt]                 = useState(new Date().toISOString().split('T')[0]);
+  const [createdAt, setCreatedAt]                 = useState(getLocalDate());
   const [isSubmitting, setIsSubmitting]           = useState(false);
 
   const activeAssets = assets.filter(a => !a.isDeleted);
@@ -120,7 +121,7 @@ const DebtModal: React.FC<DebtModalProps> = ({ isOpen, onClose, onSave, editingD
       setExcludeAutoOffset(false);
       setCreditCatName('');
       setCreditSubCatName('');
-      setCreatedAt(new Date().toISOString().split('T')[0]);
+      setCreatedAt(getLocalDate());
     }
   }, [isOpen, editingDebt, defaultAssetId]);
 

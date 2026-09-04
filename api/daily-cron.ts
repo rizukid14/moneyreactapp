@@ -88,9 +88,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         initializeAdmin();
         const db = admin.firestore();
         const messaging = admin.messaging();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
+        const wibFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' });
+        const todayStr = wibFormatter.format(new Date());
+        const today = parseLocalDate(todayStr);
 
         console.log(`[Cron] Starting Routine Processing for ${todayStr}...`);
 
@@ -116,21 +116,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const parentRef = rtDoc.ref.parent.parent;
                 if (!parentRef) continue;
 
-                const startDate = new Date(rt.startDate || todayStr);
-                startDate.setHours(0, 0, 0, 0);
+                const startDate = parseLocalDate(rt.startDate || todayStr);
+                const originalDay = startDate.getDate();
 
-                const lastDate = rt.lastProcessedDate ? new Date(rt.lastProcessedDate) : new Date(startDate);
-                lastDate.setHours(0, 0, 0, 0);
+                const lastDate = rt.lastProcessedDate ? parseLocalDate(rt.lastProcessedDate) : new Date(startDate);
 
                 // If already processed today or in future, skip
                 if (lastDate >= today && rt.lastProcessedDate) continue;
 
-                const endDate = rt.endDate ? new Date(rt.endDate) : null;
+                const endDate = rt.endDate ? parseLocalDate(rt.endDate) : null;
                 if (endDate) endDate.setHours(23, 59, 59, 999);
 
                 let currentCheck = new Date(lastDate);
                 if (rt.lastProcessedDate) {
-                    currentCheck = getNextDate(currentCheck, rt.frequency);
+                    currentCheck = getNextDate(currentCheck, rt.frequency, originalDay);
                 }
 
                 const batch = db.batch();
@@ -142,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 while (currentCheck <= today) {
                     if (endDate && currentCheck > endDate) break;
 
-                    const txDate = currentCheck.toISOString().split('T')[0];
+                    const txDate = formatDateStr(currentCheck);
                     const txId = `auto-${rt.id}-${txDate}`;
                     
                     const txRef = parentRef.collection('transactions').doc(txId);
@@ -181,7 +180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
 
                     latestProcessed = txDate;
-                    currentCheck = getNextDate(currentCheck, rt.frequency);
+                    currentCheck = getNextDate(currentCheck, rt.frequency, originalDay);
                 }
 
                 if (hasChanges) {
@@ -287,11 +286,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 }
 
-function getNextDate(date: Date, freq: string): Date {
+function parseLocalDate(dateStr: string): Date {
+    if (!dateStr) return new Date();
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return new Date(dateStr);
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+}
+
+function formatDateStr(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getNextDate(date: Date, freq: string, originalDay?: number): Date {
     const next = new Date(date);
-    if (freq === 'daily')   next.setDate(next.getDate() + 1);
-    else if (freq === 'weekly')  next.setDate(next.getDate() + 7);
-    else if (freq === 'monthly') next.setMonth(next.getMonth() + 1);
-    else if (freq === 'yearly')  next.setFullYear(next.getFullYear() + 1);
+    if (freq === 'daily') {
+        next.setDate(next.getDate() + 1);
+        return next;
+    }
+    if (freq === 'weekly') {
+        next.setDate(next.getDate() + 7);
+        return next;
+    }
+    if (freq === 'monthly') {
+        const targetDay = originalDay ?? next.getDate();
+        let year = next.getFullYear();
+        let month = next.getMonth() + 1;
+        if (month > 11) {
+            year += Math.floor(month / 12);
+            month = month % 12;
+        }
+        const maxDays = new Date(year, month + 1, 0).getDate();
+        const day = Math.min(targetDay, maxDays);
+        return new Date(year, month, day, 0, 0, 0, 0);
+    }
+    if (freq === 'yearly') {
+        const targetDay = originalDay ?? next.getDate();
+        const month = next.getMonth();
+        const year = next.getFullYear() + 1;
+        const maxDays = new Date(year, month + 1, 0).getDate();
+        const day = Math.min(targetDay, maxDays);
+        return new Date(year, month, day, 0, 0, 0, 0);
+    }
     return next;
 }
+

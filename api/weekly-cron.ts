@@ -119,11 +119,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ success: true, message: 'No users with active tokens found.' });
         }
 
-        // Calculate time window (Last 7 days)
+        // Calculate time window (Last 7 days in WIB)
+        const wibFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' });
         const now = new Date();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const sevenDaysAgoStr = wibFormatter.format(sevenDaysAgo); // Format: YYYY-MM-DD
 
         let successCount = 0;
         let failureCount = 0;

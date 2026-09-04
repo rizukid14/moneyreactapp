@@ -6,7 +6,7 @@ import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
 import StatDetailModal from '../components/modals/StatDetailModal';
 import type { StatDetailItem } from '../components/modals/StatDetailModal';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, getLocalDate } from '../lib/utils';
 import { calculateDebtBalance } from '../lib/debtCalculations';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
@@ -1973,7 +1973,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
       const d = new Date(now);
       d.setDate(now.getDate() + i);
 
-      const dateKey = d.toISOString().split('T')[0];
+      const dateKey = getLocalDate(d);
       const dayOfMonth = d.getDate();
       const dayOfWeek = d.getDay();
       const month = d.getMonth();

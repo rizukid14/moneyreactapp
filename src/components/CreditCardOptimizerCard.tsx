@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Asset, Transaction } from '../contexts/MoneyContext';
 import MaterialIcon from './common/MaterialIcon';
 import { formatCurrencyAmount, convertToBaseIDR } from '../lib/currency';
+import { getLocalDate } from '../lib/utils';
 
 interface CreditCardOptimizerCardProps {
   assets: Asset[];
@@ -37,7 +38,7 @@ export const CreditCardOptimizerCard: React.FC<CreditCardOptimizerCardProps> = (
     if (currentDay < cutoffDay) {
       lastCutoffDate.setMonth(lastCutoffDate.getMonth() - 1);
     }
-    const lastCutoffStr = lastCutoffDate.toISOString().split('T')[0];
+    const lastCutoffStr = getLocalDate(lastCutoffDate);
 
     const unbilledAmount = transactions
       .filter(t => t.assetId === card.id && t.type === 'pengeluaran' && t.date >= lastCutoffStr && !t.isDeleted)

@@ -8,6 +8,7 @@ import BulkResultsEditor from '../components/transactions/BulkResultsEditor';
 import { useToast } from '../components/common/Toast';
 import { findBestCategoryMatch, extractUserHistoricalMappings } from '../utils/categoryMatcher';
 import { validateFileSecure } from '../lib/fileValidation';
+import { getLocalDate } from '../lib/utils';
 import SplitBillModal from '../components/modals/SplitBillModal';
 import { ReceiptItemizerModal } from '../components/modals/ReceiptItemizerModal';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
@@ -75,7 +76,7 @@ const ReceiptScanner: React.FC = () => {
   const [taxAmount, setTaxAmount] = useState(0);
   const [serviceAmount, setServiceAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDate());
   const [selectedTime, setSelectedTime] = useState(new Date().toTimeString().split(' ')[0].slice(0, 5));
   const [editableAmount, setEditableAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');

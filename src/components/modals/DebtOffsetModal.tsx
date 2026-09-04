@@ -5,6 +5,7 @@ import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import MaterialIcon from '../common/MaterialIcon';
+import { getLocalDate } from '../../lib/utils';
 
 interface DebtOffsetModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = React.useState(getLocalDate());
   const remainingHutang = totalHutang - offsetAmount;
   const remainingPiutang = totalPiutang - offsetAmount;
 

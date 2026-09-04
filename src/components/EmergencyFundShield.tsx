@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Asset, Transaction } from '../contexts/MoneyContext';
 import MaterialIcon from './common/MaterialIcon';
 import { formatCurrencyAmount, convertToBaseIDR } from '../lib/currency';
+import { getLocalDate } from '../lib/utils';
 
 interface EmergencyFundShieldProps {
   assets: Asset[];
@@ -31,7 +32,7 @@ export const EmergencyFundShield: React.FC<EmergencyFundShieldProps> = ({
   const today = new Date();
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(today.getDate() - 90);
-  const ninetyDaysStr = ninetyDaysAgo.toISOString().split('T')[0];
+  const ninetyDaysStr = getLocalDate(ninetyDaysAgo);
 
   const recentExpenses = transactions
     .filter(t => t.type === 'pengeluaran' && t.date >= ninetyDaysStr && !t.isDeleted)

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoney, type Trip, type TripMember } from '../../contexts/MoneyContext';
-import { generateId } from '../../lib/utils';
+import { generateId, getLocalDate } from '../../lib/utils';
 import ContactSelectModal from './ContactSelectModal';
 import MaterialIcon from '../common/MaterialIcon';
 
@@ -15,8 +15,8 @@ interface CreateTripModalProps {
 const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, editingTrip }) => {
   const { addTrip, updateTrip, contacts } = useMoney();
   const [name, setName] = useState('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(getLocalDate());
+  const [endDate, setEndDate] = useState(getLocalDate());
   const [members, setMembers] = useState<TripMember[]>([{ id: 'me', name: 'Me' }]);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,8 +29,8 @@ const CreateTripModal: React.FC<CreateTripModalProps> = ({ isOpen, onClose, edit
       setMembers(editingTrip.members);
     } else {
       setName('');
-      setStartDate(new Date().toISOString().split('T')[0]);
-      setEndDate(new Date().toISOString().split('T')[0]);
+      setStartDate(getLocalDate());
+      setEndDate(getLocalDate());
       setMembers([{ id: 'me', name: 'Me' }]);
     }
   }, [editingTrip, isOpen]);

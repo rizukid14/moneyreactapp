@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import MaterialIcon from '../components/common/MaterialIcon';
 import { motion } from 'framer-motion';
 import { dbGetSharedSplit, type SharedSplit } from '../lib/db';
+import { getLocalDate } from '../lib/utils';
 import { useMoney } from '../contexts/MoneyContext';
 import { useToast } from '../components/common/Toast';
 import SharedExpenseDetailModal from '../components/modals/SharedExpenseDetailModal';
@@ -85,7 +86,7 @@ const SharedSplitBill: React.FC = () => {
       description: `${(split as any).type === 'trip' ? 'Trip' : 'Split'}: ${split.merchantName}`,
       totalAmount: item.amount,
       isPaid: false,
-      date: split.date || new Date().toISOString().split('T')[0],
+      date: split.date || getLocalDate(),
       createdAt: new Date().toISOString(),
       isInstallment: false,
       paidInstallments: 0
@@ -112,7 +113,7 @@ const SharedSplitBill: React.FC = () => {
       description: `Trip: ${split.merchantName}`,
       totalAmount: item.amount,
       isPaid: false,
-      date: split.date || new Date().toISOString().split('T')[0],
+      date: split.date || getLocalDate(),
       createdAt: new Date().toISOString(),
       isInstallment: false,
       paidInstallments: 0

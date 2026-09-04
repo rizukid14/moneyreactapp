@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import type { Transaction, Asset, Category } from '../contexts/MoneyContext';
 import { MONTH_NAMES } from './constants';
+import { getLocalDate } from './utils';
 
 export interface AssetWithBalance extends Asset {
   balance: number;
@@ -194,6 +195,6 @@ export const exportAllDataToExcel = ({
   XLSX.utils.book_append_sheet(wb, wsAssets, 'Aset');
 
   // Trigger download
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = getLocalDate();
   XLSX.writeFile(wb, `Backup_Data_Keuangan_${dateStr}.xlsx`);
 };

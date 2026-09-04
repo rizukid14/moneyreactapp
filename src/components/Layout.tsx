@@ -13,6 +13,7 @@ import WhatsNewModal from './modals/WhatsNewModal';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { useLoginStreak } from '../hooks/useLoginStreak';
 import StreakRewardModal from './modals/StreakRewardModal';
+import { getLocalDate } from '../lib/utils';
 
 const Layout: React.FC = () => {
   const { user, theme, toggleTheme, setIsChatOpen, unreadNotifCount } = useMoney();
@@ -46,7 +47,7 @@ const Layout: React.FC = () => {
     if (isFridayEvening || isWeekend) {
       const dismissed = localStorage.getItem('dismissedWeekendBanner');
       const fridayDate = new Date(now.getTime() - ((day === 0 ? 2 : day === 6 ? 1 : 0) * 24 * 60 * 60 * 1000));
-      const fridayStr = fridayDate.toISOString().split('T')[0];
+      const fridayStr = getLocalDate(fridayDate);
       if (dismissed === fridayStr) return false;
       return true;
     }
@@ -58,7 +59,7 @@ const Layout: React.FC = () => {
     const now = new Date();
     const day = now.getDay();
     const fridayDate = new Date(now.getTime() - ((day === 0 ? 2 : day === 6 ? 1 : 0) * 24 * 60 * 60 * 1000));
-    const fridayStr = fridayDate.toISOString().split('T')[0];
+    const fridayStr = getLocalDate(fridayDate);
     localStorage.setItem('dismissedWeekendBanner', fridayStr);
   };
 
