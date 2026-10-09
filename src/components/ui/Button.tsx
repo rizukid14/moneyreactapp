@@ -13,7 +13,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = '', variant = 'primary', size = 'md', isLoading = false, icon, fullWidth = false, children, ...props }, ref) => {
+  ({ className = '', variant = 'primary', size = 'md', isLoading = false, icon, fullWidth = false, children, disabled, ...props }, ref) => {
     
     // Base layout classes
     let baseClass = 'flex items-center justify-center font-bold transition-all focus:outline-none';
@@ -49,12 +49,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         break;
     }
 
+    const isDisabled = isLoading || disabled;
+
     return (
       <button
         ref={ref}
-        disabled={isLoading || props.disabled}
-        className={`${baseClass} ${variantClass} ${props.disabled ? 'opacity-50 cursor-not-allowed active:scale-100' : ''} ${className}`}
         {...props}
+        disabled={isDisabled}
+        className={`${baseClass} ${variantClass} ${isDisabled ? 'opacity-50 cursor-not-allowed active:scale-100' : ''} ${className}`}
       >
         {isLoading && <MaterialIcon name="progress_activity" className="animate-spin" />}
         {!isLoading && icon && <span>{icon}</span>}

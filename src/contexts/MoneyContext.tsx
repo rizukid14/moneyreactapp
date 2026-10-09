@@ -2304,6 +2304,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!asset) return 0;
     let balance = Number(asset.initialBalance) || 0;
     transactions.forEach(tx => {
+      if (tx.isDeleted) return;
       const amt = Number(tx.amount) || 0;
       if ((tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk') && tx.assetId === assetId) balance += amt;
       else if ((tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar') && tx.assetId === assetId) balance -= amt;

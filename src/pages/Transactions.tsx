@@ -375,7 +375,7 @@ const Transactions: React.FC = () => {
     const hasMore = sortedGroups.length > visibleLimit;
 
     return { groups: paginatedGroups, monthlyIncome: inc, monthlyExpense: exp, hasMore };
-  }, [transactions, searchQuery, viewDate, startOfMonthDay, groupBy, showDebtInTransactions, getAssetName, typeFilter, visibleLimit]);
+  }, [transactions, searchQuery, viewDate, startOfMonthDay, groupBy, showDebtInTransactions, getAssetName, typeFilter, visibleLimit, categoryMap]);
 
   // Pace Info Calculation
   const paceInfo = useMemo(() => {

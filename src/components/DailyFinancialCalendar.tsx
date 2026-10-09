@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, parseLocalDate } from '../lib/utils';
 import MaterialIcon from './common/MaterialIcon';
 import StatDetailModal from './modals/StatDetailModal';
 
@@ -48,7 +48,7 @@ export const DailyFinancialCalendar: React.FC<DailyFinancialCalendarProps> = ({ 
     const txMap: Record<string, { income: number; expense: number; txs: Transaction[] }> = {};
 
     transactions.forEach(tx => {
-      const d = new Date(tx.date);
+      const d = parseLocalDate(tx.date);
       if (d.getFullYear() === year && d.getMonth() === month) {
         // YYYY-MM-DD
         const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

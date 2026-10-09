@@ -6,7 +6,7 @@ import { useMoney } from '../contexts/MoneyContext';
 import DatePickerModal from '../components/modals/DatePickerModal';
 import StatDetailModal from '../components/modals/StatDetailModal';
 import type { StatDetailItem } from '../components/modals/StatDetailModal';
-import { formatCurrency, getLocalDate } from '../lib/utils';
+import { formatCurrency, getLocalDate, parseLocalDate } from '../lib/utils';
 import { calculateDebtBalance } from '../lib/debtCalculations';
 import { motion, AnimatePresence } from 'framer-motion';
 import OnboardingTutorial from '../components/OnboardingTutorial';
@@ -222,7 +222,7 @@ const Statistics: React.FC = () => {
     const heatmapEnd = new Date(vY, 11, 31, 23, 59, 59);
 
     statsTransactions.forEach(tx => {
-      const txDate = new Date(tx.date);
+      const txDate = parseLocalDate(tx.date);
 
       // 1. Current Period Stats
       if (txDate >= vPeriodStart && txDate < vPeriodEnd) {
@@ -420,7 +420,7 @@ const Statistics: React.FC = () => {
         cells: mo.cells.map(c => ({ ...c, level: c.amount === 0 ? 0 : Math.ceil((c.amount / maxVal) * 4) }))
       }));
     }
-  }, [transactions, assets, viewDate, drillDownCategory, selectedAssetIds]);
+  }, [transactions, assets, viewDate, drillDownCategory, selectedAssetIds, categoryMap, startOfMonthDay]);
 
   const scaledDailyChart = useMemo(() => {
     if (chartScale === 'log') {
@@ -938,7 +938,7 @@ const Statistics: React.FC = () => {
                                   if (cell) {
                                     e.stopPropagation();
                                     const dayTxs = transactions.filter(t => !t.isDeleted && t.date === cell.date);
-                                    const dateFormatted = new Date(cell.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                                    const dateFormatted = parseLocalDate(cell.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
                                     
                                     setDetailModalProps({
                                       isOpen: true,
@@ -1598,7 +1598,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     }
 
     transactions.forEach(tx => {
-      const txDate = new Date(tx.date);
+      const txDate = parseLocalDate(tx.date);
       const monthIdx = last6Months.findIndex(l => l.month === txDate.getMonth() && l.year === txDate.getFullYear());
       if (monthIdx !== -1) {
         if (tx.type === 'pendapatan') last6Months[monthIdx].income += tx.amount;
@@ -1617,11 +1617,12 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     let liquidAssetsValue = 0;
 
     assets.filter(a => !a.isDeleted).forEach(a => {
-      const txSum = transactions.filter(t => t.assetId === a.id || t.fromAssetId === a.id || t.toAssetId === a.id)
+      const txSum = transactions
+        .filter(t => !t.isDeleted && (t.assetId === a.id || t.fromAssetId === a.id || t.toAssetId === a.id))
         .reduce((s, t) => {
           const amt = Number(t.amount) || 0;
-          if (t.type === 'pendapatan') return s + amt;
-          if (t.type === 'pengeluaran') return s - amt;
+          if (t.type === 'pendapatan' || t.type === 'piutang_masuk' || t.type === 'hutang_masuk') return s + amt;
+          if (t.type === 'pengeluaran' || t.type === 'piutang_keluar' || t.type === 'hutang_keluar') return s - amt;
           if (t.type === 'transfer') {
             if (t.toAssetId === a.id) return s + amt;
             if (t.fromAssetId === a.id) return s - amt;
@@ -1672,14 +1673,18 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     else if (debtRatio < 50) debtScore = 5;
 
     const currentMonth = last6Months[last6Months.length - 1];
-    const activeBudgets = budgets.filter(b => b.month === currentMonth.month + 1 && b.year === currentMonth.year);
+    const activeBudgets = budgets.filter(b => b.month === currentMonth.month && b.year === currentMonth.year);
     let adherenceRate = 100;
     if (activeBudgets.length > 0) {
       const withinBudgetCount = activeBudgets.filter(b => {
         const cat = categories?.find(c => c.id === b.categoryId);
         if (!cat) return true;
         const spent = transactions
-          .filter(tx => tx.type === 'pengeluaran' && tx.categoryId === cat.id && new Date(tx.date).getMonth() === currentMonth.month)
+          .filter(tx => {
+            if (tx.type !== 'pengeluaran' || tx.categoryId !== cat.id || tx.isDeleted) return false;
+            const d = parseLocalDate(tx.date);
+            return d.getMonth() === currentMonth.month && d.getFullYear() === currentMonth.year;
+          })
           .reduce((sum, tx) => sum + tx.amount, 0);
         return spent <= b.limit;
       }).length;
