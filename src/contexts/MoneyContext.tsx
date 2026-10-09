@@ -15,7 +15,8 @@ import {
   dbExportAll, dbImportAll,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
   dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync, localDbGetSetting, localDbPutSetting,
-  dbGetAllNotifications, dbPutNotification, dbDeleteNotification, dbClearAllNotifications
+  dbGetAllNotifications, dbPutNotification, dbDeleteNotification, dbClearAllNotifications,
+  getWorkspacePath, getSyncWorkspace
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -1226,24 +1227,22 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     };
 
-    import('../lib/db').then(({ getWorkspacePath, getSyncWorkspace }) => {
-      const activeWorkspaceId = getSyncWorkspace();
-      startDeltaListeners(activeWorkspaceId, getWorkspacePath, handleDocChange);
+    const activeWorkspaceId = getSyncWorkspace();
+    startDeltaListeners(activeWorkspaceId, getWorkspacePath, handleDocChange);
 
-      const onVisChange = () => {
-        if (document.hidden) {
-          stopDeltaListeners();
-        } else {
-          startDeltaListeners(activeWorkspaceId, getWorkspacePath, handleDocChange);
-        }
-      };
-      document.addEventListener('visibilitychange', onVisChange);
-
-      return () => {
+    const onVisChange = () => {
+      if (document.hidden) {
         stopDeltaListeners();
-        document.removeEventListener('visibilitychange', onVisChange);
-      };
-    });
+      } else {
+        startDeltaListeners(activeWorkspaceId, getWorkspacePath, handleDocChange);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisChange);
+
+    return () => {
+      stopDeltaListeners();
+      document.removeEventListener('visibilitychange', onVisChange);
+    };
   }, [isReady, authUser?.uid]);
 
   // ─── Apply theme ────────────────────────────────────────────────────────

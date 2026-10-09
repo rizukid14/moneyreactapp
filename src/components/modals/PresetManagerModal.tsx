@@ -201,7 +201,7 @@ export const PresetManagerModal: React.FC<PresetManagerModalProps> = ({ isOpen, 
                 >
                   <option value="">-- Tanpa Kategori --</option>
                   {categories.filter(c => c.type === type && !c.isDeleted).map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>

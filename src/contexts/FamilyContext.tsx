@@ -49,23 +49,40 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [families, setFamilies] = useState<Family[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadFamilies = async (uid: string): Promise<Family[]> => {
+    try {
+      const q = query(collection(firestore, 'families'), where('members', 'array-contains', uid));
+      const querySnapshot = await getDocs(q);
+      const loadedFamilies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Family));
+      setFamilies(loadedFamilies);
+      return loadedFamilies;
+    } catch (e) {
+      console.error("Error loading families:", e);
+      return [];
+    }
+  };
+
   // Initialize workspace from local settings or auth
   useEffect(() => {
-    const init = async () => {
+    const init = async (): Promise<(() => void) | undefined> => {
       if (!isFirebaseConfigured) {
         setIsLoading(false);
-        return;
+        return undefined;
       }
-      
-      const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      return auth.onAuthStateChanged(async (user) => {
         if (user) {
-          await loadFamilies(user.uid);
+          const loaded = await loadFamilies(user.uid);
           // Use localStorage strictly to avoid cross-db contamination
-          let savedWorkspace = localStorage.getItem('activeWorkspaceId');
+          const savedWorkspace = localStorage.getItem('activeWorkspaceId');
 
-          if (savedWorkspace && savedWorkspace !== 'null') {
+          // Only trust the saved workspace if the user is still a member of it (T27)
+          if (savedWorkspace && savedWorkspace !== 'null' && loaded.some(f => f.id === savedWorkspace)) {
             setActiveWorkspaceId(savedWorkspace);
             await setSyncWorkspace(savedWorkspace);
+          } else {
+            setActiveWorkspaceId(null);
+            await setSyncWorkspace(null);
+            localStorage.removeItem('activeWorkspaceId');
           }
           setIsLoading(false);
         } else {
@@ -74,21 +91,13 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           setIsLoading(false);
         }
       });
-      return () => unsubscribe();
     };
-    init();
-  }, []);
 
-  const loadFamilies = async (uid: string) => {
-    try {
-      const q = query(collection(firestore, 'families'), where('members', 'array-contains', uid));
-      const querySnapshot = await getDocs(q);
-      const loadedFamilies = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Family));
-      setFamilies(loadedFamilies);
-    } catch (e) {
-      console.error("Error loading families:", e);
-    }
-  };
+    const initPromise = init();
+    return () => {
+      initPromise.then(unsub => unsub?.()).catch(() => {});
+    };
+  }, []);
 
   const generateJoinCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();

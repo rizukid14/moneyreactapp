@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Modal } from '../ui/Modal';
 import MaterialIcon from '../common/MaterialIcon';
 import { useMoney } from '../../contexts/MoneyContext';
+import { usePremium } from '../../contexts/PremiumContext';
 import { auth, googleProvider } from '../../lib/firebase';
 import { linkWithPopup } from 'firebase/auth';
 import { useToast } from '../common/Toast';
@@ -17,6 +18,7 @@ interface ProfileMenuModalProps {
 export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const { user, theme, toggleTheme, logOut } = useMoney();
+  const { premium } = usePremium();
   const { showToast } = useToast();
   const [isLinking, setIsLinking] = React.useState(false);
   const [showRewardsStore, setShowRewardsStore] = React.useState(false);
@@ -75,7 +77,7 @@ export const ProfileMenuModal: React.FC<ProfileMenuModalProps> = ({ isOpen, onCl
           </div>
         )}
         <h3 className="font-headline-md text-headline-md text-on-surface">{user.name}</h3>
-        <p className="text-sm text-on-surface-variant font-medium">Pro Plan Member</p>
+        <p className="text-sm text-on-surface-variant font-medium">{premium.isPremium ? 'Pro Plan Member' : 'Free Plan'}</p>
 
         {/* Rewards & Streak Card */}
         <div className="flex gap-3 w-full px-4 mt-4">

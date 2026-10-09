@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useToast } from '../components/common/Toast';
 
 export function useSpeechToText(separator: string = '\n') {
@@ -7,6 +7,14 @@ export function useSpeechToText(separator: string = '\n') {
   const speechBaseRef = useRef('');
   const finalTranscriptRef = useRef('');
   const { showToast } = useToast();
+
+  // Ensure recognition is stopped if the component unmounts while listening (M15)
+  useEffect(() => {
+    return () => {
+      try { recognitionRef.current?.stop(); } catch { /* noop */ }
+      recognitionRef.current = null;
+    };
+  }, []);
 
   const toggleListening = useCallback((currentText: string, onUpdateText: (text: string) => void) => {
     if (isListening && recognitionRef.current) {

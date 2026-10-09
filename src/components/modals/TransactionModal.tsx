@@ -112,8 +112,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // Load drafts from localStorage on mount/open
   const [allDrafts, setAllDrafts] = useState<Record<string, any>>(() => {
-    const saved = localStorage.getItem('tx_drafts');
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = localStorage.getItem('tx_drafts');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
   });
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategoryId: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategoryId: null, deficitAmount: 0, month: 0, year: 0 });

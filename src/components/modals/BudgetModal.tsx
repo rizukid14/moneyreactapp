@@ -74,6 +74,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({
 
     if (isDuplicate) {
       showToast('Anggaran untuk kategori ini sudah ada di bulan terpilih.', 'warning');
+      setIsSubmitting(false);
       return;
     }
 

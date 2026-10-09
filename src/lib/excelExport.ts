@@ -87,7 +87,7 @@ export const exportMonthDataToExcel = ({
 
   // 2. Sheet "Transaksi"
   const txHeaders = ['Tanggal', 'Tipe', 'Kategori', 'Aset Sumber', 'Aset Tujuan', 'Catatan', 'Nominal'];
-  const txData = transactions
+  const txData = [...transactions]
     .sort((a, b) => {
       if (a.date !== b.date) return a.date > b.date ? 1 : -1;
       return (a.time || '') > (b.time || '') ? 1 : -1;
@@ -160,7 +160,7 @@ export const exportAllDataToExcel = ({
 
   // 1. Sheet "Transaksi"
   const txHeaders = ['Tanggal', 'Tipe', 'Kategori', 'Aset Sumber', 'Aset Tujuan', 'Catatan', 'Nominal'];
-  const txData = transactions
+  const txData = [...transactions]
     .sort((a, b) => {
       if (a.date !== b.date) return a.date > b.date ? 1 : -1;
       return (a.time || '') > (b.time || '') ? 1 : -1;
