@@ -8,6 +8,7 @@ import { SubscriptionModal } from './components/modals/SubscriptionModal';
 import Layout from './components/Layout';
 import LockScreen from './components/LockScreen';
 import SplashScreen from './components/SplashScreen';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/common/Toast';
 
 import Transactions from './pages/Transactions';
@@ -95,7 +96,9 @@ function App() {
         <MoneyProvider>
           <PremiumProvider>
             <OnboardingProvider>
-              <AppContent />
+              <ErrorBoundary>
+                <AppContent />
+              </ErrorBoundary>
               <SubscriptionModal />
             </OnboardingProvider>
           </PremiumProvider>

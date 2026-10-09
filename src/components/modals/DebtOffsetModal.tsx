@@ -23,9 +23,10 @@ const fmt = (n: number, sym: string) => `${sym}${n.toLocaleString('id-ID')}`;
 const DebtOffsetModal: React.FC<DebtOffsetModalProps> = ({
   isOpen, onClose, onConfirm, contactName, totalHutang, totalPiutang, offsetAmount, currencySymbol
 }) => {
+  const [date, setDate] = React.useState(getLocalDate());
+
   if (!isOpen) return null;
 
-  const [date, setDate] = React.useState(getLocalDate());
   const remainingHutang = totalHutang - offsetAmount;
   const remainingPiutang = totalPiutang - offsetAmount;
 

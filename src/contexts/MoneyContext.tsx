@@ -28,6 +28,13 @@ import { calculateDebtBalance, isDebtPrincipalTx, isDebtPaymentTx } from '../lib
 import { startDeltaListeners, stopDeltaListeners } from '../lib/deltaSync';
 import { fetchLiveExchangeRates } from '../lib/currency';
 
+// E2E auth bypass is ONLY allowed in dev builds explicitly opted-in via VITE_E2E.
+// This prevents the production bundle from ever honoring localStorage.test_bypass_auth.
+const E2E_AUTH_BYPASS = import.meta.env.DEV && import.meta.env.VITE_E2E === 'true';
+
+const isE2EBypassActive = (): boolean =>
+  E2E_AUTH_BYPASS && typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true';
+
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 export type BudgetMode = 'regular' | 'zero-based';
 export type DebtTransactionRole = 'principal' | 'payment' | 'offset';
@@ -519,7 +526,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'categoryId'>('date');
   const [authUser, setAuthUser] = useState<any>(() => {
     try {
-      if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
+      if (isE2EBypassActive()) {
         return { uid: 'test-user-uid', email: 'test@example.com' };
       }
     } catch (e) { }
@@ -527,7 +534,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   });
   const [authChecked, setAuthChecked] = useState(() => {
     try {
-      if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
+      if (isE2EBypassActive()) {
         return true;
       }
     } catch (e) { }
@@ -580,7 +587,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true') {
+      if (isE2EBypassActive()) {
         setAuthUser({ uid: 'test-user-uid', email: 'test@example.com' });
         setAuthChecked(true);
         return;
@@ -639,7 +646,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ── Bootstrap: migrate if needed, then load from IndexedDB ──────────────
   useEffect(() => {
     if (!authChecked) return; // Wait for initial auth check
-    if (isFirebaseConfigured && !authUser && !(typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true')) return;
+    if (isFirebaseConfigured && !authUser && !isE2EBypassActive()) return;
     const bootstrap = async () => {
       // One-time migration from localStorage
       await migrateFromLocalStorage();
@@ -2563,9 +2570,13 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       sessionStorage.removeItem('lastStreakCheckDate');
       setAutoCloudSync({ status: 'idle' });
       await signOut(auth);
-      
-      const { dbClearAllData } = await import('../lib/db');
-      await dbClearAllData();
+
+      // Best-effort: flush pending local writes to the cloud before wiping this workspace.
+      try { await dbSyncPendingItems(); } catch { /* best-effort */ }
+
+      // Only clear the ACTIVE workspace so other accounts/workspaces on this device are preserved.
+      const { dbClearWorkspaceData } = await import('../lib/db');
+      await dbClearWorkspaceData();
       
       // Force reload the app so React state is completely wiped
       window.location.href = '/';

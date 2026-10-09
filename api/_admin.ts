@@ -110,31 +110,36 @@ export const checkAndConsumeQuota = async (uid: string, feature: 'chat' | 'scan'
             return { allowed: true, quotaUsed: 0, isPremium: true };
         }
         
-        // Check free quota
+        // Check free quota (atomic read-modify-write via transaction)
         const d = new Date();
         const quotaKey = `quota_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const quotaRef = db.collection('users').doc(uid).collection('settings').doc(quotaKey);
-        
-        const quotaSnap = await quotaRef.get();
-        let quotaData: Record<string, number> = { chat: 0, scan: 0, bulk: 0 };
-        
-        if (quotaSnap.exists) {
-            const data = quotaSnap.data();
-            quotaData = (data?.value !== undefined ? data.value : data) || { chat: 0, scan: 0, bulk: 0 };
-        }
-        
-        const used = quotaData[feature] || 0;
         const limit = FREE_QUOTA_LIMITS[feature];
-        
-        if (used >= limit) {
+
+        const result = await db.runTransaction(async (tx) => {
+            const quotaSnap = await tx.get(quotaRef);
+            let quotaData: Record<string, number> = { chat: 0, scan: 0, bulk: 0 };
+
+            if (quotaSnap.exists) {
+                const data = quotaSnap.data();
+                quotaData = (data?.value !== undefined ? data.value : data) || { chat: 0, scan: 0, bulk: 0 };
+            }
+
+            const used = quotaData[feature] || 0;
+            if (used >= limit) {
+                return { allowed: false as const };
+            }
+
+            const next = { ...quotaData, [feature]: used + 1 };
+            tx.set(quotaRef, { value: next, updatedAt: Date.now() }, { merge: true });
+            return { allowed: true as const, quotaUsed: next[feature] };
+        });
+
+        if (!result.allowed) {
             return { allowed: false, error: 'Quota exceeded' };
         }
-        
-        // Increment
-        quotaData[feature] = used + 1;
-        await quotaRef.set({ value: quotaData, updatedAt: Date.now() }, { merge: true });
-        
-        return { allowed: true, quotaUsed: quotaData[feature], isPremium: false };
+
+        return { allowed: true, quotaUsed: result.quotaUsed, isPremium: false };
         
     } catch (e: any) {
         if (e.code === 8 || e.message?.includes('RESOURCE_EXHAUSTED')) {

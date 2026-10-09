@@ -111,39 +111,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rawBodyBuffer = await getRawBodyLib(req);
     const rawBody = rawBodyBuffer.toString('utf8');
     
-    // ── Signature verification ──────────────────────────────────────────
+    // ── Authentication (signature first, then fallback token) ───────────
     const signature = req.headers['x-lynk-signature'] as string | undefined;
+    const fallbackToken = req.headers['x-webhook-token'];
 
+    let authorized = false;
     if (signature) {
-        const sigCheck = verifySignature(rawBody, signature, merchantKey);
-        
-        if (!sigCheck.valid) {
-            console.warn('Invalid Lynk.id signature');
-            return res.status(401).json({ 
-                error: 'Invalid signature',
-                debug_info: {
-                    received: signature,
-                    expected: sigCheck.expected,
-                    hashed_string: sigCheck.rawString
-                }
-            });
-        }
-    } else {
-        // Fallback or Test Ping mode
-        const token = req.headers['x-webhook-token'];
-        let payloadObj: any = {};
-        try { payloadObj = JSON.parse(rawBody); } catch (e) {}
-
-        // If it's just a test event from Lynk.id, allow it to pass for testing purposes
-        if (payloadObj.event === 'test' || payloadObj.event === 'ping') {
-            console.log('[LynkID] Received test/ping event from dashboard');
-            return res.status(200).json({ status: 'success', message: 'Test connection successful' });
-        }
-
-        if (token !== merchantKey) {
-            console.warn('Unauthorized webhook attempt (no signature, token mismatch)');
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+        authorized = verifySignature(rawBody, signature, merchantKey).valid;
+        if (!authorized) console.warn('Invalid Lynk.id signature');
+    }
+    if (!authorized && fallbackToken === merchantKey) {
+        authorized = true;
+    }
+    if (!authorized) {
+        console.warn('Unauthorized webhook attempt (invalid signature / token mismatch)');
+        return res.status(401).json({ error: 'Unauthorized' });
     }
 
     try {
@@ -159,6 +141,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // ── Validate event type ─────────────────────────────────────────
+        if (payload && (payload.event === 'test' || payload.event === 'ping')) {
+            return res.status(200).json({ status: 'success', message: 'Test connection successful' });
+        }
         if (!payload || payload.event !== 'payment.received') {
             return res.status(200).json({ status: 'ignored', reason: 'Not a payment event' });
         }

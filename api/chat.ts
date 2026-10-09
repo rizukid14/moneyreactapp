@@ -1110,9 +1110,16 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
       }
     ];
 
+    const safeHistory = Array.isArray(messages)
+      ? messages
+          .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+          .slice(-40)
+          .map((m: any) => ({ role: m.role, content: m.content.slice(0, 4000) }))
+      : [];
+
     const apiMessages = [
       { role: "system", content: systemPrompt },
-      ...messages
+      ...safeHistory
     ];
 
     const response = await getOpenAI().chat.completions.create({

@@ -83,11 +83,12 @@ const AssetModal: React.FC<AssetModalProps> = ({
   }, [editingAsset, isOpen, currentBalance]);
 
   const parseNumber = (val: string) => {
-    if (!val || val === '-') return 0;
-    const isNegative = val.startsWith('-');
-    const clean = val.replace(/,/g, '.').replace(/[^\d.]/g, '');
+    if (!val) return 0;
+    const isNegative = val.trim().startsWith('-');
+    // id-ID formatting: '.' = thousands separator, ',' = decimal separator.
+    const clean = val.replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
     const num = Number(clean);
-    return isNegative ? -num : (isNaN(num) ? 0 : num);
+    return isNegative ? -(num || 0) : (isNaN(num) ? 0 : num);
   };
 
   const handleInitialChange = (valStr: string) => {

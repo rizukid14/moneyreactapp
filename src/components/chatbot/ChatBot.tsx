@@ -374,6 +374,7 @@ const ChatBot: React.FC = () => {
             relatedId: newTx.id,
           });
         }
+      } else {
         addTransaction({
           type: toolArgs.type,
           amount: Number(toolArgs.amount),

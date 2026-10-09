@@ -148,7 +148,7 @@ export const getGlobalDB = () => {
   return globalDbPromise;
 };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   (window as any).__dbHelper = {
     clearAll: async () => {
       const db = await getDB();
@@ -171,6 +171,22 @@ if (typeof window !== 'undefined') {
   };
 }
 
+export const dbClearWorkspaceData = async () => {
+  try {
+    // Only clear the ACTIVE workspace database; leave other workspaces/accounts intact.
+    const db = await getDB();
+    const stores = Array.from(db.objectStoreNames);
+    const tx = db.transaction(stores, 'readwrite');
+    for (const store of stores) tx.objectStore(store as any).clear();
+    await tx.done;
+
+    // Clear workspace config in local storage
+    localStorage.removeItem('activeWorkspaceId');
+  } catch (err) {
+    console.error('Failed to clear workspace database', err);
+  }
+};
+
 export const dbClearAllData = async () => {
   try {
     const globalDb = await getGlobalDB();
@@ -179,19 +195,11 @@ export const dbClearAllData = async () => {
     for (const store of globalStores) globalTx.objectStore(store as any).clear();
     await globalTx.done;
 
-    const db = await getDB();
-    const stores = Array.from(db.objectStoreNames);
-    const tx = db.transaction(stores, 'readwrite');
-    for (const store of stores) tx.objectStore(store as any).clear();
-    await tx.done;
-    
-    // Clear workspace config in local storage
-    localStorage.removeItem('activeWorkspaceId');
+    await dbClearWorkspaceData();
   } catch (err) {
     console.error('Failed to clear databases', err);
   }
 };
-
 export const localDbGetAllAssets = async (): Promise<Asset[]> => (await getDB()).getAll('assets');
 export const localDbGetAllTransactions = async (): Promise<Transaction[]> => (await getDB()).getAll('transactions');
 export const localDbGetAllCategories = async (): Promise<Category[]> => (await getDB()).getAll('categories');
