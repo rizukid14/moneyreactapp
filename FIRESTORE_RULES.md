@@ -14,7 +14,7 @@ menjadikan dokumen **premium** sebagai *server-authoritative*.
 |---|---|
 | `users/{uid}/**` | Hanya pemilik (`request.auth.uid == uid`) |
 | `users/{uid}/settings/premium` | **Read** pemilik, **Write** hanya server (Admin SDK) |
-| `users/{uid}/settings/premiumActivationCode` | Read pemilik, Write hanya server |
+| `users/{uid}/settings/*` (lainnya, termasuk `premiumActivationCode`) | Read/write pemilik |
 | `families/{id}/**` | Hanya anggota (uid ada di `members`) |
 | `shared_splits/{id}` | Read publik (link), write hanya `creatorId` |
 | Semua lainnya | Ditolak |
@@ -25,17 +25,17 @@ menjadikan dokumen **premium** sebagai *server-authoritative*.
 
 1. **Aktivasi premium** tetap aman karena `api/lynkid-webhook.ts` memakai
    **Firebase Admin SDK** (melewati rules). ✅
-2. **`redeemReward` (tukar poin jadi premium/kuota)** saat ini menulis ke
-   `settings/premium` dari client → **akan diblokir** oleh rules ini.
-   → Sebelum mengaktifkan rules, pindahkan penukaran reward ke **Vercel
-   Serverless Function** (`api/*.ts`, pakai Firebase Admin SDK), atau gunakan
-   varian "soft" (lihat §5).
-3. **`rewardPoints`** ada di dokumen `settings/user` dan masih **bisa ditulis
-   pemilik**. Untuk anti-curang poin penuh, pindahkan penambahan poin ke server.
-4. **Kuota** tidak tersinkron ke Firestore (hanya lokal), jadi tidak terpengaruh.
-5. **Shared split** tetap bisa dibaca lewat link (read publik). Token K10 tidak
-   bisa ditegakkan di rules; kalau mau privat, ubah pembacaan lewat Cloud
-   Function yang memverifikasi token.
+2. **`redeemReward` (tukar poin jadi premium/kuota)** kini ditangani
+   **Vercel Serverless Function** `api/redeem-reward.ts` (Admin SDK), jadi
+   sudah aman dengan rules ini. Client hanya memanggil endpoint & menerima hasil.
+3. **Beli slot workspace** ditangani `api/purchase-slot.ts` (Admin SDK).
+4. **`rewardPoints`** ada di dokumen `settings/user` dan masih **bisa ditulis
+   pemilik**. Untuk anti-curang poin penuh, pindahkan penambahan poin harian
+   (`useLoginStreak`) ke server juga.
+5. **Kuota** tidak tersinkron ke Firestore (hanya lokal), jadi tidak terpengaruh.
+6. **Shared split** tetap bisa dibaca lewat link (read publik). Token K10 tidak
+   bisa ditegakkan di rules; kalau mau privat, ubah pembacaan lewat endpoint
+   Vercel yang memverifikasi token.
 
 ---
 
@@ -94,15 +94,18 @@ endpoint Vercel reward tersedia.
 
 ---
 
-## 6. Langkah lanjutan (opsional, untuk K12 penuh)
+## 6. Endpoint server (sudah dibuat)
 
-Buat **Vercel Serverless Function** (di folder `api/`, sama seperti `api/chat.ts`
-dan `api/lynkid-webhook.ts`, memakai `firebase-admin` + `verifyAuth`), misalnya:
-- `api/redeem-reward.ts` — validasi poin & tulis premium/kuota di server.
+Sudah tersedia di folder `api/` (Vercel Serverless Function, memakai
+`firebase-admin` + `verifyAuth`), dan client sudah diarahkan ke sana:
+- `api/redeem-reward.ts` — validasi poin (harga di sisi server) & tulis premium/kuota.
 - `api/purchase-slot.ts` — potong poin & naikkan `unlockedWorkspaceSlots`.
 
-Dengan itu, `settings/premium` dan `settings/user.rewardPoints` bisa sepenuhnya
-ditulis server, dan client hanya membaca.
+**Sisa (opsional, untuk K12 sepenuhnya):** penambahan poin harian di
+`useLoginStreak` masih dari client. Untuk mengunci `rewardPoints` sepenuhnya,
+pindahkan klaim poin harian ke endpoint server juga. Setelah itu, client tidak
+lagi menulis `settings/user.rewardPoints`.
+
 
 ---
 

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { dbGetSetting, dbPutSetting, localDbPutSetting } from '../lib/db';
 import { useMoney } from './MoneyContext';
-import { isFirebaseConfigured } from '../lib/firebase';
+import { isFirebaseConfigured, auth } from '../lib/firebase';
 
 export interface PremiumState {
   isPremium: boolean;
@@ -87,8 +87,8 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         if (savedPremium.isPremium && savedPremium.expiresAt) {
           if (new Date(savedPremium.expiresAt) < new Date()) {
             savedPremium.isPremium = false;
-            // Optionally update DB
-            await dbPutSetting('premium', savedPremium);
+            // Cache locally only — premium is server-authoritative and blocked by rules.
+            await localDbPutSetting('premium', savedPremium);
           }
         }
         setPremium(savedPremium);
@@ -176,7 +176,8 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
             // Compare with existing to know if it changed
             const existingPremium = await dbGetSetting('premium') as PremiumState | undefined;
             if (!existingPremium || existingPremium.expiresAt !== freshPremium.expiresAt || existingPremium.isPremium !== freshPremium.isPremium) {
-              await dbPutSetting('premium', freshPremium);
+              // Cache locally; premium document is server-authoritative (blocked by rules).
+              await localDbPutSetting('premium', freshPremium);
               setPremium(freshPremium);
               statusChanged = true;
             }
@@ -230,60 +231,47 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const redeemReward = useCallback(async (
     type: 'premium_1d' | 'premium_3d' | 'premium_7d' | 'premium_30d' | 'scan_3' | 'chat_5' | 'bulk_1',
-    pointCost: number
+    _pointCost: number
   ): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'User tidak ditemukan' };
-    const currentPoints = user.rewardPoints || 0;
-    if (currentPoints < pointCost) {
-      return { success: false, error: 'Poin tidak cukup' };
+    if (!isFirebaseConfigured || !auth.currentUser) {
+      return { success: false, error: 'Perlu login untuk menukar poin' };
     }
 
-    // Deduct points
-    const updatedUser = {
-      ...user,
-      rewardPoints: currentPoints - pointCost,
-    };
-
-    // Apply the reward
-    if (type.startsWith('premium_')) {
-      const days = parseInt(type.split('_')[1], 10);
-      const now = new Date();
-      let currentExpiry = premium.expiresAt ? new Date(premium.expiresAt) : null;
-      
-      // If already premium and not expired, extend from existing expiry date
-      let newExpiryDate = new Date();
-      if (premium.isPremium && currentExpiry && currentExpiry > now) {
-        newExpiryDate = new Date(currentExpiry.getTime());
+    // Point cost & fulfilment are decided server-side (Vercel function) to
+    // prevent client-side manipulation of points/premium.
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const resp = await fetch('/api/redeem-reward', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.success) {
+        return { success: false, error: data.error || 'Gagal memproses penukaran' };
       }
-      newExpiryDate.setDate(newExpiryDate.getDate() + days);
 
-      const newPremiumState: PremiumState = {
-        isPremium: true,
-        plan: 'monthly', // compatibility with existing UI
-        activatedAt: now.toISOString(),
-        expiresAt: newExpiryDate.toISOString(),
-      };
-
-      // Persist before updating state so a failed write cannot desync (M21)
-      await dbPutSetting('premium', newPremiumState);
-      setPremium(newPremiumState);
-    } else if (type.startsWith('scan_') || type.startsWith('chat_') || type.startsWith('bulk_')) {
-      const parts = type.split('_');
-      const limitKey = parts[0] as keyof QuotaState;
-      const amount = parseInt(parts[1], 10);
-      
-      const newQuota = {
-        ...quota,
-        [limitKey]: Math.max(0, (quota[limitKey] || 0) - amount),
-      };
-      
-      await localDbPutSetting(getQuotaKey(), newQuota);
-      setQuota(newQuota);
+      if (data.premium) {
+        await localDbPutSetting('premium', data.premium);
+        setPremium(data.premium);
+      }
+      if (data.quota) {
+        await localDbPutSetting(getQuotaKey(), data.quota);
+        setQuota(data.quota);
+      }
+      if (typeof data.pointsLeft === 'number') {
+        updateUser({ rewardPoints: data.pointsLeft });
+      }
+      return { success: true };
+    } catch (e) {
+      console.error('redeemReward failed:', e);
+      return { success: false, error: 'Gagal memproses penukaran' };
     }
-
-    updateUser(updatedUser);
-    return { success: true };
-  }, [user, updateUser, premium, quota]);
+  }, [user, updateUser]);
 
   return (
     <PremiumContext.Provider value={{

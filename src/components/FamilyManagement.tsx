@@ -81,17 +81,30 @@ export const FamilyManagement: React.FC = () => {
     });
   };
 
-  const handlePurchaseSlot = () => {
+  const handlePurchaseSlot = async () => {
     if ((user?.rewardPoints || 0) < 300) return;
-    
+    if (!auth.currentUser) {
+      showToast('Perlu login untuk membeli slot', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const newUser = {
-        ...user!,
-        rewardPoints: (user?.rewardPoints || 0) - 300,
-        unlockedWorkspaceSlots: (user?.unlockedWorkspaceSlots || 0) + 1
-      };
-      updateUser(newUser);
+      // Deduction is validated & applied server-side (Vercel function).
+      const token = await auth.currentUser.getIdToken();
+      const resp = await fetch('/api/purchase-slot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.success) {
+        showToast(data.error || 'Gagal membeli slot', 'error');
+        return;
+      }
+      updateUser({ rewardPoints: data.pointsLeft, unlockedWorkspaceSlots: data.slots });
       showToast('Berhasil membeli 1 slot workspace tambahan!', 'success');
       setIsPurchaseModalOpen(false);
     } catch (e) {
