@@ -169,7 +169,15 @@ const ReceiptScanner: React.FC = () => {
     setSelectedSubCategory('');
     setMerchantName('');
     setSelectedTime(new Date().toTimeString().split(' ')[0].slice(0, 5));
-  }, [previewUrl, setError]);
+  }, [previewUrl, croppedImageUrl, setError]);
+
+  // Revoke object URLs when they change or on unmount to prevent memory leaks (T16)
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+  }, [previewUrl]);
+  useEffect(() => {
+    return () => { if (croppedImageUrl) URL.revokeObjectURL(croppedImageUrl); };
+  }, [croppedImageUrl]);
 
   // ── Draw canvas when entering crop stage ────────────────────────────────────
   useEffect(() => {
@@ -542,14 +550,21 @@ const ReceiptScanner: React.FC = () => {
     }
 
     const totalAdjustment = taxAmount + serviceAmount - discountAmount;
-    const factor = (subtotal + totalAdjustment) / subtotal;
+    const targetTotal = subtotal + totalAdjustment;
+    // Clamp factor to >= 0 so a discount larger than the subtotal never yields negative items (T17)
+    const factor = subtotal > 0 ? Math.max(0, targetTotal / subtotal) : 0;
 
-    const newLineItems = lineItems.map(item => {
+    const selectedIndexes = lineItems.map((it, i) => (it.selected ? i : -1)).filter(i => i >= 0);
+    const lastSelectedIdx = selectedIndexes[selectedIndexes.length - 1];
+    let allocated = 0;
+    const newLineItems = lineItems.map((item, i) => {
       if (!item.selected) return item;
-      return {
-        ...item,
-        amount: Math.round(item.amount * factor)
-      };
+      // Assign the rounding remainder to the last selected item so the sum matches the total
+      const nextAmount = i === lastSelectedIdx
+        ? Math.max(0, targetTotal - allocated)
+        : Math.round(item.amount * factor);
+      allocated += nextAmount;
+      return { ...item, amount: nextAmount };
     });
 
     setLineItems(newLineItems);
@@ -812,24 +827,25 @@ const ReceiptScanner: React.FC = () => {
     const toSave = mutasiResults.filter(r => r.selected);
     toSave.forEach(tx => {
       if (tx.type === 'transfer') {
-        let finalFrom = batchAssetId;
-        let finalTo = batchAssetId;
+        const from = tx.fromAsset && tx.fromAsset !== batchAssetId ? tx.fromAsset : undefined;
+        const to = tx.toAsset && tx.toAsset !== batchAssetId ? tx.toAsset : undefined;
 
-        if (tx.fromAsset && tx.fromAsset !== batchAssetId) {
-          finalFrom = tx.fromAsset;
-          finalTo = batchAssetId;
-        } else if (tx.toAsset && tx.toAsset !== batchAssetId) {
-          finalFrom = batchAssetId;
-          finalTo = tx.toAsset;
-        } else {
-          finalFrom = batchAssetId;
-          finalTo = tx.toAsset || batchAssetId;
+        let finalFrom = from;
+        let finalTo = to;
+        if (from && !to) finalTo = batchAssetId;
+        else if (!from && to) finalFrom = batchAssetId;
+
+        // Reject transfers without a distinct counterpart account (T18)
+        if (!finalFrom || !finalTo || finalFrom === finalTo) {
+          console.warn('[Mutasi] Melewati transfer tanpa akun lawan yang valid:', tx);
+          return;
         }
 
         const newTx = addTransaction({
           type: 'transfer',
           amount: tx.amount,
           date: tx.date,
+          time: tx.time || undefined,
           note: tx.note || 'Transfer',
           categoryId: undefined,
           fromAssetId: finalFrom,
@@ -843,6 +859,7 @@ const ReceiptScanner: React.FC = () => {
             amount: tx.adminFee,
             categoryId: 'Biaya Admin',
             date: tx.date,
+            time: tx.time || undefined,
             note: `Biaya admin transfer${feeAssetName ? ` (${feeAssetName})` : ''}`,
             assetId: feeAssetId,
             relatedId: newTx.id,
@@ -853,6 +870,7 @@ const ReceiptScanner: React.FC = () => {
           type: tx.type,
           amount: tx.amount,
           date: tx.date,
+          time: tx.time || undefined,
           note: tx.note,
           categoryId: tx.categoryId,
           subCategoryId: tx.subCategoryId || undefined,

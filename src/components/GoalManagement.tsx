@@ -118,10 +118,15 @@ export const GoalManagement: React.FC<{ hideSubTabs?: boolean }> = ({ hideSubTab
     const map: Record<string, number> = {};
     goals.forEach(g => {
       // Filter transactions linked to this goal
-      const linkedTxs = transactions.filter(tx => tx.goalId === g.id);
+      const linkedTxs = transactions.filter(tx => tx.goalId === g.id && !tx.isDeleted);
       let total = linkedTxs.reduce((sum, tx) => {
         if (tx.type === 'pendapatan') return sum + tx.amount;
-        if (tx.type === 'transfer') return sum + tx.amount; // Transfer TO goal
+        if (tx.type === 'transfer') {
+          // Only count transfers that move money INTO the goal asset (T11)
+          if (g.assetId && tx.toAssetId === g.assetId) return sum + tx.amount;
+          if (g.assetId && tx.fromAssetId === g.assetId) return sum - tx.amount;
+          return sum;
+        }
         if (tx.type === 'pengeluaran') return sum - tx.amount; // Spending FROM goal
         return sum;
       }, 0);

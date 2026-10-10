@@ -94,10 +94,16 @@ const OverspendReallocationModal: React.FC<OverspendReallocationModalProps> = ({
 
   const handleReallocate = () => {
     if (!fromId) return;
+    // Never move more than the source actually has remaining (T14)
+    const sourceRemaining = fromId === 'unassigned'
+      ? unassignedMoney
+      : Math.max(0, (categoryBudgets.find(b => b.categoryId === fromId)?.limit || 0) - (spendingMap[fromId] || 0));
+    const transferAmount = Math.min(deficitAmount, sourceRemaining);
+    if (transferAmount <= 0) return;
     moveBudgetMoney(
       fromId === 'unassigned' ? null : fromId,
       deficitCategoryId,
-      deficitAmount,
+      transferAmount,
       month,
       year
     );

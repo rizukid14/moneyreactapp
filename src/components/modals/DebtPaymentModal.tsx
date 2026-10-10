@@ -69,14 +69,14 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
     if (isSubmitting) return;
     setIsSubmitting(true);
     
-    const numAmount = Number(amount);
+    const numAmount = Math.min(Number(amount), remaining);
     if (numAmount <= 0) {
       setIsSubmitting(false);
       return;
     }
 
     const finalNote = note || (isFullSettle ? `Pelunasan ${isHutang ? 'Hutang' : 'Piutang'}` : `Cicilan ${isHutang ? 'Hutang' : 'Piutang'}`);
-    onConfirm(numAmount, selectedAssetId, date, time, finalNote, isFullSettle);
+    onConfirm(numAmount, selectedAssetId, date, time, finalNote, numAmount >= remaining);
     
     setTimeout(() => setIsSubmitting(false), 1000);
   };

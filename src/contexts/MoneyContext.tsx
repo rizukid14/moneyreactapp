@@ -1430,17 +1430,16 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [transactions, refreshSyncCount, categories, debts]);
 
   const updateTransaction = useCallback((id: string, updatedTx: Partial<Transaction>) => {
-    let targetDebtId: string | undefined;
+    const existing = transactions.find(t => t.id === id);
+    const targetDebtId = updatedTx.relatedId ?? existing?.relatedId;
 
-    setTransactions(prev => prev.map(tx => {
-      if (tx.id !== id) return tx;
-      const updated = { ...tx, ...updatedTx } as Transaction;
-      dbPutTransaction(updated).then(refreshSyncCount);
-      if (updated.relatedId) {
-        targetDebtId = updated.relatedId;
-      }
-      return updated;
-    }));
+    setTransactions(prev => prev.map(tx => (
+      tx.id === id ? ({ ...tx, ...updatedTx } as Transaction) : tx
+    )));
+
+    if (existing) {
+      dbPutTransaction({ ...existing, ...updatedTx } as Transaction).then(refreshSyncCount);
+    }
 
     if (targetDebtId) {
       setDebts(prevDebts => {

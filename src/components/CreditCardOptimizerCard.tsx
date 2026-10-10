@@ -28,16 +28,17 @@ export const CreditCardOptimizerCard: React.FC<CreditCardOptimizerCardProps> = (
     const cutoffDay = card.statementCutoffDay || 15;
     const dueDay = card.paymentDueDay || 5;
 
-    let daysSinceCutoff = currentDay - cutoffDay;
-    if (daysSinceCutoff < 0) {
-      daysSinceCutoff += 30; // Approximated days in month
-    }
+    // Clamp cutoff day to the actual last day of the month to avoid date overflow (T12)
+    const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const daysInPrevMonth = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0).getDate();
 
-    // Calculate unbilled transactions for this card
-    const lastCutoffDate = new Date(today.getFullYear(), today.getMonth(), cutoffDay);
-    if (currentDay < cutoffDay) {
-      lastCutoffDate.setMonth(lastCutoffDate.getMonth() - 1);
-    }
+    const lastCutoffDate = currentDay >= cutoffDay
+      ? new Date(today.getFullYear(), today.getMonth(), Math.min(cutoffDay, daysInCurrentMonth))
+      : new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), Math.min(cutoffDay, daysInPrevMonth));
+    if (lastCutoffDate > today) lastCutoffDate.setDate(1);
+
+    const daysSinceCutoff = Math.max(0, Math.floor((today.getTime() - lastCutoffDate.getTime()) / 86400000));
     const lastCutoffStr = getLocalDate(lastCutoffDate);
 
     const unbilledAmount = transactions
