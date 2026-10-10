@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MaterialIcon from './MaterialIcon';
 
@@ -123,12 +123,25 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     timers.current[id] = setTimeout(() => dismiss(id), action ? 6000 : 3500);
   }, [dismiss]);
 
+  // Clear any pending timers when the provider unmounts (M34)
+  useEffect(() => {
+    const timerMap = timers.current;
+    return () => {
+      Object.values(timerMap).forEach(clearTimeout);
+    };
+  }, []);
+
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
 
       {/* Toast Stack — fixed top-center */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[99999] flex flex-col items-center gap-2 pointer-events-none">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="false"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[99999] flex flex-col items-center gap-2 pointer-events-none"
+      >
         <AnimatePresence mode="popLayout">
           {toasts.map(t => (
             <ToastItem key={t.id} toast={t} onDismiss={dismiss} />

@@ -18,6 +18,17 @@ const HEIGHT_MAP: Record<string, string> = {
   md: 'h-2',
 };
 
+// Static class map so Tailwind's JIT always generates the utilities (M33)
+const SEGMENT_BG: Record<string, string> = {
+  primary: 'bg-primary',
+  secondary: 'bg-secondary',
+  outline: 'bg-outline',
+  error: 'bg-error',
+  danger: 'bg-error',
+  success: 'bg-primary',
+  warning: 'bg-warning',
+};
+
 /**
  * Multi-segment progress bar with Bento styling.
  * Used for balance distribution, savings ratios, health scores, etc.
@@ -39,7 +50,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           <div
             key={idx}
             style={{ width: `${segment.percent}%` }}
-            className={`bg-${segment.color} h-full transition-all duration-500 ${idx === 0 ? 'rounded-l' : ''} ${idx === segments.length - 1 ? 'rounded-r' : ''}`}
+            className={`${SEGMENT_BG[segment.color] || 'bg-primary'} h-full transition-all duration-500 ${idx === 0 ? 'rounded-l' : ''} ${idx === segments.length - 1 ? 'rounded-r' : ''}`}
             title={segment.label ? `${segment.label}: ${segment.percent}%` : `${segment.percent}%`}
           />
         ))

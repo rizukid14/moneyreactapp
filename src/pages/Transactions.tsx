@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMoney } from '../contexts/MoneyContext';
 import type { Transaction } from '../contexts/MoneyContext';
-import { formatCurrency, getLocalDate } from '../lib/utils';
+import { formatCurrency, getLocalDate, parseLocalDate } from '../lib/utils';
 import TransactionItem from '../components/transactions/TransactionItem';
 import { lazy, Suspense } from 'react';
 const TransactionModal = lazy(() => import('../components/modals/TransactionModal'));
@@ -263,23 +263,32 @@ const Transactions: React.FC = () => {
     const vM = viewDate.getMonth();
     const vY = viewDate.getFullYear();
 
+    const inPeriod = (dateStr: string): boolean => {
+      const d = parseLocalDate(dateStr);
+      if (startOfMonthDay > 1) {
+        const start = new Date(vY, vM - 1, startOfMonthDay);
+        const end = new Date(vY, vM, startOfMonthDay);
+        return d >= start && d < end;
+      }
+      return d.getMonth() === vM && d.getFullYear() === vY;
+    };
+
+    // Period totals must not depend on the search/type filter so the pace insight stays accurate (M24)
     let inc = 0;
     let exp = 0;
+    transactions.forEach(tx => {
+      if (tx.isDeleted) return;
+      if (!showDebtInTransactions && ['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(tx.type)) return;
+      if (!inPeriod(tx.date)) return;
+      if (tx.type === 'pendapatan') inc += tx.amount;
+      if (tx.type === 'pengeluaran') exp += tx.amount;
+    });
 
     const filtered = transactions.filter(tx => {
       const isDebtTx = ['piutang_keluar', 'piutang_masuk', 'hutang_masuk', 'hutang_keluar'].includes(tx.type);
       if (!showDebtInTransactions && isDebtTx) return false;
 
-      const txD = new Date(tx.date);
-      const isCurrentPeriod = (() => {
-        if (startOfMonthDay > 1) {
-          const start = new Date(vY, vM - 1, startOfMonthDay);
-          const end = new Date(vY, vM, startOfMonthDay);
-          return txD >= start && txD < end;
-        }
-        return txD.getMonth() === vM && txD.getFullYear() === vY;
-      })();
-      if (!isCurrentPeriod) return false;
+      if (!inPeriod(tx.date)) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -298,9 +307,6 @@ const Transactions: React.FC = () => {
 
       if (typeFilter === 'pengeluaran' && tx.type !== 'pengeluaran') return false;
       if (typeFilter === 'pendapatan' && tx.type !== 'pendapatan') return false;
-
-      if (tx.type === 'pendapatan') inc += tx.amount;
-      if (tx.type === 'pengeluaran') exp += tx.amount;
 
       return true;
     }).sort((a, b) => {

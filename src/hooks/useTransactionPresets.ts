@@ -138,7 +138,7 @@ export const useTransactionPresets = () => {
           isManual: false
         } as HabitPreset;
       });
-  }, [transactions, assets]);
+  }, [transactions, assets, categories]);
 
   const togglePin = useCallback((preset: HabitPreset) => {
     // If it has no ID (like from old format) or we need to match by content:

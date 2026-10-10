@@ -1209,7 +1209,12 @@ const Settings: React.FC = () => {
               <button
                 className="btn"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)', fontWeight: 700, width: '100%' }}
-                onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); }}
+                onClick={async () => {
+                  setIsPulling(true); setPullResult(null);
+                  try { const r = await pullFromCloud(); setPullResult(r); }
+                  catch { setPullResult({ total: 0 }); }
+                  finally { setIsPulling(false); }
+                }}
                 disabled={isPulling}
               >
                 <MaterialIcon name="refresh" />
@@ -2203,7 +2208,18 @@ const Settings: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <button
-                    onClick={async () => { setIsPushing(true); setPushResult(null); const r = await syncData(); setPushResult(r); setIsPushing(false); if(r.success >= 0){ const now = Date.now().toString(); localStorage.setItem('last_cloud_sync_time', now); setLastSyncTime(now); } }}
+                    onClick={async () => {
+                      setIsPushing(true); setPushResult(null);
+                      try {
+                        const r = await syncData();
+                        setPushResult(r);
+                        if (r.success > 0) { const now = Date.now().toString(); localStorage.setItem('last_cloud_sync_time', now); setLastSyncTime(now); }
+                      } catch (e: any) {
+                        setPushResult({ success: 0, failed: 0, error: e?.message || 'SYNC_ERROR' });
+                      } finally {
+                        setIsPushing(false);
+                      }
+                    }}
                     disabled={isPushing || pendingSyncCount === 0}
                     className="py-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm disabled:opacity-50"
                   >
@@ -2211,7 +2227,18 @@ const Settings: React.FC = () => {
                     {isPushing ? 'Menyinkron...' : `Push Data (${pendingSyncCount})`}
                   </button>
                   <button
-                    onClick={async () => { setIsPulling(true); setPullResult(null); const r = await pullFromCloud(); setPullResult(r); setIsPulling(false); if(r.total >= 0){ const now = Date.now().toString(); localStorage.setItem('last_cloud_sync_time', now); setLastSyncTime(now); } }}
+                    onClick={async () => {
+                      setIsPulling(true); setPullResult(null);
+                      try {
+                        const r = await pullFromCloud();
+                        setPullResult(r);
+                        if (r.total > 0) { const now = Date.now().toString(); localStorage.setItem('last_cloud_sync_time', now); setLastSyncTime(now); }
+                      } catch {
+                        setPullResult({ total: 0 });
+                      } finally {
+                        setIsPulling(false);
+                      }
+                    }}
                     disabled={isPulling}
                     className="py-3 bg-surface-container-low hover:bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
                   >

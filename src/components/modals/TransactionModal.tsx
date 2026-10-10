@@ -7,7 +7,7 @@ import CategorySelectModal from './CategorySelectModal';
 import AssetSelectModal from './AssetSelectModal';
 import ContactSelectModal from './ContactSelectModal';
 import GoalSelectModal from './GoalSelectModal';
-import { getLocalDate, getLocalTime, formatCurrency } from '../../lib/utils';
+import { getLocalDate, getLocalTime, formatCurrency, parseLocalDate } from '../../lib/utils';
 import { calculateDebtBalance } from '../../lib/debtCalculations';
 import { useToast } from '../common/Toast';
 import { lazy, Suspense } from 'react';
@@ -343,13 +343,22 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     if (zbbMode === 'strict' && type === 'pengeluaran') {
       const validation = validateTransactionBudget({ ...txData, id: editingTransaction?.id });
       if (!validation.isValid) {
+        // Use the same startOfMonthDay-shifted period as budgetAlerts (M1)
+        const txDateObj = parseLocalDate(date || getLocalDate());
+        let rMonth = txDateObj.getMonth();
+        let rYear = txDateObj.getFullYear();
+        const sDay = startOfMonthDay || 1;
+        if (sDay > 1 && txDateObj.getDate() >= sDay) {
+          rMonth++;
+          if (rMonth > 11) { rMonth = 0; rYear++; }
+        }
         setPendingTxData(txData);
         setReallocationModal({
           isOpen: true,
           deficitCategoryId: validation.deficitCategory,
           deficitAmount: validation.deficitAmount,
-          month: new Date(date).getMonth(),
-          year: new Date(date).getFullYear()
+          month: rMonth,
+          year: rYear
         });
         setIsSubmitting(false);
         return; // Intercept and wait for reallocation

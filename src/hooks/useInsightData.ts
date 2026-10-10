@@ -110,6 +110,10 @@ export function useInsightData() {
       }
     }
 
+    // Clamp endDay to the real last day of the target month (M23)
+    const lastDayOfEndMonth = new Date(endYear, endMonth, 0).getDate();
+    if (endDay > lastDayOfEndMonth) endDay = lastDayOfEndMonth;
+
     const eomDate = new Date(endYear, endMonth - 1, endDay);
     const todayDate = new Date(year, month - 1, day);
     const diffTime = eomDate.getTime() - todayDate.getTime();

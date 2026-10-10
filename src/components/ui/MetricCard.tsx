@@ -36,6 +36,25 @@ function flipBadgeType(type: StatusBadgeType): StatusBadgeType {
   return type;
 }
 
+// Static maps so Tailwind's JIT always generates the utilities (M33)
+const COL_SPAN_CLASS: Record<number, string> = {
+  1: 'col-span-1 md:col-span-1',
+  2: 'col-span-1 md:col-span-2',
+  3: 'col-span-1 md:col-span-3',
+  4: 'col-span-1 md:col-span-4',
+  6: 'col-span-1 md:col-span-6',
+  12: 'col-span-1 md:col-span-12',
+};
+
+const GLOW_BG_CLASS: Record<string, string> = {
+  primary: 'bg-primary',
+  secondary: 'bg-secondary',
+  error: 'bg-error',
+  danger: 'bg-error',
+  success: 'bg-primary',
+  warning: 'bg-warning',
+};
+
 /**
  * Composite metric card combining BentoCard + IconBlock + StatusBadge.
  * Used for financial summary cards (Total Saldo, Pemasukan, Pengeluaran, etc.)
@@ -56,7 +75,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   className = '',
   children,
 }) => {
-  const colSpanClass = colSpan ? `col-span-1 md:col-span-${colSpan}` : 'col-span-1';
+  const colSpanClass = colSpan ? (COL_SPAN_CLASS[colSpan] || 'col-span-1') : 'col-span-1';
 
   const resolvedBadge = badge && trendInverted
     ? { ...badge, type: flipBadgeType(badge.type) }
@@ -69,7 +88,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     >
       {/* Optional glow blob */}
       {glowColor && (
-        <div className={`absolute top-0 right-0 w-32 h-32 bg-${glowColor} opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4`}></div>
+        <div className={`absolute top-0 right-0 w-32 h-32 ${GLOW_BG_CLASS[glowColor] || 'bg-primary'} opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4`}></div>
       )}
 
       {/* Header: Label + Icon */}

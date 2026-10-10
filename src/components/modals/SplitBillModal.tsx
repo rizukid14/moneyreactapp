@@ -240,16 +240,14 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   };
 
   const toggleItemAssignment = (itemIdx: number, personId: string) => {
-    setItemAssignments(prev => {
-      const current = prev[itemIdx] || [];
-      const next = current.includes(personId)
-        ? current.filter(id => id !== personId)
-        : [...current, personId];
+    const current = itemAssignments[itemIdx] || [];
+    const next = current.includes(personId)
+      ? current.filter(id => id !== personId)
+      : [...current, personId];
 
-      const newAssignments = { ...prev, [itemIdx]: next };
-      calculateItemSplit(splits, newAssignments, localLineItems);
-      return newAssignments;
-    });
+    const newAssignments = { ...itemAssignments, [itemIdx]: next };
+    setItemAssignments(newAssignments);
+    calculateItemSplit(splits, newAssignments, localLineItems);
   };
 
   const addLocalItem = () => {

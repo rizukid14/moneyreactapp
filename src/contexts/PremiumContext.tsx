@@ -208,19 +208,13 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updatePremiumDataFromServer = async (feature: keyof typeof FREE_QUOTA_LIMITS, newValue: number, newIsPremium?: boolean) => {
-    // 1. Update quota state
-    const newQuota = {
-      ...quota,
-      [feature]: newValue,
-    };
-    setQuota(newQuota);
-    
-    try {
+    // 1. Update quota state functionally to avoid dropping concurrent increments (M21)
+    setQuota(prev => {
+      const next = { ...prev, [feature]: newValue };
       // 2. Save quota to IndexedDB purely locally (NO SYNC to Firestore)
-      await localDbPutSetting(getQuotaKey(), newQuota);
-    } catch (e) {
-      console.error('Failed to save quota locally:', e);
-    }
+      localDbPutSetting(getQuotaKey(), next).catch(e => console.error('Failed to save quota locally:', e));
+      return next;
+    });
 
     // 3. Update premium state if it was downgraded by server
     if (newIsPremium === false && premium.isPremium === true) {
@@ -270,8 +264,9 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         expiresAt: newExpiryDate.toISOString(),
       };
 
-      setPremium(newPremiumState);
+      // Persist before updating state so a failed write cannot desync (M21)
       await dbPutSetting('premium', newPremiumState);
+      setPremium(newPremiumState);
     } else if (type.startsWith('scan_') || type.startsWith('chat_') || type.startsWith('bulk_')) {
       const parts = type.split('_');
       const limitKey = parts[0] as keyof QuotaState;
@@ -282,8 +277,8 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         [limitKey]: Math.max(0, (quota[limitKey] || 0) - amount),
       };
       
-      setQuota(newQuota);
       await localDbPutSetting(getQuotaKey(), newQuota);
+      setQuota(newQuota);
     }
 
     updateUser(updatedUser);

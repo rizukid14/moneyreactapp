@@ -2554,17 +2554,35 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const importData = useCallback(async (file: File) => {
-    const text = await file.text();
-    const data = JSON.parse(text);
+    let data: any;
+    try {
+      const text = await file.text();
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('File backup tidak valid atau rusak.');
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Struktur backup tidak dikenali.');
+    }
+
     await dbImportAll(data);
-    // Reload all state from DB
-    const [dbAssets, dbTxs, dbCats, dbBudgets] = await Promise.all([
+    // Reload all state from DB (all collections, not just a subset)
+    const [dbAssets, dbTxs, dbCats, dbBudgets, dbDebts, dbGoals, dbRecurring, dbContacts, dbSubs] = await Promise.all([
       dbGetAllAssets(), dbGetAllTransactions(), dbGetAllCategories(), dbGetAllBudgets(),
+      dbGetAllDebts(), dbGetAllGoals(),
+      import('../lib/db').then(m => m.dbGetAllRecurringTransactions()),
+      import('../lib/db').then(m => m.dbGetAllContacts()),
+      import('../lib/db').then(m => m.dbGetAllSubscriptions()),
     ]);
     setAssets(dbAssets);
     setTransactions(dbTxs);
     setCategories(dbCats);
     setBudgets(dbBudgets);
+    setDebts(dbDebts as Debt[]);
+    setGoals(dbGoals as Goal[]);
+    setRecurringTransactions(dbRecurring as RecurringTransaction[]);
+    setContacts(dbContacts as Contact[]);
+    setSubscriptions(dbSubs as Subscription[]);
     const savedUser = await dbGetSetting('user') as UserProfile | undefined;
     const savedTheme = await dbGetSetting('theme') as string | undefined;
     if (savedUser) setUser(savedUser);

@@ -557,25 +557,27 @@ export const MoveMoneyModal: React.FC<MoveMoneyModalProps> = ({ isOpen, onClose,
   const [isFromModalOpen, setIsFromModalOpen] = useState(false);
   const [isToModalOpen, setIsToModalOpen] = useState(false);
 
+  const wasOpenRef = React.useRef(false);
   React.useEffect(() => {
-    if (isOpen) {
-      if (defaultToId) {
-        setToId(defaultToId);
-        // Find if unassigned money is not enough but we have other source
-        if (unassignedMoney <= 0) {
-          const firstAvailable = budgets.find(b => b.categoryId !== null && (b.limit - (spendingMap[b.categoryId!] || 0)) > 0);
-          setFromId(firstAvailable ? firstAvailable.categoryId : 'unassigned');
-        } else {
-          setFromId('unassigned');
-        }
+    const justOpened = isOpen && !wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+    if (!justOpened) return;
+    if (defaultToId) {
+      setToId(defaultToId);
+      // Find if unassigned money is not enough but we have other source
+      if (unassignedMoney <= 0) {
+        const firstAvailable = budgets.find(b => b.categoryId !== null && (b.limit - (spendingMap[b.categoryId!] || 0)) > 0);
+        setFromId(firstAvailable ? firstAvailable.categoryId : 'unassigned');
       } else {
-        setToId('');
-        setFromId(unassignedMoney > 0 ? 'unassigned' : (budgets.find(b => b.categoryId !== null && (b.limit - (spendingMap[b.categoryId!] || 0)) > 0)?.categoryId || 'unassigned'));
+        setFromId('unassigned');
       }
-      setAmount('');
-      setIsFromModalOpen(false);
-      setIsToModalOpen(false);
+    } else {
+      setToId('');
+      setFromId(unassignedMoney > 0 ? 'unassigned' : (budgets.find(b => b.categoryId !== null && (b.limit - (spendingMap[b.categoryId!] || 0)) > 0)?.categoryId || 'unassigned'));
     }
+    setAmount('');
+    setIsFromModalOpen(false);
+    setIsToModalOpen(false);
   }, [isOpen, defaultToId, unassignedMoney, budgets, spendingMap]);
 
   const available = React.useMemo(() => {

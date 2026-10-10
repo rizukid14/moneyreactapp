@@ -367,9 +367,15 @@ const ChatBot: React.FC = () => {
           return;
         }
 
+        const transferAmount = Number(toolArgs.amount);
+        if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
+          showToast('Nominal transfer tidak valid', 'warning');
+          return;
+        }
+
         const newTx = addTransaction({
           type: 'transfer',
-          amount: Number(toolArgs.amount),
+          amount: transferAmount,
           date: toolArgs.date || getLocalDate(),
           note: toolArgs.note || 'Transfer via AI Chat',
           categoryId: undefined,
