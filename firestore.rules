@@ -1,13 +1,13 @@
 rules_version = '2';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MoneyApp / Monetiq — Firestore Security Rules
+// MoneyApp / Monetiq — Firestore Security Rules (merged)
 //
-// Tujuan: membatasi akses data per pengguna & per keluarga, serta membuat
-// dokumen premium menjadi server-authoritative (hanya bisa ditulis oleh
-// webhook Lynk.id / Cloud Function lewat Admin SDK).
+// Base = rules existing, plus:
+//   • Fix join/leave: non-owner members may change ONLY the `members` array.
+//   • Protect `settings/premium`: server-authoritative (client cannot write it).
 //
-// Lihat FIRESTORE_RULES.md untuk panduan deploy dan hal yang perlu disiapkan.
+// Lihat FIRESTORE_RULES.md untuk panduan deploy & catatan.
 // ─────────────────────────────────────────────────────────────────────────────
 
 service cloud.firestore {
@@ -16,50 +16,55 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
 
-    // ── Data pribadi pengguna ────────────────────────────────────────────────
-    match /users/{uid} {
-      allow read, write: if isOwner(uid);
+    // ── Data privat pengguna (Personal Workspace) ───────────────────────────
+    match /users/{userId}/{document=**} {
+      allow read: if isOwner(userId);
+    }
+    // Non-settings collections (transactions, assets, categories, ...)
+    match /users/{userId}/{col}/{docId} {
+      allow write: if isOwner(userId) && col != 'settings';
+    }
+    // Settings: owner may write all EXCEPT the server-authoritative `premium`.
+    match /users/{userId}/settings/{key} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && key != 'premium';
     }
 
-    // Koleksi biasa (transactions, assets, categories, debts, goals, ...)
-    match /users/{uid}/{col}/{docId} {
-      allow read, write: if isOwner(uid) && col != 'settings';
+    // ── Shared Split & Trip ──────────────────────────────────────────────────
+    match /shared_splits/{splitId} {
+      // Link publik: siapa saja boleh melihat rincian.
+      allow read: if true;
+      // Hanya pengguna login yang boleh membuat link.
+      allow create: if signedIn();
+      // Hanya pembuat yang boleh mengubah/menghapus.
+      allow update, delete: if signedIn() && request.auth.uid == resource.data.creatorId;
     }
 
-    // Pengaturan: boleh dibaca pemilik. TAPI dokumen premium hanya boleh
-    // ditulis server (webhook Lynk.id / endpoint Vercel), mencegah self-grant
-    // premium dari DevTools. Kode aktivasi tetap boleh ditulis client karena
-    // hanya dipakai untuk memetakan pembayaran ke akun.
-    match /users/{uid}/settings/{key} {
-      allow read: if isOwner(uid);
-      allow write: if isOwner(uid) && key != 'premium';
-    }
-
-    // ── Keluarga / workspace bersama ─────────────────────────────────────────
+    // ── Family / Workspace bersama ────────────────────────────────────────────
     match /families/{familyId} {
       allow read: if signedIn() && request.auth.uid in resource.data.members;
+
       allow create: if signedIn() && request.auth.uid in request.resource.data.members;
+
+      // Owner: bebas. Anggota: HANYA boleh mengubah `members` (join/leave),
+      // tidak boleh mengubah name/ownerId/joinCode. (fix join/leave)
       allow update: if signedIn() && (
-        request.auth.uid in resource.data.members ||
-        request.auth.uid in request.resource.data.members
+        request.auth.uid == resource.data.ownerId ||
+        (
+          (request.auth.uid in resource.data.members || request.auth.uid in request.resource.data.members) &&
+          request.resource.data.ownerId == resource.data.ownerId &&
+          request.resource.data.name == resource.data.name &&
+          request.resource.data.joinCode == resource.data.joinCode
+        )
       );
-      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
-    }
 
-    // Subkoleksi keluarga (transactions, assets, settings, dsb) — hanya anggota
-    match /families/{familyId}/{col}/{docId} {
-      allow read, write: if signedIn() &&
-        request.auth.uid in get(/databases/$(database)/documents/families/$(familyId)).data.members;
-    }
+      allow delete: if signedIn() && request.auth.uid == resource.data.ownerId;
 
-    // ── Shared split bill (dibagikan lewat link) ─────────────────────────────
-    // CATATAN KEAMANAN: read publik diperlukan agar penerima link bisa melihat
-    // rincian. Token pada URL (K10) TIDAK bisa ditegakkan di Rules. Jika ingin
-    // read privat, pindahkan pembacaan ke Cloud Function yang memverifikasi token.
-    match /shared_splits/{id} {
-      allow read: if true;
-      allow create: if signedIn();
-      allow update, delete: if signedIn() && resource.data.creatorId == request.auth.uid;
+      // Subkoleksi (transactions, assets, settings, ...) — hanya anggota.
+      match /{document=**} {
+        allow read, write: if signedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/families/$(familyId)).data.members;
+      }
     }
 
     // Default: tolak semua yang tidak disebutkan di atas.

@@ -15,9 +15,14 @@ menjadikan dokumen **premium** sebagai *server-authoritative*.
 | `users/{uid}/**` | Hanya pemilik (`request.auth.uid == uid`) |
 | `users/{uid}/settings/premium` | **Read** pemilik, **Write** hanya server (Admin SDK) |
 | `users/{uid}/settings/*` (lainnya, termasuk `premiumActivationCode`) | Read/write pemilik |
+| `families/{id}` | Read anggota; **create** self; **update** owner bebas / anggota hanya `members` (join/leave); **delete** owner |
 | `families/{id}/**` | Hanya anggota (uid ada di `members`) |
 | `shared_splits/{id}` | Read publik (link), write hanya `creatorId` |
 | Semua lainnya | Ditolak |
+
+> **Catatan fix:** rules lama mengizinkan `families` update **hanya owner**, padahal
+> `joinFamily`/`leaveFamily` di kode dilakukan oleh **anggota** (ubah `members`).
+> Rules ini memperbolehkan anggota mengubah **hanya array `members`**, sisanya tetap owner.
 
 ---
 
