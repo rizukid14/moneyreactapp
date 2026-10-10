@@ -18,12 +18,18 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const startY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const refreshStateRef = useRef(refreshState);
+  const onRefreshRef = useRef(onRefresh);
 
   const PULL_THRESHOLD = 70; // Distance required to trigger refresh
 
   useEffect(() => {
     setIsTouchDevice(supportsTouch());
   }, []);
+
+  // Keep latest values in refs so the touch listeners are registered ONCE (L8)
+  useEffect(() => { refreshStateRef.current = refreshState; }, [refreshState]);
+  useEffect(() => { onRefreshRef.current = onRefresh; }, [onRefresh]);
 
   useEffect(() => {
     if (!isTouchDevice) return;
@@ -34,17 +40,18 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
     const handleTouchStart = (e: TouchEvent) => {
       if ((e.target as HTMLElement).closest('[data-modal="true"]')) return;
       if (document.body.style.overflow === 'hidden') return;
-      
+
       const appContainer = document.querySelector('.app-container');
       const scrollPos = appContainer ? appContainer.scrollTop : (window.scrollY || document.documentElement.scrollTop);
-      if (scrollPos <= 0 && refreshState === 'idle') {
+      if (scrollPos <= 0 && refreshStateRef.current === 'idle') {
         startY.current = e.touches[0].clientY;
         setRefreshState('pulling');
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (refreshState !== 'pulling' && refreshState !== 'ready') return;
+      const state = refreshStateRef.current;
+      if (state !== 'pulling' && state !== 'ready') return;
 
       const currentY = e.touches[0].clientY;
       const distance = currentY - startY.current;
@@ -57,7 +64,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
         setPullDistance(cappedDistance);
 
         if (cappedDistance >= PULL_THRESHOLD) {
-          if (refreshState !== 'ready') {
+          if (state !== 'ready') {
             setRefreshState('ready');
             triggerHapticFeedback('light');
           }
@@ -68,12 +75,12 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
     };
 
     const handleTouchEnd = async () => {
-      if (refreshState === 'ready') {
+      if (refreshStateRef.current === 'ready') {
         setRefreshState('refreshing');
         setPullDistance(PULL_THRESHOLD);
         triggerHapticFeedback('medium');
         try {
-          await onRefresh();
+          await onRefreshRef.current();
         } catch (err) {
           console.error(err);
         } finally {
@@ -95,7 +102,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
       el.removeEventListener('touchmove', handleTouchMove);
       el.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [refreshState, onRefresh, isTouchDevice]);
+  }, [isTouchDevice]);
 
   // Desktop: just render children without pull-to-refresh
   if (!isTouchDevice) {

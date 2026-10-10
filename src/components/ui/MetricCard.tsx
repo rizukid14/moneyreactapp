@@ -118,7 +118,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         {details && details.length > 0 && (
           <div className="pt-2.5 border-t border-border-light flex flex-col gap-1 text-[11px] text-on-surface-variant">
             {details.map((detail, idx) => (
-              <div key={idx} className="flex justify-between items-center">
+              <div key={detail.label ?? idx} className="flex justify-between items-center">
                 <span className="flex items-center gap-1 font-medium">
                   {detail.dotColor && (
                     <span className={`w-1.5 h-1.5 rounded-full ${detail.dotColor} shrink-0`}></span>

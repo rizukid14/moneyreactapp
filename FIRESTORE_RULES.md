@@ -100,11 +100,11 @@ Sudah tersedia di folder `api/` (Vercel Serverless Function, memakai
 `firebase-admin` + `verifyAuth`), dan client sudah diarahkan ke sana:
 - `api/redeem-reward.ts` — validasi poin (harga di sisi server) & tulis premium/kuota.
 - `api/purchase-slot.ts` — potong poin & naikkan `unlockedWorkspaceSlots`.
+- `api/daily-claim.ts` — klaim poin harian (streak, multiplier, milestone) di server.
 
-**Sisa (opsional, untuk K12 sepenuhnya):** penambahan poin harian di
-`useLoginStreak` masih dari client. Untuk mengunci `rewardPoints` sepenuhnya,
-pindahkan klaim poin harian ke endpoint server juga. Setelah itu, client tidak
-lagi menulis `settings/user.rewardPoints`.
+Dengan ini `rewardPoints` dan `premium` naik lewat server. (Client masih menulis
+`settings/user` untuk bio/profil, jadi penguncian penuh poin butuh memindahkan
+profil ke dokumen terpisah — opsional ke depan.)
 
 
 ---

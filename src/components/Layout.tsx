@@ -322,26 +322,6 @@ const Layout: React.FC = () => {
             );
           }
 
-          if ((item as any).isChatbotButton) {
-            return (
-              <button
-                key={item.path}
-                onClick={() => setIsChatOpen(true)}
-                data-testid={item.testId}
-                className="flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-colors text-on-surface-variant hover:text-on-surface border-none bg-transparent cursor-pointer group"
-              >
-                <div className="w-10 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-surface-container transition-colors">
-                  <span className="material-symbols-outlined text-xl text-primary">
-                    {item.icon}
-                  </span>
-                </div>
-                <span className="text-[9px] text-on-surface">{item.label}</span>
-              </button>
-            );
-          }
-
-
-
           return (
             <NavLink
               key={item.path}

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMoney, type Contact } from '../../contexts/MoneyContext';
+import { type Contact } from '../../contexts/MoneyContext';
 
 interface ContactSelectModalProps {
   isOpen: boolean;
@@ -27,7 +27,6 @@ const ContactSelectModal: React.FC<ContactSelectModalProps> = ({
   onSelectMultiple,
   isMultiple = false,
 }) => {
-  const {} = useMoney();
   const [searchQuery, setSearchQuery] = useState('');
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [tempSelected, setTempSelected] = useState<string[]>([]);

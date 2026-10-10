@@ -49,7 +49,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ items, icon = 'more_vert', 
         <div className="absolute right-0 top-full mt-1.5 bg-surface-container rounded-xl shadow-bento py-1 z-[99] min-w-[160px] border border-outline-variant overflow-hidden backdrop-blur-md">
           {items.map((item, idx) => (
             <button
-              key={idx}
+              key={item.label ?? idx}
               className={`w-full text-left px-4 py-2.5 text-xs font-bold flex items-center gap-2 border-none bg-transparent cursor-pointer transition-colors ${
                 item.danger 
                   ? 'text-error hover:bg-error/10' 
