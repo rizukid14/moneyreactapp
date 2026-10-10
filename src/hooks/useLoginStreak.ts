@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMoney } from '../contexts/MoneyContext';
-import { getLocalDate } from '../lib/utils';
+import { getLocalDate, parseLocalDate } from '../lib/utils';
 
 export function useLoginStreak() {
   const { user, updateUser, isReady } = useMoney();
@@ -24,7 +24,6 @@ export function useLoginStreak() {
 
       const lastLogin = user.lastLoginDate;
       let currentStreak = user.loginStreak || 0;
-      let currentPoints = user.rewardPoints || 0;
       let pointsToAdd = 0;
       let updated = false;
 
@@ -43,18 +42,16 @@ export function useLoginStreak() {
         currentStreak = 1;
         updated = true;
       } else if (lastLogin !== todayStr) {
-        // Parse dates to compare them
-        const today = new Date(todayStr);
-        const lastLoginDate = new Date(lastLogin);
-        
-        // Calculate difference in days (ignoring time)
-        const diffTime = Math.abs(today.getTime() - lastLoginDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // Parse dates locally to avoid UTC shifts/DST rounding (T19)
+        const today = parseLocalDate(todayStr);
+        const lastLoginDate = parseLocalDate(lastLogin);
+
+        const diffDays = Math.round((today.getTime() - lastLoginDate.getTime()) / (1000 * 60 * 60 * 24));
 
         if (diffDays === 1) {
           // Logged in yesterday -> increment streak
           currentStreak += 1;
-        } else {
+        } else if (diffDays > 1) {
           // Missed a day -> reset streak to 1
           currentStreak = 1;
         }
@@ -62,6 +59,9 @@ export function useLoginStreak() {
       }
 
       if (updated) {
+        // Mark this day as processed before awarding, to guard against double-award (T19)
+        sessionStorage.setItem('lastStreakCheckDate', todayStr);
+
         // 1. Calculate Base Points based on streak length
         if (currentStreak >= 1 && currentStreak <= 3) {
           calculatedBase = 5;
@@ -105,30 +105,25 @@ export function useLoginStreak() {
         // Calculate total points earned today
         pointsToAdd = (calculatedBase * calculatedMultiplier) + calculatedMilestone;
 
-        const newUser = {
-          ...user,
+        // Update only the changed keys functionally to avoid clobbering concurrent updates (T28)
+        updateUser(prev => ({
           lastLoginDate: todayStr,
           loginStreak: currentStreak,
-          rewardPoints: currentPoints + pointsToAdd
-        };
-        
-        updateUser(newUser);
+          rewardPoints: (prev.rewardPoints || 0) + pointsToAdd,
+        }));
         setEarnedPoints(pointsToAdd);
         setBasePoints(calculatedBase);
         setMultiplier(calculatedMultiplier);
         setMilestoneBonus(calculatedMilestone);
         setShowRewardModal(true);
-        sessionStorage.setItem('lastStreakCheckDate', todayStr);
       } else if (lastLogin === todayStr) {
         // Self-repair: If they already logged in today but their streak/points are 0 or undefined,
         // let's restore them to 1 day and give them the first login reward!
         if (!user.loginStreak || user.loginStreak === 0) {
-          const newUser = {
-            ...user,
+          updateUser(prev => ({
             loginStreak: 1,
-            rewardPoints: (user.rewardPoints || 0) + 5
-          };
-          updateUser(newUser);
+            rewardPoints: (prev.rewardPoints || 0) + 5,
+          }));
         }
         sessionStorage.setItem('lastStreakCheckDate', todayStr);
       }

@@ -124,6 +124,7 @@ export const isPrincipalTx = (note: string, categoryIdOrName?: string, categorie
 /**
  * Hashes a PIN string using SHA-256 via Web Crypto API.
  * Returns a hexadecimal string.
+ * @deprecated Legacy unsalted hash — kept only for verifying existing stored PINs.
  */
 export const hashPin = async (pin: string): Promise<string> => {
   const encoder = new TextEncoder();
@@ -132,6 +133,66 @@ export const hashPin = async (pin: string): Promise<string> => {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   return hashHex;
+};
+
+const PBKDF2_ITERATIONS = 100000;
+
+const bytesToHex = (buf: ArrayBuffer | Uint8Array): string => {
+  const arr = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+const hexToBytes = (hex: string): Uint8Array => {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+};
+
+/**
+ * Hashes a PIN using PBKDF2-SHA256 with a random per-install salt.
+ * Format: `pbkdf2$<saltHex>$<hashHex>`.
+ */
+export const hashPinSecure = async (pin: string): Promise<string> => {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  );
+  return `pbkdf2$${bytesToHex(salt)}$${bytesToHex(bits)}`;
+};
+
+/**
+ * Verifies a PIN against a stored hash. Supports both the new PBKDF2 format
+ * and the legacy unsalted SHA-256 hex for backward compatibility.
+ */
+export const verifyPin = async (pin: string, stored: string): Promise<boolean> => {
+  if (!stored) return false;
+  if (stored.startsWith('pbkdf2$')) {
+    const parts = stored.split('$');
+    if (parts.length !== 3) return false;
+    const salt = hexToBytes(parts[1]);
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']
+    );
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      keyMaterial,
+      256
+    );
+    const computed = bytesToHex(bits);
+    if (computed.length !== parts[2].length) return false;
+    // constant-time comparison
+    let diff = 0;
+    for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ parts[2].charCodeAt(i);
+    return diff === 0;
+  }
+  // Legacy unsalted SHA-256
+  const legacy = await hashPin(pin);
+  return legacy === stored;
 };
 
 /**

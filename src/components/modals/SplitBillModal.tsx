@@ -322,32 +322,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       return;
     }
 
-    // Auto-generate shared link in the background to ensure it's accessible later
-    try {
-      if (!activeSharedId) {
-        const receiveAsset = assets.find(a => a.id === receiveAssetId);
-        const paymentDetails = receiveAsset?.accountNumber ? {
-          bankName: receiveAsset.name,
-          accountName: 'Pemilik Rekening', // Could be dynamic if we had it
-          accountNumber: receiveAsset.accountNumber
-        } : undefined;
-
-        await dbSaveSharedSplit({
-          type: 'split',
-          sourceId: sourceId || `${merchantName}-${date}-${totalAmount}`,
-          merchantName,
-          date,
-          totalAmount,
-          currencySymbol,
-          splits,
-          lineItems: localLineItems,
-          itemAssignments,
-          paymentDetails
-        });
-      }
-    } catch (err) {
-      console.error('Failed to auto-save shared split:', err);
-    }
+    // NOTE: shared link is only created when the user explicitly presses Share (T4),
+    // so we never publish personal/payment data implicitly.
 
     onSave(splits, {
       assetId: selectedAssetId,
@@ -369,7 +345,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         accountNumber: receiveAsset.accountNumber
       } : undefined;
 
-      const sharedId = await dbSaveSharedSplit({
+      const { id: sharedId, token } = await dbSaveSharedSplit({
         type: 'split',
         sourceId: sourceId || `${merchantName}-${date}-${totalAmount}`,
         merchantName,
@@ -383,7 +359,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
       });
       setActiveSharedId(sharedId);
 
-      const shareUrl = `${window.location.origin}/shared-split/${sharedId}`;
+      const shareUrl = `${window.location.origin}/shared-split/${sharedId}?t=${token}`;
       let text = `Detail split bill untuk ${merchantName} (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`;
       if (paymentDetails) {
         text += `\n\nTransfer ke:\n${paymentDetails.bankName} - ${paymentDetails.accountNumber}`;

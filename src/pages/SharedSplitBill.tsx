@@ -30,7 +30,8 @@ const SharedSplitBill: React.FC = () => {
 
       setLoading(true);
       try {
-        const data = await dbGetSharedSplit(id);
+        const token = new URLSearchParams(window.location.search).get('t') || undefined;
+        const data = await dbGetSharedSplit(id, token);
         if (data) {
           setSplit(data);
           if (data.settlementMode) setMode(data.settlementMode as any);

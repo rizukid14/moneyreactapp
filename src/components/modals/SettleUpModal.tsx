@@ -144,11 +144,12 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
 
   const [isSharing, setIsSharing] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
 
   const handleShareLink = async () => {
     setIsSharing(true);
     try {
-      const id = await import('../../lib/db').then(m => m.dbSaveSharedSplit({
+      const { id, token } = await import('../../lib/db').then(m => m.dbSaveSharedSplit({
         type: 'trip',
         sourceId: trip.id,
         merchantName: trip.name,
@@ -196,6 +197,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
         })
       }));
       setShareId(id);
+      setShareToken(token);
       showToast('Link sharing berhasil dibuat!', 'success');
     } catch (err) {
       console.error(err);
@@ -207,7 +209,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
 
   const handleCopyLink = () => {
     if (!shareId) return;
-    const url = `${window.location.origin}/shared-split/${shareId}`;
+    const url = `${window.location.origin}/shared-split/${shareId}${shareToken ? `?t=${shareToken}` : ''}`;
     navigator.clipboard.writeText(url);
     showToast('Link disalin!', 'success');
   };

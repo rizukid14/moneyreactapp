@@ -781,6 +781,8 @@ export interface SharedSplit {
   members?: any[];        // For trip
   sourceId?: string;      // ID of the original trip or split to prevent duplicates
   createdAt: number;
+  shareToken?: string;    // Opaque token; link is only valid while present & unexpired
+  expiresAt?: number;     // Epoch ms — link stops working after this time
   paymentDetails?: {
     bankName: string;
     accountName: string;
@@ -788,10 +790,11 @@ export interface SharedSplit {
   };
 }
 
-export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorId' | 'createdAt'>): Promise<string> => {
+export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorId' | 'createdAt'>): Promise<{ id: string; token: string }> => {
   if (!isFirebaseConfigured || !auth.currentUser) throw new Error("Cloud sync required to share.");
 
   let id = generateId();
+  const token = generateId();
   
   // Check if a link for this source already exists to prevent duplicates
   if (data.sourceId) {
@@ -811,18 +814,25 @@ export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorI
     id,
     creatorId: getUid(),
     createdAt: Date.now(),
+    shareToken: token,
+    expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000, // 60 days
   };
 
   await setDoc(doc(firestore, 'shared_splits', id), sanitizeForFirestore(sharedSplit));
-  return id;
+  return { id, token };
 };
 
-export const dbGetSharedSplit = async (id: string): Promise<SharedSplit | null> => {
+export const dbGetSharedSplit = async (id: string, token?: string): Promise<SharedSplit | null> => {
   if (!isFirebaseConfigured) return null;
   try {
     const docSnap = await getDoc(doc(firestore, 'shared_splits', id));
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as SharedSplit;
+      const data = { id: docSnap.id, ...docSnap.data() } as SharedSplit;
+      // Expired links are treated as gone (K10)
+      if (data.expiresAt && data.expiresAt < Date.now()) return null;
+      // If a token was issued, require it to match (K10). Legacy docs without a token stay accessible.
+      if (data.shareToken && data.shareToken !== token) return null;
+      return data;
     }
   } catch (e) {
     console.error('Failed to fetch shared split:', e);

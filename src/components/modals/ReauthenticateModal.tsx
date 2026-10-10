@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import MaterialIcon from '../common/MaterialIcon';
-import { auth } from '../../lib/firebase';
-import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { auth, googleProvider } from '../../lib/firebase';
+import { EmailAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup } from 'firebase/auth';
 import { useToast } from '../common/Toast';
 
 interface ReauthenticateModalProps {
@@ -15,6 +15,24 @@ const ReauthenticateModal: React.FC<ReauthenticateModalProps> = ({ isOpen, onClo
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { showToast } = useToast();
+
+  const hasPasswordProvider = auth.currentUser?.providerData?.some(p => p.providerId === 'password') ?? false;
+
+  const handleGoogleReauth = async () => {
+    if (!auth.currentUser) return;
+    setIsLoading(true);
+    try {
+      await reauthenticateWithPopup(auth.currentUser, googleProvider);
+      onClose();
+      onSuccess();
+    } catch (error: any) {
+      if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
+        showToast('Gagal memverifikasi akun Google. Silakan coba lagi.', 'error');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +48,8 @@ const ReauthenticateModal: React.FC<ReauthenticateModalProps> = ({ isOpen, onClo
       console.error('Re-authentication error:', error);
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         showToast('Password salah. Silakan coba lagi.', 'error');
+      } else if (error.code === 'auth/too-many-requests') {
+        showToast('Terlalu banyak percobaan. Coba lagi beberapa saat lagi.', 'error');
       } else {
         showToast('Gagal memverifikasi identitas. Silakan coba lagi.', 'error');
       }
@@ -37,6 +57,36 @@ const ReauthenticateModal: React.FC<ReauthenticateModalProps> = ({ isOpen, onClo
       setIsLoading(false);
     }
   };
+
+  if (!hasPasswordProvider) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Verifikasi Identitas" zIndex={4000}>
+        <div className="p-1 space-y-4">
+          <p className="text-sm text-on-surface-variant">
+            Akun Anda masuk menggunakan Google. Silakan verifikasi ulang dengan akun Google Anda untuk melanjutkan.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 px-4 bg-surface-container-highest text-on-surface rounded-xl font-bold text-sm hover:bg-surface-variant transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleGoogleReauth}
+              disabled={isLoading}
+              className="flex-1 py-3 px-4 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isLoading && <MaterialIcon name="sync" className="spin text-[16px]" />}
+              Verifikasi dengan Google
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Verifikasi Identitas" zIndex={4000}>

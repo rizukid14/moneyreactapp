@@ -24,7 +24,7 @@ import { collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
 import SplashScreen from '../components/SplashScreen';
-import { getLocalDate, getLocalTime, generateId, hashPin, parseLocalDate, getNextDateSafe } from '../lib/utils';
+import { getLocalDate, getLocalTime, generateId, hashPinSecure, verifyPin, parseLocalDate, getNextDateSafe } from '../lib/utils';
 import { calculateDebtBalance, isDebtPrincipalTx, isDebtPaymentTx } from '../lib/debtCalculations';
 import { startDeltaListeners, stopDeltaListeners } from '../lib/deltaSync';
 import { fetchLiveExchangeRates } from '../lib/currency';
@@ -425,7 +425,7 @@ interface MoneyContextType {
   markNotifAsRead: (id: string) => void;
   deleteNotif: (id: string) => void;
   clearAllNotifs: () => void;
-  updateUser: (user: Partial<UserProfile> | UserProfile) => void;
+  updateUser: (user: Partial<UserProfile> | UserProfile | ((prev: UserProfile) => Partial<UserProfile>)) => void;
   setAppPin: (newPin: string | null) => Promise<void>;
   unlockApp: (enteredPin: string) => Promise<boolean>;
   lockApp: () => void;
@@ -2334,9 +2334,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   // ─── User & Settings ─────────────────────────────────────────────────────
-  const updateUser = useCallback((newUser: Partial<UserProfile> | UserProfile) => {
+  const updateUser = useCallback((newUser: Partial<UserProfile> | UserProfile | ((prev: UserProfile) => Partial<UserProfile>)) => {
     setUser(prev => {
-      const merged = { ...prev, ...newUser };
+      const patch = typeof newUser === 'function' ? newUser(prev) : newUser;
+      const merged = { ...prev, ...patch };
       dbPutSetting('user', merged).then(refreshSyncCount);
       return merged;
     });
@@ -2345,7 +2346,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const setAppPin = useCallback(async (newPin: string | null) => {
     let finalPin = newPin;
     if (newPin) {
-      finalPin = await hashPin(newPin);
+      finalPin = await hashPinSecure(newPin);
     }
     setPin(finalPin);
     if (finalPin) dbPutSetting('pin', finalPin);
@@ -2359,17 +2360,24 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // Legacy support: if stored pin is 6 digits, it's likely plain text
     if (pin.length === 6 && /^\d+$/.test(pin)) {
       if (enteredPin === pin) {
-        // Upgrade to hash automatically
-        const hashed = await hashPin(enteredPin);
-        setPin(hashed);
-        dbPutSetting('pin', hashed);
+        // Upgrade to salted PBKDF2 automatically
+        const secured = await hashPinSecure(enteredPin);
+        setPin(secured);
+        dbPutSetting('pin', secured);
         setIsAppLocked(false);
         return true;
       }
+      return false;
     }
 
-    const hashedInput = await hashPin(enteredPin);
-    if (hashedInput === pin) {
+    const ok = await verifyPin(enteredPin, pin);
+    if (ok) {
+      // Migrate legacy unsalted hash to salted PBKDF2
+      if (!pin.startsWith('pbkdf2$')) {
+        const secured = await hashPinSecure(enteredPin);
+        setPin(secured);
+        dbPutSetting('pin', secured);
+      }
       setIsAppLocked(false);
       return true;
     }
