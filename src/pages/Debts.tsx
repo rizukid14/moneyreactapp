@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMoney, type Debt, type Transaction, type AutoSettleOptions } from '../contexts/MoneyContext';
 import { calculateDebtBalance, calculateContactOffsetPotentials } from '../lib/debtCalculations';
@@ -404,22 +404,21 @@ const Debts: React.FC = () => {
   }, [debts, transactions, categories]);
 
   const { showToast } = useToast();
-  const offsetDebtRef = useRef(offsetDebt);
-  useEffect(() => { offsetDebtRef.current = offsetDebt; });
 
-  // Auto-offset effect
-  useEffect(() => {
-    if (!autoOffsetDebts) return;
-    if (offsetPotentials.length === 0) return;
+  // Auto-offset no longer mutates data on its own (M30). The user is prompted
+  // via the banner below and confirms through the offset modal.
 
-    const p = offsetPotentials[0];
-    offsetDebtRef.current(p.contact);
+  // Reopen a debt that is "paid" only because its balance reached zero via
+  // offset transactions — remove those offsets so it returns to the active tab (M31).
+  const handleUnpay = (debt: Debt) => {
+    const offsetTxs = transactions.filter(t => t.relatedId === debt.id && t.debtRole === 'offset' && !t.isDeleted);
+    offsetTxs.forEach(t => deleteTransaction(t.id));
+    updateDebt(debt.id, { isPaid: false });
     showToast(
-      `↔ Potong silang otomatis: ${p.contact} · ${currencySymbol}${p.offsetAmount.toLocaleString('id-ID')}`,
+      offsetTxs.length > 0 ? 'Potong silang dibatalkan, status dibuka kembali.' : 'Status dibuka kembali.',
       'success'
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offsetPotentials, autoOffsetDebts]);
+  };
 
   // Filtered & Sorted Debts
   const filtered = useMemo(() => {
@@ -572,7 +571,7 @@ const Debts: React.FC = () => {
             <MaterialIcon name="sync_alt" className="text-xl" />
           </div>
           <div className="flex-1">
-            <div className="text-sm font-extrabold">Tersedia Potong Silang (Offset)</div>
+            <div className="text-sm font-extrabold">Tersedia Potong Silang (Offset) {autoOffsetDebts ? '· Otomatis' : '· Manual'}</div>
             <div className="text-xs font-semibold opacity-90">
               Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif yang impas.
             </div>
@@ -728,7 +727,7 @@ const Debts: React.FC = () => {
                           setPayingDebt(d);
                           setIsPaymentModalOpen(true);
                         }}
-                        onUnpay={() => updateDebt(d.id, { isPaid: false })}
+                        onUnpay={() => handleUnpay(d)}
                         history={transactions.filter(t => t.relatedId === d.id && !t.isDeleted).sort((a, b) => b.date.localeCompare(a.date))}
                         onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
                         isExpanded={expandedDebtId === d.id}
@@ -765,7 +764,7 @@ const Debts: React.FC = () => {
                   setPayingDebt(d);
                   setIsPaymentModalOpen(true);
                 }}
-                onUnpay={() => updateDebt(d.id, { isPaid: false })}
+                onUnpay={() => handleUnpay(d)}
                 history={transactions.filter(t => t.relatedId === d.id && !t.isDeleted).sort((a, b) => b.date.localeCompare(a.date))}
                 onToggleExpand={() => setExpandedDebtId(expandedDebtId === d.id ? null : d.id)}
                 isExpanded={expandedDebtId === d.id}

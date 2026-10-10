@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import {
   dbGetAllAssets, dbPutAsset,
@@ -556,6 +556,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   
   const unreadNotifCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
+
+  // Keep a ref of current notifications so the generator can dedupe without
+  // depending on (and re-triggering from) the `notifications` state (M17).
+  const notificationsRef = useRef<NotificationItem[]>(notifications);
+  useEffect(() => { notificationsRef.current = notifications; }, [notifications]);
 
   const applySettingsToState = useCallback((s: Record<string, any>, options?: { lockAppOnPin?: boolean }) => {
     if (s.user) setUser(s.user);
@@ -1315,7 +1320,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }, 10000);
       return () => clearInterval(interval);
     }
-  }, [isReady, transactions, assets, debts, syncData, refreshSyncCount]);
+  }, [isReady, isFirebaseConfigured, syncData, refreshSyncCount]);
 
   // ─── Assets ──────────────────────────────────────────────────────────────
   const addAsset = useCallback((assetReq: Omit<Asset, 'id'>) => {
@@ -1325,22 +1330,20 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   const deleteAsset = useCallback((id: string) => {
-    setAssets(prev => prev.map(a => {
-      if (a.id !== id) return a;
-      const updated = { ...a, isDeleted: true };
-      dbPutAsset(updated).then(refreshSyncCount);
-      return updated;
-    }));
-  }, []);
+    const existing = assets.find(a => a.id === id);
+    if (!existing) return;
+    const updated = { ...existing, isDeleted: true };
+    setAssets(prev => prev.map(a => (a.id === id ? updated : a)));
+    dbPutAsset(updated).then(refreshSyncCount);
+  }, [assets, refreshSyncCount]);
 
   const updateAsset = useCallback((id: string, updatedAsset: Partial<Asset>) => {
-    setAssets(prev => prev.map(a => {
-      if (a.id !== id) return a;
-      const updated = { ...a, ...updatedAsset };
-      dbPutAsset(updated).then(refreshSyncCount);
-      return updated;
-    }));
-  }, []);
+    const existing = assets.find(a => a.id === id);
+    if (!existing) return;
+    const updated = { ...existing, ...updatedAsset };
+    setAssets(prev => prev.map(a => (a.id === id ? updated : a)));
+    dbPutAsset(updated).then(refreshSyncCount);
+  }, [assets, refreshSyncCount]);
 
   // ─── Transactions ─────────────────────────────────────────────────────────
   const addTransaction = useCallback((txReq: Omit<Transaction, 'id'>) => {
@@ -1470,10 +1473,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     if (targetDebtId) {
-      setDebts(prevDebts => {
-        const debt = prevDebts.find(d => d.id === targetDebtId);
-        if (!debt) return prevDebts;
-
+      const debt = debts.find(d => d.id === targetDebtId);
+      if (debt) {
         const allTxs = transactions.map(t => t.id === id ? ({ ...t, ...updatedTx } as Transaction) : t);
         const debtTxs = allTxs.filter(t => t.relatedId === targetDebtId && !t.isDeleted);
 
@@ -1488,12 +1489,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (newTotal !== debt.totalAmount || calc.isPaid !== debt.isPaid) {
           const finalizedDebt = { ...updatedDebt, isPaid: calc.isPaid };
           dbPutDebt(finalizedDebt);
-          return prevDebts.map(d => d.id === targetDebtId ? finalizedDebt : d);
+          setDebts(prev => prev.map(d => (d.id === targetDebtId ? finalizedDebt : d)));
         }
-        return prevDebts;
-      });
+      }
     }
-  }, [transactions, categories, refreshSyncCount]);
+  }, [transactions, debts, categories, refreshSyncCount]);
 
   // ─── Categories ───────────────────────────────────────────────────────────
   const addCategory = useCallback((catReq: Omit<Category, 'id'>) => {
@@ -1503,57 +1503,46 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   const deleteCategory = useCallback((id: string) => {
-    setCategories(prev => prev.map(c => {
-      if (c.id !== id) return c;
-      const updated = { ...c, isDeleted: true };
-      dbPutCategory(updated).then(refreshSyncCount);
-      return updated;
-    }));
-  }, [refreshSyncCount]);
+    const existing = categories.find(c => c.id === id);
+    if (!existing) return;
+    const updated = { ...existing, isDeleted: true };
+    setCategories(prev => prev.map(c => (c.id === id ? updated : c)));
+    dbPutCategory(updated).then(refreshSyncCount);
+  }, [categories, refreshSyncCount]);
 
   const addSubCategory = useCallback((categoryId: string, name: string) => {
-    setCategories(prev => prev.map(c => {
-      if (c.id !== categoryId) return c;
-      const updated = { ...c, subcategories: [...(c.subcategories || []), { id: generateId(), name }] };
-      dbPutCategory(updated);
-      return updated;
-    }));
-  }, []);
+    const existing = categories.find(c => c.id === categoryId);
+    if (!existing) return;
+    const updated = { ...existing, subcategories: [...(existing.subcategories || []), { id: generateId(), name }] };
+    setCategories(prev => prev.map(c => (c.id === categoryId ? updated : c)));
+    dbPutCategory(updated).then(refreshSyncCount);
+  }, [categories, refreshSyncCount]);
 
   const deleteSubCategory = useCallback((categoryId: string, subId: string) => {
-    setCategories(prev => prev.map(c => {
-      if (c.id !== categoryId) return c;
-      const updatedSubcategories = (c.subcategories || []).map(sub => {
-        if (sub.id !== subId) return sub;
-        return { ...sub, isDeleted: true };
-      });
-      const updated = { ...c, subcategories: updatedSubcategories };
-      dbPutCategory(updated).then(refreshSyncCount);
-      return updated;
-    }));
-  }, [refreshSyncCount]);
+    const existing = categories.find(c => c.id === categoryId);
+    if (!existing) return;
+    const updatedSubcategories = (existing.subcategories || []).map(sub => (sub.id === subId ? { ...sub, isDeleted: true } : sub));
+    const updated = { ...existing, subcategories: updatedSubcategories };
+    setCategories(prev => prev.map(c => (c.id === categoryId ? updated : c)));
+    dbPutCategory(updated).then(refreshSyncCount);
+  }, [categories, refreshSyncCount]);
 
   const updateCategory = useCallback((id: string, name: string) => {
-    setCategories(prev => prev.map(c => {
-      if (c.id !== id) return c;
-      const updated = { ...c, name };
-      dbPutCategory(updated).then(refreshSyncCount);
-      return updated;
-    }));
-  }, [refreshSyncCount]);
+    const existing = categories.find(c => c.id === id);
+    if (!existing) return;
+    const updated = { ...existing, name };
+    setCategories(prev => prev.map(c => (c.id === id ? updated : c)));
+    dbPutCategory(updated).then(refreshSyncCount);
+  }, [categories, refreshSyncCount]);
 
   const updateSubCategory = useCallback((categoryId: string, subId: string, name: string) => {
-    setCategories(prev => prev.map(c => {
-      if (c.id !== categoryId) return c;
-      const updatedSubcategories = (c.subcategories || []).map(sub => {
-        if (sub.id !== subId) return sub;
-        return { ...sub, name };
-      });
-      const updated = { ...c, subcategories: updatedSubcategories };
-      dbPutCategory(updated).then(refreshSyncCount);
-      return updated;
-    }));
-  }, [refreshSyncCount]);
+    const existing = categories.find(c => c.id === categoryId);
+    if (!existing) return;
+    const updatedSubcategories = (existing.subcategories || []).map(sub => (sub.id === subId ? { ...sub, name } : sub));
+    const updated = { ...existing, subcategories: updatedSubcategories };
+    setCategories(prev => prev.map(c => (c.id === categoryId ? updated : c)));
+    dbPutCategory(updated).then(refreshSyncCount);
+  }, [categories, refreshSyncCount]);
 
   // ─── Budgets ──────────────────────────────────────────────────────────────
   const addBudget = useCallback((budgetReq: Omit<Budget, 'id'>) => {
@@ -1563,13 +1552,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   const updateBudget = useCallback((id: string, updatedBudget: Partial<Budget>) => {
-    setBudgets(prev => prev.map(b => {
-      if (b.id !== id) return b;
-      const updated = { ...b, ...updatedBudget } as Budget;
-      dbPutBudget(updated);
-      return updated;
-    }));
-  }, []);
+    const existing = budgets.find(b => b.id === id);
+    if (!existing) return;
+    const updated = { ...existing, ...updatedBudget } as Budget;
+    setBudgets(prev => prev.map(b => (b.id === id ? updated : b)));
+    dbPutBudget(updated).then(refreshSyncCount);
+  }, [budgets, refreshSyncCount]);
 
   const deleteBudget = useCallback((id: string) => {
     setBudgets(prev => prev.filter(b => b.id !== id));
@@ -1590,35 +1578,30 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshSyncCount]);
 
   const updateGoal = useCallback((id: string, updatedGoal: Partial<Goal>) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id !== id) return g;
-      const updated = { ...g, ...updatedGoal } as Goal;
-      dbPutGoal(updated).then(refreshSyncCount);
-      return updated;
-    }));
-  }, [refreshSyncCount]);
+    const existing = goals.find(g => g.id === id);
+    if (!existing) return;
+    const updated = { ...existing, ...updatedGoal } as Goal;
+    setGoals(prev => prev.map(g => (g.id === id ? updated : g)));
+    dbPutGoal(updated).then(refreshSyncCount);
+  }, [goals, refreshSyncCount]);
 
   const deleteGoal = useCallback((id: string) => {
-    // Unlink transactions
-    setTransactions(prev => prev.map(tx => {
-      if (tx.goalId === id) {
-        const updated = { ...tx, goalId: undefined };
-        dbPutTransaction(updated);
-        return updated;
-      }
-      return tx;
-    }));
+    // Unlink transactions (side effects kept out of the state updater) (M16)
+    const linkedTxs = transactions.filter(tx => tx.goalId === id);
+    if (linkedTxs.length > 0) {
+      const updatedById = new Map(linkedTxs.map(tx => [tx.id, { ...tx, goalId: undefined } as Transaction]));
+      updatedById.forEach(tx => dbPutTransaction(tx));
+      setTransactions(prev => prev.map(tx => updatedById.get(tx.id) || tx));
+    }
 
-    setGoals(prev => {
-      const goalToDelete = prev.find(g => g.id === id);
-      if (goalToDelete?.recurringTransactionId) {
-        setRecurringTransactions(rts => rts.filter(rt => rt.id !== goalToDelete.recurringTransactionId));
-        import('../lib/db').then(m => m.dbDeleteRecurringTransaction(goalToDelete.recurringTransactionId!));
-      }
-      return prev.filter(g => g.id !== id);
-    });
+    const goalToDelete = goals.find(g => g.id === id);
+    if (goalToDelete?.recurringTransactionId) {
+      setRecurringTransactions(rts => rts.filter(rt => rt.id !== goalToDelete.recurringTransactionId));
+      import('../lib/db').then(m => m.dbDeleteRecurringTransaction(goalToDelete.recurringTransactionId!));
+    }
+    setGoals(prev => prev.filter(g => g.id !== id));
     dbDeleteGoal(id).then(refreshSyncCount);
-  }, [refreshSyncCount]);
+  }, [transactions, goals, refreshSyncCount]);
 
   // ─── Debts ──────────────────────────────────────────────────────────────
   const addDebt = useCallback((debtReq: Omit<Debt, 'id'>, initialMode: 'none' | 'cash' | 'credit' = 'none', categoryIdName?: string, subCategoryIdName?: string, autoSettleOptions?: AutoSettleOptions) => {
@@ -2863,11 +2846,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const addNotif = (notif: Omit<NotificationItem, 'isRead'>) => {
         try {
           const dismissedIds = JSON.parse(localStorage.getItem('dismissedNotifIds') || '[]');
-          if (!notifications.some(n => n.id === notif.id) && !dismissedIds.includes(notif.id)) {
+          if (!notificationsRef.current.some(n => n.id === notif.id) && !dismissedIds.includes(notif.id)) {
             newNotifs.push(notif);
           }
         } catch (e) {
-          if (!notifications.some(n => n.id === notif.id)) {
+          if (!notificationsRef.current.some(n => n.id === notif.id)) {
             newNotifs.push(notif);
           }
         }
@@ -3029,7 +3012,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [isReady, transactions, budgets, debts, subscriptions, goals, categories, notifications]);
+  }, [isReady, transactions, budgets, debts, subscriptions, goals, categories]);
 
   const validateTransactionBudget = useCallback((tx: Partial<Transaction>) => {
     if (budgetMode !== 'zero-based' || zbbMode !== 'strict') return { isValid: true, deficitCategory: null, deficitAmount: 0 };
