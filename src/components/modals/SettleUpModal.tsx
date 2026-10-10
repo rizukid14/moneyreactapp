@@ -4,7 +4,7 @@ import AssetSelectModal from './AssetSelectModal';
 import CurrencyInput from '../common/CurrencyInput';
 import { type Trip, type TripExpense, useMoney } from '../../contexts/MoneyContext';
 import { useToast } from '../common/Toast';
-import { getLocalDate, getLocalTime } from '../../lib/utils';
+import { getLocalDate, getLocalTime, buildShareText } from '../../lib/utils';
 import { calculateDebtBalance } from '../../lib/debtCalculations';
 const SettlementExplanationModal = lazy(() => import('./SettlementExplanationModal'));
 import { Modal } from '../ui/Modal';
@@ -212,8 +212,8 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
   const handleCopyLink = () => {
     if (!shareId) return;
     const url = `${window.location.origin}/shared-split/${shareId}${shareToken ? `?t=${shareToken}` : ''}`;
-    navigator.clipboard.writeText(url);
-    showToast('Link disalin!', 'success');
+    navigator.clipboard.writeText(buildShareText({ title: `Trip: ${trip.name}`, url, token: shareToken }));
+    showToast('Link & token disalin!', 'success');
   };
 
   const handleMarkAsPaid = async (t: any, idx: number, assetId: string, actualAmount?: number) => {
@@ -667,7 +667,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                 {shareId && (
                   <Button 
                     variant="outline"
-                    onClick={() => window.open(`${window.location.origin}/shared-split/${shareId}`, '_blank')}
+                    onClick={() => window.open(`${window.location.origin}/shared-split/${shareId}${shareToken ? `?t=${shareToken}` : ''}`, '_blank')}
                     className="flex items-center justify-center gap-2 py-3 text-xs bg-primary-fixed text-primary border-primary-fixed"
                   >
                     <MaterialIcon name="open_in_new" className="text-[16px]" /> Buka

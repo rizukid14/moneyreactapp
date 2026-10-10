@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useMoney, type Asset, type Category } from '../../contexts/MoneyContext';
 import { dbSaveSharedSplit, dbDeleteSharedSplit } from '../../lib/db';
+import { buildShareText } from '../../lib/utils';
 import ContactSelectModal from './ContactSelectModal';
 import { type LineItem } from '../../hooks/useReceiptOCR';
 import AssetSelectModal from './AssetSelectModal';
@@ -92,6 +93,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const [activeSharedId, setActiveSharedId] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [expiresDays, setExpiresDays] = useState(60); // 0 = tanpa batas
+  const [activeShareToken, setActiveShareToken] = useState<string | null>(null);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
 
   useEffect(() => {
@@ -358,21 +360,23 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         expiresAt: expiresDays > 0 ? Date.now() + expiresDays * 24 * 60 * 60 * 1000 : null
       });
       setActiveSharedId(sharedId);
+      setActiveShareToken(token);
 
       const shareUrl = `${window.location.origin}/shared-split/${sharedId}?t=${token}`;
-      let text = `Detail split bill untuk ${merchantName} (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`;
+      let subtitle = `Detail split bill untuk ${merchantName} (${currencySymbol}${totalAmount.toLocaleString('id-ID')})`;
       if (paymentDetails) {
-        text += `\n\nTransfer ke:\n${paymentDetails.bankName} - ${paymentDetails.accountNumber}`;
+        subtitle += `\nTransfer ke: ${paymentDetails.bankName} - ${paymentDetails.accountNumber}`;
       }
+      const shareMessage = buildShareText({ title: 'Split Bill', subtitle, url: shareUrl, token });
 
       if (navigator.share) {
         await navigator.share({
           title: `Split Bill: ${merchantName}`,
-          text: text,
+          text: shareMessage,
           url: shareUrl,
         });
       } else {
-        await navigator.clipboard.writeText(shareUrl);
+        await navigator.clipboard.writeText(shareMessage);
         setShowCopySuccess(true);
         setTimeout(() => setShowCopySuccess(false), 2000);
       }
@@ -431,8 +435,9 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                 <button
                   className="close-btn"
                   onClick={() => {
-                    const url = `${window.location.origin}/shared-split/${activeSharedId}`;
-                    navigator.clipboard.writeText(url);
+                    const token = activeShareToken;
+                    const url = `${window.location.origin}/shared-split/${activeSharedId}${token ? `?t=${token}` : ''}`;
+                    navigator.clipboard.writeText(buildShareText({ title: 'Split Bill', url, token }));
                     setShowCopySuccess(true);
                     setTimeout(() => setShowCopySuccess(false), 2000);
                   }}
@@ -443,7 +448,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
                 </button>
                 <button
                   className="close-btn"
-                  onClick={() => window.open(`/shared-split/${activeSharedId}`, '_blank')}
+                  onClick={() => window.open(`/shared-split/${activeSharedId}${activeShareToken ? `?t=${activeShareToken}` : ''}`, '_blank')}
                   title="Buka Link"
                 >
                   <MaterialIcon name="open_in_new" className="text-[18px]" />

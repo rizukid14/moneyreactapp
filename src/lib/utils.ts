@@ -108,6 +108,19 @@ export const computeOccurrenceDates = (
 };
 
 /**
+ * Builds a ready-to-copy share message containing the link and (optional) token.
+ */
+export const buildShareText = (opts: { url: string; token?: string | null; title?: string; subtitle?: string }): string => {
+  const lines: string[] = [];
+  if (opts.title) lines.push(opts.title);
+  if (opts.subtitle) lines.push(opts.subtitle);
+  if (lines.length > 0) lines.push('');
+  lines.push(`Link: ${opts.url}`);
+  if (opts.token) lines.push(`Token: ${opts.token}`);
+  return lines.join('\n');
+};
+
+/**
  * Returns local time in HH:mm format
  */
 export const getLocalTime = (date: Date = new Date()): string => {

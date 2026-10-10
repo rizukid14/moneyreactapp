@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { dbGetMySharedSplits, dbDeleteSharedSplit, type SharedSplit } from '../../lib/db';
+import { buildShareText } from '../../lib/utils';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { useToast } from '../common/Toast';
 import { Modal } from '../ui/Modal';
@@ -56,9 +57,9 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
     }
   }, [isOpen]);
 
-  const handleCopy = (id: string) => {
-    const url = `${window.location.origin}/shared-split/${id}`;
-    navigator.clipboard.writeText(url);
+  const handleCopy = (id: string, token?: string, title?: string) => {
+    const url = `${window.location.origin}/shared-split/${id}${token ? `?t=${token}` : ''}`;
+    navigator.clipboard.writeText(buildShareText({ title, url, token }));
     setCopySuccessId(id);
     setTimeout(() => setCopySuccessId(null), 2000);
   };
@@ -149,7 +150,7 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <Button
                             variant={copySuccessId === split.id ? 'primary' : 'outline'}
-                            onClick={() => handleCopy(split.id)}
+                            onClick={() => handleCopy(split.id, split.shareToken, split.merchantName)}
                             style={{ flex: 1, height: '40px', borderRadius: '12px', fontSize: '11px', fontWeight: 800 }}
                           >
                             {copySuccessId === split.id ? <><MaterialIcon name="check" className="text-[14px]" /> Link Copied</> : <><MaterialIcon name="content_copy" className="text-[14px]" /> Copy Link</>}
@@ -157,7 +158,7 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                           
                           <Button
                             variant="outline"
-                            onClick={() => window.open(`/shared-split/${split.id}`, '_blank')}
+                            onClick={() => window.open(`/shared-split/${split.id}${split.shareToken ? `?t=${split.shareToken}` : ''}`, '_blank')}
                             style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             title="Preview"
                           >
