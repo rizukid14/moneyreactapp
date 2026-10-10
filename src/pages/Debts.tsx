@@ -1,4 +1,4 @@
-import React, { useState, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMoney, type Debt, type Transaction, type AutoSettleOptions } from '../contexts/MoneyContext';
 import { calculateDebtBalance, calculateContactOffsetPotentials } from '../lib/debtCalculations';
@@ -404,9 +404,21 @@ const Debts: React.FC = () => {
   }, [debts, transactions, categories]);
 
   const { showToast } = useToast();
+  const offsetDebtRef = useRef(offsetDebt);
+  useEffect(() => { offsetDebtRef.current = offsetDebt; });
 
-  // Auto-offset no longer mutates data on its own (M30). The user is prompted
-  // via the banner below and confirms through the offset modal.
+  // Auto-offset effect: berjalan otomatis HANYA jika toggle di Settings aktif (autoOffsetDebts: true)
+  useEffect(() => {
+    if (!autoOffsetDebts) return;
+    if (offsetPotentials.length === 0) return;
+
+    const p = offsetPotentials[0];
+    offsetDebtRef.current(p.contact);
+    showToast(
+      `↔ Potong silang otomatis: ${p.contact} · ${currencySymbol}${p.offsetAmount.toLocaleString('id-ID')}`,
+      'success'
+    );
+  }, [offsetPotentials, autoOffsetDebts, currencySymbol, showToast]);
 
   // Reopen a debt that is "paid" only because its balance reached zero via
   // offset transactions — remove those offsets so it returns to the active tab (M31).
@@ -571,7 +583,7 @@ const Debts: React.FC = () => {
             <MaterialIcon name="sync_alt" className="text-xl" />
           </div>
           <div className="flex-1">
-            <div className="text-sm font-extrabold">Tersedia Potong Silang (Offset) {autoOffsetDebts ? '· Otomatis' : '· Manual'}</div>
+            <div className="text-sm font-extrabold">Tersedia Potong Silang (Offset)</div>
             <div className="text-xs font-semibold opacity-90">
               Ada {offsetPotentials.length} kontak dengan hutang & piutang aktif yang impas.
             </div>
