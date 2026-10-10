@@ -1120,7 +1120,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!isReady || !isFirebaseConfigured || !authUser) return;
 
     const handleDocChange = async (colName: string, data: any, changeType: 'added' | 'modified' | 'removed') => {
-      console.log(`[DeltaSync] Received change: ${colName} - ${changeType}`, data);
+      if (import.meta.env.DEV) console.log(`[DeltaSync] Received change: ${colName} - ${changeType}`, data);
       
       const { getDB } = await import('../lib/db');
       const db = await getDB();

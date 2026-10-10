@@ -214,16 +214,21 @@ const Settings: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('tab') === 'family') {
-      setTimeout(() => {
+      let innerTimer: ReturnType<typeof setTimeout> | undefined;
+      const timer = setTimeout(() => {
         const el = document.getElementById('family-management');
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'start' });
           // Highlight effect
           el.style.transition = 'box-shadow 0.5s';
           el.style.boxShadow = '0 0 0 4px var(--primary-container)';
-          setTimeout(() => el.style.boxShadow = '', 2000);
+          innerTimer = setTimeout(() => { el.style.boxShadow = ''; }, 2000);
         }
       }, 500);
+      return () => {
+        clearTimeout(timer);
+        if (innerTimer) clearTimeout(innerTimer);
+      };
     }
   }, [location]);
 

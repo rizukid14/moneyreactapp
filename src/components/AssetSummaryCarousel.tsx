@@ -324,7 +324,7 @@ interface SummaryCardProps {
 const SummaryCard: React.FC<SummaryCardProps> = ({
   def, value, currencySymbol, isPrivateMode, onTogglePrivate, isActive
 }) => {
-  const absValue = def.negate ? value : value;
+  const absValue = value;
   const tier = getGachaTier(def.negate ? -absValue : absValue);
   const fillPercent = getTierFillPercent(absValue, tier);
   const message = useRotatingMessage(tier.messages);

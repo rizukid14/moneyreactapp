@@ -3,6 +3,23 @@ import { auth } from '../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { motion } from 'framer-motion';
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  'auth/invalid-email': 'Format email tidak valid.',
+  'auth/user-disabled': 'Akun ini dinonaktifkan.',
+  'auth/user-not-found': 'Email belum terdaftar.',
+  'auth/wrong-password': 'Password salah.',
+  'auth/invalid-credential': 'Email atau password salah.',
+  'auth/email-already-in-use': 'Email sudah terdaftar. Silakan masuk.',
+  'auth/weak-password': 'Password terlalu lemah (minimal 6 karakter).',
+  'auth/too-many-requests': 'Terlalu banyak percobaan. Coba lagi beberapa saat lagi.',
+  'auth/network-request-failed': 'Koneksi bermasalah. Periksa jaringan Anda.',
+  'auth/popup-closed-by-user': 'Proses dibatalkan.',
+  'auth/cancelled-popup-request': 'Proses dibatalkan.',
+};
+
+const mapAuthError = (err: any): string =>
+  AUTH_ERROR_MESSAGES[err?.code] || 'Terjadi kesalahan. Silakan coba lagi.';
+
 export const AuthScreen: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -28,7 +45,7 @@ export const AuthScreen: React.FC = () => {
         await createUserWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan.');
+      setError(mapAuthError(err));
     } finally {
       setLoading(false);
     }

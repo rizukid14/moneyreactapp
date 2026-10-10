@@ -64,14 +64,16 @@ export const getExchangeRate = (currencyCode?: string): number => {
   if (!currencyCode || currencyCode === 'IDR') return 1;
   if (liveRatesCache[currencyCode]) return liveRatesCache[currencyCode];
   const config = SUPPORTED_CURRENCIES.find(c => c.code === currencyCode);
-  return config ? config.defaultRateToIDR : 1;
+  if (config) return config.defaultRateToIDR;
+  console.warn(`[currency] Kode mata uang tidak dikenal "${currencyCode}" — memakai rate 1 (IDR).`);
+  return 1;
 };
 
 /**
  * Convert an amount in any currency to IDR (Base currency).
  */
 export const convertToBaseIDR = (amount: number, currencyCode?: string, customRate?: number): number => {
-  const rate = customRate || getExchangeRate(currencyCode);
+  const rate = customRate ?? getExchangeRate(currencyCode);
   return Math.round(amount * rate);
 };
 
