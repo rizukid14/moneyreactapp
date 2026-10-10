@@ -69,13 +69,14 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
     if (isSubmitting) return;
     setIsSubmitting(true);
     
-    const numAmount = Math.min(Number(amount), remaining);
+    const numAmount = Number(amount);
     if (numAmount <= 0) {
       setIsSubmitting(false);
       return;
     }
 
     const finalNote = note || (isFullSettle ? `Pelunasan ${isHutang ? 'Hutang' : 'Piutang'}` : `Cicilan ${isHutang ? 'Hutang' : 'Piutang'}`);
+    // Jika bayar >= sisa (misal hutang 21.890 dibayar 22.000), tandai lunas:
     onConfirm(numAmount, selectedAssetId, date, time, finalNote, numAmount >= remaining);
     
     setTimeout(() => setIsSubmitting(false), 1000);
