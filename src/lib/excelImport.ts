@@ -128,13 +128,19 @@ export function parseDateAndOptionalTime(rawDate: unknown): { date: string; time
   // 2. Matches DD-MM-YYYY or DD/MM/YYYY with optional time e.g. "02/09/2026 15:30", "02-09-2026"
   const dmyMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   if (dmyMatch) {
-    const dd = dmyMatch[1].padStart(2, '0');
-    const mm = dmyMatch[2].padStart(2, '0');
-    const yyyy = dmyMatch[3];
-    const time = (dmyMatch[4] !== undefined && dmyMatch[5] !== undefined)
-      ? `${dmyMatch[4].padStart(2, '0')}:${dmyMatch[5]}`
-      : undefined;
-    return { date: `${yyyy}-${mm}-${dd}`, time };
+    const ddRaw = parseInt(dmyMatch[1], 10);
+    const mmRaw = parseInt(dmyMatch[2], 10);
+    // Reject impossible calendar values instead of producing an invalid date (T6)
+    if (mmRaw >= 1 && mmRaw <= 12 && ddRaw >= 1 && ddRaw <= 31) {
+      const dd = String(ddRaw).padStart(2, '0');
+      const mm = String(mmRaw).padStart(2, '0');
+      const yyyy = dmyMatch[3];
+      const time = (dmyMatch[4] !== undefined && dmyMatch[5] !== undefined)
+        ? `${dmyMatch[4].padStart(2, '0')}:${dmyMatch[5]}`
+        : undefined;
+      return { date: `${yyyy}-${mm}-${dd}`, time };
+    }
+    return null;
   }
 
   // 3. Excel serial number (including fractional parts representing time)
@@ -153,6 +159,35 @@ export function parseDateAndOptionalTime(rawDate: unknown): { date: string; time
   }
 
   return null;
+}
+
+/** Parse a numeric amount string supporting both id-ID (1.234,56) and en-US (1,234.56) formats (T6). */
+function parseAmountString(raw: unknown): number {
+  let s = String(raw ?? '').trim();
+  if (!s) return NaN;
+  const negative = /^-/.test(s) || /^\(.*\)$/.test(s);
+  s = s.replace(/[^0-9.,]/g, '');
+  if (!s) return NaN;
+
+  const hasComma = s.includes(',');
+  const hasDot = s.includes('.');
+  if (hasComma && hasDot) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      s = s.replace(/\./g, '').replace(',', '.'); // id-ID: dot=thousands, comma=decimal
+    } else {
+      s = s.replace(/,/g, ''); // en-US: comma=thousands, dot=decimal
+    }
+  } else if (hasComma) {
+    const parts = s.split(',');
+    s = (parts.length === 2 && parts[1].length <= 2) ? s.replace(',', '.') : s.replace(/,/g, '');
+  } else if (hasDot) {
+    const parts = s.split('.');
+    s = (parts.length === 2 && parts[1].length <= 2) ? s : s.replace(/\./g, '');
+  }
+
+  const n = Number(s);
+  if (isNaN(n)) return NaN;
+  return negative ? -Math.abs(n) : n;
 }
 
 /** Parse an uploaded .xlsx / .xls / .csv file and return an array of transaction-like objects (Draft) */
@@ -234,8 +269,7 @@ export async function parseExcelFile(
   // Asset finder helper
   const findAsset = (name: string) => {
     if (!name || name === '-' || name.toLowerCase() === 'none') return undefined;
-    return assets.find(a => !a.isDeleted && a.name.toLowerCase() === name.toLowerCase()) ||
-           assets.find(a => a.name.toLowerCase() === name.toLowerCase());
+    return assets.find(a => !a.isDeleted && a.name.toLowerCase() === name.toLowerCase());
   };
 
   for (let i = 1; i < raw.length; i++) {
@@ -273,21 +307,22 @@ export async function parseExcelFile(
     const { date: dateStr, time: timeStr } = parsedDate;
 
     // Parse amount and derive type for banks if type is missing
-    let amountStr = String(amtRaw || '').trim();
+    const amountStr = String(amtRaw || '').trim();
     
     if (!type) {
-      if (amountStr.includes('-') || amountStr.toUpperCase().includes('DB')) {
+      const marker = `${amountStr} ${note}`.toUpperCase();
+      if (amountStr.includes('-') || marker.includes('DB') || marker.includes('DEBIT') || marker.includes('PENGELUARAN')) {
         type = 'pengeluaran';
-      } else if (note.toUpperCase().includes('DB')) {
-        type = 'pengeluaran';
-      } else {
+      } else if (marker.includes('CR') || marker.includes('KREDIT') || marker.includes('CREDIT') || marker.includes('PEMASUKAN')) {
         type = 'pendapatan';
-        if (mapping === 'bca' || mapping === 'mandiri') type = 'pengeluaran';
+      } else {
+        // Ambiguous bank rows default to expense; other sources default to income
+        type = (mapping === 'bca' || mapping === 'mandiri') ? 'pengeluaran' : 'pendapatan';
       }
     }
     
-    const amount = Number(amountStr.replace(/[^0-9.]/g, ''));
-    if (!amount || amount <= 0) {
+    const amount = Math.abs(parseAmountString(amountStr));
+    if (!amount || isNaN(amount) || amount <= 0) {
       errors.push(`Baris ${rowNum}: Nominal "${amtRaw}" tidak valid.`);
       skipped++; continue;
     }
@@ -314,9 +349,7 @@ export async function parseExcelFile(
     if (parsedSubCat === '-' || parsedSubCat.toLowerCase() === 'none') parsedSubCat = '';
 
     const cat = categories.find(c => c.type === type && c.name.toLowerCase() === parsedMainCat.toLowerCase() && !c.isDeleted) ||
-                categories.find(c => c.name.toLowerCase() === parsedMainCat.toLowerCase() && !c.isDeleted) ||
-                categories.find(c => c.type === type && c.name.toLowerCase() === parsedMainCat.toLowerCase()) ||
-                categories.find(c => c.name.toLowerCase() === parsedMainCat.toLowerCase());
+                categories.find(c => c.name.toLowerCase() === parsedMainCat.toLowerCase() && !c.isDeleted);
 
     const subCat = (parsedSubCat && cat?.subcategories?.find(s => s.name.toLowerCase() === parsedSubCat.toLowerCase())) || undefined;
 

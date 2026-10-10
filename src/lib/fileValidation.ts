@@ -14,6 +14,8 @@ export interface FileValidationOptions {
 const MAGIC_BYTES = {
   PNG: [0x89, 0x50, 0x4e, 0x47],
   JPEG: [0xff, 0xd8, 0xff],
+  GIF: [0x47, 0x49, 0x46, 0x38], // 'GIF8'
+  RIFF: [0x52, 0x49, 0x46, 0x46], // 'RIFF' (WebP container)
   XLSX: [0x50, 0x4b, 0x03, 0x04], // Actually a ZIP file magic number
   XLS: [0xd0, 0xcf, 0x11, 0xe0], // Legacy OLE format
 };
@@ -49,29 +51,37 @@ export async function validateFileSecure(file: File, options: FileValidationOpti
       const baseType = type.split('/')[0];
       return file.type.startsWith(`${baseType}/`);
     }
-    return file.type === type || file.type === ''; // Allow empty MIME if magic bytes will check it anyway (like CSV sometimes)
+    return file.type === type;
   });
 
-  if (!isMimeValid) {
+  // Empty MIME is only acceptable when a magic-byte check will follow (M13)
+  if (file.type === '') {
+    if (!options.checkMagicBytes) {
+      return { isValid: false, error: 'Tipe file tidak dapat dipastikan.' };
+    }
+  } else if (!isMimeValid) {
     return { isValid: false, error: 'Tipe MIME file tidak sesuai dengan yang diizinkan.' };
   }
 
   // 4. Magic Bytes / Header Inspection
   if (options.checkMagicBytes) {
     try {
-      const headerBlob = file.slice(0, 4);
+      const headerBlob = file.slice(0, 12);
       const arrayBuffer = await headerBlob.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
 
       if (options.checkMagicBytes === 'image') {
         const isPng = matchMagicBytes(bytes, MAGIC_BYTES.PNG);
         const isJpeg = matchMagicBytes(bytes, MAGIC_BYTES.JPEG);
-        // Note: webp magic bytes start at byte 8 ("WEBP"), so we simplify image validation
-        // by just making sure it's not starting with an executable signature (e.g., MZ for Windows).
-        // But let's strictly check JPG/PNG if it claims to be.
+        const isGif = matchMagicBytes(bytes, MAGIC_BYTES.GIF);
+        const isWebp = matchMagicBytes(bytes, MAGIC_BYTES.RIFF) &&
+          bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50; // 'WEBP'
+
         if (extension === '.png' && !isPng) return { isValid: false, error: 'File korup atau ekstensi disamarkan (Bukan PNG asli).' };
         if ((extension === '.jpg' || extension === '.jpeg') && !isJpeg) return { isValid: false, error: 'File korup atau ekstensi disamarkan (Bukan JPEG asli).' };
-        
+        if (extension === '.gif' && !isGif) return { isValid: false, error: 'File korup atau ekstensi disamarkan (Bukan GIF asli).' };
+        if (extension === '.webp' && !isWebp) return { isValid: false, error: 'File korup atau ekstensi disamarkan (Bukan WebP asli).' };
+
         const isExe = bytes[0] === 0x4D && bytes[1] === 0x5A; // 'MZ'
         if (isExe) return { isValid: false, error: 'Terdeteksi file executable berbahaya.' };
       }

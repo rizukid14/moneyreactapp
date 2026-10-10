@@ -53,6 +53,21 @@ const ChatBot: React.FC = () => {
   const { showToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Tools send the category NAME; resolve it to an id (T7)
+  const resolveCategoryId = (nameOrId?: string, type?: string): string | undefined => {
+    if (!nameOrId) return undefined;
+    const byId = categories.find(c => c.id === nameOrId);
+    if (byId) return byId.id;
+    const needle = String(nameOrId).trim().toLowerCase();
+    const matches = categories.filter(c => !c.isDeleted && c.name.toLowerCase() === needle);
+    if (matches.length === 0) return undefined;
+    if (type && type !== 'transfer') {
+      const typed = matches.find(c => c.type === type);
+      if (typed) return typed.id;
+    }
+    return matches[0].id;
+  };
+
   const getDaysToEOM = () => {
     const today = new Date();
     const day = today.getDate();
@@ -378,7 +393,7 @@ const ChatBot: React.FC = () => {
         addTransaction({
           type: toolArgs.type,
           amount: Number(toolArgs.amount),
-          categoryId: toolArgs.categoryId,
+          categoryId: resolveCategoryId(toolArgs.category, toolArgs.type),
           subCategoryId: toolArgs.subCategoryId || undefined,
           assetId: toolArgs.assetId,
           note: toolArgs.note || 'Dari AI Chat',
@@ -601,7 +616,7 @@ const ChatBot: React.FC = () => {
         amount: Number(toolArgs.amount),
         billingCycle: toolArgs.billingCycle,
         nextBillingDate: toolArgs.nextBillingDate || getLocalDate(),
-        categoryId: toolArgs.categoryId,
+        categoryId: resolveCategoryId(toolArgs.category, 'pengeluaran'),
         assetId: toolArgs.assetId,
         isActive: true,
         note: toolArgs.note || ''
@@ -674,7 +689,7 @@ const ChatBot: React.FC = () => {
       addRecurringTransaction({
         type: rt.type,
         amount: Number(rt.amount),
-        categoryId: rt.categoryId,
+        categoryId: resolveCategoryId(rt.category || rt.categoryId, rt.type),
         note: rt.note,
         frequency: rt.frequency,
         startDate: getLocalDate(),

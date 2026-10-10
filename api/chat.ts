@@ -28,14 +28,10 @@ export default async function handler(req: any, res: any) {
   const user = await verifyAuth(req, res);
   if (!user) return;
 
-  let quotaResult: any = null;
-  try {
-    quotaResult = await checkAndConsumeQuota(user.uid, 'chat');
-    if (!quotaResult.allowed) {
-      return res.status(403).json(quotaResult);
-    }
-  } catch (e: any) {
-    return res.status(e.status || 500).json({ message: e.message });
+  // M7: enforce request size manually — Vercel functions ignore the Next.js bodyParser config.
+  const contentLength = Number(req.headers['content-length'] || 0);
+  if (contentLength > 1 * 1024 * 1024) {
+    return res.status(413).json({ message: 'Payload too large' });
   }
 
   try {
@@ -51,6 +47,17 @@ export default async function handler(req: any, res: any) {
 
     if (!process.env.OPENAI_API_KEY) {
       return res.status(500).json({ message: 'OPENAI_API_KEY is not configured on the server.' });
+    }
+
+    // M8: consume quota only after the request has been validated.
+    let quotaResult: any = null;
+    try {
+      quotaResult = await checkAndConsumeQuota(user.uid, 'chat');
+      if (!quotaResult.allowed) {
+        return res.status(403).json(quotaResult);
+      }
+    } catch (e: any) {
+      return res.status(e.status || 500).json({ message: e.message });
     }
 
     // Helper to sanitize untrusted user data embedded in system prompts
@@ -247,9 +254,9 @@ export default async function handler(req: any, res: any) {
 === CATEGORY SPENDING BREAKDOWN ===
 ${categoryBreakdown.map((c: any) => {
   if (c.type === 'pengeluaran') {
-    return `- ${c.name}: Spent Rp ${c.totalSpent.toLocaleString('id-ID')} of limit Rp ${c.limit.toLocaleString('id-ID')} (${c.pctConsumed}% consumed, Remaining: Rp ${c.remaining.toLocaleString('id-ID')})`;
+    return `- ${sanitize(c.name, 60)}: Spent Rp ${c.totalSpent.toLocaleString('id-ID')} of limit Rp ${c.limit.toLocaleString('id-ID')} (${c.pctConsumed}% consumed, Remaining: Rp ${c.remaining.toLocaleString('id-ID')})`;
   } else {
-    return `- ${c.name} (Pemasukan): Received Rp ${c.totalSpent.toLocaleString('id-ID')}`;
+    return `- ${sanitize(c.name, 60)} (Pemasukan): Received Rp ${c.totalSpent.toLocaleString('id-ID')}`;
   }
 }).join('\n')}
 `;
@@ -258,7 +265,7 @@ ${categoryBreakdown.map((c: any) => {
     if (goals && goals.length > 0) {
       financialMetricsSummary += `
 === SAVINGS GOALS ===
-${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocaleString('id-ID')} by ${g.targetDate} (Status: ${g.isCompleted ? 'Completed' : 'Active'})`).join('\n')}
+${goals.map((g: any) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetAmount.toLocaleString('id-ID')} by ${g.targetDate} (Status: ${g.isCompleted ? 'Completed' : 'Active'})`).join('\n')}
 `;
     }
 
@@ -413,7 +420,7 @@ ${goals.map((g: any) => `- Goal "${g.name}": Target Rp ${g.targetAmount.toLocale
     for (const m of last6Months) {
       const mTxs = allTxsWithDate.filter((t: any) => t.date.startsWith(m) && t.type === 'pendapatan');
       for (const t of mTxs) {
-        const src = t.note || t.category || 'Unknown';
+        const src = sanitize(t.note || t.category || 'Unknown', 80);
         if (!incomeSources[src]) incomeSources[src] = { total: 0, count: 0 };
         incomeSources[src].total += t.amount;
         incomeSources[src].count++;
@@ -568,18 +575,18 @@ Recorded months: ${sortedMonths.length} (${sortedMonths[sortedMonths.length - 1]
 - Top income sources: ${topIncomeSources.length > 0 ? topIncomeSources.join('; ') : 'None detected'}
 
 --- TIER 1: FIXED OBLIGATIONS & ACTIVE SUBSCRIPTIONS (Auto-Deducted in Advance) ---
-${fixedObligations.map(f => `- [Detected Fixed] "${f.note}" (${f.category}): ~Rp ${f.avgAmount.toLocaleString('id-ID')}/mo (detected in ${f.frequency} of last ${f.months} months)`).join('\n')}
-${activeRecurring.map((r: any) => `- [Active Recurring Schedule] "${r.note || r.categoryId}": Rp ${Number(r.amount).toLocaleString('id-ID')}/${r.frequency}`).join('\n')}
-${activeSubs.map((s: any) => `- [Active Subscription] "${s.name}": Rp ${Number(s.amount).toLocaleString('id-ID')}/${s.billingCycle}`).join('\n')}
+${fixedObligations.map(f => `- [Detected Fixed] "${sanitize(f.note, 80)}" (${sanitize(f.category, 40)}): ~Rp ${f.avgAmount.toLocaleString('id-ID')}/mo (detected in ${f.frequency} of last ${f.months} months)`).join('\n')}
+${activeRecurring.map((r: any) => `- [Active Recurring Schedule] "${sanitize(r.note || r.categoryId, 80)}": Rp ${Number(r.amount).toLocaleString('id-ID')}/${r.frequency}`).join('\n')}
+${activeSubs.map((s: any) => `- [Active Subscription] "${sanitize(s.name, 60)}": Rp ${Number(s.amount).toLocaleString('id-ID')}/${s.billingCycle}`).join('\n')}
 Total Tier 1 Deductions (Fixed + Recurring + Subscriptions): ~Rp ${totalTier1Deduction.toLocaleString('id-ID')}/mo
 Estimated Net Disposable Income (after Tier 1): Rp ${realNetDisposable.toLocaleString('id-ID')}/mo
 
 --- PER-CATEGORY ROUTINE OPERATIONAL BASELINE VS NON-ROUTINE OUTLIERS ---
-${categoryAverages.map(c => `- ${c.name}:
+${categoryAverages.map(c => `- ${sanitize(c.name, 60)}:
   * Routine Monthly Baseline (for Tier 2 Envelope Limit): Rp ${c.routineAvg3mo.toLocaleString('id-ID')}/month
   * Total 3-Month Average (including non-routine): Rp ${c.avg3mo.toLocaleString('id-ID')}/month
-  * Non-Routine / One-Off Items Detected: ${c.nonRoutineSummary}
-  * History per Month: [${c.monthlyBreakdown}]${c.topNotes.length > 0 ? `\n  * Common notes: ${c.topNotes.join(', ')}` : ''}`).join('\n')}
+  * Non-Routine / One-Off Items Detected: ${sanitize(c.nonRoutineSummary, 120)}
+  * History per Month: [${c.monthlyBreakdown}]${c.topNotes.length > 0 ? `\n  * Common notes: ${c.topNotes.map((n: any) => sanitize(n, 40)).join(', ')}` : ''}`).join('\n')}
 `;
     }
 
