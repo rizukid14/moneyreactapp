@@ -40,11 +40,14 @@ const AppContent: React.FC = () => {
     }
   }, [theme]);
 
-  // Request notification permission and setup FCM on mount
+  // Register the push token only if permission was already granted via Settings (M36).
+  // Never prompt automatically on mount (browsers penalise gesture-less prompts).
   useEffect(() => {
-    import('./lib/notifications').then(({ setupPushNotifications }) => {
-      setupPushNotifications();
-    });
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      import('./lib/notifications').then(({ setupPushNotifications }) => {
+        setupPushNotifications();
+      });
+    }
   }, []);
 
   if (isAppLocked) {

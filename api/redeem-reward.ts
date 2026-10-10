@@ -1,4 +1,5 @@
 import admin from 'firebase-admin';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyAuth, initializeAdmin } from './_admin.js';
 
 // Server-authoritative reward catalogue (must mirror RewardsStoreModal UI).
@@ -25,7 +26,7 @@ const QUOTA_GRANTS: Record<string, { feature: 'scan' | 'chat' | 'bulk'; amount: 
   bulk_1: { feature: 'bulk', amount: 1 },
 };
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
@@ -101,7 +102,7 @@ export default async function handler(req: any, res: any) {
       quota: 'quota' in result ? result.quota : undefined,
       pointsLeft: result.pointsLeft,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[redeem-reward] error:', error);
     return res.status(500).json({ success: false, error: 'Gagal memproses penukaran' });
   }

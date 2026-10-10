@@ -1782,24 +1782,27 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setDebts(prev => prev.map(d => {
       if (d.id !== id) return d;
 
-      // Sync principal transaction when totalAmount or contact changes
-      if (updatedDebt.totalAmount !== undefined && updatedDebt.totalAmount !== d.totalAmount ||
-        updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact) {
-        const principalTx = transactions.find(tx =>
-          tx.relatedId === id &&
-          isDebtPrincipalTx(tx, categories)
-        );
-        if (principalTx) {
-          const txUpdate: Partial<Transaction> = {};
-          if (updatedDebt.totalAmount !== undefined && updatedDebt.totalAmount !== d.totalAmount) {
-            txUpdate.amount = updatedDebt.totalAmount;
-          }
-          if (updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact) {
-            txUpdate.note = principalTx.note.replace(d.contact, updatedDebt.contact);
-          }
-          const updatedTx = { ...principalTx, ...txUpdate };
-          setTransactions(prev => prev.map(tx => tx.id === principalTx.id ? updatedTx : tx));
-          dbPutTransaction(updatedTx);
+      const totalChanged = updatedDebt.totalAmount !== undefined && updatedDebt.totalAmount !== d.totalAmount;
+      const contactChanged = updatedDebt.contact !== undefined && updatedDebt.contact !== d.contact;
+
+      // Reconcile ALL principal transactions so their sum matches the new total (M20)
+      if (totalChanged || contactChanged) {
+        const principalTxs = transactions.filter(tx => tx.relatedId === id && isDebtPrincipalTx(tx, categories));
+        if (principalTxs.length > 0) {
+          const othersSum = principalTxs.slice(1).reduce((s, t) => s + Number(t.amount || 0), 0);
+          principalTxs.forEach((ptx, idx) => {
+            const txUpdate: Partial<Transaction> = {};
+            if (totalChanged && idx === 0) {
+              txUpdate.amount = Math.max(0, Number(updatedDebt.totalAmount) - othersSum);
+            }
+            if (contactChanged && d.contact) {
+              txUpdate.note = (ptx.note || '').replace(d.contact, updatedDebt.contact!);
+            }
+            if (Object.keys(txUpdate).length === 0) return;
+            const updatedTx = { ...ptx, ...txUpdate };
+            setTransactions(prevTxs => prevTxs.map(tx => tx.id === ptx.id ? updatedTx : tx));
+            dbPutTransaction(updatedTx);
+          });
         }
       }
 

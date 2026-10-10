@@ -1,9 +1,10 @@
 import admin from 'firebase-admin';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyAuth, initializeAdmin } from './_admin.js';
 
 const SLOT_COST = 300;
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
@@ -45,7 +46,7 @@ export default async function handler(req: any, res: any) {
       pointsLeft: result.pointsLeft,
       slots: result.slots,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[purchase-slot] error:', error);
     return res.status(500).json({ success: false, error: 'Gagal membeli slot' });
   }

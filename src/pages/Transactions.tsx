@@ -511,40 +511,40 @@ const Transactions: React.FC = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, [viewDate, startOfMonthDay]);
 
+  // Precompute per-asset balances up to the previous period once (M25) —
+  // excludes soft-deleted transactions and avoids O(assets × transactions) twice.
+  const prevPeriodBalances = useMemo(() => {
+    const map: Record<string, number> = {};
+    assets.forEach(a => { if (!a.isDeleted) map[a.id] = Number(a.initialBalance) || 0; });
+    transactions.forEach(tx => {
+      if (tx.isDeleted || tx.date > prevPeriodEndStr) return;
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk') {
+        if (tx.assetId && map[tx.assetId] !== undefined) map[tx.assetId] += amt;
+      } else if (tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar') {
+        if (tx.assetId && map[tx.assetId] !== undefined) map[tx.assetId] -= amt;
+      } else if (tx.type === 'transfer') {
+        if (tx.fromAssetId && map[tx.fromAssetId] !== undefined) map[tx.fromAssetId] -= amt;
+        if (tx.toAssetId && map[tx.toAssetId] !== undefined) map[tx.toAssetId] += amt;
+      }
+    });
+    return map;
+  }, [assets, transactions, prevPeriodEndStr]);
+
   const lastMonthTotalLiquidBalance = useMemo(() => {
     return assets.reduce((sum, asset) => {
       if (asset.isDeleted || asset.isHidden || !(asset.type === 'Cash' || asset.type === 'Bank Account' || asset.type === 'eWallet')) {
         return sum;
       }
-      let balance = asset.initialBalance;
-      transactions.forEach(tx => {
-        if (tx.date <= prevPeriodEndStr) {
-          if ((tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk') && tx.assetId === asset.id) balance += tx.amount;
-          else if ((tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar') && tx.assetId === asset.id) balance -= tx.amount;
-          else if (tx.type === 'transfer' && tx.fromAssetId === asset.id) balance -= tx.amount;
-          else if (tx.type === 'transfer' && tx.toAssetId === asset.id) balance += tx.amount;
-        }
-      });
-      return sum + balance;
+      return sum + (prevPeriodBalances[asset.id] ?? (Number(asset.initialBalance) || 0));
     }, 0);
-  }, [assets, transactions, prevPeriodEndStr]);
+  }, [assets, prevPeriodBalances]);
 
   const lastMonthSavingsAndInvestments = useMemo(() => {
     return assets
       .filter(a => !a.isDeleted && !a.isHidden && (a.type === 'Savings' || a.type === 'Investment'))
-      .reduce((sum, asset) => {
-        let balance = asset.initialBalance;
-        transactions.forEach(tx => {
-          if (tx.date <= prevPeriodEndStr) {
-            if ((tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk') && tx.assetId === asset.id) balance += tx.amount;
-            else if ((tx.type === 'pengeluaran' || tx.type === 'piutang_keluar' || tx.type === 'hutang_keluar') && tx.assetId === asset.id) balance -= tx.amount;
-            else if (tx.type === 'transfer' && tx.fromAssetId === asset.id) balance -= tx.amount;
-            else if (tx.type === 'transfer' && tx.toAssetId === asset.id) balance += tx.amount;
-          }
-        });
-        return sum + balance;
-      }, 0);
-  }, [assets, transactions, prevPeriodEndStr]);
+      .reduce((sum, asset) => sum + (prevPeriodBalances[asset.id] ?? (Number(asset.initialBalance) || 0)), 0);
+  }, [assets, prevPeriodBalances]);
 
 
   const liquidChangePct = useMemo(() => {

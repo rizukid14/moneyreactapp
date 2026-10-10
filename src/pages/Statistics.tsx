@@ -845,6 +845,7 @@ const Statistics: React.FC = () => {
 
               return (
                 <div
+                  data-heatmap=""
                   className="col-span-1 md:col-span-12 bg-bg-card p-5 rounded-3xl shadow-bento relative group"
                   onClick={() => setHoveredCell(null)}
                 >
@@ -920,7 +921,7 @@ const Statistics: React.FC = () => {
                                 onMouseEnter={e => {
                                   if (cell) {
                                     const cellRect = e.currentTarget.getBoundingClientRect();
-                                    const container = e.currentTarget.closest('.card.glass');
+                                    const container = e.currentTarget.closest('[data-heatmap]');
                                     if (container) {
                                       const containerRect = container.getBoundingClientRect();
                                       setHoveredCell({
@@ -1613,23 +1614,22 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
         return calc.isPaid ? sum : sum + calc.remaining;
       }, 0);
 
+    // Precompute per-asset net in a single pass (M27) instead of assets × transactions.
+    const assetNet: Record<string, number> = {};
+    transactions.forEach(t => {
+      if (t.isDeleted) return;
+      const amt = Number(t.amount) || 0;
+      const add = (id: string | undefined, delta: number) => { if (id) assetNet[id] = (assetNet[id] || 0) + delta; };
+      if (t.type === 'pendapatan' || t.type === 'piutang_masuk' || t.type === 'hutang_masuk') add(t.assetId, amt);
+      else if (t.type === 'pengeluaran' || t.type === 'piutang_keluar' || t.type === 'hutang_keluar') add(t.assetId, -amt);
+      else if (t.type === 'transfer') { add(t.fromAssetId, -amt); add(t.toAssetId, amt); }
+    });
+
     let totalAssetsValue = 0;
     let liquidAssetsValue = 0;
 
     assets.filter(a => !a.isDeleted).forEach(a => {
-      const txSum = transactions
-        .filter(t => !t.isDeleted && (t.assetId === a.id || t.fromAssetId === a.id || t.toAssetId === a.id))
-        .reduce((s, t) => {
-          const amt = Number(t.amount) || 0;
-          if (t.type === 'pendapatan' || t.type === 'piutang_masuk' || t.type === 'hutang_masuk') return s + amt;
-          if (t.type === 'pengeluaran' || t.type === 'piutang_keluar' || t.type === 'hutang_keluar') return s - amt;
-          if (t.type === 'transfer') {
-            if (t.toAssetId === a.id) return s + amt;
-            if (t.fromAssetId === a.id) return s - amt;
-          }
-          return s;
-        }, 0);
-      const val = (Number(a.initialBalance) || 0) + txSum;
+      const val = (Number(a.initialBalance) || 0) + (assetNet[a.id] || 0);
       totalAssetsValue += val;
       if (['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type)) {
         liquidAssetsValue += val;
@@ -1676,17 +1676,18 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
     const activeBudgets = budgets.filter(b => b.month === currentMonth.month && b.year === currentMonth.year);
     let adherenceRate = 100;
     if (activeBudgets.length > 0) {
+      // Precompute current-month expense per category once (M27)
+      const catMonthSpend: Record<string, number> = {};
+      transactions.forEach(tx => {
+        if (tx.isDeleted || tx.type !== 'pengeluaran' || !tx.categoryId) return;
+        const d = parseLocalDate(tx.date);
+        if (d.getMonth() !== currentMonth.month || d.getFullYear() !== currentMonth.year) return;
+        catMonthSpend[tx.categoryId] = (catMonthSpend[tx.categoryId] || 0) + tx.amount;
+      });
+      const catById = new Set((categories || []).map(c => c.id));
       const withinBudgetCount = activeBudgets.filter(b => {
-        const cat = categories?.find(c => c.id === b.categoryId);
-        if (!cat) return true;
-        const spent = transactions
-          .filter(tx => {
-            if (tx.type !== 'pengeluaran' || tx.categoryId !== cat.id || tx.isDeleted) return false;
-            const d = parseLocalDate(tx.date);
-            return d.getMonth() === currentMonth.month && d.getFullYear() === currentMonth.year;
-          })
-          .reduce((sum, tx) => sum + tx.amount, 0);
-        return spent <= b.limit;
+        if (!b.categoryId || !catById.has(b.categoryId)) return true;
+        return (catMonthSpend[b.categoryId] || 0) <= b.limit;
       }).length;
       adherenceRate = (withinBudgetCount / activeBudgets.length) * 100;
     }
