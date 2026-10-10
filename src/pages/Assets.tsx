@@ -8,7 +8,7 @@ const TransactionModal = lazy(() => import('../components/modals/TransactionModa
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToast } from '../components/common/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { convertToBaseIDR, getExchangeRate, SUPPORTED_CURRENCIES } from '../lib/currency';
+import { convertToBaseIDR, SUPPORTED_CURRENCIES } from '../lib/currency';
 import { getLocalDate } from '../lib/utils';
 import AssetSummaryCarousel from '../components/AssetSummaryCarousel';
 import type { CardId } from '../components/AssetSummaryCarousel';
@@ -105,17 +105,13 @@ const AssetDetailDrawer: React.FC<{
   const stats = useMemo(() => {
     if (!asset) return { income: 0, expense: 0, count: 0 };
     let simpleIncome = 0, simpleExpense = 0;
-    const assetRate = getExchangeRate(asset.currency) || 1;
     const allRelated = transactions.filter(tx => !tx.isDeleted && (tx.assetId === asset.id || tx.fromAssetId === asset.id || tx.toAssetId === asset.id));
     allRelated.forEach(tx => {
       const isExpenseLike = ['pengeluaran', 'piutang_keluar', 'hutang_keluar'].includes(tx.type);
       const isIncomeLike = ['pendapatan', 'piutang_masuk', 'hutang_masuk'].includes(tx.type);
 
-      // Normalise each transaction into the asset's own currency (M29)
-      const amt = convertToBaseIDR(tx.amount, tx.currency, tx.exchangeRate) / assetRate;
-
-      if (isIncomeLike || (tx.type === 'transfer' && tx.toAssetId === asset.id)) simpleIncome += amt;
-      if (isExpenseLike || (tx.type === 'transfer' && tx.fromAssetId === asset.id)) simpleExpense += amt;
+      if (isIncomeLike || (tx.type === 'transfer' && tx.toAssetId === asset.id)) simpleIncome += tx.amount;
+      if (isExpenseLike || (tx.type === 'transfer' && tx.fromAssetId === asset.id)) simpleExpense += tx.amount;
     });
     return { income: simpleIncome, expense: simpleExpense, count: allRelated.length };
   }, [transactions, asset?.id]);
@@ -376,7 +372,7 @@ const AssetDetailDrawer: React.FC<{
 
                       {/* Amount */}
                       <div style={{ fontWeight: 800, fontSize: 14, color: amtColor, marginLeft: 10, textAlign: 'right', flexShrink: 0 }}>
-                        {prefix}{isPrivateMode ? '••••' : fmt(tx.amount, SUPPORTED_CURRENCIES.find(c => c.code === (tx.currency || 'IDR'))?.symbol || currencySymbol)}
+                        {prefix}{isPrivateMode ? '••••' : fmt(tx.amount, cardSymbol)}
                       </div>
 
                       {/* Actions on hover */}
