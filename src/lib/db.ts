@@ -826,12 +826,21 @@ export interface SharedSplit {
   };
 }
 
-export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorId' | 'createdAt'>): Promise<{ id: string; token: string }> => {
+export const dbSaveSharedSplit = async (
+  data: Omit<SharedSplit, 'id' | 'creatorId' | 'createdAt' | 'expiresAt'> & { expiresAt?: number | null }
+): Promise<{ id: string; token: string }> => {
   if (!isFirebaseConfigured || !auth.currentUser) throw new Error("Cloud sync required to share.");
 
   let id = generateId();
   const token = generateId();
-  
+
+  const { expiresAt: requestedExpiry, ...rest } = data;
+  // Expiry is optional: `null` = no expiry, a positive number = that epoch ms,
+  // otherwise default to 60 days.
+  const expiresAt = requestedExpiry === null
+    ? undefined
+    : (typeof requestedExpiry === 'number' && requestedExpiry > 0 ? requestedExpiry : Date.now() + 60 * 24 * 60 * 60 * 1000);
+
   // Check if a link for this source already exists to prevent duplicates
   if (data.sourceId) {
     const q = query(
@@ -846,12 +855,12 @@ export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorI
   }
 
   const sharedSplit: SharedSplit = {
-    ...data,
+    ...rest,
     id,
     creatorId: getUid(),
     createdAt: Date.now(),
     shareToken: token,
-    expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000, // 60 days
+    ...(expiresAt ? { expiresAt } : {}),
   };
 
   await setDoc(doc(firestore, 'shared_splits', id), sanitizeForFirestore(sharedSplit));

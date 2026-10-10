@@ -91,6 +91,7 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
   const [localLineItems, setLocalLineItems] = useState<LineItem[]>([]);
   const [activeSharedId, setActiveSharedId] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [expiresDays, setExpiresDays] = useState(60); // 0 = tanpa batas
   const [showCopySuccess, setShowCopySuccess] = useState(false);
 
   useEffect(() => {
@@ -353,7 +354,8 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         splits,
         lineItems: localLineItems,
         itemAssignments,
-        paymentDetails
+        paymentDetails,
+        expiresAt: expiresDays > 0 ? Date.now() + expiresDays * 24 * 60 * 60 * 1000 : null
       });
       setActiveSharedId(sharedId);
 
@@ -410,6 +412,20 @@ const SplitBillModal: React.FC<SplitBillModalProps> = ({
         title="Split Bill"
         headerActions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!activeSharedId && (
+              <select
+                value={expiresDays}
+                onChange={e => setExpiresDays(Number(e.target.value))}
+                title="Masa berlaku link share"
+                style={{ fontSize: 11, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+              >
+                <option value={1}>1 hari</option>
+                <option value={7}>7 hari</option>
+                <option value={30}>30 hari</option>
+                <option value={60}>60 hari</option>
+                <option value={0}>Tanpa batas</option>
+              </select>
+            )}
             {activeSharedId ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button

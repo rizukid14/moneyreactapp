@@ -145,6 +145,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
   const [isSharing, setIsSharing] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
+  const [expiresDays, setExpiresDays] = useState(60); // 0 = tanpa batas
 
   const handleShareLink = async () => {
     setIsSharing(true);
@@ -152,6 +153,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
       const { id, token } = await import('../../lib/db').then(m => m.dbSaveSharedSplit({
         type: 'trip',
         sourceId: trip.id,
+        expiresAt: expiresDays > 0 ? Date.now() + expiresDays * 24 * 60 * 60 * 1000 : null,
         merchantName: trip.name,
         date: trip.startDate,
         endDate: trip.endDate,
@@ -635,6 +637,23 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
                   </div>
                 )}
               </div>
+
+              {!shareId && (
+                <div className="mt-4 flex items-center justify-between gap-3 text-xs">
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Masa berlaku link</span>
+                  <select
+                    value={expiresDays}
+                    onChange={e => setExpiresDays(Number(e.target.value))}
+                    style={{ fontSize: 11, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                  >
+                    <option value={1}>1 hari</option>
+                    <option value={7}>7 hari</option>
+                    <option value={30}>30 hari</option>
+                    <option value={60}>60 hari</option>
+                    <option value={0}>Tanpa batas</option>
+                  </select>
+                </div>
+              )}
 
               <div className={`grid ${shareId ? 'grid-cols-3' : 'grid-cols-2'} gap-3 mt-4`}>
                 <Button 
