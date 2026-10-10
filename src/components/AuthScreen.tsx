@@ -17,8 +17,8 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/cancelled-popup-request': 'Proses dibatalkan.',
 };
 
-const mapAuthError = (err: any): string =>
-  AUTH_ERROR_MESSAGES[err?.code] || 'Terjadi kesalahan. Silakan coba lagi.';
+const mapAuthError = (err: { code?: string } | null | undefined): string =>
+  AUTH_ERROR_MESSAGES[err?.code || ''] || 'Terjadi kesalahan. Silakan coba lagi.';
 
 export const AuthScreen: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);

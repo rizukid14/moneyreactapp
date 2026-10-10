@@ -1,0 +1,123 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui, sans-serif","fontSize":"13px"},"flowchart":{"curve":"basis","nodeSpacing":28,"rankSpacing":42}}}%%
+flowchart TB
+
+  TITLE["AUDIT KODE moneyreactapp v2.3.3<br/>Case / Masalah / Solusi per Point"]:::title
+
+  TITLE --> CRIT
+  TITLE --> HIGH
+  TITLE --> MED
+  TITLE --> LOWG
+
+  classDef title fill:#1e293b,stroke:#0f172a,color:#f8fafc,font-size:18px,font-weight:bold;
+  classDef crit fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,text-align:left;
+  classDef high fill:#ffedd5,stroke:#ea580c,color:#7c2d12,text-align:left;
+  classDef med fill:#fef9c3,stroke:#ca8a04,color:#713f12,text-align:left;
+  classDef low fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e,text-align:left;
+
+  subgraph CRIT ["KRITIS - data loss / bypass / crash / korupsi uang"]
+    direction TB
+    K1["K1 - Backdoor auth (MoneyContext.tsx:520-535,583,642)<br/>Case: localStorage.test_bypass_auth = true<br/>Masalah: login Firebase dilewati, user jadi test-user-uid<br/>Solusi: gate dengan import.meta.env.DEV / VITE_E2E, hapus dari build"]:::crit
+    K2["K2 - Webhook Bocor (api/lynkid-webhook.ts:120-147)<br/>Case: signature salah / event test-ping<br/>Masalah: response memuat expected + hashed_string; event test lolos tanpa auth<br/>Solusi: hapus debug_info, wajibkan signature semua event"]:::crit
+    K3["K3 - Race kuota AI (api/_admin.ts:116-137)<br/>Case: 2 request paralel<br/>Masalah: read-modify-write non-atomic, limit terlewati<br/>Solusi: FieldValue.increment atau runTransaction"]:::crit
+    K4["K4 - global __dbHelper (lib/db.ts:151-172)<br/>Case: konsol / injeksi XSS panggil clearAll()<br/>Masalah: seluruh IndexedDB bisa dihapus<br/>Solusi: guard import.meta.env.DEV atau hapus"]:::crit
+    K5["K5 - Konfirmasi ChatBot (chatbot/ChatBot.tsx:346-402)<br/>Case: konfirmasi draft pengeluaran / transfer<br/>Masalah: non-transfer tak menulis apa pun tapi bilang berhasil; transfer ditulis 2x<br/>Solusi: pindahkan addTransaction generik ke blok else (non-transfer)"]:::crit
+    K6["K6 - Bulan budget salah (pages/Statistics.tsx:1675)<br/>Case: hitung skor kesehatan finansial<br/>Masalah: banding bulan 1-12 vs data 0-11 -> activeBudgets kosong, skor selalu max<br/>Solusi: samakan konvensi 0-11 + sertakan tahun/siklus"]:::crit
+    K7["K7 - Saldo aset jadi 0 (modals/AssetModal.tsx:85,155)<br/>Case: edit aset tanpa ketik ulang saldo<br/>Masalah: parseNumber('5.000.000') = NaN -> initialBalance 0<br/>Solusi: ambil murni digit (buang non-angka) dan jangan kirim string ter-format ke parser"]:::crit
+    K8["K8 - Rules of hooks (modals/DebtOffsetModal.tsx:26-28)<br/>Case: toggle isOpen modal<br/>Masalah: useState setelah return null -> jumlah hook berubah -> crash<br/>Solusi: pindahkan useState di atas guard isOpen"]:::crit
+    K9["K9 - Injeksi role prompt (api/chat.ts:1113)<br/>Case: caller kirim body messages langsung ke API<br/>Masalah: role system bisa disuntik setelah system prompt, bypass anti-injection<br/>Solusi: whitelist role user/assistant + batasi jumlah & panjang"]:::crit
+    K10["K10 - IDOR shared_splits (lib/db.ts:812 + pages/SharedSplitBill.tsx:33)<br/>Case: buka link /shared-split/:id<br/>Masalah: dibaca tanpa auth/ownership, nomor rekening terekspos<br/>Solusi: verifikasi creatorId/token + expiry, sembunyikan nomor rekening"]:::crit
+    K11["K11 - Tanpa ErrorBoundary (src/App.tsx:19-86)<br/>Case: offline / chunk stale pasca deploy<br/>Masalah: dynamic import gagal -> seluruh app blank<br/>Solusi: tambah ErrorBoundary top-level + per route dengan tombol retry"]:::crit
+    K12["K12 - Premium/poin client-side (contexts/PremiumContext.tsx:210-291 + useLoginStreak + SpinWheel)<br/>Case: user edit IndexedDB / panggil fungsi<br/>Masalah: premium, kuota, poin, hadiah spin bisa dibuka tanpa bayar<br/>Solusi: verifikasi entitlement di server (Cloud Function / rules)"]:::crit
+    K13["K13 - logOut hapus semua data (contexts/MoneyContext.tsx:994,2560)<br/>Case: sign out di perangkat bersama<br/>Masalah: dbClearAllData() menghapus IndexedDB termasuk data akun lain<br/>Solusi: scope ke uid yang sign-out atau jangan hapus"]:::crit
+  end
+
+  subgraph HIGH ["TINGGI - fitur rusak / hitung salah / privasi"]
+    direction TB
+    H1["H1 - PIN lemah (lib/utils.ts:128 + MoneyContext.tsx:2350)<br/>Case: brute-force hash PIN / unlimited percobaan<br/>Masalah: SHA-256 tanpa salt + tanpa lockout, hash ikut sync ke cloud<br/>Solusi: PBKDF2/Argon2 + salt, simpan lokal, tambah backoff"]:::high
+    H2["H2 - Slot family client-side (components/FamilyManagement.tsx:45,84)<br/>Case: beli slot / lewat batas<br/>Masalah: limit & potong poin hanya di client, bisa race<br/>Solusi: transaksi atomic di server"]:::high
+    H3["H3 - Reauth Google-only (modals/ReauthenticateModal.tsx:19-39)<br/>Case: user login Google coba reauth<br/>Masalah: EmailAuthProvider gagal; rate-limit generik<br/>Solusi: deteksi provider + pesan spesifik/alternatif"]:::high
+    H4["H4 - Auto-publish split (modals/SplitBillModal.tsx:326-347)<br/>Case: simpan split tanpa tekan Share<br/>Masalah: record publik dibuat otomatis, nama/nominal/rekening bocor<br/>Solusi: hanya publish saat user share eksplisit"]:::high
+    H5["H5 - Settle-up index-keyed (modals/SettleUpModal.tsx:231,368)<br/>Case: tambah expense lalu bayar sebagian<br/>Masalah: status pembayaran pakai idx -> menempel ke pasangan salah<br/>Solusi: key berdasarkan pasangan payer/consumer + expense id"]:::high
+    H6["H6 - Excel import bank (lib/excelImport.ts:278,289,129)<br/>Case: import mutasi BCA/Mandiri<br/>Masalah: semua baris jadi pengeluaran; '1.000.000,00'->NaN dibuang; MM/DD/YYYY jadi tanggal invalid<br/>Solusi: arah dari DB/CR per baris, deteksi locale, validasi tanggal"]:::high
+    H7["H7 - Param category vs categoryId (chatbot/ChatBot.tsx:380,603,676)<br/>Case: AI pilih kategori lewat tool call<br/>Masalah: handler baca toolArgs.categoryId, AI kirim category -> kategori hilang<br/>Solusi: baca toolArgs.category lalu resolve ke ID"]:::high
+    H8["H8 - Prompt injection data user (api/chat.ts:250,261,416,571)<br/>Case: nama kategori/goal/note berisi instruksi<br/>Masalah: data masuk system prompt tanpa sanitize()<br/>Solusi: jalankan semua field lewat sanitize() sebelum interpolasi"]:::high
+    H9["H9 - Sync debt tak andal (MoneyContext.tsx:1426-1463)<br/>Case: edit transaksi terkait debt<br/>Masalah: targetDebtId di-set di dalam updater lalu dibaca sinkron<br/>Solusi: turunkan debt id dari array transactions sebelum setTransactions"]:::high
+    H10["H10 - getAssetBalance cacat (MoneyContext.tsx:2295-2307)<br/>Case: hitung saldo aset<br/>Masalah: tak filter isDeleted & abaikan currency/exchangeRate<br/>Solusi: filter !isDeleted + convertToBaseIDR"]:::high
+    H11["H11 - Transfer dihitung ke goal (components/GoalManagement.tsx:123)<br/>Case: ada transfer keluar<br/>Masalah: sum + tx.amount semua transfer -> progres goal menggelembung<br/>Solusi: hanya transfer tujuan goal / kurangi yang keluar"]:::high
+    H12["H12 - Cutoff kartu kredit (components/CreditCardOptimizerCard.tsx:37)<br/>Case: cutoff 29-31 di bulan pendek<br/>Masalah: new Date roll ke bulan depan -> unbilled & rekomendasi salah<br/>Solusi: clamp ke hari terakhir bulan + helper selisih hari"]:::high
+    H13["H13 - Overpayment debt (modals/DebtPaymentModal.tsx:68)<br/>Case: bayar > sisa hutang<br/>Masalah: hanya tolak <= 0, residual jadi negatif<br/>Solusi: validasi numAmount <= remaining"]:::high
+    H14["H14 - Realokasi melebihi sumber (modals/OverspendReallocationModal.tsx:95)<br/>Case: pilih sumber dengan dana < defisit<br/>Masalah: transfer full deficitAmount -> envelope sumber negatif<br/>Solusi: clamp min(remaining, deficitAmount) & disable bila kurang"]:::high
+    H15["H15 - Debt tanpa principalAmount (modals/AddTripExpenseModal.tsx:332)<br/>Case: buat debt dari trip expense<br/>Masalah: principalAmount kosong -> perhitungan payoff salah<br/>Solusi: set principalAmount: s.amount"]:::high
+    H16["H16 - Object URL bocor (pages/ReceiptScanner.tsx:155,314,583)<br/>Case: re-scan / unmount / reset<br/>Masalah: dep reset salah + URL lama tak di-revoke<br/>Solusi: revoke di cleanup effect dan sebelum menimpa URL"]:::high
+    H17["H17 - Distribusi pajak drift (pages/ReceiptScanner.tsx:544)<br/>Case: diskon > subtotal+tax+service<br/>Masalah: rounding per item drift; factor negatif -> line item negatif<br/>Solusi: sisa rounding ke 1 item + clamp factor >= 0"]:::high
+    H18["H18 - Self-transfer mutasi (pages/ReceiptScanner.tsx:811)<br/>Case: from/to asset tak ter-resolve<br/>Masalah: keduanya batchAssetId -> self-transfer; time hilang<br/>Solusi: tolak transfer tanpa akun lawan + sertakan time"]:::high
+    H19["H19 - Streak poin dobel (hooks/useLoginStreak.ts:45,121)<br/>Case: buka app (StrictMode) / boundary DST<br/>Masalah: parse UTC + Math.abs + tanpa guard -> poin dobel<br/>Solusi: parseLocalDate + set flag sebelum updateUser"]:::high
+    H20["H20 - Button disabled ditimpa (components/ui/Button.tsx:53-57)<br/>Case: tombol loading diklik<br/>Masalah: {...props} menimpa disabled -> double submit<br/>Solusi: destructure disabled atau spread props lebih dulu"]:::high
+    H21["H21 - Kalender UTC (components/DailyFinancialCalendar.tsx:51)<br/>Case: zona waktu non-UTC<br/>Masalah: new Date(tx.date) UTC + baca lokal -> tanggal 1 masuk bulan salah<br/>Solusi: parseLocalDate(tx.date)"]:::high
+    H22["H22 - Net-worth salah (pages/Statistics.tsx:1620-1636)<br/>Case: hitung kekayaan bersih<br/>Masalah: jumlahkan tx terhapus & abaikan piutang_/hutang_<br/>Solusi: filter !isDeleted + pakai logika getAssetBalance"]:::high
+    H23["H23 - useMemo dep kurang (pages/Statistics.tsx:423)<br/>Case: rename kategori / sync<br/>Masalah: tanpa dep categoryMap & startOfMonthDay -> nama stale<br/>Solusi: tambah categoryMap & startOfMonthDay ke deps"]:::high
+    H24["H24 - useMemo dep kurang (pages/Transactions.tsx:378)<br/>Case: rename kategori<br/>Masalah: tanpa dep categoryMap -> judul grup tak update<br/>Solusi: tambah categoryMap/categories ke deps"]:::high
+    H25["H25 - Listener delta bocor (MoneyContext.tsx:1222-1239)<br/>Case: remount / dep change<br/>Masalah: cleanup di dalam .then() tak pernah dipasang -> listener menumpuk<br/>Solusi: simpan cleanup di ref & return dari useEffect"]:::high
+    H26["H26 - Listener auth bocor (contexts/FamilyContext.tsx:53-80)<br/>Case: remount provider<br/>Masalah: unsubscribe dibuang di dalam init async<br/>Solusi: return cleanup nyata (ref unsubscribe)"]:::high
+    H27["H27 - Workspace tak divalidasi (contexts/FamilyContext.tsx:60,232)<br/>Case: localStorage workspaceId lama<br/>Masalah: dipercaya tanpa cek keanggotaan -> bisa tampil data family lain<br/>Solusi: validasi membership sebelum setSyncWorkspace"]:::high
+    H28["H28 - updateUser race (MoneyContext.tsx:2331 + useLoginStreak.ts:108)<br/>Case: streak + redeem poin bersamaan<br/>Masalah: full UserProfile dari closure stale -> rewardPoints saling menimpa<br/>Solusi: merge key fungsional di dalam updater"]:::high
+  end
+
+  subgraph MED ["SEDANG - bug perilaku / anti-pattern / race"]
+    direction TB
+    M1["M1 - Bulan ZBB abaikan startOfMonthDay (TransactionModal.tsx:347)<br/>Solusi: pakai txMonth/txYear tergeser dari budgetAlerts"]:::med
+    M2["M2 - JSON.parse drafts tanpa guard (TransactionModal.tsx:114)<br/>Solusi: try/catch + fallback {}"]:::med
+    M3["M3 - Side effect di updater setItemAssignments (SplitBillModal.tsx:242)<br/>Solusi: hitung di luar lalu panggil kedua setter"]:::med
+    M4["M4 - isSubmitting stuck jalur duplikat (BudgetModal.tsx:49-78)<br/>Solusi: setIsSubmitting(false) sebelum return"]:::med
+    M5["M5 - Nama kategori disimpan di categoryId (PresetManagerModal.tsx:41,204)<br/>Solusi: value={c.id}"]:::med
+    M6["M6 - Semua user tampil Pro (ProfileMenuModal.tsx:78)<br/>Solusi: derive dari premium.isPremium"]:::med
+    M7["M7 - bodyParser inert di Vercel (api/chat.ts:15-21)<br/>Solusi: enforce content-length/byte count manual"]:::med
+    M8["M8 - Kuota dikonsumsi sebelum validasi (api/chat.ts:31-54)<br/>Solusi: validasi dulu, konsumsi terakhir / refund saat gagal"]:::med
+    M9["M9 - Bulan budget 1-12 vs 0-11 (api/chat.ts:210, ChatBot.tsx:476)<br/>Solusi: satu konvensi bulan 0-11"]:::med
+    M10["M10 - Transfer NaN (ChatBot.tsx:619)<br/>Solusi: guard Number.isFinite && > 0"]:::med
+    M11["M11 - Fallback isDeleted (excelImport.ts:237,316)<br/>Solusi: hapus fallback tanpa !isDeleted"]:::med
+    M12["M12 - .sort() mutasi state (excelExport.ts:91,164)<br/>Solusi: [...transactions].sort()"]:::med
+    M13["M13 - MIME kosong lolos (fileValidation.ts:52,66)<br/>Solusi: wajib cek magic bytes bila type kosong / tambah WEBP-GIF"]:::med
+    M14["M14 - imageUtils tanpa onerror (lib/imageUtils.ts:1-29)<br/>Solusi: img.onerror=reject, guard toBlob, revoke di finally"]:::med
+    M15["M15 - Recognition tanpa stop (hooks/useSpeechToText.ts:23)<br/>Solusi: abort recognition di cleanup useEffect"]:::med
+    M16["M16 - DB/setState di dalam updater (MoneyContext.tsx:1294,1354,...)<br/>Solusi: hitung array di luar, efek setelahnya"]:::med
+    M17["M17 - Effect notif self-trigger (MoneyContext.tsx:2775)<br/>Solusi: pakai ref untuk dedupe, buang notifications dari deps"]:::med
+    M18["M18 - Poll sync dibuat ulang (MoneyContext.tsx:1277)<br/>Solusi: dep hanya isReady/isFirebaseConfigured + ref data"]:::med
+    M19["M19 - importData tanpa validasi (MoneyContext.tsx:2542)<br/>Solusi: try/catch + validasi shape + reload semua koleksi"]:::med
+    M20["M20 - updateDebt hanya 1 principal (MoneyContext.tsx:1748)<br/>Solusi: rekonsiliasi semua principal tx"]:::med
+    M21["M21 - quota stale & redeem tak atomik (PremiumContext.tsx:210,254)<br/>Solusi: setQuota fungsional, persist dulu baru update state"]:::med
+    M22["M22 - habitPresets dep kurang (useTransactionPresets.ts:80)<br/>Solusi: tambah categories ke deps"]:::med
+    M23["M23 - startOfMonthDay>28 rollover (useInsightData.ts:79)<br/>Solusi: clamp endDay ke hari terakhir bulan nyata"]:::med
+    M24["M24 - Pace tercemar filter (Transactions.tsx:387)<br/>Solusi: hitung total periode tanpa filter + abaikan startOfMonthDay"]:::med
+    M25["M25 - Memo saldo 2x O(n^2) (Transactions.tsx:508)<br/>Solusi: exclude isDeleted + hitung sekali jalan"]:::med
+    M26["M26 - Tooltip heatmap dead (Statistics.tsx:920)<br/>Solusi: pasang data-attr/ref pada kartu sebenarnya"]:::med
+    M27["M27 - FinancialHealth O(n^2) (Statistics.tsx:1591)<br/>Solusi: pre-index transaksi sekali"]:::med
+    M28["M28 - await tanpa try/catch (Settings.tsx:1212,2206)<br/>Solusi: try/catch/finally reset spinner + cek kondisi sukses nyata"]:::med
+    M29["M29 - Multi-currency tak dikonversi (Assets.tsx:113,375)<br/>Solusi: convertToBaseIDR + simbol benar"]:::med
+    M30["M30 - Auto-offset tanpa aksi user (Debts.tsx:411)<br/>Solusi: butuh konfirmasi eksplisit, rapikan deps"]:::med
+    M31["M31 - Tandai belum lunas no-op (Debts.tsx:731)<br/>Solusi: sesuaikan/hapus tx offset atau debtRole"]:::med
+    M32["M32 - Effect BusgetModal reset input (BudgetManagement.tsx:560)<br/>Solusi: init hanya saat open, baca data via ref"]:::med
+    M33["M33 - Tailwind class dinamis (MetricCard.tsx:59, ProgressBar.tsx:42)<br/>Solusi: gunakan map class statis / inline style"]:::med
+    M34["M34 - Toast timer bocor & tanpa aria-live (common/Toast.tsx:111)<br/>Solusi: clear timer saat unmount + role status"]:::med
+    M35["M35 - NODE_ENV hardcode development (polyfills.ts:17)<br/>Solusi: set dari import.meta.env.MODE"]:::med
+    M36["M36 - Permission autotrigger (App.tsx:43, notifications.ts:13)<br/>Solusi: minta dari gesture user + guard unmount"]:::med
+  end
+
+  subgraph LOWG ["LOW - kebersihan / aksesibilitas / dead code"]
+    direction TB
+    L1["L1 - key index (SplitBillModal:840, ChatBot, DropdownMenu:50, MetricCard:101, dll)<br/>Solusi: key stabil (id)"]:::low
+    L2["L2 - console.log produksi (MoneyContext.tsx:1094,1003-1026)<br/>Solusi: gate dev logger"]:::low
+    L3["L3 - Dead code (Statistics:800,1325; Assets:604; Layout:325; ContactSelectModal:30)<br/>Solusi: hapus"]:::low
+    L4["L4 - Timer bocor (Settings:214, Transactions:202, ReceiptScanner:104)<br/>Solusi: clearTimeout di cleanup"]:::low
+    L5["L5 - currency fallback rate 1 & abaikan 0 (lib/currency.ts:63,73)<br/>Solusi: throw/flag + customRate ?? rate"]:::low
+    L6["L6 - Route goals -> Budgets (App.tsx:80)<br/>Solusi: verifikasi/luruskan route"]:::low
+    L7["L7 - err.message mentah Firebase (AuthScreen.tsx:30)<br/>Solusi: map err.code ke pesan ramah"]:::low
+    L8["L8 - Listener touch re-register mid-gesture (PullToRefresh.tsx:89)<br/>Solusi: simpan state di ref, register sekali"]:::low
+    L9["L9 - Ternary no-op (AssetSummaryCarousel.tsx:327)<br/>Solusi: sederhanakan"]:::low
+    L10["L10 - Junk ter-commit (case.md, test-admin2.js, TransactionModal_v1_8_1.tsx.tmp)<br/>Solusi: hapus dari repo"]:::low
+  end
+
+  CRIT -->|"13 isu - prioritas 1"| FIX1["Fix 1: backdoor, dbHelper, webhook, kuota race"]:::title
+  HIGH -->|"28 isu - prioritas 2"| FIX2["Fix 2: data-loss (ChatBot, AssetModal, DebtOffset, logOut), hitung (budget, Excel, saldo, kalender)"]:::title
+  MED -->|"36 isu - prioritas 3"| FIX3["Fix 3: privasi/entitlement server-side, leak listener, object URL, lint"]:::title
+  LOWG --> FIX4["Fix 4: kebersihan, aksesibilitas, hapus dead code & junk"]:::title
