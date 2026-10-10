@@ -16,7 +16,7 @@ import {
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
   dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync, localDbGetSetting, localDbPutSetting,
   dbGetAllNotifications, dbPutNotification, dbDeleteNotification, dbClearAllNotifications,
-  getWorkspacePath, getSyncWorkspace
+  getWorkspacePath, getSyncWorkspace, dbGetRecurringExceptions, dbAddRecurringSkip
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -265,6 +265,7 @@ export interface Transaction {
   fromAssetId?: string;
   toAssetId?: string;
   relatedId?: string; // Links to Debt.id, etc.
+  sourceRecurringId?: string; // If auto-generated from a recurring rule
   debtRole?: DebtTransactionRole; // 'principal' | 'payment' | 'offset'
   goalId?: string; // Links to Goal.id
   currency?: string; // 'IDR' | 'USD' | 'SGD' | 'JPY' | 'SAR'
@@ -831,6 +832,26 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         localStorage.setItem('migrated_categoryId_phase2', 'true');
       }
 
+      // ─── Migration: rebuild recurring skip-ledger from deleted auto tx (R5) ──
+      if (!localStorage.getItem('migrated_recurring_skips_v1')) {
+        try {
+          const mDb = await import('../lib/db');
+          const rawDb = await mDb.getDB();
+          const allRawTxs = await rawDb.getAll('transactions');
+          let seeded = 0;
+          for (const t of allRawTxs) {
+            if (t.isDeleted && (t.sourceRecurringId || /\[Auto:[^\]]+\]/.test(t.note || ''))) {
+              const rtId = t.sourceRecurringId || (t.note || '').match(/\[Auto:([^\]]+)\]/)?.[1];
+              if (rtId) { await mDb.dbAddRecurringSkip(rtId, t.date); seeded++; }
+            }
+          }
+          if (seeded > 0) console.log(`Seeded ${seeded} recurring skips from deleted auto transactions.`);
+        } catch (e) {
+          console.error('Failed to seed recurring skip ledger:', e);
+        }
+        localStorage.setItem('migrated_recurring_skips_v1', 'true');
+      }
+
       // ─── Recovery of "unknown" categories from Firestore ────────────────
       const hasRecoveredUnknown = authUser?.uid ? localStorage.getItem(`recovered_unknown_categories_${authUser.uid}_v2`) : null;
       const hasUnknownTxs = dbTxs.some(tx => tx.categoryId === 'unknown');
@@ -1348,6 +1369,13 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const txToDelete = transactions.find(t => t.id === id);
     if (!txToDelete) return;
 
+    // If this is an auto-generated recurring occurrence, record a skip so the
+    // generator never recreates it (R2/R4)
+    if (txToDelete.sourceRecurringId || /\[Auto:[^\]]+\]/.test(txToDelete.note || '')) {
+      const rtId = txToDelete.sourceRecurringId || (txToDelete.note || '').match(/\[Auto:([^\]]+)\]/)?.[1];
+      if (rtId) dbAddRecurringSkip(rtId, txToDelete.date).catch(() => {});
+    }
+
     if (txToDelete.relatedId) {
       const isPrincipal = isDebtPrincipalTx(txToDelete, categories);
 
@@ -1844,6 +1872,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const idbRt = await idb.get('recurring_transactions', rt.id);
         if (idbRt?.isDeleted) continue;
 
+        // Occurrences the user explicitly deleted — never recreate these (R2/R4)
+        const skippedDates = await dbGetRecurringExceptions(rt.id);
+
         const startDate = parseLocalDate(rt.startDate || todayStr);
         const originalDay = startDate.getDate();
 
@@ -1867,7 +1898,16 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           const txDate = getLocalDate(currentCheck);
           const txId = `auto-${rt.id}-${txDate}`;
 
-          const exists = transactions.some(t => t.id === txId || (t.note && t.note.includes(`[Auto:${rt.id}]`) && t.date === txDate));
+          // Skip occurrences the user deleted so they don't resurrect
+          if (skippedDates[txDate]) {
+            latestProcessed = txDate;
+            currentCheck = getNextDateSafe(currentCheck, rt.frequency, originalDay);
+            continue;
+          }
+
+          // Check existence against persistent storage, not just in-memory state (R4)
+          const localExists = await idb.get('transactions', txId);
+          const exists = !!localExists || transactions.some(t => t.id === txId || (t.note && t.note.includes(`[Auto:${rt.id}]`) && t.date === txDate));
           if (!exists) {
             const newTx: Transaction = {
               id: txId,
@@ -1882,6 +1922,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               date: txDate,
               time: '00:00',
               note: (rt.note ? `${rt.note} [Auto:${rt.id}]` : `Transaksi Rutin [Auto:${rt.id}]`).trim(),
+              sourceRecurringId: rt.id,
               updatedAt: now
             };
 

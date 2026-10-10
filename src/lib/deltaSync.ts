@@ -14,7 +14,8 @@ const SYNCED_COLLECTIONS = [
   'monthly_incomes',
   'budget_reallocations',
   'notifications',
-  'recurring_transactions'
+  'recurring_transactions',
+  'recurring_exceptions'
 ];
 
 let unsubscribers: (() => void)[] = [];

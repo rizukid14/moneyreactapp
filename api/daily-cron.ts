@@ -116,6 +116,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const parentRef = rtDoc.ref.parent.parent;
                 if (!parentRef) continue;
 
+                // Occurrences the user deleted are tombstoned here (R2/R4)
+                const excSnap = await parentRef.collection('recurring_exceptions').doc(rt.id).get();
+                const skippedDates: Record<string, boolean> = excSnap.data()?.skipped || {};
+
                 const startDate = parseLocalDate(rt.startDate || todayStr);
                 const originalDay = startDate.getDate();
 
@@ -143,6 +147,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                     const txDate = formatDateStr(currentCheck);
                     const txId = `auto-${rt.id}-${txDate}`;
+
+                    if (skippedDates[txDate]) {
+                        latestProcessed = txDate;
+                        currentCheck = getNextDate(currentCheck, rt.frequency, originalDay);
+                        continue;
+                    }
                     
                     const txRef = parentRef.collection('transactions').doc(txId);
                     const existingTx = await txRef.get();
@@ -161,6 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             date: txDate,
                             time: '00:00',
                             note: (rt.note ? `${rt.note} [Auto:${rt.id}]` : `Transaksi Rutin [Auto:${rt.id}]`).trim(),
+                            sourceRecurringId: rt.id,
                             createdAt: `${txDate}T00:00:00.000Z`,
                             updatedAt: now,
                             isDeleted: false

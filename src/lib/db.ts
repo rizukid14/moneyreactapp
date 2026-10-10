@@ -7,7 +7,7 @@ import { generateId } from './utils';
 import { getDeltaLastSyncTimestamp, setDeltaLastSyncTimestamp } from './deltaSync';
 
 // ─── DB Schema ────────────────────────────────────────────────────────────────
-const DB_VERSION = 11;
+const DB_VERSION = 12;
 
 let activeWorkspaceId: string | null = typeof window !== 'undefined' ? localStorage.getItem('activeWorkspaceId') : null;
 if (activeWorkspaceId === 'null') activeWorkspaceId = null;
@@ -111,6 +111,7 @@ export interface MoneyAppDB {
   monthly_incomes: { key: string; value: any };
   budget_reallocations: { key: string; value: any };
   notifications: { key: string; value: any };
+  recurring_exceptions: { key: string; value: any };
 }
 
 const dbUpgrade = (db: IDBPDatabase<MoneyAppDB>) => {
@@ -130,6 +131,7 @@ const dbUpgrade = (db: IDBPDatabase<MoneyAppDB>) => {
   if (!db.objectStoreNames.contains('monthly_incomes')) db.createObjectStore('monthly_incomes', { keyPath: 'id' });
   if (!db.objectStoreNames.contains('budget_reallocations')) db.createObjectStore('budget_reallocations', { keyPath: 'id' });
   if (!db.objectStoreNames.contains('notifications')) db.createObjectStore('notifications', { keyPath: 'id' });
+  if (!db.objectStoreNames.contains('recurring_exceptions')) db.createObjectStore('recurring_exceptions', { keyPath: 'id' });
 };
 
 let dbPromise: Promise<IDBPDatabase<MoneyAppDB>> | null = null;
@@ -376,6 +378,7 @@ export const dbForceCloudSync = async (options?: { full?: boolean }): Promise<{ 
       ['monthly_incomes', 'monthly_incomes'],
       ['budget_reallocations', 'budget_reallocations'],
       ['notifications', 'notifications'],
+      ['recurring_exceptions', 'recurring_exceptions'],
     ];
 
     for (const [fsCol, idbStore] of collections) {
@@ -544,6 +547,39 @@ export const dbPutRecurringTransaction = async (rt: any) => {
 
 export const dbDeleteRecurringTransaction = async (id: string) => {
   await softDeleteEntity('recurring_transactions', id);
+};
+
+// ─── Recurring Exceptions (skip ledger) ──────────────────────────────────────
+// Records occurrence dates the user explicitly deleted/skipped, so the
+// generator never resurrects them (prevents the classic "deleted but came back" bug).
+export const dbGetRecurringExceptions = async (rtId: string): Promise<Record<string, true>> => {
+  const rec = await (await getDB()).get('recurring_exceptions', rtId);
+  return (rec?.skipped as Record<string, true>) || {};
+};
+
+export const dbAddRecurringSkip = async (rtId: string, date: string) => {
+  const db = await getDB();
+  const existing = (await db.get('recurring_exceptions', rtId)) || { id: rtId, skipped: {} as Record<string, true> };
+  const record = { ...existing, id: rtId, skipped: { ...(existing.skipped || {}), [date]: true }, updatedAt: Date.now() };
+  await db.put('recurring_exceptions', record);
+  await recordPendingSync({ id: `rec-exc-${rtId}`, collection: 'recurring_exceptions', operation: 'PUT', data: record });
+  if (isFirebaseConfigured && auth.currentUser) {
+    setDoc(doc(collection(firestore, getWorkspacePath('recurring_exceptions')), rtId), sanitizeForFirestore(record)).catch(() => {});
+  }
+  return record;
+};
+
+export const dbClearRecurringSkips = async (rtId: string, dates: string[]) => {
+  const db = await getDB();
+  const existing = await db.get('recurring_exceptions', rtId);
+  if (!existing) return;
+  const skipped = { ...(existing.skipped || {}) };
+  dates.forEach(d => { delete skipped[d]; });
+  const record = { ...existing, id: rtId, skipped, updatedAt: Date.now() };
+  await db.put('recurring_exceptions', record);
+  if (isFirebaseConfigured && auth.currentUser) {
+    setDoc(doc(collection(firestore, getWorkspacePath('recurring_exceptions')), rtId), sanitizeForFirestore(record)).catch(() => {});
+  }
 };
 
 // ─── Contacts ─────────────────────────────────────────────────────────────────
