@@ -12,7 +12,15 @@ import MaterialIcon from '../common/MaterialIcon';
 interface DebtPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (amount: number, assetId: string, date: string, time: string, note: string, isFullSettle: boolean) => void;
+  onConfirm: (
+    amount: number,
+    assetId: string,
+    date: string,
+    time: string,
+    note: string,
+    isFullSettle: boolean,
+    excessSplit?: { excessAmount: number; isHutang: boolean }
+  ) => void;
   debt: Debt;
   assets: Asset[];
   paidAmountFromTxs: number;
@@ -35,6 +43,7 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   const [time, setTime] = useState(getLocalTime());
   const [note, setNote] = useState('');
   const [isFullSettle, setIsFullSettle] = useState(true);
+  const [splitExcess, setSplitExcess] = useState(true);
   const [lastOpen, setLastOpen] = useState(false);
   const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,9 +84,26 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
       return;
     }
 
+    const hasExcess = numAmount > remaining;
+    const excessAmount = hasExcess ? numAmount - remaining : 0;
+
     const finalNote = note || (isFullSettle ? `Pelunasan ${isHutang ? 'Hutang' : 'Piutang'}` : `Cicilan ${isHutang ? 'Hutang' : 'Piutang'}`);
-    // Jika bayar >= sisa (misal hutang 21.890 dibayar 22.000), tandai lunas:
-    onConfirm(numAmount, selectedAssetId, date, time, finalNote, numAmount >= remaining);
+    
+    if (hasExcess && splitExcess) {
+      // Pecah: lunasi pas sebesar sisa, lalu sisanya masuk kategori pembulatan
+      onConfirm(
+        remaining,
+        selectedAssetId,
+        date,
+        time,
+        finalNote,
+        true,
+        { excessAmount, isHutang }
+      );
+    } else {
+      // Catat utuh sesuai input pengguna
+      onConfirm(numAmount, selectedAssetId, date, time, finalNote, numAmount >= remaining);
+    }
     
     setTimeout(() => setIsSubmitting(false), 1000);
   };
@@ -116,6 +142,43 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                     style={{ width: '100%', paddingLeft: 40, fontWeight: 800, fontSize: 18, marginBottom: 0 }}
                   />
                 </div>
+
+                {/* Info Kelebihan Pembayaran / Pembulatan */}
+                {Number(amount) > remaining && (
+                  <div style={{
+                    marginTop: 10,
+                    padding: '10px 12px',
+                    borderRadius: 12,
+                    background: 'var(--bg-income)',
+                    border: '1px solid var(--primary-glow)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>
+                        💡 Kelebihan bayar: {fmt(Number(amount) - remaining)}
+                      </span>
+                    </div>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 11,
+                      color: 'var(--text-main)',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={splitExcess}
+                        onChange={e => setSplitExcess(e.target.checked)}
+                        style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                      />
+                      Pecah {fmt(Number(amount) - remaining)} ke kategori "Pembulatan / Selisih Bayar"
+                    </label>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                   <Button

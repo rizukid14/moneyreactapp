@@ -485,6 +485,7 @@ const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
 export const SYS_CAT = {
   ADMIN_FEE: 'sys-cat-admin-fee',
   BALANCE_ADJ: 'sys-cat-balance-adj',
+  ROUNDING_DIFF: 'sys-cat-rounding-diff',
   DEBT_PAY: 'sys-cat-debt-pay',
   DEBT_RECEIVE: 'sys-cat-debt-receive',
   RECEIVABLE_PAY: 'sys-cat-receivable-pay',
@@ -500,6 +501,7 @@ export const SYSTEM_CATEGORIES: Category[] = [
   { id: 'sys-cat-receivable-receive', name: 'Pelunasan Piutang', type: 'piutang_masuk' },
   { id: 'sys-cat-admin-fee', name: 'Biaya Admin', type: 'pengeluaran' },
   { id: 'sys-cat-balance-adj', name: 'Koreksi Saldo', type: 'pengeluaran' },
+  { id: 'sys-cat-rounding-diff', name: 'Pembulatan / Selisih Bayar', type: 'pengeluaran' },
   { id: 'sys-cat-trip-expense', name: 'Liburan & Perjalanan', type: 'pengeluaran', subcategories: [{ id: 'sys-sub-trip', name: 'Biaya Trip', isDeleted: false }] },
 ];
 

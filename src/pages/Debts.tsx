@@ -323,7 +323,7 @@ const Debts: React.FC = () => {
     addDebt, updateDebt, deleteDebt, settleDebt, 
     addDebtPayment, addDebtPrincipal, offsetDebt, 
     currencySymbol, updateTransaction, deleteTransaction,
-    autoOffsetDebts
+    autoOffsetDebts, addTransaction
   } = useMoney();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -795,12 +795,41 @@ const Debts: React.FC = () => {
           assets={assets}
           currencySymbol={currencySymbol}
           paidAmountFromTxs={calculateDebtBalance(payingDebt, transactions, categories).totalPaid}
-          onConfirm={(amt, assetId, date, time, note, isFull) => {
+          onConfirm={(amt, assetId, date, time, note, isFull, excessSplit) => {
             if (isFull) {
               settleDebt(payingDebt.id, assetId, date, time, amt);
             } else {
               addDebtPayment(payingDebt.id, amt, assetId, date, time, note);
             }
+
+            // Catat selisih kelebihan bayar/pembulatan jika ada opsi split aktif
+            if (excessSplit && excessSplit.excessAmount > 0) {
+              if (excessSplit.isHutang) {
+                // Hutang kelebihan bayar: pengeluaran selisih pembulatan
+                addTransaction({
+                  type: 'pengeluaran',
+                  amount: excessSplit.excessAmount,
+                  categoryId: 'sys-cat-rounding-diff',
+                  date,
+                  time,
+                  note: `Kelebihan / pembulatan bayar hutang: ${payingDebt.contact}`,
+                  assetId,
+                  relatedId: payingDebt.id
+                });
+              } else {
+                // Piutang kelebihan bayar: uang masuk tambahan
+                addTransaction({
+                  type: 'pendapatan',
+                  amount: excessSplit.excessAmount,
+                  date,
+                  time,
+                  note: `Kelebihan pembayaran piutang dari: ${payingDebt.contact}`,
+                  assetId,
+                  relatedId: payingDebt.id
+                });
+              }
+            }
+
             setIsPaymentModalOpen(false);
           }}
         />
