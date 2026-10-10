@@ -499,6 +499,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         addRecurringTransaction({
           ...txData,
           frequency,
+          anchorDate: date,
           startDate: date,
           lastProcessedDate: date,
           endDate: recurringEndDate || undefined,

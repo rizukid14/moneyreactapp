@@ -545,7 +545,7 @@ const Settings: React.FC = () => {
     );
   };
 
-  const { recurringTransactions, deleteRecurringTransaction, updateRecurringTransaction } = useMoney();
+  const { recurringTransactions, deleteRecurringTransaction, updateRecurringTransaction, rescheduleRecurringTransaction } = useMoney();
 
   const renderModalContent = () => {
     switch (activeModal) {
@@ -1319,6 +1319,7 @@ const Settings: React.FC = () => {
                   categoryId: subData.categoryId,
                   note: `Langganan: ${subData.name}`,
                   frequency: subData.billingCycle === 'monthly' ? 'monthly' : 'yearly',
+                  anchorDate: subData.nextBillingDate,
                   startDate: subData.nextBillingDate,
                   isActive: true,
                   assetId: subData.assetId,
@@ -1547,8 +1548,23 @@ const Settings: React.FC = () => {
                           {rt.type === 'pengeluaran' ? '-' : rt.type === 'pendapatan' ? '+' : ''}
                           Rp{rt.amount.toLocaleString('id-ID')}
                         </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                          Terakhir: {rt.lastProcessedDate ? new Date(rt.lastProcessedDate).toLocaleDateString('id-ID') : 'Belum pernah'}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Jadwal</span>
+                          <input
+                            type="date"
+                            data-testid="rt-anchor-date"
+                            value={(rt.anchorDate || rt.startDate || '').slice(0, 10)}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (!val) return;
+                              showConfirm(
+                                'Perbaiki Jadwal',
+                                'Ubah jadwal rutin ini? Transaksi otomatis lama akan dihapus lalu dibuat ulang mengikuti jadwal baru.',
+                                () => rescheduleRecurringTransaction(rt.id, val)
+                              );
+                            }}
+                            style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                          />
                         </div>
                       </div>
                     </div>

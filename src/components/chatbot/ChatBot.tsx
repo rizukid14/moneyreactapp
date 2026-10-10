@@ -692,13 +692,24 @@ const ChatBot: React.FC = () => {
 
   const handleExecuteRecurringRecommendation = (msgIndex: number, recIdx: number, rt: any) => {
     try {
+      // Use the detected day-of-month when provided (R6), else today.
+      const anchor = (() => {
+        if (rt?.dayOfMonth && (rt.frequency === 'monthly' || rt.frequency === 'yearly')) {
+          const now = new Date();
+          const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+          const day = Math.min(Math.max(1, Number(rt.dayOfMonth)), daysInMonth);
+          return getLocalDate(new Date(now.getFullYear(), now.getMonth(), day));
+        }
+        return getLocalDate();
+      })();
       addRecurringTransaction({
         type: rt.type,
         amount: Number(rt.amount),
         categoryId: resolveCategoryId(rt.category || rt.categoryId, rt.type),
         note: rt.note,
         frequency: rt.frequency,
-        startDate: getLocalDate(),
+        anchorDate: anchor,
+        startDate: anchor,
         isActive: true
       });
 

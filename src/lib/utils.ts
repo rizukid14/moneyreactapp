@@ -70,6 +70,44 @@ export const getNextDateSafe = (
 };
 
 /**
+ * Pure, deterministic recurring-occurrence generator (R1).
+ * Returns every occurrence date of a rule (derived from `anchorDateStr` + frequency)
+ * that falls within [fromDateStr, toDateStr] inclusive. Dates are 'YYYY-MM-DD'.
+ */
+export const computeOccurrenceDates = (
+  anchorDateStr: string,
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly',
+  fromDateStr: string,
+  toDateStr: string
+): string[] => {
+  const anchor = parseLocalDate(anchorDateStr);
+  const originalDay = anchor.getDate();
+  const from = parseLocalDate(fromDateStr);
+  const to = parseLocalDate(toDateStr);
+  const result: string[] = [];
+
+  let current = anchor;
+  let guard = 0;
+  while (current < from && guard < 10000) {
+    const next = getNextDateSafe(current, frequency, originalDay);
+    if (next.getTime() === current.getTime()) return result; // invalid frequency
+    current = next;
+    guard++;
+  }
+
+  guard = 0;
+  while (current <= to && guard < 10000) {
+    result.push(getLocalDate(current));
+    const next = getNextDateSafe(current, frequency, originalDay);
+    if (next.getTime() === current.getTime()) break; // invalid frequency
+    current = next;
+    guard++;
+  }
+
+  return result;
+};
+
+/**
  * Returns local time in HH:mm format
  */
 export const getLocalTime = (date: Date = new Date()): string => {

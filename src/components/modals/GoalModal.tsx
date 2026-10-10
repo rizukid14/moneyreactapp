@@ -102,6 +102,7 @@ const GoalModal: React.FC<GoalModalProps> = ({
             categoryId: undefined,
             note: `Tabungan: ${name.trim()}`,
             frequency: autoFrequency,
+            anchorDate: autoStartDate,
             startDate: autoStartDate,
             isActive: true,
             fromAssetId: autoFromAssetId,

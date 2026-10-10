@@ -120,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const excSnap = await parentRef.collection('recurring_exceptions').doc(rt.id).get();
                 const skippedDates: Record<string, boolean> = excSnap.data()?.skipped || {};
 
-                const startDate = parseLocalDate(rt.startDate || todayStr);
+                const startDate = parseLocalDate(rt.anchorDate || rt.startDate || todayStr);
                 const originalDay = startDate.getDate();
 
                 const lastDate = rt.lastProcessedDate ? parseLocalDate(rt.lastProcessedDate) : new Date(startDate);

@@ -24,7 +24,7 @@ import { collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
 import SplashScreen from '../components/SplashScreen';
-import { getLocalDate, getLocalTime, generateId, hashPinSecure, verifyPin, parseLocalDate, getNextDateSafe } from '../lib/utils';
+import { getLocalDate, getLocalTime, generateId, hashPinSecure, verifyPin, parseLocalDate, getNextDateSafe, computeOccurrenceDates } from '../lib/utils';
 import { calculateDebtBalance, isDebtPrincipalTx, isDebtPaymentTx } from '../lib/debtCalculations';
 import { startDeltaListeners, stopDeltaListeners } from '../lib/deltaSync';
 import { fetchLiveExchangeRates } from '../lib/currency';
@@ -299,7 +299,8 @@ export interface RecurringTransaction {
   toAssetId?: string;
   note: string;
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  startDate: string;        // YYYY-MM-DD
+  anchorDate?: string;       // YYYY-MM-DD — canonical day/month of the rule (R1)
+  startDate: string;        // YYYY-MM-DD (legacy; kept for backward compatibility)
   lastProcessedDate?: string; // YYYY-MM-DD
   endDate?: string;          // YYYY-MM-DD (Optional stop date)
   isActive: boolean;
@@ -405,6 +406,7 @@ interface MoneyContextType {
   addRecurringTransaction: (rt: Omit<RecurringTransaction, 'id'>) => RecurringTransaction;
   updateRecurringTransaction: (id: string, rt: Partial<RecurringTransaction>) => void;
   deleteRecurringTransaction: (id: string) => void;
+  rescheduleRecurringTransaction: (rtId: string, newAnchorDate: string) => Promise<void>;
   addSubscription: (sub: Omit<Subscription, 'id'>) => Subscription;
   updateSubscription: (id: string, sub: Partial<Subscription>) => void;
   deleteSubscription: (id: string) => void;
@@ -855,6 +857,26 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           console.error('Failed to seed recurring skip ledger:', e);
         }
         localStorage.setItem('migrated_recurring_skips_v1', 'true');
+      }
+
+      // ─── Migration: backfill anchorDate on recurring rules (R1) ─────────────
+      if (!localStorage.getItem('migrated_recurring_anchordate_v1')) {
+        try {
+          const mDb = await import('../lib/db');
+          const rawDb = await mDb.getDB();
+          const allRts = await rawDb.getAll('recurring_transactions');
+          let fixed = 0;
+          for (const rt of allRts) {
+            if (!rt.anchorDate && rt.startDate) {
+              await mDb.dbPutRecurringTransaction({ ...rt, anchorDate: rt.startDate, updatedAt: Date.now() });
+              fixed++;
+            }
+          }
+          if (fixed > 0) console.log(`Backfilled anchorDate for ${fixed} recurring rules.`);
+        } catch (e) {
+          console.error('Failed to backfill anchorDate:', e);
+        }
+        localStorage.setItem('migrated_recurring_anchordate_v1', 'true');
       }
 
       // ─── Recovery of "unknown" categories from Firestore ────────────────
@@ -1836,6 +1858,19 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, []);
 
+  // "Perbaiki Jadwal" (R1): set a new anchor date, clear generated occurrences
+  // and skips, then let the generator rebuild from the new schedule.
+  const rescheduleRecurringTransaction = useCallback(async (rtId: string, newAnchorDate: string) => {
+    const autoTxs = transactions.filter(t => t.sourceRecurringId === rtId || (t.note || '').includes(`[Auto:${rtId}]`));
+    autoTxs.forEach(t => deleteTransaction(t.id));
+    try {
+      const mDb = await import('../lib/db');
+      const skipped = await mDb.dbGetRecurringExceptions(rtId);
+      await mDb.dbClearRecurringSkips(rtId, Object.keys(skipped));
+    } catch { /* ignore */ }
+    updateRecurringTransaction(rtId, { anchorDate: newAnchorDate, startDate: newAnchorDate, lastProcessedDate: undefined });
+  }, [transactions, deleteTransaction, updateRecurringTransaction]);
+
   // ─── Auto-process Recurring Transactions on Client ──────────────────────────
   useEffect(() => {
     if (!isReady || recurringTransactions.length === 0) return;
@@ -1861,33 +1896,30 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // Occurrences the user explicitly deleted — never recreate these (R2/R4)
         const skippedDates = await dbGetRecurringExceptions(rt.id);
 
-        const startDate = parseLocalDate(rt.startDate || todayStr);
-        const originalDay = startDate.getDate();
+        const anchorStr = rt.anchorDate || rt.startDate || todayStr;
+        const anchorDay = parseLocalDate(anchorStr).getDate();
 
-        const lastDate = rt.lastProcessedDate ? parseLocalDate(rt.lastProcessedDate) : new Date(startDate);
-
-        if (lastDate >= today && rt.lastProcessedDate) continue;
-
-        const endDate = rt.endDate ? parseLocalDate(rt.endDate) : null;
-        if (endDate) endDate.setHours(23, 59, 59, 999);
-
-        let currentCheck = new Date(lastDate);
         if (rt.lastProcessedDate) {
-          currentCheck = getNextDateSafe(currentCheck, rt.frequency, originalDay);
+          const lastDate = parseLocalDate(rt.lastProcessedDate);
+          if (lastDate >= today) continue;
         }
 
+        // First occurrence to process: after lastProcessedDate, else from the anchor.
+        const fromStr = rt.lastProcessedDate
+          ? getLocalDate(getNextDateSafe(parseLocalDate(rt.lastProcessedDate), 'daily', anchorDay))
+          : anchorStr;
+
+        const occurrenceDates = computeOccurrenceDates(anchorStr, rt.frequency, fromStr, todayStr);
         let latestProcessed = rt.lastProcessedDate || null;
 
-        while (currentCheck <= today) {
-          if (endDate && currentCheck > endDate) break;
+        for (const txDate of occurrenceDates) {
+          if (rt.endDate && txDate > rt.endDate) break;
 
-          const txDate = getLocalDate(currentCheck);
           const txId = `auto-${rt.id}-${txDate}`;
 
           // Skip occurrences the user deleted so they don't resurrect
           if (skippedDates[txDate]) {
             latestProcessed = txDate;
-            currentCheck = getNextDateSafe(currentCheck, rt.frequency, originalDay);
             continue;
           }
 
@@ -1917,7 +1949,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           }
 
           latestProcessed = txDate;
-          currentCheck = getNextDateSafe(currentCheck, rt.frequency, originalDay);
         }
 
         if (latestProcessed && latestProcessed !== rt.lastProcessedDate) {
@@ -3094,7 +3125,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // ─── Context value ────────────────────────────────────────────────────────
   const value = useMemo(() => ({
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
-    recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
+    recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction, rescheduleRecurringTransaction,
     subscriptions, addSubscription, updateSubscription, deleteSubscription,
     trips, addTrip, updateTrip, deleteTrip,
     tripExpenses, addTripExpense, updateTripExpense, deleteTripExpense,
@@ -3123,7 +3154,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     notifications, unreadNotifCount, markNotifAsRead, deleteNotif, clearAllNotifs
   }), [
     isReady, assets, transactions, categories, budgets, debts, contacts, goals,
-    recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction,
+    recurringTransactions, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction, rescheduleRecurringTransaction,
     subscriptions, addSubscription, updateSubscription, deleteSubscription,
     trips, addTrip, updateTrip, deleteTrip,
     tripExpenses, addTripExpense, updateTripExpense, deleteTripExpense,
