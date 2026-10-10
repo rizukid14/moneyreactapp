@@ -27,8 +27,9 @@ menjadikan dokumen **premium** sebagai *server-authoritative*.
    **Firebase Admin SDK** (melewati rules). ✅
 2. **`redeemReward` (tukar poin jadi premium/kuota)** saat ini menulis ke
    `settings/premium` dari client → **akan diblokir** oleh rules ini.
-   → Sebelum mengaktifkan rules, pindahkan penukaran reward ke Cloud Function
-   (Admin SDK), atau gunakan varian "soft" (lihat §5).
+   → Sebelum mengaktifkan rules, pindahkan penukaran reward ke **Vercel
+   Serverless Function** (`api/*.ts`, pakai Firebase Admin SDK), atau gunakan
+   varian "soft" (lihat §5).
 3. **`rewardPoints`** ada di dokumen `settings/user` dan masih **bisa ditulis
    pemilik**. Untuk anti-curang poin penuh, pindahkan penambahan poin ke server.
 4. **Kuota** tidak tersinkron ke Firestore (hanya lokal), jadi tidak terpengaruh.
@@ -89,15 +90,16 @@ match /users/{uid}/settings/{key} {
 ```
 Ini menutup kebocoran data antar-user, tetapi premium/poin **masih** bisa diubah
 pemilik dari DevTools (K12 belum tuntas). Deploy varian keras (§1) setelah
-Cloud Function reward tersedia.
+endpoint Vercel reward tersedia.
 
 ---
 
 ## 6. Langkah lanjutan (opsional, untuk K12 penuh)
 
-Buat Cloud Function (callable) misalnya:
-- `redeemReward(type, pointCost)` — validasi poin & tulis premium/kuota di server.
-- `purchaseWorkspaceSlot()` — potong poin & naikkan `unlockedWorkspaceSlots`.
+Buat **Vercel Serverless Function** (di folder `api/`, sama seperti `api/chat.ts`
+dan `api/lynkid-webhook.ts`, memakai `firebase-admin` + `verifyAuth`), misalnya:
+- `api/redeem-reward.ts` — validasi poin & tulis premium/kuota di server.
+- `api/purchase-slot.ts` — potong poin & naikkan `unlockedWorkspaceSlots`.
 
 Dengan itu, `settings/premium` dan `settings/user.rewardPoints` bisa sepenuhnya
 ditulis server, dan client hanya membaca.

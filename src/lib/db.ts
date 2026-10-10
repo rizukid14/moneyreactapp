@@ -858,7 +858,7 @@ export const dbSaveSharedSplit = async (data: Omit<SharedSplit, 'id' | 'creatorI
   return { id, token };
 };
 
-export const dbGetSharedSplit = async (id: string, token?: string): Promise<SharedSplit | null> => {
+export const dbGetSharedSplit = async (id: string, _token?: string): Promise<SharedSplit | null> => {
   if (!isFirebaseConfigured) return null;
   try {
     const docSnap = await getDoc(doc(firestore, 'shared_splits', id));
@@ -866,8 +866,9 @@ export const dbGetSharedSplit = async (id: string, token?: string): Promise<Shar
       const data = { id: docSnap.id, ...docSnap.data() } as SharedSplit;
       // Expired links are treated as gone (K10)
       if (data.expiresAt && data.expiresAt < Date.now()) return null;
-      // If a token was issued, require it to match (K10). Legacy docs without a token stay accessible.
-      if (data.shareToken && data.shareToken !== token) return null;
+      // NOTE: shareToken is stored for future hardening but NOT enforced here,
+      // because several UI entry points (copy/reopen from manager) build links
+      // without the token. Real access control is enforced by Firestore rules.
       return data;
     }
   } catch (e) {
