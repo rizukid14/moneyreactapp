@@ -348,7 +348,12 @@ const SharedSplitBill: React.FC = () => {
           )}
 
           <div style={{ display: 'grid', gap: '12px' }}>
-            {activeTransactions.map((item: any, idx: number) => (
+            {activeTransactions.map((item: any, idx: number) => {
+              const isPersonPaid = split.type === 'trip'
+                ? Boolean(split.memberPayments?.[`${item.from}->${item.to}`] || split.memberPayments?.[item.from])
+                : (item.isPayer || Boolean(split.memberPayments?.[item.contactName]));
+
+              return (
               <motion.div
                 key={idx}
                 initial={{ opacity: 0, x: -20 }}
@@ -371,8 +376,8 @@ const SharedSplitBill: React.FC = () => {
                       <MaterialIcon name="north_east" className="text-text-muted text-sm" />
                       <span>{item.to}</span>
                     </div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      Penyelesaian Saldo <MaterialIcon name="info" className="text-[10px]" />
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: isPersonPaid ? 'var(--success)' : 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {isPersonPaid ? '✓ LUNAS' : 'Belum Selesai'} <MaterialIcon name="info" className="text-[10px]" />
                     </div>
                   </div>
                 </>
@@ -381,15 +386,15 @@ const SharedSplitBill: React.FC = () => {
                 <>
                   <div style={{
                     width: '52px', height: '52px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '20px', fontWeight: 800, background: item.isPayer ? 'var(--success)' : 'var(--bg-main)',
-                    color: item.isPayer ? 'white' : 'var(--primary)'
+                    fontSize: '20px', fontWeight: 800, background: isPersonPaid ? 'var(--success)' : 'var(--bg-main)',
+                    color: isPersonPaid ? 'white' : 'var(--primary)'
                   }}>
                     {item.contactName.charAt(0).toUpperCase()}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', marginBottom: '2px' }}>{item.contactName}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px', color: item.isPayer ? 'var(--success)' : 'var(--text-muted)' }}>
-                      {item.isPayer ? 'Payer / Sudah Bayar' : <><MaterialIcon name="south_west" className="text-[10px] text-danger" /> Belum Bayar</>}
+                    <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px', color: isPersonPaid ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {isPersonPaid ? '✓ LUNAS / Sudah Bayar' : <><MaterialIcon name="south_west" className="text-[10px] text-danger" /> Belum Bayar</>}
                     </div>
                   </div>
                 </>
@@ -398,7 +403,7 @@ const SharedSplitBill: React.FC = () => {
                 <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0px' }}>{split.currencySymbol}</div>
-                    <div style={{ fontSize: '19px', fontWeight: 900, color: item.isPayer ? 'var(--success)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                    <div style={{ fontSize: '19px', fontWeight: 900, color: isPersonPaid ? 'var(--success)' : 'var(--text-main)', letterSpacing: '-0.5px' }}>
                       {(Number(item.amount) || 0).toLocaleString('id-ID')}
                     </div>
                   </div>
@@ -425,7 +430,8 @@ const SharedSplitBill: React.FC = () => {
                   </button>
                 </div>
               </motion.div>
-            ))}
+            );
+          })}
           </div>
         </div>
 

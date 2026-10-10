@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import AssetSelectModal from './AssetSelectModal';
 import { getLocalDate, getLocalTime, formatCurrency } from '../../lib/utils';
-import { useMoney, type Debt, type Asset } from '../../contexts/MoneyContext';
+import { useMoney, type Debt, type Asset, type DebtAllocation } from '../../contexts/MoneyContext';
+import { calculatePrincipalBalances } from '../../lib/debtCalculations';
 import CurrencyInput from '../common/CurrencyInput';
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
@@ -19,7 +20,8 @@ interface DebtPaymentModalProps {
     time: string,
     note: string,
     isFullSettle: boolean,
-    excessSplit?: { excessAmount: number; isHutang: boolean }
+    excessSplit?: { excessAmount: number; isHutang: boolean },
+    allocations?: DebtAllocation[]
   ) => void;
   debt: Debt;
   assets: Asset[];
@@ -30,11 +32,18 @@ interface DebtPaymentModalProps {
 const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   isOpen, onClose, onConfirm, debt, assets, paidAmountFromTxs, currencySymbol
 }) => {
-  const { defaultAssetId: globalDefaultAssetId, getAssetBalance } = useMoney();
+  const { defaultAssetId: globalDefaultAssetId, getAssetBalance, transactions, categories } = useMoney();
   const isHutang = debt.type === 'hutang';
   const activeAssets = assets.filter(a => !a.isDeleted);
 
   const remaining = Math.max(0, debt.totalAmount - paidAmountFromTxs);
+
+  // Hitung sisa per-nota pokok yang belum lunas
+  const { perNota } = useMemo(
+    () => calculatePrincipalBalances(debt, transactions, categories),
+    [debt, transactions, categories]
+  );
+  const unpaidNotas = useMemo(() => perNota.filter(n => n.remaining > 0), [perNota]);
 
   const debtDefaultAssetId = isHutang ? debt.paymentAssetId : debt.receiveAssetId;
   const [amount, setAmount] = useState(remaining.toString());
@@ -48,6 +57,9 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
   const [isAssetSelectOpen, setIsAssetSelectOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Set ID nota yang dicentang untuk dibayar
+  const [selectedNotaIds, setSelectedNotaIds] = useState<Set<string>>(new Set());
+
   React.useEffect(() => {
     if (isOpen && !lastOpen) {
       const defaultAmount = (debt.isInstallment && debt.installmentAmount && debt.installmentAmount < remaining)
@@ -60,9 +72,51 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
       setDate(getLocalDate());
       setTime(getLocalTime());
       setNote('');
+      setSelectedNotaIds(new Set()); // Default tidak membatasi nota spesifik jika ingin bayar bebas
     }
     setLastOpen(isOpen);
   }, [isOpen, lastOpen, debt, remaining, debtDefaultAssetId, globalDefaultAssetId, activeAssets]);
+
+  const handleToggleNota = (principalTxId: string) => {
+    setSelectedNotaIds(prev => {
+      const next = new Set(prev);
+      if (next.has(principalTxId)) {
+        next.delete(principalTxId);
+      } else {
+        next.add(principalTxId);
+      }
+      
+      if (next.size > 0) {
+        const selectedNotas = unpaidNotas.filter(n => next.has(n.principalTxId));
+        const subtotal = selectedNotas.reduce((sum, n) => sum + n.remaining, 0);
+        setAmount(subtotal.toString());
+        setIsFullSettle(subtotal >= remaining);
+        
+        const labels = selectedNotas.map(n => n.label.replace(/^(?:Piutang|Hutang|Penambahan[^:]*|Belanja[^:]*):\s*/i, '').trim()).slice(0, 3).join(', ');
+        setNote(`Pelunasan: ${labels}${selectedNotas.length > 3 ? '...' : ''}`);
+      } else {
+        setAmount(remaining.toString());
+        setIsFullSettle(true);
+        setNote('');
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllNotas = () => {
+    const allIds = new Set(unpaidNotas.map(n => n.principalTxId));
+    setSelectedNotaIds(allIds);
+    setAmount(remaining.toString());
+    setIsFullSettle(true);
+    setNote(`Pelunasan Semua Tagihan (${unpaidNotas.length} nota)`);
+  };
+
+  const handleClearNotaSelection = () => {
+    setSelectedNotaIds(new Set());
+    setAmount(remaining.toString());
+    setIsFullSettle(true);
+    setNote('');
+  };
 
   const handleRawAmountChange = (rawVal: string) => {
     setAmount(rawVal);
@@ -89,6 +143,23 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
 
     const finalNote = note || (isFullSettle ? `Pelunasan ${isHutang ? 'Hutang' : 'Piutang'}` : `Cicilan ${isHutang ? 'Hutang' : 'Piutang'}`);
     
+    // Hitung alokasi spesifik jika user memilih nota tertentu
+    let allocations: DebtAllocation[] | undefined = undefined;
+    if (selectedNotaIds.size > 0) {
+      allocations = [];
+      let budgetForAlloc = (hasExcess && splitExcess) ? remaining : numAmount;
+      const targetNotas = unpaidNotas.filter(n => selectedNotaIds.has(n.principalTxId));
+      for (const nota of targetNotas) {
+        if (budgetForAlloc <= 0) break;
+        const allocAmt = Math.min(budgetForAlloc, nota.remaining);
+        allocations.push({
+          principalTxId: nota.principalTxId,
+          amount: allocAmt
+        });
+        budgetForAlloc -= allocAmt;
+      }
+    }
+
     if (hasExcess && splitExcess) {
       // Pecah: lunasi pas sebesar sisa, lalu sisanya masuk kategori pembulatan
       onConfirm(
@@ -98,11 +169,12 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
         time,
         finalNote,
         true,
-        { excessAmount, isHutang }
+        { excessAmount, isHutang },
+        allocations
       );
     } else {
       // Catat utuh sesuai input pengguna
-      onConfirm(numAmount, selectedAssetId, date, time, finalNote, numAmount >= remaining);
+      onConfirm(numAmount, selectedAssetId, date, time, finalNote, numAmount >= remaining, undefined, allocations);
     }
     
     setTimeout(() => setIsSubmitting(false), 1000);
@@ -130,6 +202,89 @@ const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
             </div>
 
             <Card variant="glass" style={{ padding: 16, marginBottom: 20 }}>
+              {/* Checklist Tagihan Aktif Multi-Select jika ada > 1 nota belum lunas */}
+              {unpaidNotas.length > 1 && (
+                <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: '1px dashed var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Pilih Tagihan ({unpaidNotas.length} nota):
+                    </label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={handleSelectAllNotas}
+                        style={{ background: 'none', border: 'none', fontSize: 11, color: 'var(--primary)', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                      >
+                        Pilih Semua
+                      </button>
+                      {selectedNotaIds.size > 0 && (
+                        <>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>•</span>
+                          <button
+                            type="button"
+                            onClick={handleClearNotaSelection}
+                            style={{ background: 'none', border: 'none', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                          >
+                            Reset
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '160px', overflowY: 'auto' }}>
+                    {unpaidNotas.map(nota => {
+                      const isChecked = selectedNotaIds.has(nota.principalTxId);
+                      const displayTitle = nota.label.replace(/^(?:Piutang|Hutang|Penambahan[^:]*|Belanja[^:]*):\s*/i, '').trim();
+                      return (
+                        <label
+                          key={nota.principalTxId}
+                          onClick={() => handleToggleNota(nota.principalTxId)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 10px',
+                            borderRadius: 10,
+                            background: isChecked ? 'var(--bg-income)' : 'var(--bg-card-solid)',
+                            border: `1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border-color)'}`,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}} // handled by parent label onClick
+                              style={{ accentColor: 'var(--primary)', cursor: 'pointer', flexShrink: 0 }}
+                            />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {displayTitle}
+                              </div>
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                                {nota.date}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: isHutang ? 'var(--danger)' : 'var(--primary)' }}>
+                              {fmt(nota.remaining)}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {selectedNotaIds.size > 0 && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: 'var(--primary)', fontWeight: 700, textAlign: 'right' }}>
+                      Terpilih: {selectedNotaIds.size} nota ({fmt(unpaidNotas.filter(n => selectedNotaIds.has(n.principalTxId)).reduce((s, n) => s + n.remaining, 0))})
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                   Jumlah Pembayaran:

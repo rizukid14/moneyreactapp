@@ -1,4 +1,4 @@
-import type { Debt, Transaction, Category } from '../contexts/MoneyContext';
+import type { Debt, Transaction, Category, DebtAllocation } from '../contexts/MoneyContext';
 import { isPrincipalTx } from './utils';
 
 export interface DebtBalanceCalculation {
@@ -10,6 +10,22 @@ export interface DebtBalanceCalculation {
   paidInstallmentCount: number;
   principalTxs: Transaction[];
   paymentTxs: Transaction[];
+}
+
+export interface PrincipalBalance {
+  principalTxId: string;
+  label: string;
+  principal: number;
+  paid: number;
+  remaining: number;
+  isPaid: boolean;
+  date: string;
+}
+
+export interface PrincipalBalancesResult {
+  perNota: PrincipalBalance[];
+  unallocated: number; // Total pembayaran yang belum dialokasikan ke nota spesifik
+  totalRemaining: number;
 }
 
 export interface ContactOffsetPotential {
@@ -89,6 +105,61 @@ export const calculateDebtBalance = (
     principalTxs,
     paymentTxs,
   };
+};
+
+/**
+ * Calculates per-principal-transaction (per-nota) balance with explicit allocations.
+ * Payments with debtAllocations are allocated to specific notes; payments without are marked unallocated.
+ */
+export const calculatePrincipalBalances = (
+  debt: Debt,
+  transactions: Transaction[],
+  categories?: Category[] | { id: string; name: string }[]
+): PrincipalBalancesResult => {
+  const allTxs = transactions.filter(t => t.relatedId === debt.id && !t.isDeleted);
+  const principalTxs = allTxs.filter(t => isDebtPrincipalTx(t, categories));
+  const paymentTxs = allTxs.filter(t => isDebtPaymentTx(t, categories));
+
+  // Initialize per-principal balance tracker
+  const balanceMap = new Map<string, PrincipalBalance>();
+  principalTxs.forEach(tx => {
+    const label = tx.note || debt.description || (debt.type === 'hutang' ? 'Hutang' : 'Piutang');
+    balanceMap.set(tx.id, {
+      principalTxId: tx.id,
+      label,
+      principal: Number(tx.amount) || 0,
+      paid: 0,
+      remaining: Number(tx.amount) || 0,
+      isPaid: false,
+      date: tx.date,
+    });
+  });
+
+  // Process payments: allocate based on debtAllocations or mark as unallocated
+  let unallocated = 0;
+  paymentTxs.forEach(paymentTx => {
+    const amount = Number(paymentTx.amount) || 0;
+    if (paymentTx.debtAllocations && paymentTx.debtAllocations.length > 0) {
+      // Explicit allocation: distribute to specific principals
+      paymentTx.debtAllocations.forEach((alloc: DebtAllocation) => {
+        const balance = balanceMap.get(alloc.principalTxId);
+        if (balance) {
+          const allocAmount = Math.min(alloc.amount, balance.remaining);
+          balance.paid += allocAmount;
+          balance.remaining = Math.max(0, balance.remaining - allocAmount);
+          balance.isPaid = balance.remaining <= 0;
+        }
+      });
+    } else {
+      // No allocation: mark as unallocated
+      unallocated += amount;
+    }
+  });
+
+  const perNota = Array.from(balanceMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+  const totalRemaining = perNota.reduce((sum, n) => sum + n.remaining, 0);
+
+  return { perNota, unallocated, totalRemaining };
 };
 
 /**

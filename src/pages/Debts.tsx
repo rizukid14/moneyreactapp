@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMoney, type Debt, type Transaction, type AutoSettleOptions } from '../contexts/MoneyContext';
-import { calculateDebtBalance, calculateContactOffsetPotentials } from '../lib/debtCalculations';
+import { calculateDebtBalance, calculateContactOffsetPotentials, calculatePrincipalBalances } from '../lib/debtCalculations';
 import DropdownMenu from '../components/common/DropdownMenu';
 import DebtModal from '../components/modals/DebtModal';
 import DebtPaymentModal from '../components/modals/DebtPaymentModal';
@@ -64,6 +64,15 @@ const DebtCard = React.memo<DebtCardProps>(({
   const balance = useMemo(
     () => calculateDebtBalance(debt, history, categories),
     [debt, history, categories]
+  );
+
+  const principalBalances = useMemo(
+    () => calculatePrincipalBalances(debt, history, categories),
+    [debt, history, categories]
+  );
+  const notaMap = useMemo(
+    () => new Map(principalBalances.perNota.map(n => [n.principalTxId, n])),
+    [principalBalances]
   );
 
   let borderClass = 'border-outline-variant';
@@ -284,28 +293,67 @@ const DebtCard = React.memo<DebtCardProps>(({
                     <span className="text-on-surface-variant">Pokok Hutang/Piutang:</span>
                     <span className="font-bold text-on-surface">{fmt(balance.totalPrincipal, currencySymbol)}</span>
                   </div>
-                  {history.map(tx => (
-                    <div 
-                      key={tx.id} 
-                      onClick={() => onHistoryClick?.(tx)} 
-                      className={`flex justify-between items-center p-2 rounded-xl transition-colors ${onHistoryClick ? 'cursor-pointer hover:bg-surface-subtle bg-surface-container-low/50' : 'bg-surface-container-low/30'}`}
-                    >
-                      <div className="min-w-0 pr-2">
-                        <div className="text-xs font-bold text-on-surface truncate">{tx.note || 'Transaksi Hutang'}</div>
-                        <div className="text-[10px] text-on-surface-variant flex items-center gap-1.5 mt-0.5">
-                          <span>{tx.date}</span>
-                          {tx.debtRole && (
-                            <span className="text-[9px] px-1.5 py-0.2 bg-primary/10 text-primary font-bold rounded">
-                              {tx.debtRole === 'principal' ? 'Pokok' : tx.debtRole === 'offset' ? 'Potong Silang' : 'Cicilan'}
-                            </span>
-                          )}
+                  {principalBalances.unallocated > 0 && (
+                    <div className="p-2 mb-1 rounded-lg bg-surface-variant/40 border border-outline-variant/40 text-[11px] flex justify-between items-center">
+                      <span className="text-on-surface-variant">Pembayaran belum dialokasikan per-nota:</span>
+                      <span className="font-bold text-primary">{fmt(principalBalances.unallocated, currencySymbol)}</span>
+                    </div>
+                  )}
+                  {history.map(tx => {
+                    const isPrincipal = tx.debtRole === 'principal';
+                    const notaStatus = isPrincipal ? notaMap.get(tx.id) : undefined;
+
+                    return (
+                      <div 
+                        key={tx.id} 
+                        onClick={() => onHistoryClick?.(tx)} 
+                        className={`flex justify-between items-center p-2 rounded-xl transition-colors ${onHistoryClick ? 'cursor-pointer hover:bg-surface-subtle bg-surface-container-low/50' : 'bg-surface-container-low/30'}`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="text-xs font-bold text-on-surface truncate">{tx.note || 'Transaksi Hutang'}</div>
+                          <div className="text-[10px] text-on-surface-variant flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span>{tx.date}</span>
+                            {tx.debtRole && (
+                              <span className="text-[9px] px-1.5 py-0.2 bg-primary/10 text-primary font-bold rounded">
+                                {tx.debtRole === 'principal' ? 'Pokok' : tx.debtRole === 'offset' ? 'Potong Silang' : 'Cicilan'}
+                              </span>
+                            )}
+                            {/* Status per-nota untuk transaksi pokok */}
+                            {isPrincipal && notaStatus && (
+                              notaStatus.isPaid ? (
+                                <span className="text-[9px] px-1.5 py-0.2 bg-success/15 text-success font-extrabold rounded">
+                                  ✓ LUNAS
+                                </span>
+                              ) : notaStatus.paid > 0 ? (
+                                <span className="text-[9px] px-1.5 py-0.2 bg-warning/20 text-warning font-bold rounded">
+                                  Sisa: {fmt(notaStatus.remaining, currencySymbol)}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.2 bg-surface-variant text-on-surface-variant font-semibold rounded">
+                                  Belum Dibayar
+                                </span>
+                              )
+                            )}
+                            {/* Status alokasi untuk transaksi pembayaran */}
+                            {tx.debtRole === 'payment' && (
+                              tx.debtAllocations && tx.debtAllocations.length > 0 ? (
+                                <span className="text-[9px] px-1.5 py-0.2 bg-primary/10 text-primary font-bold rounded">
+                                  {tx.debtAllocations.length} nota dialokasikan
+                                </span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.2 bg-surface-variant text-on-surface-variant/80 font-semibold rounded italic">
+                                  Belum dialokasikan
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
+                        <div className={`font-extrabold text-xs shrink-0 ${tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk' ? 'text-success' : 'text-on-surface'}`}>
+                          {tx.type === 'pengeluaran' || tx.type === 'hutang_keluar' || tx.type === 'piutang_keluar' ? '-' : '+'}{fmt(tx.amount, currencySymbol)}
                         </div>
                       </div>
-                      <div className={`font-extrabold text-xs shrink-0 ${tx.type === 'pendapatan' || tx.type === 'piutang_masuk' || tx.type === 'hutang_masuk' ? 'text-success' : 'text-on-surface'}`}>
-                        {tx.type === 'pengeluaran' || tx.type === 'hutang_keluar' || tx.type === 'piutang_keluar' ? '-' : '+'}{fmt(tx.amount, currencySymbol)}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -807,11 +855,11 @@ const Debts: React.FC = () => {
           assets={assets}
           currencySymbol={currencySymbol}
           paidAmountFromTxs={calculateDebtBalance(payingDebt, transactions, categories).totalPaid}
-          onConfirm={(amt, assetId, date, time, note, isFull, excessSplit) => {
+          onConfirm={(amt, assetId, date, time, note, isFull, excessSplit, allocations) => {
             if (isFull) {
-              settleDebt(payingDebt.id, assetId, date, time, amt);
+              settleDebt(payingDebt.id, assetId, date, time, amt, allocations);
             } else {
-              addDebtPayment(payingDebt.id, amt, assetId, date, time, note);
+              addDebtPayment(payingDebt.id, amt, assetId, date, time, note, allocations);
             }
 
             // Catat selisih kelebihan bayar/pembulatan jika ada opsi split aktif

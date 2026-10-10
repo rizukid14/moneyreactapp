@@ -16,7 +16,8 @@ import {
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
   dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync, localDbGetSetting, localDbPutSetting,
   dbGetAllNotifications, dbPutNotification, dbDeleteNotification, dbClearAllNotifications,
-  getWorkspacePath, getSyncWorkspace, dbGetRecurringExceptions, dbAddRecurringSkip
+  getWorkspacePath, getSyncWorkspace, dbGetRecurringExceptions, dbAddRecurringSkip,
+  dbUpdateSharedSplitPayment
 } from '../lib/db';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -145,6 +146,8 @@ export interface Debt {
   tripId?: string; // Link to trip
   relatedId?: string; // General link to related items (e.g. TripExpense)
   excludeAutoOffset?: boolean; // Exclude from auto-offset potong silang
+  sourceSplitId?: string;     // Link to shared_splits sourceId (for split bill sync)
+  sourceSplitMember?: string; // Member name in the split (for split bill sync)
   updatedAt?: number;
   isDeleted?: boolean;
   createdBy?: string;
@@ -251,6 +254,11 @@ export interface ItemizedDetail {
   subCategoryId?: string;
 }
 
+export interface DebtAllocation {
+  principalTxId: string;   // id transaksi principal (nota) yang dibayar
+  amount: number;          // nominal yang dialokasikan ke nota itu
+}
+
 export interface Transaction {
   id: string;
   type: 'pengeluaran' | 'pendapatan' | 'transfer' | 'piutang_keluar' | 'piutang_masuk' | 'hutang_masuk' | 'hutang_keluar';
@@ -267,6 +275,7 @@ export interface Transaction {
   relatedId?: string; // Links to Debt.id, etc.
   sourceRecurringId?: string; // If auto-generated from a recurring rule
   debtRole?: DebtTransactionRole; // 'principal' | 'payment' | 'offset'
+  debtAllocations?: DebtAllocation[]; // Alokasi pembayaran ke nota-nota spesifik
   goalId?: string; // Links to Goal.id
   currency?: string; // 'IDR' | 'USD' | 'SGD' | 'JPY' | 'SAR'
   exchangeRate?: number; // Kurs ke IDR saat transaksi dicatat
@@ -420,8 +429,8 @@ interface MoneyContextType {
   addGoal: (goal: Omit<Goal, 'id' | 'createdAt' | 'isCompleted'>) => Goal;
   updateGoal: (id: string, goal: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
-  settleDebt: (debtId: string, assetId?: string, date?: string, time?: string, amount?: number) => void;
-  addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
+  settleDebt: (debtId: string, assetId?: string, date?: string, time?: string, amount?: number, allocations?: DebtAllocation[]) => void;
+  addDebtPayment: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string, allocations?: DebtAllocation[]) => void;
   addDebtPrincipal: (debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => void;
   offsetDebt: (contactName: string, customDate?: string) => void;
   getAssetBalance: (assetId: string) => number;
@@ -1717,21 +1726,23 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Normal active debt transaction creation (isPaid === false)
       if (newDebt.type === 'piutang') {
         if (newDebt.paymentAssetId) {
+          const billDesc = newDebt.description?.trim();
           _createTx({
             type: 'piutang_keluar',
             amount: newDebt.principalAmount || newDebt.totalAmount,
             categoryId: 'sys-cat-receivable-pay',
             date,
             time,
-            note: existingDebt
-              ? `Penambahan Piutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
-              : `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`,
+            note: billDesc
+              ? `Piutang ${newDebt.contact}: ${billDesc}`
+              : (existingDebt ? `Penambahan Piutang: ${newDebt.contact}` : `Pemberian pinjaman (Piutang) kepada ${newDebt.contact}`),
             assetId: newDebt.paymentAssetId,
             relatedId: debtId,
             debtRole: 'principal',
           });
         }
       } else {
+        const billDesc = newDebt.description?.trim();
         if (initialMode === 'cash' && newDebt.paymentAssetId) {
           _createTx({
             type: 'hutang_masuk',
@@ -1740,9 +1751,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             subCategoryId: subCategoryIdName,
             date,
             time,
-            note: existingDebt
-              ? `Penambahan Hutang: ${newDebt.contact} (${newDebt.description || 'Baru'})`
-              : `Penerimaan dana pinjaman dari ${newDebt.contact}`,
+            note: billDesc
+              ? `Hutang dari ${newDebt.contact}: ${billDesc}`
+              : (existingDebt ? `Penambahan Hutang: ${newDebt.contact}` : `Penerimaan dana pinjaman dari ${newDebt.contact}`),
             assetId: newDebt.paymentAssetId,
             relatedId: debtId,
             debtRole: 'principal',
@@ -1755,9 +1766,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             subCategoryId: subCategoryIdName,
             date,
             time,
-            note: existingDebt
-              ? `Penambahan Hutang (Kredit): ${newDebt.contact} (${newDebt.description || 'Baru'})`
-              : `Belanja via ${newDebt.contact}: ${newDebt.description || 'Hutang Kredit'}`,
+            note: billDesc
+              ? `Belanja via ${newDebt.contact}: ${billDesc}`
+              : (existingDebt ? `Penambahan Hutang (Kredit): ${newDebt.contact}` : `Belanja via ${newDebt.contact}`),
             assetId: newDebt.liabilityAssetId,
             relatedId: debtId,
             debtRole: 'principal',
@@ -2093,7 +2104,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setDebts(prev => prev.map(d => d.id === debtId ? updated : d));
   }, [debts, transactions, categories, _createTx]);
 
-  const settleDebt = useCallback((debtId: string, overrideAssetId?: string, overrideDate?: string, overrideTime?: string, overrideAmount?: number) => {
+  const settleDebt = useCallback((debtId: string, overrideAssetId?: string, overrideDate?: string, overrideTime?: string, overrideAmount?: number, allocations?: DebtAllocation[]) => {
     const debt = debts.find(d => d.id === debtId);
     if (!debt || debt.isPaid) return;
 
@@ -2121,6 +2132,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             toAssetId: debt.liabilityAssetId,
             relatedId: debtId,
             debtRole: 'payment',
+            debtAllocations: allocations && allocations.length > 0 ? allocations : undefined,
           });
         } else {
           _createTx({
@@ -2133,6 +2145,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             assetId: overrideAssetId || debt.paymentAssetId,
             relatedId: debtId,
             debtRole: 'payment',
+            debtAllocations: allocations && allocations.length > 0 ? allocations : undefined,
           });
         }
       } else {
@@ -2146,6 +2159,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           assetId: overrideAssetId || debt.receiveAssetId || debt.paymentAssetId,
           relatedId: debtId,
           debtRole: 'payment',
+          debtAllocations: allocations && allocations.length > 0 ? allocations : undefined,
         });
       }
     }
@@ -2157,9 +2171,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
     dbPutDebt(updated);
     setDebts(prev => prev.map(d => d.id === debtId ? updated : d));
+
+    // Sinkronkan status lunas ke dokumen publik shared_splits jika hutang ini berasal dari split bill
+    if (debt.sourceSplitId && debt.sourceSplitMember) {
+      dbUpdateSharedSplitPayment(debt.sourceSplitId, debt.sourceSplitMember, amountToRecord);
+    }
   }, [debts, transactions, categories, _createTx]);
 
-  const addDebtPayment = useCallback((debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => {
+  const addDebtPayment = useCallback((debtId: string, amount: number, assetId: string, date: string, time: string, note: string, allocations?: DebtAllocation[]) => {
     const debt = debts.find(d => d.id === debtId);
     if (!debt) return;
 
@@ -2176,6 +2195,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           toAssetId: debt.liabilityAssetId,
           relatedId: debtId,
           debtRole: 'payment',
+          debtAllocations: allocations && allocations.length > 0 ? allocations : undefined,
         });
       } else {
         _createTx({
@@ -2188,6 +2208,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           assetId,
           relatedId: debtId,
           debtRole: 'payment',
+          debtAllocations: allocations && allocations.length > 0 ? allocations : undefined,
         });
       }
     } else {
@@ -2201,6 +2222,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         assetId,
         relatedId: debtId,
         debtRole: 'payment',
+        debtAllocations: allocations && allocations.length > 0 ? allocations : undefined,
       });
     }
 
@@ -2222,6 +2244,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     dbPutDebt(updatedDebt);
     setDebts(prev => prev.map(d => d.id === debtId ? updatedDebt : d));
+
+    // Sinkronkan status lunas ke dokumen publik shared_splits jika hutang ini berasal dari split bill
+    if (debt.sourceSplitId && debt.sourceSplitMember) {
+      dbUpdateSharedSplitPayment(debt.sourceSplitId, debt.sourceSplitMember, amount);
+    }
   }, [debts, transactions, categories, _createTx]);
 
   const addDebtPrincipal = useCallback((debtId: string, amount: number, assetId: string, date: string, time: string, note: string) => {

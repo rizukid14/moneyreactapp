@@ -753,6 +753,7 @@ const ReceiptScanner: React.FC = () => {
 
         // 2. Others' portions as Piutang (Debts)
         const others = splits.filter(s => s.id !== 'me' && s.amount > 0);
+        const splitSourceId = `${merchantName || 'Struk'}-${selectedDate}-${splits.reduce((s, x) => s + x.amount, 0)}`;
         others.forEach(person => {
           addDebt({
             type: 'piutang',
@@ -764,7 +765,9 @@ const ReceiptScanner: React.FC = () => {
             createdAt: new Date().toISOString(),
             paymentAssetId: selectedAssetId,
             isInstallment: false,
-            paidInstallments: 0
+            paidInstallments: 0,
+            sourceSplitId: splitSourceId,
+            sourceSplitMember: person.contactName,
           }, 'none', selectedCategory || 'Lainnya');
         });
         showToast(`Split bill disimpan! (${others.length} piutang dicatat)`, 'success');

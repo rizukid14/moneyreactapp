@@ -142,7 +142,13 @@ const SharedBillsManagerModal: React.FC<SharedBillsManagerModalProps> = ({ isOpe
                               {split.currencySymbol}{split.totalAmount.toLocaleString('id-ID')}
                             </div>
                             <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>
-                              {split.type === 'trip' ? `${(split.members || []).length} Members` : `${split.splits.length} Items`}
+                              {(() => {
+                                const paidCount = split.type === 'trip'
+                                  ? Object.keys(split.memberPayments || {}).length
+                                  : split.splits.filter((s: any) => s.isPayer || Boolean(split.memberPayments?.[s.contactName])).length;
+                                const totalCount = split.type === 'trip' ? (split.members || []).length : split.splits.length;
+                                return `${paidCount}/${totalCount} Lunas`;
+                              })()}
                             </div>
                           </div>
                         </div>

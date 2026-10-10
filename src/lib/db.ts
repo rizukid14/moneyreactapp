@@ -819,6 +819,7 @@ export interface SharedSplit {
   createdAt: number;
   shareToken?: string;    // Opaque token; link is only valid while present & unexpired
   expiresAt?: number;     // Epoch ms — link stops working after this time
+  memberPayments?: Record<string, { paidAt: number; amount: number }>; // Catatan anggota yang sudah lunas (Split Bill sync)
   paymentDetails?: {
     bankName: string;
     accountName: string;
@@ -889,6 +890,48 @@ export const dbGetSharedSplit = async (id: string, _token?: string): Promise<Sha
 export const dbDeleteSharedSplit = async (id: string) => {
   if (!isFirebaseConfigured || !auth.currentUser) return;
   await deleteDoc(doc(firestore, 'shared_splits', id));
+};
+
+export const dbUpdateSharedSplitPayment = async (
+  sourceIdOrDocId: string,
+  memberName: string,
+  amount: number
+): Promise<void> => {
+  if (!isFirebaseConfigured || !auth.currentUser) return;
+  try {
+    const uid = getUid();
+    const docRef = doc(firestore, 'shared_splits', sourceIdOrDocId);
+    let targetDocSnap = await getDoc(docRef);
+
+    if (!targetDocSnap.exists()) {
+      const q = query(
+        collection(firestore, 'shared_splits'),
+        where('creatorId', '==', uid),
+        where('sourceId', '==', sourceIdOrDocId)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        targetDocSnap = snap.docs[0];
+      }
+    }
+
+    if (targetDocSnap.exists()) {
+      const data = targetDocSnap.data() as SharedSplit;
+      if (data.creatorId !== uid) return;
+
+      const memberPayments = {
+        ...(data.memberPayments || {}),
+        [memberName]: {
+          paidAt: Date.now(),
+          amount: (data.memberPayments?.[memberName]?.amount || 0) + amount
+        }
+      };
+
+      await setDoc(targetDocSnap.ref, { memberPayments, updatedAt: Date.now() }, { merge: true });
+    }
+  } catch (err) {
+    console.warn('[dbUpdateSharedSplitPayment] Gagal memperbarui status lunas shared split:', err);
+  }
 };
 
 export const dbGetMySharedSplits = async (): Promise<SharedSplit[]> => {
