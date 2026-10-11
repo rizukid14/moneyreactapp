@@ -420,6 +420,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
   const cardSymbol = SUPPORTED_CURRENCIES.find(c => c.code === asset.currency)?.symbol || currencySymbol;
   const isLiability = asset.type === 'Credit Card' || asset.type === 'Loan';
   const isBankLike = asset.type === 'Bank Account' || asset.type === 'Credit Card' || asset.type === 'Savings';
+  const isEmergencyShield = asset.isEmergencyFund;
 
   const [dragX, setDragX] = useState(0);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -464,118 +465,121 @@ const AssetCard: React.FC<AssetCardProps> = ({
         <div
           data-testid={`asset-card-${asset.id}`}
           onClick={onSelect}
-          className={`relative overflow-hidden p-5 rounded-[24px] cursor-pointer group hover:-translate-y-1.5 transition-all duration-300 shadow-sm hover:shadow-xl border h-full ${
+          className={`relative overflow-hidden p-5 rounded-3xl cursor-pointer group hover:-translate-y-1 transition-all duration-300 shadow-bento border ${
             isHidden 
-              ? 'border-dashed border-outline-variant/50 opacity-60 hover:opacity-100' 
+              ? 'border-dashed border-outline-variant/60 opacity-60 hover:opacity-100 bg-bg-card' 
               : isBestCC
-                ? 'border-2 border-emerald-500 shadow-emerald-500/10'
-                : 'border-white/40 dark:border-white/5'
-          } ${
-            isLiability 
-              ? isHidden 
-                ? 'bg-gradient-to-br from-error-container/40 to-error-container/10 dark:from-error/10 dark:to-error/5'
-                : 'bg-gradient-to-br from-error-container/80 to-error-container/20 dark:from-error/20 dark:to-error/5'
-              : color === 'primary' 
-                ? isHidden 
-                  ? 'bg-gradient-to-br from-primary-container/40 to-primary-container/10 dark:from-primary/10 dark:to-primary/5'
-                  : 'bg-gradient-to-br from-primary-container/80 to-primary-container/20 dark:from-primary/20 dark:to-primary/5'
-                : color === 'success'
-                  ? 'bg-gradient-to-br from-[#10b981]/10 to-[#10b981]/5 dark:from-[#10b981]/10 dark:to-[#10b981]/5'
-                  : 'bg-gradient-to-br from-surface-container to-surface-container-lowest'
+                ? 'border-2 border-primary shadow-emerald-500/10 bg-bg-card'
+                : 'border-outline-variant/30 hover:border-outline-variant/60 bg-bg-card'
           }`}
         >
-          <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-[24px] opacity-40 transition-opacity duration-500 group-hover:opacity-70 ${
-             isLiability ? 'bg-error' : color === 'primary' ? 'bg-primary' : color === 'success' ? 'bg-[#10b981]' : 'bg-outline-variant'
+          {/* Ambient Glow Blob Bento */}
+          <div className={`absolute -right-8 -top-8 w-28 h-28 rounded-full blur-2xl opacity-15 transition-opacity duration-500 group-hover:opacity-30 ${
+             isLiability ? 'bg-error' : color === 'primary' ? 'bg-primary' : color === 'success' ? 'bg-[#10b981]' : 'bg-secondary'
           }`}></div>
 
-          <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent dark:from-white/5 pointer-events-none"></div>
-
-          <div className="relative z-10 h-full flex flex-col justify-between min-h-[140px]">
+          <div className="relative z-10 h-full flex flex-col justify-between min-h-[148px]">
+            {/* Header: Icon Squircle + Action */}
             <div className="flex justify-between items-start">
-              <div className="flex items-center gap-2">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm backdrop-blur-md border border-white/50 dark:border-white/10 transition-transform duration-300 group-hover:scale-110
-                  ${color === 'primary' ? 'bg-white/60 text-primary dark:bg-black/20' : 
-                    color === 'error' ? 'bg-white/60 text-error dark:bg-black/20' : 
-                    color === 'success' ? 'bg-white/60 text-[#10b981] dark:bg-black/20' : 
-                    'bg-white/60 text-on-surface-variant dark:bg-black/20'}`}
+              <div className="flex items-center gap-2.5">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs transition-transform duration-300 group-hover:scale-105
+                  ${isLiability ? 'bg-error/15 text-error' : 
+                    color === 'primary' ? 'bg-primary-container text-primary-color' : 
+                    color === 'success' ? 'bg-income text-primary-color' : 
+                    'bg-secondary-container text-secondary'}`}
                 >
-                  <MaterialIcon name={Icon} className="text-[20px]" />
+                  <MaterialIcon name={Icon} className="text-[22px]" />
                 </div>
+                {isEmergencyShield && (
+                  <div className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full flex items-center gap-1 border border-primary/20">
+                    <MaterialIcon name="shield" className="text-[12px]" />
+                    <span className="hidden sm:inline">Dana Darurat</span>
+                  </div>
+                )}
               </div>
 
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
                   onClick={e => { e.stopPropagation(); onEdit(); }} 
-                  className="p-1.5 text-on-surface-variant hover:text-primary bg-white/50 hover:bg-white/90 dark:bg-black/30 dark:hover:bg-black/60 backdrop-blur-sm rounded-full transition-colors shadow-sm"
+                  className="p-1.5 text-on-surface-variant hover:text-primary bg-surface-container hover:bg-surface-container-high rounded-full transition-colors shadow-xs"
+                  title="Edit Aset"
                 >
                   <MaterialIcon name="edit" className="text-[14px]" />
                 </button>
               </div>
             </div>
             
+            {/* Body: Name, Number, Badges, Balance */}
             <div className="mt-4">
-              <div className="flex flex-wrap items-start justify-between gap-1 mb-1">
+              <div className="flex flex-wrap items-start justify-between gap-1 mb-1.5">
                 <div className="min-w-0 flex-1">
-                  <div className="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider truncate opacity-80">{asset.name}</div>
+                  <div className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant font-bold truncate">
+                    {asset.name}
+                  </div>
                   {isBankLike && (
-                    <div className="font-mono text-[10px] tracking-widest opacity-60 mt-0.5">
-                      •••• •••• {asset.accountNumber ? asset.accountNumber.slice(-4).padStart(4, '•') : asset.id.replace(/[^0-9]/g, '').padEnd(4, '0').slice(-4)}
+                    <div className="font-mono text-[10px] tracking-widest text-on-surface-variant/70 mt-0.5">
+                      •••• {asset.accountNumber ? asset.accountNumber.slice(-4).padStart(4, '•') : asset.id.replace(/[^0-9]/g, '').padEnd(4, '0').slice(-4)}
                     </div>
                   )}
                 </div>
+
                 {asset.type === 'Credit Card' ? (
                   isBestCC ? (
-                    <div className="text-[8.5px] sm:text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/15 border border-emerald-500/30 px-1.5 sm:px-2 py-0.5 rounded-md tracking-tight whitespace-nowrap shrink-0">
-                      ⭐ REKOMENDASI HARI INI
+                    <div className="text-[9px] text-primary font-bold bg-primary/10 border border-primary/25 px-2 py-0.5 rounded-full tracking-tight shrink-0 flex items-center gap-1">
+                      <span>⭐ Rekomendasi</span>
                     </div>
                   ) : (
-                    <div className="text-[8.5px] sm:text-[9px] text-error font-extrabold bg-error/10 dark:bg-error/20 px-1.5 sm:px-2 py-0.5 rounded-md tracking-wider shrink-0">
+                    <div className="text-[9px] text-error font-bold bg-error/10 px-2 py-0.5 rounded-full tracking-wider shrink-0">
                       HUTANG
                     </div>
                   )
                 ) : isLiability && (
-                  <div className="text-[8.5px] sm:text-[9px] text-error font-extrabold bg-error/10 dark:bg-error/20 px-1.5 sm:px-2 py-0.5 rounded-md tracking-wider shrink-0">
+                  <div className="text-[9px] text-error font-bold bg-error/10 px-2 py-0.5 rounded-full tracking-wider shrink-0">
                     HUTANG
                   </div>
                 )}
               </div>
               
-              <div className="text-xl md:text-2xl font-black tracking-tight truncate">
+              <div className="text-xl md:text-2xl font-bold tracking-tight text-on-surface truncate">
                 {isPrivateMode ? `${cardSymbol} ••••••••` : `${cardSymbol}${displayBalance.toLocaleString('id-ID')}`}
               </div>
               {asset.currency && asset.currency !== 'IDR' && (
-                <div className="text-[11px] font-extrabold text-on-surface-variant/70 mt-0.5 flex items-center gap-1">
+                <div className="text-[11px] font-semibold text-on-surface-variant/70 mt-0.5 flex items-center gap-1">
                   <span>≈ {isPrivateMode ? 'Rp ••••••••' : `Rp ${convertToBaseIDR(displayBalance, asset.currency).toLocaleString('id-ID')}`}</span>
                 </div>
               )}
               
-              {/* Bottom Stats Row */}
-              <div className="mt-3 flex items-center justify-between opacity-80 bg-black/5 dark:bg-white/5 rounded-lg px-2.5 py-1.5">
+              {/* Bottom Stats Row: Bento Minimalist */}
+              <div className="mt-3 flex items-center justify-between text-on-surface-variant text-[10px] font-medium bg-surface-container-lowest/60 dark:bg-surface-container/40 rounded-xl px-2.5 py-1.5 border border-outline-variant/30">
                 {asset.type === 'Credit Card' ? (
                   <>
-                    <div className="flex items-center gap-1 text-on-surface-variant text-[9px] font-bold">
-                      <MaterialIcon name="event" className="text-[11px] text-primary" />
-                      <span>Cetak: Tgl {asset.statementCutoffDay || 15} &bull; Due: Tgl {asset.paymentDueDay || 5}</span>
+                    <div className="flex items-center gap-1 truncate">
+                      <MaterialIcon name="event" className="text-[12px] text-primary" />
+                      <span>Cetak {asset.statementCutoffDay || 15} &bull; Due {asset.paymentDueDay || 5}</span>
                     </div>
                     {unbilledAmount !== undefined && unbilledAmount > 0 && (
-                      <div className="text-[9px] text-amber-600 dark:text-amber-400 font-extrabold">
-                        Unbilled: {cardSymbol}{(unbilledAmount / 1000).toFixed(0)}k
+                      <div className="text-error font-bold shrink-0 ml-1">
+                        Tagihan: {cardSymbol}{(unbilledAmount / 1000).toFixed(0)}k
                       </div>
                     )}
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-1.5">
-                      <MaterialIcon name="update" className="text-[11px]" />
-                      <span className="text-[9px] font-bold uppercase tracking-wider">
-                        {stats.count === 0 ? 'Belum Aktif' : `Aktif: ${stats.lastActive}`}
-                      </span>
+                    <div className="flex items-center gap-1 truncate opacity-80">
+                      <MaterialIcon name="update" className="text-[12px]" />
+                      <span>{stats.count === 0 ? 'Belum aktif' : stats.lastActive}</span>
                     </div>
                     
                     {stats.count > 0 && (
-                      <div className="flex items-center gap-2 text-[9px] font-bold">
-                        <span className="text-primary flex items-center"><MaterialIcon name="arrow_drop_up" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.income/1000).toFixed(0)}k</span>
-                        <span className="text-error flex items-center"><MaterialIcon name="arrow_drop_down" className="text-[12px] -mr-0.5" />{isPrivateMode ? '•••' : (stats.expense/1000).toFixed(0)}k</span>
+                      <div className="flex items-center gap-2 font-bold shrink-0 ml-1">
+                        <span className="text-primary-color flex items-center">
+                          <MaterialIcon name="arrow_drop_up" className="text-[14px] -mr-0.5" />
+                          {isPrivateMode ? '•••' : (stats.income/1000).toFixed(0)}k
+                        </span>
+                        <span className="text-error flex items-center">
+                          <MaterialIcon name="arrow_drop_down" className="text-[14px] -mr-0.5" />
+                          {isPrivateMode ? '•••' : (stats.expense/1000).toFixed(0)}k
+                        </span>
                       </div>
                     )}
                   </>
