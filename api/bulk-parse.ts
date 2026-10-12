@@ -1,5 +1,7 @@
 import OpenAI from "openai";
-import { verifyAuth, checkAndConsumeQuota } from './_admin.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { verifyAuth, checkAndConsumeQuota, getErrorResponse } from './_admin.js';
+import type { ServerCategory, ServerAsset, ServerUserHistoryItem } from './_types.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -13,7 +15,7 @@ export const config = {
   },
 };
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -21,14 +23,15 @@ export default async function handler(req: any, res: any) {
   const user = await verifyAuth(req, res);
   if (!user) return;
 
-  let quotaResult: any = null;
+  let quotaResult: Awaited<ReturnType<typeof checkAndConsumeQuota>> | null = null;
   try {
     quotaResult = await checkAndConsumeQuota(user.uid, 'bulk');
     if (!quotaResult.allowed) {
       return res.status(403).json(quotaResult);
     }
-  } catch (e: any) {
-    return res.status(e.status || 500).json({ message: e.message });
+  } catch (e: unknown) {
+    const { status, message } = getErrorResponse(e);
+    return res.status(status).json({ message });
   }
 
   try {
@@ -42,23 +45,27 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ message: 'OPENAI_API_KEY is not configured on the server.' });
     }
 
-    const categoryWithSubs = categories?.length > 0
-      ? categories.map((c: any) => {
+    const categoriesTyped = (categories || []) as ServerCategory[];
+    const assetsTyped = (assets || []) as ServerAsset[];
+    const userHistoryTyped = (userHistory || []) as ServerUserHistoryItem[];
+
+    const categoryWithSubs = categoriesTyped.length > 0
+      ? categoriesTyped.map((c: ServerCategory) => {
           const subs = (c.subcategories || [])
-            .map((s: any) => typeof s === 'string' ? s : s?.name || '')
+            .map((s) => typeof s === 'string' ? s : s?.name || '')
             .filter(Boolean);
           return `${c.name}${subs.length > 0 ? ` (Sub-kategori: ${subs.join(', ')})` : ''}`;
         }).join(' | ')
       : "None";
-    const assetList = assets?.length > 0 ? assets.map((a: any) => a.name).join(',') : "None";
-    const defaultAsset = assets?.find((a: any) => a.id === defaultAssetId);
+    const assetList = assetsTyped.length > 0 ? assetsTyped.map((a: ServerAsset) => a.name).join(',') : "None";
+    const defaultAsset = assetsTyped.find((a: ServerAsset) => a.id === defaultAssetId);
     const defaultAssetHint = defaultAsset ? ` (Default: ${defaultAsset.name})` : "";
     const dateContext = currentDate || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
-    const userHistorySection = userHistory?.length > 0
+    const userHistorySection = userHistoryTyped.length > 0
       ? `\n\n    USER'S PERSONAL TRANSACTION HISTORY & HABITS (RAG Context):
     The user has previously categorized similar merchants/notes as follows:
-${userHistory.map((h: any) => `    - "${h.note}" -> Category: "${h.category}"${h.subCategory ? `, Sub-kategori: "${h.subCategory}"` : ''}`).join('\n')}
+${userHistoryTyped.map((h: ServerUserHistoryItem) => `    - "${h.note}" -> Category: "${h.category}"${h.subCategory ? `, Sub-kategori: "${h.subCategory}"` : ''}`).join('\n')}
     CRITICAL PERSONALIZATION RULE: If the merchant/item relates to any of the user's past habits above (e.g. coffee/kopi shops, grocery stores, recurring bills), you MUST strictly adopt their category/subcategory style instead of generic defaults!`
       : '';
 
@@ -118,7 +125,7 @@ ${userHistory.map((h: any) => `    - "${h.note}" -> Category: "${h.category}"${h
     
     Respond STRICTLY in JSON: { "documentType": "bank_statement", "isValidTransaction": true, "validationMessage": "", "transactions": [{ "type": "...", "amount": 0, "date": "...", "note": "...", "category": "...", "subCategory": "...", "asset": "...", "fromAsset": "...", "toAsset": "...", "adminFee": 0, "adminFeeTarget": "sender" }] }`;
 
-    const messageContent: any[] = [{ type: "text", text: prompt }];
+    const messageContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [{ type: "text", text: prompt }];
     if (image) {
       messageContent.push({
         type: "image_url",
@@ -148,11 +155,12 @@ ${userHistory.map((h: any) => `    - "${h.note}" -> Category: "${h.category}"${h
     parsedData.isPremium = quotaResult?.isPremium;
 
     return res.status(200).json(parsedData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Bulk Parse API Error:', error);
-    return res.status(500).json({
+    const { status, message } = getErrorResponse(error);
+    return res.status(status).json({
       message: 'Bulk Parse Failed',
-      error: error.message
+      error: message
     });
   }
 }

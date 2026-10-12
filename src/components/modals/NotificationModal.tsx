@@ -19,7 +19,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ isOpen, on
 
   // Create a combined list of persistent notifications + real-time system notifications (like cloud sync)
   const displayNotifs = useMemo(() => {
-    let combined = [...notifications];
+    const combined = [...notifications];
 
     // Real-time: Cloud Sync
     if (pendingSyncCount > 0) {

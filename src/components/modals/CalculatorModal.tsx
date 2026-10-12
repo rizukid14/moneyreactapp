@@ -58,7 +58,7 @@ const CalculatorModal: React.FC<CalculatorModalProps> = ({ isOpen, onClose, onCo
         safeExp = safeExp.slice(0, -1);
       }
 
-      // eslint-disable-next-line no-new-func
+       
       const evalResult = new Function('return ' + safeExp)();
       
       if (typeof evalResult === 'number' && !isNaN(evalResult) && isFinite(evalResult)) {
@@ -79,7 +79,7 @@ const CalculatorModal: React.FC<CalculatorModalProps> = ({ isOpen, onClose, onCo
         if (['+', '-', '*', '/'].includes(safeExp.slice(-1))) {
           safeExp = safeExp.slice(0, -1);
         }
-        // eslint-disable-next-line no-new-func
+         
         const evalResult = new Function('return ' + safeExp)();
         if (typeof evalResult === 'number' && !isNaN(evalResult) && isFinite(evalResult)) {
           finalValue = Math.floor(evalResult);
@@ -110,7 +110,7 @@ const CalculatorModal: React.FC<CalculatorModalProps> = ({ isOpen, onClose, onCo
       if (['+', '-', '*', '/'].includes(safeExp.slice(-1))) {
         safeExp = safeExp.slice(0, -1);
       }
-      // eslint-disable-next-line no-new-func
+       
       const evalResult = new Function('return ' + safeExp)();
       if (typeof evalResult === 'number' && !isNaN(evalResult) && isFinite(evalResult) && evalResult.toString() !== safeExp) {
         return `= ${Math.floor(evalResult).toLocaleString('id-ID')}`;

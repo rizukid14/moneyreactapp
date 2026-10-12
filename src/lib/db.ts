@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import { collection, doc, getDocs, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, type DocumentData } from 'firebase/firestore';
 import { auth, db as firestore, isFirebaseConfigured } from './firebase';
-import type { Asset, Transaction, Category, UserProfile, Contact, Goal } from '../contexts/MoneyContext';
+import type { Asset, Transaction, Category, UserProfile, Contact, Goal, Budget, Debt, RecurringTransaction, Subscription, NotificationItem, Trip, TripExpense, MonthlyIncome, BudgetReallocation } from '../contexts/MoneyContext';
 import { query, where, orderBy } from 'firebase/firestore';
 import { generateId } from './utils';
 import { getDeltaLastSyncTimestamp, setDeltaLastSyncTimestamp } from './deltaSync';
@@ -25,15 +25,21 @@ export const setSyncWorkspace = async (workspaceId: string | null) => {
 
 export const getSyncWorkspace = () => activeWorkspaceId;
 
-const enrichWithMetadata = (data: any) => {
+type SyncMetadata = {
+  updatedAt: number;
+  updatedBy?: string;
+  createdBy?: string;
+};
+
+const enrichWithMetadata = <T extends object>(data: T): T & SyncMetadata => {
   const currentWorkspaceId = activeWorkspaceId;
-  const meta: any = {
+  const meta: SyncMetadata = {
     updatedAt: Date.now(),
   };
   
   if (currentWorkspaceId && auth.currentUser) {
     meta.updatedBy = auth.currentUser.uid;
-    if (!data.createdBy) {
+    if (!(data as { createdBy?: string }).createdBy) {
       meta.createdBy = auth.currentUser.uid;
     }
   }
@@ -41,39 +47,39 @@ const enrichWithMetadata = (data: any) => {
   return { ...data, ...meta };
 };
 
-const putEntity = async (storeName: string, item: any, options?: { skipSync?: boolean }) => {
+const putEntity = async <K extends EntityStoreName>(storeName: K, item: StoreValue<K> & EntityRecord, options?: { skipSync?: boolean }) => {
   const db = await getDB();
-  const existing = await db.get(storeName as any, item.id);
+  const existing = await db.get(storeName, item.id);
   if (existing?.isDeleted && item.isDeleted === undefined) {
     item = { ...item, isDeleted: true };
   }
   const enriched = enrichWithMetadata(item);
-  await db.put(storeName as any, enriched);
+  await db.put(storeName, enriched);
   if (options?.skipSync) return enriched;
 
   await recordPendingSync({ id: item.id, collection: storeName, operation: 'PUT', data: enriched });
 
   if (!isFirebaseConfigured || !auth.currentUser) return enriched;
-  setDoc(doc(collection(firestore, getWorkspacePath(storeName)), item.id), sanitizeForFirestore(enriched))
+  setDoc(doc(collection(firestore, getWorkspacePath(storeName)), item.id), sanitizeForFirestore(enriched) as DocumentData)
     .then(() => removePendingSync(item.id))
     .catch(() => { });
   return enriched;
 };
 
-const softDeleteEntity = async (storeName: string, id: string) => {
+const softDeleteEntity = async <K extends EntityStoreName>(storeName: K, id: string) => {
   const db = await getDB();
-  const existing = await db.get(storeName as any, id);
+  const existing = await db.get(storeName, id);
   if (existing) {
     const tombstone = enrichWithMetadata({ ...existing, isDeleted: true });
-    await db.put(storeName as any, tombstone);
+    await db.put(storeName, tombstone);
     await recordPendingSync({ id, collection: storeName, operation: 'PUT', data: tombstone });
 
     if (!isFirebaseConfigured || !auth.currentUser) return;
-    setDoc(doc(collection(firestore, getWorkspacePath(storeName)), id), sanitizeForFirestore(tombstone))
+    setDoc(doc(collection(firestore, getWorkspacePath(storeName)), id), sanitizeForFirestore(tombstone) as DocumentData)
       .then(() => removePendingSync(id))
       .catch(() => { });
   } else {
-    await db.delete(storeName as any, id);
+    await db.delete(storeName, id);
     await recordPendingSync({ id, collection: storeName, operation: 'DELETE' });
 
     if (!isFirebaseConfigured || !auth.currentUser) return;
@@ -90,29 +96,52 @@ export interface SyncItem {
   id: string;
   collection: string;
   operation: 'PUT' | 'DELETE';
-  data?: any;
+  data?: unknown;
   timestamp: number;
+}
+
+export interface RecurringException {
+  id: string;
+  skipped: Record<string, true>;
+  updatedAt?: number;
 }
 
 export interface MoneyAppDB {
   assets: { key: string; value: Asset };
   transactions: { key: string; value: Transaction };
   categories: { key: string; value: Category };
-  budgets: { key: string; value: any };
-  debts: { key: string; value: any };
-  recurring_transactions: { key: string; value: any };
+  budgets: { key: string; value: Budget };
+  debts: { key: string; value: Debt };
+  recurring_transactions: { key: string; value: RecurringTransaction };
   contacts: { key: string; value: Contact };
   goals: { key: string; value: Goal };
-  subscriptions: { key: string; value: any };
+  subscriptions: { key: string; value: Subscription };
   settings: { key: string; value: string | number | boolean | UserProfile | null };
   pending_sync: { key: string; value: SyncItem };
-  trips: { key: string; value: any };
-  trip_expenses: { key: string; value: any };
-  monthly_incomes: { key: string; value: any };
-  budget_reallocations: { key: string; value: any };
-  notifications: { key: string; value: any };
-  recurring_exceptions: { key: string; value: any };
+  trips: { key: string; value: Trip };
+  trip_expenses: { key: string; value: TripExpense };
+  monthly_incomes: { key: string; value: MonthlyIncome };
+  budget_reallocations: { key: string; value: BudgetReallocation };
+  notifications: { key: string; value: NotificationItem };
+  recurring_exceptions: { key: string; value: RecurringException };
 }
+
+export type StoreName = keyof MoneyAppDB;
+export type StoreValue<K extends StoreName> = MoneyAppDB[K]['value'];
+type SettingsValue = MoneyAppDB['settings']['value'];
+type EntityStoreName = Exclude<StoreName, 'settings'>;
+type EntityRecord = {
+  id: string;
+  isDeleted?: boolean;
+  createdBy?: string;
+  updatedAt?: number;
+  updatedBy?: string;
+};
+type LooseStore = {
+  put: (store: StoreName, value: unknown) => Promise<unknown>;
+  delete: (store: StoreName, key: string) => Promise<void>;
+  getAllKeys: (store: StoreName) => Promise<IDBValidKey[]>;
+};
 
 const dbUpgrade = (db: IDBPDatabase<MoneyAppDB>) => {
   if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets', { keyPath: 'id' });
@@ -151,35 +180,36 @@ export const getGlobalDB = () => {
 };
 
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
-  (window as any).__dbHelper = {
+  const dbHelper = {
     clearAll: async () => {
       const db = await getDB();
-      const stores = Array.from(db.objectStoreNames);
+      const stores = Array.from(db.objectStoreNames) as StoreName[];
       const tx = db.transaction(stores, 'readwrite');
       for (const storeName of stores) {
-        tx.objectStore(storeName as any).clear();
+        tx.objectStore(storeName).clear();
       }
       await tx.done;
     },
-    put: async (storeName: string, records: any[]) => {
+    put: async <K extends StoreName>(storeName: K, records: StoreValue<K>[]) => {
       const db = await getDB();
-      const tx = db.transaction(storeName as any, 'readwrite');
-      const store = tx.objectStore(storeName as any);
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
       for (const rec of records) {
         store.put(rec);
       }
       await tx.done;
     }
   };
+  Object.assign(window, { __dbHelper: dbHelper });
 }
 
 export const dbClearWorkspaceData = async () => {
   try {
     // Only clear the ACTIVE workspace database; leave other workspaces/accounts intact.
     const db = await getDB();
-    const stores = Array.from(db.objectStoreNames);
+    const stores = Array.from(db.objectStoreNames) as StoreName[];
     const tx = db.transaction(stores, 'readwrite');
-    for (const store of stores) tx.objectStore(store as any).clear();
+    for (const store of stores) tx.objectStore(store).clear();
     await tx.done;
 
     // Clear workspace config in local storage
@@ -192,9 +222,9 @@ export const dbClearWorkspaceData = async () => {
 export const dbClearAllData = async () => {
   try {
     const globalDb = await getGlobalDB();
-    const globalStores = Array.from(globalDb.objectStoreNames);
+    const globalStores = Array.from(globalDb.objectStoreNames) as StoreName[];
     const globalTx = globalDb.transaction(globalStores, 'readwrite');
-    for (const store of globalStores) globalTx.objectStore(store as any).clear();
+    for (const store of globalStores) globalTx.objectStore(store).clear();
     await globalTx.done;
 
     await dbClearWorkspaceData();
@@ -205,7 +235,7 @@ export const dbClearAllData = async () => {
 export const localDbGetAllAssets = async (): Promise<Asset[]> => (await getDB()).getAll('assets');
 export const localDbGetAllTransactions = async (): Promise<Transaction[]> => (await getDB()).getAll('transactions');
 export const localDbGetAllCategories = async (): Promise<Category[]> => (await getDB()).getAll('categories');
-export const localDbGetAllBudgets = async (): Promise<any[]> => (await getDB()).getAll('budgets');
+export const localDbGetAllBudgets = async (): Promise<Budget[]> => (await getDB()).getAll('budgets');
 export const localDbGetAllGoals = async (): Promise<Goal[]> => (await getDB()).getAll('goals');
 const USER_SPECIFIC_SETTINGS = ['premium', 'premiumActivationCode', 'user', 'pin', 'theme'];
 
@@ -216,13 +246,13 @@ export const localDbGetSetting = async (key: string) => {
   return (await getDB()).get('settings', key);
 };
 
-export const localDbPutSetting = async (key: string, value: any) => {
+export const localDbPutSetting = async (key: string, value: unknown) => {
   if (USER_SPECIFIC_SETTINGS.includes(key)) {
-    return (await getGlobalDB()).put('settings', value, key);
+    return (await getGlobalDB()).put('settings', value as SettingsValue, key);
   }
-  return (await getDB()).put('settings', value, key);
+  return (await getDB()).put('settings', value as SettingsValue, key);
 };
-export const localDbGetAllNotifications = async (): Promise<any[]> => (await getDB()).getAll('notifications');
+export const localDbGetAllNotifications = async (): Promise<NotificationItem[]> => (await getDB()).getAll('notifications');
 
 // ─── FIRESTORE (Cloud Sync) ──────────────────────────────────────────────────
 const getUid = () => {
@@ -245,14 +275,15 @@ export const getSettingPath = (key: string) => {
   return getWorkspacePath('settings');
 };
 
-const sanitizeForFirestore = (obj: any): any => {
+const sanitizeForFirestore = (obj: unknown): unknown => {
   if (obj === undefined) return null;
   if (obj === null || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
-  const newObj: any = {};
-  for (const key in obj) {
-    if (obj[key] !== undefined) {
-      newObj[key] = sanitizeForFirestore(obj[key]);
+  const source = obj as Record<string, unknown>;
+  const newObj: Record<string, unknown> = {};
+  for (const key in source) {
+    if (source[key] !== undefined) {
+      newObj[key] = sanitizeForFirestore(source[key]);
     }
   }
   return newObj;
@@ -298,7 +329,7 @@ export const mergeData = <T extends { id?: string | number }>(cloud: T[], local:
 /**
  * Pulls a full collection from Firestore and writes every document into IDB.
  */
-export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: string, idbStoreName?: string, options?: { forceFull?: boolean }): Promise<T[]> => {
+export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: string, idbStoreName?: StoreName, options?: { forceFull?: boolean }): Promise<T[]> => {
   const workspaceId = activeWorkspaceId;
   const lastSync = getDeltaLastSyncTimestamp(workspaceId);
   const colRef = collection(firestore, getWorkspacePath(colName));
@@ -317,19 +348,20 @@ export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: 
     return { id: d.id, ...data } as T;
   });
   const db = await getDB();
-  const store = idbStoreName || colName;
+  const looseDb = db as unknown as LooseStore;
+  const store: StoreName = idbStoreName ?? (colName as StoreName);
 
   // 1. Put items from cloud into IDB, but only if they don't have pending local changes
   for (const item of items) {
     const pending = await db.get('pending_sync', item.id as string);
     if (pending) continue; // Don't overwrite local changes (PUT or DELETE) with cloud data
-    await (db as any).put(store as any, item);
+    await looseDb.put(store, item);
   }
 
   // 2. Zombie cleanup only during first full sync (sinceTime === 0)
   if (sinceTime === 0) {
     const cloudKeys = new Set(items.map(i => i.id));
-    const localKeys = await (db as any).getAllKeys(store);
+    const localKeys = await looseDb.getAllKeys(store);
 
     for (const key of localKeys) {
       const keyStr = key as string;
@@ -341,7 +373,7 @@ export const pullCollectionIntoIDB = async <T extends { id?: string }>(colName: 
       if (!cloudKeys.has(keyStr)) {
         const pending = await db.get('pending_sync', keyStr);
         if (!pending || pending.operation !== 'PUT') {
-          await (db as any).delete(store, keyStr);
+          await looseDb.delete(store, keyStr);
         }
       }
     }
@@ -364,7 +396,7 @@ export const dbForceCloudSync = async (options?: { full?: boolean }): Promise<{ 
   
   try {
     // Collections
-    const collections: Array<[string, string]> = [
+    const collections: Array<[string, StoreName]> = [
       ['assets', 'assets'],
       ['transactions', 'transactions'],
       ['categories', 'categories'],
@@ -421,7 +453,7 @@ export const dbGetAllAssets = async (): Promise<Asset[]> => {
     const db = await getDB();
     for (const item of cloud) await db.put('assets', item);
     return cloud.filter(a => !a.isDeleted);
-  } catch (e) { return local.filter(a => !a.isDeleted); }
+  } catch { return local.filter(a => !a.isDeleted); }
 };
 
 export const dbPutAsset = async (asset: Asset, options?: { skipSync?: boolean }) => {
@@ -447,7 +479,7 @@ export const dbGetAllTransactions = async (): Promise<Transaction[]> => {
     const db = await getDB();
     for (const item of cloud) await db.put('transactions', item);
     return cloud.filter(t => !t.isDeleted);
-  } catch (e) { return local.filter(t => !t.isDeleted); }
+  } catch { return local.filter(t => !t.isDeleted); }
 };
 
 export const dbPutTransaction = async (tx: Transaction) => {
@@ -469,7 +501,7 @@ export const dbGetAllCategories = async (): Promise<Category[]> => {
     const db = await getDB();
     for (const item of cloud) await db.put('categories', item);
     return cloud.filter(c => !c.isDeleted);
-  } catch (e) { return local.filter(c => !c.isDeleted); }
+  } catch { return local.filter(c => !c.isDeleted); }
 };
 
 export const dbPutCategory = async (cat: Category, options?: { skipSync?: boolean }) => {
@@ -481,16 +513,16 @@ export const dbDeleteCategory = async (id: string) => {
 };
 
 // ─── Budgets ─────────────────────────────────────────────────────────────────
-export const dbGetAllBudgets = async (): Promise<any[]> => {
+export const dbGetAllBudgets = async (): Promise<Budget[]> => {
   if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).getAll('budgets');
   const budgets = await dbGetSetting('budgets');
-  return Array.isArray(budgets) ? budgets : [];
+  return Array.isArray(budgets) ? (budgets as Budget[]) : [];
 };
 
-export const dbPutBudget = async (b: any) => {
+export const dbPutBudget = async (b: Budget) => {
   if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).put('budgets', b);
   const budgets = await dbGetAllBudgets();
-  const idx = budgets.findIndex((item: any) => item.id === b.id);
+  const idx = budgets.findIndex((item) => item.id === b.id);
   if (idx > -1) budgets[idx] = b;
   else budgets.push(b);
   await dbPutSetting('budgets', budgets);
@@ -499,27 +531,27 @@ export const dbPutBudget = async (b: any) => {
 export const dbDeleteBudget = async (id: string) => {
   if (!isFirebaseConfigured || !auth.currentUser) return (await getDB()).delete('budgets', id);
   const budgets = await dbGetAllBudgets();
-  const filtered = budgets.filter((item: any) => item.id !== id);
+  const filtered = budgets.filter((item) => item.id !== id);
   await dbPutSetting('budgets', filtered);
 };
 
 // ─── Debts ────────────────────────────────────────────────────────────────────
-export const localDbGetAllDebts = async (): Promise<any[]> => (await getDB()).getAll('debts');
+export const localDbGetAllDebts = async (): Promise<Debt[]> => (await getDB()).getAll('debts');
 
-export const dbGetAllDebts = async (): Promise<any[]> => {
+export const dbGetAllDebts = async (): Promise<Debt[]> => {
   const local = await localDbGetAllDebts();
   // IDB-first
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local.filter(d => !d.isDeleted);
   try {
     const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('debts'))));
-    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Debt));
     const db = await getDB();
     for (const item of cloud) await db.put('debts', item);
     return cloud.filter(d => !d.isDeleted);
-  } catch (e) { return local.filter(d => !d.isDeleted); }
+  } catch { return local.filter(d => !d.isDeleted); }
 };
 
-export const dbPutDebt = async (d: any) => {
+export const dbPutDebt = async (d: Debt) => {
   await putEntity('debts', d);
 };
 
@@ -528,20 +560,20 @@ export const dbDeleteDebt = async (id: string) => {
 };
 
 // ─── Recurring Transactions ──────────────────────────────────────────────────
-export const dbGetAllRecurringTransactions = async (): Promise<any[]> => {
+export const dbGetAllRecurringTransactions = async (): Promise<RecurringTransaction[]> => {
   const local = await (await getDB()).getAll('recurring_transactions');
   // IDB-first
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local.filter(r => !r.isDeleted);
   try {
     const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('recurring_transactions'))));
-    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as RecurringTransaction));
     const db = await getDB();
     for (const item of cloud) await db.put('recurring_transactions', item);
     return cloud.filter(r => !r.isDeleted);
-  } catch (e) { return local.filter(r => !r.isDeleted); }
+  } catch { return local.filter(r => !r.isDeleted); }
 };
 
-export const dbPutRecurringTransaction = async (rt: any) => {
+export const dbPutRecurringTransaction = async (rt: RecurringTransaction) => {
   await putEntity('recurring_transactions', rt);
 };
 
@@ -554,7 +586,7 @@ export const dbDeleteRecurringTransaction = async (id: string) => {
 // generator never resurrects them (prevents the classic "deleted but came back" bug).
 export const dbGetRecurringExceptions = async (rtId: string): Promise<Record<string, true>> => {
   const rec = await (await getDB()).get('recurring_exceptions', rtId);
-  return (rec?.skipped as Record<string, true>) || {};
+  return rec?.skipped || {};
 };
 
 export const dbAddRecurringSkip = async (rtId: string, date: string) => {
@@ -564,7 +596,7 @@ export const dbAddRecurringSkip = async (rtId: string, date: string) => {
   await db.put('recurring_exceptions', record);
   await recordPendingSync({ id: `rec-exc-${rtId}`, collection: 'recurring_exceptions', operation: 'PUT', data: record });
   if (isFirebaseConfigured && auth.currentUser) {
-    setDoc(doc(collection(firestore, getWorkspacePath('recurring_exceptions')), rtId), sanitizeForFirestore(record)).catch(() => {});
+    setDoc(doc(collection(firestore, getWorkspacePath('recurring_exceptions')), rtId), sanitizeForFirestore(record) as DocumentData).catch(() => {});
   }
   return record;
 };
@@ -574,11 +606,11 @@ export const dbClearRecurringSkips = async (rtId: string, dates: string[]) => {
   const existing = await db.get('recurring_exceptions', rtId);
   if (!existing) return;
   const skipped = { ...(existing.skipped || {}) };
-  dates.forEach(d => { delete skipped[d]; });
+  dates.forEach(d => { delete (skipped as Record<string, true | undefined>)[d]; });
   const record = { ...existing, id: rtId, skipped, updatedAt: Date.now() };
   await db.put('recurring_exceptions', record);
   if (isFirebaseConfigured && auth.currentUser) {
-    setDoc(doc(collection(firestore, getWorkspacePath('recurring_exceptions')), rtId), sanitizeForFirestore(record)).catch(() => {});
+    setDoc(doc(collection(firestore, getWorkspacePath('recurring_exceptions')), rtId), sanitizeForFirestore(record) as DocumentData).catch(() => {});
   }
 };
 
@@ -592,7 +624,7 @@ export const dbGetAllContacts = async (): Promise<Contact[]> => {
     const db = await getDB();
     for (const item of cloud) await db.put('contacts', item);
     return cloud.filter(c => !c.isDeleted);
-  } catch (e) { return local.filter(c => !c.isDeleted); }
+  } catch { return local.filter(c => !c.isDeleted); }
 };
 
 export const dbPutContact = async (contact: Contact) => {
@@ -604,19 +636,19 @@ export const dbDeleteContact = async (id: string) => {
 };
 
 // ─── Subscriptions ───────────────────────────────────────────────────────────
-export const dbGetAllSubscriptions = async (): Promise<any[]> => {
+export const dbGetAllSubscriptions = async (): Promise<Subscription[]> => {
   const local = await (await getDB()).getAll('subscriptions');
   if (local.length > 0 || !isFirebaseConfigured || !auth.currentUser) return local.filter(s => !s.isDeleted);
   try {
     const snapshot = await withTimeout(getDocs(collection(firestore, getWorkspacePath('subscriptions'))));
-    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+    const cloud = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Subscription));
     const db = await getDB();
     for (const item of cloud) await db.put('subscriptions', item);
     return cloud.filter(s => !s.isDeleted);
-  } catch (e) { return local.filter(s => !s.isDeleted); }
+  } catch { return local.filter(s => !s.isDeleted); }
 };
 
-export const dbPutSubscription = async (sub: any) => {
+export const dbPutSubscription = async (sub: Subscription) => {
   await putEntity('subscriptions', sub);
 };
 
@@ -634,7 +666,7 @@ export const dbGetAllGoals = async (): Promise<Goal[]> => {
     const db = await getDB();
     for (const item of cloud) await db.put('goals', item);
     return cloud.filter(g => !g.isDeleted);
-  } catch (e) { return local.filter(g => !g.isDeleted); }
+  } catch { return local.filter(g => !g.isDeleted); }
 };
 
 export const dbPutGoal = async (goal: Goal) => {
@@ -646,10 +678,10 @@ export const dbDeleteGoal = async (id: string) => {
 };
 
 // ─── Settings ────────────────────────────────────────────────────────────────
-export const dbGetAllSettings = async (): Promise<Record<string, any>> => {
+export const dbGetAllSettings = async (): Promise<Record<string, unknown>> => {
   const db = await getDB();
   const keys = await db.getAllKeys('settings');
-  const result: Record<string, any> = {};
+  const result: Record<string, unknown> = {};
   for (const key of keys) {
     result[key as string] = await db.get('settings', key as string);
   }
@@ -667,14 +699,14 @@ export const dbGetSetting = async (key: string) => {
     // Cache into IDB so next read costs nothing
     if (cloud !== undefined) await localDbPutSetting(key, cloud);
     return cloud;
-  } catch (e) { return local; }
+  } catch { return local; }
 };
 
-export const dbPutSetting = async (key: string, value: any) => {
+export const dbPutSetting = async (key: string, value: unknown) => {
   await localDbPutSetting(key, value);
   
   const currentWorkspaceId = activeWorkspaceId;
-  const meta: any = {
+  const meta: { key: string; value: unknown; updatedAt: number; updatedBy?: string } = {
     key,
     value: sanitizeForFirestore(value),
     updatedAt: Date.now()
@@ -690,7 +722,7 @@ export const dbPutSetting = async (key: string, value: any) => {
     value,
     updatedAt: meta.updatedAt,
     updatedBy: meta.updatedBy
-  }))
+  }) as DocumentData)
     .then(() => removePendingSync(`setting-${key}`))
     .catch(() => { });
 };
@@ -722,7 +754,21 @@ export const dbExportAll = async () => {
   return { assets, transactions, categories, budgets, recurring, debts, subscriptions, goals, user, pin, theme, exportedAt: new Date().toISOString() };
 };
 
-export const dbImportAll = async (data: any) => {
+export interface ExportData {
+  assets?: Asset[];
+  transactions?: Transaction[];
+  categories?: Category[];
+  debts?: Debt[];
+  recurring?: RecurringTransaction[];
+  subscriptions?: Subscription[];
+  budgets?: Budget[];
+  goals?: Goal[];
+  user?: UserProfile;
+  pin?: string | number;
+  theme?: string;
+}
+
+export const dbImportAll = async (data: ExportData) => {
   if (data.assets) for (const a of data.assets) await dbPutAsset(a);
   if (data.transactions) for (const t of data.transactions) await dbPutTransaction(t);
   if (data.categories) for (const c of data.categories) await dbPutCategory(c);
@@ -748,15 +794,16 @@ export const dbSyncPendingItems = async (): Promise<{ success: number; failed: n
     try {
       if (item.operation === 'PUT') {
         const path = item.collection === 'settings' ? ['settings', item.id.replace('setting-', '')] : [item.collection, item.id];
+        const raw = item.data as Record<string, unknown> | undefined;
         const data = item.collection === 'settings' 
           ? { 
-              value: item.data?.value !== undefined ? item.data.value : item.data,
-              updatedAt: item.data?.updatedAt || Date.now(),
-              updatedBy: item.data?.updatedBy
+              value: raw?.value !== undefined ? raw.value : item.data,
+              updatedAt: raw?.updatedAt || Date.now(),
+              updatedBy: raw?.updatedBy
             } 
           : item.data;
         const colPath = item.collection === 'settings' ? getSettingPath(path[1]) : getWorkspacePath(path[0]);
-        await withTimeout(setDoc(doc(collection(firestore, colPath), path[1]), sanitizeForFirestore(data)));
+        await withTimeout(setDoc(doc(collection(firestore, colPath), path[1]), sanitizeForFirestore(data) as DocumentData));
       } else if (item.operation === 'DELETE') {
         const path = item.collection === 'settings' ? ['settings', item.id.replace('setting-', '')] : [item.collection, item.id];
         const colPath = item.collection === 'settings' ? getSettingPath(path[1]) : getWorkspacePath(path[0]);
@@ -783,7 +830,7 @@ export const migrateFromIndexedDBToFirebase = async (): Promise<boolean> => {
       localDbGetAllBudgets(), localDbGetAllDebts(), (await getDB()).getAll('recurring_transactions'), (await getDB()).getAll('subscriptions'),
       localDbGetAllGoals()
     ]);
-    const promises: Promise<any>[] = [];
+    const promises: Promise<unknown>[] = [];
     assets.forEach(a => promises.push(dbPutAsset(a)));
     txs.forEach(t => promises.push(dbPutTransaction(t)));
     cats.forEach(c => promises.push(dbPutCategory(c)));
@@ -795,7 +842,7 @@ export const migrateFromIndexedDBToFirebase = async (): Promise<boolean> => {
     await Promise.all(promises);
     await dbPutSetting('idb_to_firebase_migrated', true);
     return true;
-  } catch (e) { return false; }
+  } catch { return false; }
 };
 
 // ─── Shared Split Bills & Trips ──────────────────────────────────────────────
@@ -808,13 +855,13 @@ export interface SharedSplit {
   endDate?: string;       // For trip
   totalAmount: number;
   currencySymbol: string;
-  splits: any[];
-  secondarySplits?: any[]; // Store the other mode's data
+  splits: unknown[];
+  secondarySplits?: unknown[]; // Store the other mode's data
   settlementMode?: 'simple' | 'detailed'; // Current active mode
-  lineItems?: any[];      // For normal split
+  lineItems?: unknown[];      // For normal split
   itemAssignments?: Record<number, string[]>; // For normal split
-  tripExpenses?: any[];   // For trip
-  members?: any[];        // For trip
+  tripExpenses?: unknown[];   // For trip
+  members?: unknown[];        // For trip
   sourceId?: string;      // ID of the original trip or split to prevent duplicates
   createdAt: number;
   shareToken?: string;    // Opaque token; link is only valid while present & unexpired
@@ -864,11 +911,12 @@ export const dbSaveSharedSplit = async (
     ...(expiresAt ? { expiresAt } : {}),
   };
 
-  await setDoc(doc(firestore, 'shared_splits', id), sanitizeForFirestore(sharedSplit));
+  await setDoc(doc(firestore, 'shared_splits', id), sanitizeForFirestore(sharedSplit) as DocumentData);
   return { id, token };
 };
 
 export const dbGetSharedSplit = async (id: string, _token?: string): Promise<SharedSplit | null> => {
+  void _token;
   if (!isFirebaseConfigured) return null;
   try {
     const docSnap = await getDoc(doc(firestore, 'shared_splits', id));
@@ -953,13 +1001,13 @@ export const dbGetMySharedSplits = async (): Promise<SharedSplit[]> => {
 export const migrateFromLocalStorage = async () => false;
 
 // ─── Trips ────────────────────────────────────────────────────────────────────
-export const dbGetAllTrips = async (): Promise<any[]> => {
+export const dbGetAllTrips = async (): Promise<Trip[]> => {
   const db = await getDB();
   const local = await db.getAll('trips');
   return local.filter(t => !t.isDeleted);
 };
 
-export const dbPutTrip = async (trip: any) => {
+export const dbPutTrip = async (trip: Trip) => {
   await putEntity('trips', trip);
 };
 
@@ -968,13 +1016,13 @@ export const dbDeleteTrip = async (id: string) => {
 };
 
 // ─── Trip Expenses ────────────────────────────────────────────────────────────
-export const dbGetAllTripExpenses = async (): Promise<any[]> => {
+export const dbGetAllTripExpenses = async (): Promise<TripExpense[]> => {
   const db = await getDB();
   const local = await db.getAll('trip_expenses');
   return local.filter(te => !te.isDeleted);
 };
 
-export const dbPutTripExpense = async (expense: any) => {
+export const dbPutTripExpense = async (expense: TripExpense) => {
   await putEntity('trip_expenses', expense);
 };
 
@@ -983,13 +1031,13 @@ export const dbDeleteTripExpense = async (id: string) => {
 };
 
 // ─── Monthly Incomes ──────────────────────────────────────────────────────────
-export const dbGetAllMonthlyIncomes = async (): Promise<any[]> => {
+export const dbGetAllMonthlyIncomes = async (): Promise<MonthlyIncome[]> => {
   const db = await getDB();
   const local = await db.getAll('monthly_incomes');
   return local.filter(mi => !mi.isDeleted);
 };
 
-export const dbPutMonthlyIncome = async (item: any) => {
+export const dbPutMonthlyIncome = async (item: MonthlyIncome) => {
   await putEntity('monthly_incomes', item);
 };
 
@@ -998,13 +1046,13 @@ export const dbDeleteMonthlyIncome = async (id: string) => {
 };
 
 // ─── Budget Reallocations ─────────────────────────────────────────────────────
-export const dbGetAllBudgetReallocations = async (): Promise<any[]> => {
+export const dbGetAllBudgetReallocations = async (): Promise<BudgetReallocation[]> => {
   const db = await getDB();
   const local = await db.getAll('budget_reallocations');
   return local.filter(br => !br.isDeleted);
 };
 
-export const dbPutBudgetReallocation = async (item: any) => {
+export const dbPutBudgetReallocation = async (item: BudgetReallocation) => {
   await putEntity('budget_reallocations', item);
 };
 
@@ -1013,13 +1061,13 @@ export const dbDeleteBudgetReallocation = async (id: string) => {
 };
 
 // ─── Notifications ────────────────────────────────────────────────────────────
-export const dbGetAllNotifications = async (): Promise<any[]> => {
+export const dbGetAllNotifications = async (): Promise<NotificationItem[]> => {
   const db = await getDB();
   const local = await db.getAll('notifications');
   return local.filter(n => !n.isDeleted);
 };
 
-export const dbPutNotification = async (item: any) => {
+export const dbPutNotification = async (item: NotificationItem) => {
   await putEntity('notifications', item);
 };
 

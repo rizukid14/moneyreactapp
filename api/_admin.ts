@@ -1,8 +1,20 @@
 import admin from 'firebase-admin';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { FREE_QUOTA_LIMITS, getQuotaKey, type QuotaFeature } from '../shared/quota.js';
+
+export { FREE_QUOTA_LIMITS, getQuotaKey };
+
+export const getErrorResponse = (e: unknown): { status: number; message: string } => {
+    if (e && typeof e === 'object') {
+        const err = e as { status?: number; message?: string; code?: number | string };
+        return { status: err.status || 500, message: err.message || 'Internal server error' };
+    }
+    return { status: 500, message: 'Internal server error' };
+};
 
 export const initializeAdmin = () => {
     if (!admin.apps.length) {
-        let rawServiceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
+        const rawServiceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
         if (!rawServiceAccountStr) {
             throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable');
         }
@@ -14,21 +26,23 @@ export const initializeAdmin = () => {
             }
             try {
                 if (s.includes('%')) s = decodeURIComponent(s);
-            } catch (e) {}
+            } catch {
+                // Ignore decode failure
+            }
             return s.replace(/\\"/g, '"');
         };
 
         const serviceAccountStr = sanitize(rawServiceAccountStr);
-        let serviceAccount;
+        let serviceAccount: admin.ServiceAccount | undefined;
         try {
             serviceAccount = JSON.parse(serviceAccountStr);
-        } catch (e1: any) {
+        } catch {
             try {
                 serviceAccount = JSON.parse(serviceAccountStr.replace(/\r?\n|\r/g, ' '));
-            } catch (e2: any) {
+            } catch {
                 try {
                     serviceAccount = JSON.parse(Buffer.from(rawServiceAccountStr, 'base64').toString('utf8'));
-                } catch (e3: any) {
+                } catch {
                     throw new Error(`Critical: Failed to parse Firebase Key`);
                 }
             }
@@ -47,16 +61,16 @@ export const initializeAdmin = () => {
 
         try {
             admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
+                credential: admin.credential.cert(serviceAccount as admin.ServiceAccount)
             });
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('Failed to initialize Firebase Admin', e);
             throw e;
         }
     }
 };
 
-export const verifyAuth = async (req: any, res: any) => {
+export const verifyAuth = async (req: VercelRequest, res: VercelResponse) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         res.status(401).json({ message: 'Unauthorized: Missing or invalid token' });
@@ -75,13 +89,7 @@ export const verifyAuth = async (req: any, res: any) => {
     }
 };
 
-export const FREE_QUOTA_LIMITS = {
-  chat: 5,
-  scan: 3,
-  bulk: 2,
-};
-
-export const checkAndConsumeQuota = async (uid: string, feature: 'chat' | 'scan' | 'bulk') => {
+export const checkAndConsumeQuota = async (uid: string, feature: QuotaFeature) => {
     initializeAdmin();
     const db = admin.firestore();
     
@@ -111,12 +119,31 @@ export const checkAndConsumeQuota = async (uid: string, feature: 'chat' | 'scan'
         }
         
         // Check free quota (atomic read-modify-write via transaction)
-        const d = new Date();
-        const quotaKey = `quota_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const quotaKey = getQuotaKey();
         const quotaRef = db.collection('users').doc(uid).collection('settings').doc(quotaKey);
         const limit = FREE_QUOTA_LIMITS[feature];
 
+        // Centralized rate-limiting via Firestore sliding window: max 30 hits/minute per UID
+        const rateLimitRef = db.collection('users').doc(uid).collection('settings').doc('_rate_limit');
+
         const result = await db.runTransaction(async (tx) => {
+            const nowMs = Date.now();
+            const rlSnap = await tx.get(rateLimitRef);
+            let rlData = { count: 0, windowStart: nowMs };
+            if (rlSnap.exists) {
+                const raw = rlSnap.data();
+                rlData = (raw?.value !== undefined ? raw.value : raw) || rlData;
+            }
+
+            if (nowMs - (rlData.windowStart || 0) < 60000) {
+                if ((rlData.count || 0) >= 30) {
+                    return { rateLimited: true as const, allowed: false as const };
+                }
+                tx.set(rateLimitRef, { value: { count: (rlData.count || 0) + 1, windowStart: rlData.windowStart }, updatedAt: nowMs }, { merge: true });
+            } else {
+                tx.set(rateLimitRef, { value: { count: 1, windowStart: nowMs }, updatedAt: nowMs }, { merge: true });
+            }
+
             const quotaSnap = await tx.get(quotaRef);
             let quotaData: Record<string, number> = { chat: 0, scan: 0, bulk: 0 };
 
@@ -127,13 +154,17 @@ export const checkAndConsumeQuota = async (uid: string, feature: 'chat' | 'scan'
 
             const used = quotaData[feature] || 0;
             if (used >= limit) {
-                return { allowed: false as const };
+                return { rateLimited: false as const, allowed: false as const };
             }
 
             const next = { ...quotaData, [feature]: used + 1 };
             tx.set(quotaRef, { value: next, updatedAt: Date.now() }, { merge: true });
-            return { allowed: true as const, quotaUsed: next[feature] };
+            return { rateLimited: false as const, allowed: true as const, quotaUsed: next[feature] };
         });
+
+        if (result.rateLimited) {
+            throw { status: 429, message: 'Terlalu banyak permintaan. Mohon tunggu 1 menit.' };
+        }
 
         if (!result.allowed) {
             return { allowed: false, error: 'Quota exceeded' };
@@ -141,8 +172,9 @@ export const checkAndConsumeQuota = async (uid: string, feature: 'chat' | 'scan'
 
         return { allowed: true, quotaUsed: result.quotaUsed, isPremium: false };
         
-    } catch (e: any) {
-        if (e.code === 8 || e.message?.includes('RESOURCE_EXHAUSTED')) {
+    } catch (e: unknown) {
+        const err = e as { code?: number; message?: string };
+        if (err.code === 8 || err.message?.includes('RESOURCE_EXHAUSTED')) {
             console.error('Firestore Quota Exhausted:', e);
             throw { status: 503, message: 'Layanan database sedang sangat padat. Mohon coba beberapa saat lagi.' };
         }

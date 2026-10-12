@@ -2459,8 +2459,8 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const ok = await verifyPin(enteredPin, pin);
     if (ok) {
-      // Migrate legacy unsalted hash to salted PBKDF2
-      if (!pin.startsWith('pbkdf2$')) {
+      // Migrate legacy unsalted hash or older 100k iteration hash to 600k iterations
+      if (!pin.startsWith('pbkdf2$600000$')) {
         const secured = await hashPinSecure(enteredPin);
         setPin(secured);
         dbPutSetting('pin', secured);
@@ -2899,7 +2899,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!isReady || !user) return;
 
     const timer = setTimeout(() => {
-      let newNotifs: Omit<NotificationItem, 'isRead'>[] = [];
+      const newNotifs: Omit<NotificationItem, 'isRead'>[] = [];
       const now = new Date();
       const fmt = (n: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
       

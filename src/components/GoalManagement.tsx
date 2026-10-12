@@ -119,7 +119,7 @@ export const GoalManagement: React.FC<{ hideSubTabs?: boolean }> = ({ hideSubTab
     goals.forEach(g => {
       // Filter transactions linked to this goal
       const linkedTxs = transactions.filter(tx => tx.goalId === g.id && !tx.isDeleted);
-      let total = linkedTxs.reduce((sum, tx) => {
+      const total = linkedTxs.reduce((sum, tx) => {
         if (tx.type === 'pendapatan') return sum + tx.amount;
         if (tx.type === 'transfer') {
           // Only count transfers that move money INTO the goal asset (T11)

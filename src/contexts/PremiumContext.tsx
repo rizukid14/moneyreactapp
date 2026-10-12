@@ -18,17 +18,9 @@ function generateCode(): string {
   return code;
 }
 
-export interface QuotaState {
-  chat: number;
-  scan: number;
-  bulk: number;
-}
+import { FREE_QUOTA_LIMITS, getQuotaKey, type QuotaState, type QuotaFeature } from '../../shared/quota';
 
-export const FREE_QUOTA_LIMITS = {
-  chat: 5,
-  scan: 3,
-  bulk: 2,
-};
+export { FREE_QUOTA_LIMITS, type QuotaState, type QuotaFeature };
 
 interface PremiumContextType {
   premium: PremiumState;
@@ -70,11 +62,6 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [activationCode, setActivationCode] = useState<string | null>(null);
-
-  const getQuotaKey = () => {
-    const d = new Date();
-    return `quota_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  };
 
   const loadPremiumData = useCallback(async () => {
     if (!isFirebaseConfigured || !isReady) return;
@@ -210,8 +197,8 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const updatePremiumDataFromServer = async (feature: keyof typeof FREE_QUOTA_LIMITS, newValue: number, newIsPremium?: boolean) => {
     // 1. Update quota state functionally to avoid dropping concurrent increments (M21)
-    setQuota(prev => {
-      const next = { ...prev, [feature]: newValue };
+    setQuota((prev: QuotaState) => {
+      const next: QuotaState = { ...prev, [feature]: newValue };
       // 2. Save quota to IndexedDB purely locally (NO SYNC to Firestore)
       localDbPutSetting(getQuotaKey(), next).catch(e => console.error('Failed to save quota locally:', e));
       return next;

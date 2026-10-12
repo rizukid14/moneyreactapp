@@ -3,12 +3,43 @@ import MaterialIcon from './common/MaterialIcon';
 import { useMoney } from '../contexts/MoneyContext';
 import { motion } from 'framer-motion';
 
+const LOCKOUT_KEY = 'moneyapp_pin_lockout_until';
+const ATTEMPTS_KEY = 'moneyapp_pin_failed_attempts';
+const MAX_FREE_ATTEMPTS = 5;
+const COOLDOWN_SECONDS = 30;
+
 const LockScreen: React.FC = () => {
   const { unlockApp, user } = useMoney();
   const [enteredPin, setEnteredPin] = useState('');
   const [error, setError] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    const checkCooldown = () => {
+      try {
+        const untilStr = localStorage.getItem(LOCKOUT_KEY);
+        if (untilStr) {
+          const until = parseInt(untilStr, 10);
+          const diffSec = Math.ceil((until - Date.now()) / 1000);
+          if (diffSec > 0) {
+            setCooldownRemaining(diffSec);
+            return;
+          } else {
+            localStorage.removeItem(LOCKOUT_KEY);
+            setCooldownRemaining(0);
+          }
+        }
+      } catch {}
+      setCooldownRemaining(0);
+    };
+
+    checkCooldown();
+    const interval = setInterval(checkCooldown, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleNumberClick = (num: string) => {
+    if (cooldownRemaining > 0) return;
     if (enteredPin.length < 6) {
       setEnteredPin(prev => prev + num);
       setError(false);
@@ -16,21 +47,37 @@ const LockScreen: React.FC = () => {
   };
 
   const handleDelete = () => {
+    if (cooldownRemaining > 0) return;
     setEnteredPin(prev => prev.slice(0, -1));
   };
 
   useEffect(() => {
-    if (enteredPin.length >= 6) {
+    if (enteredPin.length >= 6 && cooldownRemaining === 0) {
       const timer = setTimeout(async () => {
         const success = await unlockApp(enteredPin);
-        if (!success && enteredPin.length >= 6) {
-           setError(true);
-           setEnteredPin('');
+        if (success) {
+          try {
+            localStorage.removeItem(LOCKOUT_KEY);
+            localStorage.removeItem(ATTEMPTS_KEY);
+          } catch {}
+        } else {
+          setError(true);
+          setEnteredPin('');
+          try {
+            const currentAttempts = (parseInt(localStorage.getItem(ATTEMPTS_KEY) || '0', 10) || 0) + 1;
+            localStorage.setItem(ATTEMPTS_KEY, String(currentAttempts));
+            if (currentAttempts >= MAX_FREE_ATTEMPTS) {
+              const until = Date.now() + COOLDOWN_SECONDS * 1000;
+              localStorage.setItem(LOCKOUT_KEY, String(until));
+              setCooldownRemaining(COOLDOWN_SECONDS);
+              localStorage.setItem(ATTEMPTS_KEY, '0');
+            }
+          } catch {}
         }
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [enteredPin, unlockApp]);
+  }, [enteredPin, unlockApp, cooldownRemaining]);
 
   return (
     <motion.div 
@@ -60,7 +107,13 @@ const LockScreen: React.FC = () => {
         ))}
       </div>
 
-      {error && <p style={{ color: 'var(--danger-red)', marginBottom: '20px', fontWeight: 600 }}>PIN Salah!</p>}
+      {cooldownRemaining > 0 ? (
+        <p style={{ color: 'var(--danger-red)', marginBottom: '20px', fontWeight: 600 }}>
+          Terlalu banyak percobaan. Coba lagi dalam {cooldownRemaining}s
+        </p>
+      ) : error ? (
+        <p style={{ color: 'var(--danger-red)', marginBottom: '20px', fontWeight: 600 }}>PIN Salah!</p>
+      ) : null}
 
       <div className="grid grid-cols-3 gap-5 w-full max-w-[300px]">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (

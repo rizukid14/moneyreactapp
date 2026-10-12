@@ -1221,7 +1221,7 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
 
         if (functionName === 'get_app_help') {
           // Detect which tutorial sections match
-          let matchedSections = [];
+          const matchedSections = [];
           if (isDebtRelated) matchedSections.push(TUTORIAL_SECTIONS.debts);
           if (isTripRelated) matchedSections.push(TUTORIAL_SECTIONS.trips);
           if (isBudgetRelated) matchedSections.push(TUTORIAL_SECTIONS.budgets);

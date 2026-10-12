@@ -484,7 +484,7 @@ const Debts: React.FC = () => {
   const filtered = useMemo(() => {
     const isSettledView = statusTab === 'settled';
 
-    let result = debts.filter(d => {
+    const result = debts.filter(d => {
       if (d.isDeleted) return false;
       const calc = calculateDebtBalance(d, transactions, categories);
       const isSettled = Boolean(d.isPaid || calc.isPaid || calc.remaining <= 0);

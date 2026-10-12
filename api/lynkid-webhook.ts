@@ -5,7 +5,7 @@ import crypto from 'crypto';
 // Initialize Firebase Admin securely inside the serverless function
 const initializeAdmin = () => {
     if (!admin.apps.length) {
-        let rawServiceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
+        const rawServiceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
         if (!rawServiceAccountStr) {
             throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable');
         }
@@ -133,10 +133,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const db = admin.firestore();
 
         // Now we can safely parse the body for processing
-        let payload: any;
+        let payload: Record<string, unknown>;
         try {
             payload = JSON.parse(rawBody);
-        } catch (e) {
+        } catch {
             return res.status(400).json({ error: 'Invalid JSON payload' });
         }
 
@@ -322,7 +322,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log(`[LynkID] Successfully activated ${plan} premium for ${customerEmail} (uid: ${uid}), expires: ${expiresAt.toISOString()}`);
 
         return res.status(200).json({ status: 'success', plan, uid, expiresAt: expiresAt.toISOString() });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[LynkID] Webhook processing error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }

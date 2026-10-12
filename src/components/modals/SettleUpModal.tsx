@@ -377,7 +377,7 @@ const SettleUpModal: React.FC<SettleUpModalProps> = ({ isOpen, onClose, trip, ex
       };
 
       // Mark as fully settled in paidSettlements if it meets or exceeds target
-      let updatedPaid = [...(trip.paidSettlements || [])];
+      const updatedPaid = [...(trip.paidSettlements || [])];
       if (newPaid >= t.amount && !updatedPaid.includes(settlementKey)) {
         updatedPaid.push(settlementKey);
       }

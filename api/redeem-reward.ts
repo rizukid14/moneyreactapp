@@ -1,6 +1,7 @@
 import admin from 'firebase-admin';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyAuth, initializeAdmin } from './_admin.js';
+import { getQuotaKey } from '../shared/quota.js';
 
 // Server-authoritative reward catalogue (must mirror RewardsStoreModal UI).
 const REWARD_COSTS: Record<string, number> = {
@@ -47,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userRef = settings.doc('user');
     const premiumRef = settings.doc('premium');
     const now = new Date();
-    const quotaKey = `quota_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const quotaKey = getQuotaKey(now);
     const quotaRef = settings.doc(quotaKey);
 
     const result = await db.runTransaction(async (tx) => {

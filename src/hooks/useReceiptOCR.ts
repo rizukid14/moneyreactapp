@@ -174,7 +174,7 @@ export const useReceiptOCR = () => {
       }
 
       // Build tax info summary string
-      let summaryParts: string[] = [];
+      const summaryParts: string[] = [];
       if (tax > 0) summaryParts.push(`Pajak: Rp${tax.toLocaleString('id-ID')}`);
       if (service > 0) summaryParts.push(`Service: Rp${service.toLocaleString('id-ID')}`);
       if (discount > 0) summaryParts.push(`Diskon: -Rp${discount.toLocaleString('id-ID')}`);
