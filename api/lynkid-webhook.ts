@@ -1,63 +1,8 @@
 import admin from 'firebase-admin';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
-
-// Initialize Firebase Admin securely inside the serverless function
-const initializeAdmin = () => {
-    if (!admin.apps.length) {
-        const rawServiceAccountStr = (process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '').trim();
-        if (!rawServiceAccountStr) {
-            throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable');
-        }
-
-        const sanitize = (val: string) => {
-            let s = val.trim();
-            if ((s.startsWith("'") && s.endsWith("'")) || (s.startsWith('"') && s.endsWith('"'))) {
-                s = s.substring(1, s.length - 1).trim();
-            }
-            try {
-                if (s.includes('%')) s = decodeURIComponent(s);
-            } catch (e) {}
-            return s.replace(/\\"/g, '"');
-        };
-
-        const serviceAccountStr = sanitize(rawServiceAccountStr);
-        let serviceAccount;
-        try {
-            serviceAccount = JSON.parse(serviceAccountStr);
-        } catch (e1: any) {
-            try {
-                serviceAccount = JSON.parse(serviceAccountStr.replace(/\r?\n|\r/g, ' '));
-            } catch (e2: any) {
-                try {
-                    serviceAccount = JSON.parse(Buffer.from(rawServiceAccountStr, 'base64').toString('utf8'));
-                } catch (e3: any) {
-                    throw new Error(`Critical: Failed to parse Firebase Key`);
-                }
-            }
-        }
-
-        if (serviceAccount && typeof serviceAccount.private_key === 'string') {
-            let key = serviceAccount.private_key;
-            key = key.replace(/\\n/g, '\n');
-            if (key.includes('-----BEGIN PRIVATE KEY-----') && !key.includes('\n')) {
-                key = key.replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n')
-                         .replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
-                         .replace(/([^-]) (?!-)/g, '$1\n');
-            }
-            serviceAccount.private_key = key;
-        }
-
-        try {
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
-            });
-        } catch (e: any) {
-            console.error('Failed to initialize Firebase Admin', e);
-            throw e;
-        }
-    }
-};
+import getRawBodyLib from 'raw-body';
+import { initializeAdmin } from './_admin.js';
 
 export const config = {
     api: {
@@ -89,12 +34,10 @@ function verifySignature(payloadStr: string, signature: string, merchantKey: str
         }
         
         return { valid, expected, rawString };
-    } catch (e) {
+    } catch {
         return { valid: false, expected: '', rawString: '' };
     }
 }
-
-import getRawBodyLib from 'raw-body';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {

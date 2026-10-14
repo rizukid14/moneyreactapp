@@ -3,6 +3,7 @@ import { getLocalDate } from '../lib/utils';
 import { resizeImage, blobToBase64 } from '../lib/imageUtils';
 import { auth } from '../lib/firebase';
 import { cleanMerchantNote } from '../utils/categoryMatcher';
+import type { Category, Asset } from '../contexts/MoneyContext';
 
 export interface LineItem {
   name: string;
@@ -47,10 +48,10 @@ export const useReceiptOCR = () => {
    */
   const scanReceipt = useCallback(async (
     imageBlob: Blob, 
-    categories?: any[], 
-    assets?: any[],
+    categories?: Category[], 
+    assets?: Asset[],
     defaultAssetId?: string,
-    userHistory?: any[]
+    userHistory?: { note: string; category: string; subCategory?: string }[]
   ): Promise<OCRResult | null> => {
     const logs: string[] = [];
     const addLog = (m: string) => { 
@@ -96,9 +97,9 @@ export const useReceiptOCR = () => {
               ?.filter(c => !c.isDeleted)
               .map(c => ({ 
                 name: c.name, 
-                subcategories: c.subcategories
-                  ?.filter((s: any) => !s.isDeleted)
-                  .map((s: any) => s.name) 
+                subcategories: (c.subcategories || [])
+                  ?.filter((s) => typeof s === 'string' || !s.isDeleted)
+                  .map((s) => typeof s === 'string' ? s : s.name) 
               })),
             assets: assets?.map(a => ({ name: a.name, id: a.id })),
             defaultAssetId,
@@ -130,27 +131,28 @@ export const useReceiptOCR = () => {
 
       setProgress(100);
       
+      interface RawOcrItem {
+        name?: string;
+        amount?: number;
+      }
+
       // Items come from AI with their base prices
-      const validItems = (result.lineItems || []).filter((item: any) => {
+      const validItems: RawOcrItem[] = (result.lineItems || []).filter((item: RawOcrItem) => {
         const amt = typeof item.amount === 'number' ? item.amount : 0;
         return amt > 0 && item.name;
       });
 
       const grandTotal = typeof result.amount === 'number' ? result.amount : 0;
-      
-      let mappedLineItems: LineItem[];
 
       // Calculate the net difference confirmed as tax/service minus discount
       const tax = typeof result.taxAmount === 'number' ? result.taxAmount : 0;
       const service = typeof result.serviceChargeAmount === 'number' ? result.serviceChargeAmount : 0;
       const discount = typeof result.discountAmount === 'number' ? result.discountAmount : 0;
-      
 
-
-      mappedLineItems = validItems.map((item: any) => ({
-        name: item.name,
-        amount: Math.round(item.amount),
-        originalAmount: Math.round(item.amount),
+      const mappedLineItems: LineItem[] = validItems.map((item: RawOcrItem) => ({
+        name: item.name || 'Item',
+        amount: Math.round(item.amount || 0),
+        originalAmount: Math.round(item.amount || 0),
         selected: true,
       }));
 
@@ -203,9 +205,10 @@ export const useReceiptOCR = () => {
         debugLogs: logs
       };
 
-    } catch (err: any) {
-      addLog(`Error: ${err.message}`);
-      setError(err.message || 'Terjadi kesalahan saat pemindaian cloud.');
+    } catch (err: unknown) {
+      const msg = (err as Error).message || 'Terjadi kesalahan saat pemindaian cloud.';
+      addLog(`Error: ${msg}`);
+      setError(msg);
       return null;
     } finally {
       setIsScanning(false);

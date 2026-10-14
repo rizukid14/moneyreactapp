@@ -14,6 +14,25 @@ import { PremiumBadge } from '../components/common/PremiumBadge';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { getLocalDate } from '../lib/utils';
 
+interface BulkLocationState {
+  prefillText?: string;
+  excelDraftData?: Array<{
+    type?: 'pengeluaran' | 'pendapatan' | 'transfer';
+    amount?: number | string;
+    date?: string;
+    time?: string;
+    note?: string;
+    categoryId?: string;
+    subCategoryId?: string;
+    assetId?: string;
+    asset?: string;
+    fromAssetId?: string;
+    fromAsset?: string;
+    toAssetId?: string;
+    toAsset?: string;
+  }>;
+}
+
 const BulkInput: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -217,7 +236,8 @@ const BulkInput: React.FC = () => {
   }, [showToast, assets, categories, handleParse]);
 
   useEffect(() => {
-    const prefill = (location.state as any)?.prefillText;
+    const state = location.state as BulkLocationState | null;
+    const prefill = state?.prefillText;
     if (prefill && typeof prefill === 'string' && prefill.trim()) {
       setInputText(prefill);
       window.history.replaceState({}, document.title);
@@ -226,9 +246,10 @@ const BulkInput: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const excelDraft = (location.state as any)?.excelDraftData;
+    const state = location.state as BulkLocationState | null;
+    const excelDraft = state?.excelDraftData;
     if (excelDraft && Array.isArray(excelDraft)) {
-      const formattedDraft: ParsedTransaction[] = excelDraft.map((row: any, index: number) => ({
+      const formattedDraft: ParsedTransaction[] = excelDraft.map((row, index: number) => ({
         id: `excel-${Date.now()}-${index}`,
         type: row.type || 'pengeluaran',
         amount: Number(row.amount) || 0,

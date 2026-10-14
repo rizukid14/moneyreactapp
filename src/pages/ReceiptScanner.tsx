@@ -9,7 +9,7 @@ import { useToast } from '../components/common/Toast';
 import { findBestCategoryMatch, extractUserHistoricalMappings } from '../utils/categoryMatcher';
 import { validateFileSecure } from '../lib/fileValidation';
 import { getLocalDate } from '../lib/utils';
-import SplitBillModal from '../components/modals/SplitBillModal';
+import SplitBillModal, { type SplitPerson } from '../components/modals/SplitBillModal';
 import { ReceiptItemizerModal } from '../components/modals/ReceiptItemizerModal';
 import AssetSelectModal from '../components/modals/AssetSelectModal';
 import CategorySelectModal from '../components/modals/CategorySelectModal';
@@ -46,7 +46,12 @@ const ReceiptScanner: React.FC = () => {
   }, [transactions, categories]);
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategory: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategory: null, deficitAmount: 0, month: 0, year: 0 });
-  const [pendingAction, setPendingAction] = useState<{ type: 'save_main' | 'save_line_items' | 'save_mutasi' | 'split', data?: any } | null>(null);
+  const [pendingAction, setPendingAction] = useState<
+    | { type: 'save_main' | 'save_line_items' }
+    | { type: 'split'; data: { splits: SplitPerson[]; data: { assetId: string; categoryId: string; subCategoryId: string } } }
+    | { type: 'save_mutasi'; data: { batchAssetId: string } }
+    | null
+  >(null);
 
   // Stage management
   const [stage, setStage] = useState<Stage>('upload');
@@ -701,7 +706,7 @@ const ReceiptScanner: React.FC = () => {
 
 
 
-  const handleSplitSave = (splits: any[], data: { assetId: string, categoryId: string, subCategoryId: string }) => {
+  const handleSplitSave = (splits: SplitPerson[], data: { assetId: string, categoryId: string, subCategoryId: string }) => {
     const userSplit = splits.find(s => s.id === 'me');
     const payer = splits.find(s => s.isPayer) || splits[0];
     const isMePayer = payer.id === 'me';
@@ -729,7 +734,7 @@ const ReceiptScanner: React.FC = () => {
     performSplitSave(splits, data);
   };
 
-  const performSplitSave = (splits: any[], data: { assetId: string, categoryId: string, subCategoryId: string }) => {
+  const performSplitSave = (splits: SplitPerson[], data: { assetId: string, categoryId: string, subCategoryId: string }) => {
     try {
       const userSplit = splits.find(s => s.id === 'me');
       const payer = splits.find(s => s.isPayer) || splits[0];

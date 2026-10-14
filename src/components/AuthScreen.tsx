@@ -17,8 +17,10 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/cancelled-popup-request': 'Proses dibatalkan.',
 };
 
-const mapAuthError = (err: { code?: string } | null | undefined): string =>
-  AUTH_ERROR_MESSAGES[err?.code || ''] || 'Terjadi kesalahan. Silakan coba lagi.';
+const mapAuthError = (err: unknown): string => {
+  const code = (err as { code?: string } | null | undefined)?.code || '';
+  return AUTH_ERROR_MESSAGES[code] || 'Terjadi kesalahan. Silakan coba lagi.';
+};
 
 export const AuthScreen: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,7 +46,7 @@ export const AuthScreen: React.FC = () => {
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(mapAuthError(err));
     } finally {
       setLoading(false);
@@ -66,9 +68,10 @@ export const AuthScreen: React.FC = () => {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-    } catch (err: any) {
-      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-        setError(err.message || 'Gagal masuk dengan Google.');
+    } catch (err: unknown) {
+      const authErr = err as { code?: string; message?: string };
+      if (authErr.code !== 'auth/popup-closed-by-user' && authErr.code !== 'auth/cancelled-popup-request') {
+        setError(authErr.message || 'Gagal masuk dengan Google.');
       }
     } finally {
       setLoading(false);

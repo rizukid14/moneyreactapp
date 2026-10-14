@@ -362,7 +362,7 @@ const AssetDetailDrawer: React.FC<{
                         <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {tx.type === 'transfer'
                             ? `Transfer → ${getAssetName(tx.toAssetId)}`
-                            : (tx.categoryId === SYS_CAT.BALANCE_ADJ ? 'Koreksi Saldo' : (categories?.find((c: any) => c.id === tx.categoryId)?.name || 'Kategori Dihapus'))}
+                            : (tx.categoryId === SYS_CAT.BALANCE_ADJ ? 'Koreksi Saldo' : (categories?.find((c) => c.id === tx.categoryId)?.name || 'Kategori Dihapus'))}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                           {tx.date}
@@ -433,8 +433,8 @@ const AssetCard: React.FC<AssetCardProps> = ({
     dragConstraints: { left: -80, right: 80 },
     dragElastic: 0.1,
     dragSnapToOrigin: true,
-    onDrag: (_: any, info: { offset: { x: number } }) => setDragX(info.offset.x),
-    onDragEnd: (_: any, info: { offset: { x: number } }) => {
+    onDrag: (_: unknown, info: { offset: { x: number } }) => setDragX(info.offset.x),
+    onDragEnd: (_: unknown, info: { offset: { x: number } }) => {
       setDragX(0);
       if (info.offset.x > 50) onEdit();
       if (info.offset.x < -50) onDelete();

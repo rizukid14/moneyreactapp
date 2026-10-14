@@ -4,11 +4,36 @@ import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
 import MaterialIcon from '../common/MaterialIcon';
 
+export interface SharedExpenseItemDetail {
+  name: string;
+  amount: number;
+  assignments: string[];
+}
+
+export interface SharedExpenseSplitDetail {
+  memberId: string;
+  amount: number;
+}
+
+export interface SharedExpenseDetail {
+  description: string;
+  payer: string;
+  date: string;
+  amount: number;
+  items?: SharedExpenseItemDetail[];
+  splits?: SharedExpenseSplitDetail[];
+}
+
+export interface SharedMemberDetail {
+  id: string;
+  name: string;
+}
+
 interface SharedExpenseDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  expense: any;
-  members: any[];
+  expense: SharedExpenseDetail | null;
+  members: SharedMemberDetail[];
   currencySymbol: string;
 }
 
@@ -47,7 +72,7 @@ const SharedExpenseDetailModal: React.FC<SharedExpenseDetailModalProps> = ({
                 Rincian Item (Struk)
               </h4>
               <div style={{ display: 'grid', gap: '8px' }}>
-                {expense.items.map((item: any, i: number) => {
+                {expense.items.map((item, i: number) => {
                   const assignedNames = item.assignments.map((id: string) => members.find(m => m.id === id)?.name || 'Teman').join(', ');
                   return (
                     <div key={i} style={{ padding: '12px 16px', background: 'var(--bg-neutral)', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -70,8 +95,8 @@ const SharedExpenseDetailModal: React.FC<SharedExpenseDetailModalProps> = ({
                 Ditanggung Oleh (Pakai)
               </h4>
               <div style={{ display: 'grid', gap: '8px' }}>
-                {expense.splits.map((s: any) => {
-                  const m = members.find(m => m.id === s.memberId);
+                {expense.splits.map((s) => {
+                  const m = members.find(mem => mem.id === s.memberId);
                   return (
                     <div key={s.memberId} style={{ padding: '12px 16px', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 700, fontSize: '14px' }}>{m?.name || 'Unknown'}</span>

@@ -1,5 +1,15 @@
 import OpenAI from "openai";
-import { verifyAuth, checkAndConsumeQuota } from './_admin.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { verifyAuth, checkAndConsumeQuota, getErrorResponse } from './_admin.js';
+import type { ChatRequestBody, ServerTransaction, ServerCategory, ServerRecurring, ServerSubscription } from './_types.js';
+
+interface ServerToolCall {
+  type: string;
+  function: {
+    name: string;
+    arguments: string | Record<string, unknown>;
+  };
+}
 
 let openai: OpenAI | null = null;
 
@@ -20,7 +30,7 @@ export const config = {
   },
 };
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -39,7 +49,7 @@ export default async function handler(req: any, res: any) {
       messages, categories, assets, transactions, contacts, 
       recurringTransactions, subscriptions, budgetMode, monthlyIncome, zbbMode,
       startOfMonthDay, currentDate, currentTime, budgets, goals
-    } = req.body;
+    } = req.body as ChatRequestBody;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ message: 'Valid messages array is required' });
@@ -50,18 +60,19 @@ export default async function handler(req: any, res: any) {
     }
 
     // M8: consume quota only after the request has been validated.
-    let quotaResult: any = null;
+    let quotaResult: Awaited<ReturnType<typeof checkAndConsumeQuota>> | null = null;
     try {
       quotaResult = await checkAndConsumeQuota(user.uid, 'chat');
       if (!quotaResult.allowed) {
         return res.status(403).json(quotaResult);
       }
-    } catch (e: any) {
-      return res.status(e.status || 500).json({ message: e.message });
+    } catch (e: unknown) {
+      const { status, message } = getErrorResponse(e);
+      return res.status(status).json({ message });
     }
 
     // Helper to sanitize untrusted user data embedded in system prompts
-    const sanitize = (str: any, maxLen = 120): string => {
+    const sanitize = (str: unknown, maxLen = 120): string => {
       if (typeof str !== 'string') return '';
       return str
         .replace(/<\|im_start\|>|<\|im_end\|>|\[INST\]|\[\/INST\]|<system>|<\/system>|===|---|```/gi, ' ')
@@ -71,9 +82,9 @@ export default async function handler(req: any, res: any) {
 
     // 1. Analyze the last 3 user messages to detect the conversation topic context
     const userMessages = messages
-      .filter((m: any) => m.role === 'user')
+      .filter((m) => m.role === 'user')
       .slice(-3)
-      .map((m: any) => m.content)
+      .map((m) => m.content)
       .join(" ");
     const userMessagesContext = userMessages.toLowerCase();
 
@@ -81,7 +92,6 @@ export default async function handler(req: any, res: any) {
     let startStr = "";
     let endStr = "";
     let daysToEOM = -1;
-    let financialMonthEndString = "";
     let isNearEndOfMonth = false;
 
     if (currentDate) {
@@ -128,7 +138,6 @@ export default async function handler(req: any, res: any) {
         const todayDate = new Date(year, month - 1, day);
         const diffTime = eomDate.getTime() - todayDate.getTime();
         daysToEOM = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        financialMonthEndString = endStr;
         
         // Trigger EOM near status if we are within 5 days of the financial month end
         if (daysToEOM >= 0 && daysToEOM <= 5) {
@@ -141,7 +150,7 @@ export default async function handler(req: any, res: any) {
     let effectiveStartStr = startStr;
     let effectiveEndStr = endStr;
 
-    let currentPeriodTxs = transactions?.filter((t: any) => {
+    let currentPeriodTxs = transactions?.filter((t) => {
       if (!t.date) return false;
       return t.date >= startStr && t.date <= endStr;
     }) || [];
@@ -150,9 +159,9 @@ export default async function handler(req: any, res: any) {
     // detect the most recent financial month from the actual transaction dates.
     // This prevents showing Rp 0 / Rp 0 when data exists but belongs to a past period.
     if (currentPeriodTxs.length === 0 && transactions?.length > 0 && startStr) {
-      const allDates = (transactions as any[])
-        .filter((t: any) => t.date)
-        .map((t: any) => t.date as string)
+      const allDates = (transactions || [])
+        .filter((t) => t.date)
+        .map((t) => t.date as string)
         .sort();
       const latestDate = allDates[allDates.length - 1]; // most recent tx date
 
@@ -189,7 +198,7 @@ export default async function handler(req: any, res: any) {
           effectiveEndStr = `${fbEndYear}-${String(fbEndMonth).padStart(2, '0')}-${String(actualEndDay).padStart(2, '0')}`;
         }
 
-        currentPeriodTxs = (transactions as any[]).filter((t: any) => {
+        currentPeriodTxs = (transactions || []).filter((t) => {
           if (!t.date) return false;
           return t.date >= effectiveStartStr && t.date <= effectiveEndStr;
         });
@@ -197,24 +206,24 @@ export default async function handler(req: any, res: any) {
     }
 
     const periodIncome = currentPeriodTxs
-      .filter((t: any) => t.type === 'pendapatan')
-      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      .filter((t) => t.type === 'pendapatan')
+      .reduce((sum: number, t) => sum + (t.amount || 0), 0);
 
     const periodExpenses = currentPeriodTxs
-      .filter((t: any) => t.type === 'pengeluaran')
-      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      .filter((t) => t.type === 'pengeluaran')
+      .reduce((sum: number, t) => sum + (t.amount || 0), 0);
 
     const periodSavings = periodIncome - periodExpenses;
     const savingsRate = periodIncome > 0 ? Math.round((periodSavings / periodIncome) * 100) : 0;
 
-    const categoryBreakdown = (categories || []).map((cat: any) => {
-      const catBudgets = (budgets || []).filter((b: any) => b.categoryId === cat.id);
+    const categoryBreakdown = (categories || []).map((cat: ServerCategory) => {
+      const catBudgets = (budgets || []).filter((b) => b.categoryId === cat.id);
       let limit = 0;
       if (catBudgets.length > 0) {
         const endParts = effectiveEndStr.split('-');
         const endMonthVal = endParts.length === 3 ? parseInt(endParts[1]) : 0;
         const endYearVal = endParts.length === 3 ? parseInt(endParts[0]) : 0;
-        const currentBudget = catBudgets.find((b: any) => b.month === endMonthVal && b.year === endYearVal);
+        const currentBudget = catBudgets.find((b) => b.month === endMonthVal && b.year === endYearVal);
         if (currentBudget) {
           limit = currentBudget.limit || 0;
         } else {
@@ -222,8 +231,8 @@ export default async function handler(req: any, res: any) {
         }
       }
       const totalSpent = currentPeriodTxs
-        .filter((t: any) => (t.categoryId === cat.id || t.categoryId === cat.name || t.category === cat.name || t.category === cat.id) && t.type === 'pengeluaran')
-        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+        .filter((t) => (t.categoryId === cat.id || t.categoryId === cat.name || t.category === cat.name || t.category === cat.id) && t.type === 'pengeluaran')
+        .reduce((sum: number, t) => sum + (t.amount || 0), 0);
       const remaining = limit - totalSpent;
       const pctConsumed = limit > 0 ? Math.round((totalSpent / limit) * 100) : 0;
       return {
@@ -252,7 +261,7 @@ export default async function handler(req: any, res: any) {
     if (categoryBreakdown.length > 0) {
       financialMetricsSummary += `
 === CATEGORY SPENDING BREAKDOWN ===
-${categoryBreakdown.map((c: any) => {
+${categoryBreakdown.map((c) => {
   if (c.type === 'pengeluaran') {
     return `- ${sanitize(c.name, 60)}: Spent Rp ${c.totalSpent.toLocaleString('id-ID')} of limit Rp ${c.limit.toLocaleString('id-ID')} (${c.pctConsumed}% consumed, Remaining: Rp ${c.remaining.toLocaleString('id-ID')})`;
   } else {
@@ -265,14 +274,14 @@ ${categoryBreakdown.map((c: any) => {
     if (goals && goals.length > 0) {
       financialMetricsSummary += `
 === SAVINGS GOALS ===
-${goals.map((g: any) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetAmount.toLocaleString('id-ID')} by ${g.targetDate} (Status: ${g.isCompleted ? 'Completed' : 'Active'})`).join('\n')}
+${goals.map((g) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetAmount.toLocaleString('id-ID')} by ${g.targetDate} (Status: ${g.isCompleted ? 'Completed' : 'Active'})`).join('\n')}
 `;
     }
 
     // 2. Multi-Month Pre-Aggregation Engine
     // Process ALL transactions server-side to build compact, 100% complete summaries
-    const allTxs = (transactions || []) as any[];
-    const allTxsWithDate = allTxs.filter((t: any) => !t.isDeleted && t.date && t.amount);
+    const allTxs: ServerTransaction[] = transactions || [];
+    const allTxsWithDate = allTxs.filter((t) => !t.isDeleted && t.date && t.amount);
 
     // Helper to compute monthKey respecting startOfMonthDay (e.g. if startOfMonthDay is 25, 2026-06-25 belongs to 2026-07)
     const effectiveStartDay = typeof startOfMonthDay === 'number' && startOfMonthDay >= 1 && startOfMonthDay <= 31 ? startOfMonthDay : 1;
@@ -301,11 +310,11 @@ ${goals.map((g: any) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetA
     };
 
     // Category resolution helper (maps any subcategory transaction to its parent main category)
-    const resolveCategoryName = (t: any): string => {
+    const resolveCategoryName = (t: ServerTransaction): string => {
       if (!categories || categories.length === 0) return t.category || t.categoryId || 'Lainnya';
 
       // 1. Direct match on main category ID or Name
-      let catObj = categories.find((c: any) => 
+      let catObj = categories.find((c) => 
         c.id === t.categoryId || 
         (c.name && c.name.toLowerCase() === (t.categoryId || '').toLowerCase()) ||
         c.id === t.category ||
@@ -314,15 +323,18 @@ ${goals.map((g: any) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetA
       if (catObj) return catObj.name;
 
       // 2. Subcategory match: if t.categoryId or t.subCategoryId matches ANY subcategory
-      catObj = categories.find((c: any) => 
-        c.subcategories?.some((s: any) => 
-          s.id === t.categoryId || 
-          (s.name && s.name.toLowerCase() === (t.categoryId || '').toLowerCase()) ||
-          s.id === t.subCategoryId ||
-          (s.name && s.name.toLowerCase() === (t.subCategoryId || '').toLowerCase()) ||
-          s.id === t.category ||
-          (s.name && s.name.toLowerCase() === (t.category || '').toLowerCase())
-        )
+      catObj = categories.find((c) => 
+        c.subcategories?.some((s) => {
+          if (typeof s === 'string') return s === t.categoryId || s === t.subCategoryId || s === t.category;
+          return (
+            s.id === t.categoryId || 
+            (s.name && s.name.toLowerCase() === (t.categoryId || '').toLowerCase()) ||
+            s.id === t.subCategoryId ||
+            (s.name && s.name.toLowerCase() === (t.subCategoryId || '').toLowerCase()) ||
+            s.id === t.category ||
+            (s.name && s.name.toLowerCase() === (t.category || '').toLowerCase())
+          );
+        })
       );
       if (catObj) return catObj.name;
 
@@ -330,22 +342,22 @@ ${goals.map((g: any) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetA
     };
 
     // Active Subscriptions & Recurring Names for Tier 1 deduplication
-    const activeSubs = (subscriptions || []).filter((s: any) => s.isActive);
-    const totalSubsMonthly = activeSubs.reduce((sum: number, s: any) => {
+    const activeSubs = (subscriptions || []).filter((s) => s.isActive);
+    const totalSubsMonthly = activeSubs.reduce((sum: number, s) => {
       const amt = Number(s.amount || 0);
       return sum + (s.billingCycle === 'yearly' ? Math.round(amt / 12) : amt);
     }, 0);
-    const activeSubsNames: string[] = activeSubs.map((s: any) => (s.name || '').toLowerCase().trim()).filter(Boolean);
+    const activeSubsNames: string[] = activeSubs.map((s) => (s.name || '').toLowerCase().trim()).filter(Boolean);
 
-    const activeRecurring = (recurringTransactions || []).filter((rt: any) => rt.isActive);
-    const totalRecurringMonthly = activeRecurring.reduce((sum: number, rt: any) => {
+    const activeRecurring = (recurringTransactions || []).filter((rt) => rt.isActive);
+    const totalRecurringMonthly = activeRecurring.reduce((sum: number, rt) => {
       const amt = Number(rt.amount || 0);
       if (rt.frequency === 'daily') return sum + (amt * 30);
       if (rt.frequency === 'weekly') return sum + (amt * 4);
       if (rt.frequency === 'yearly') return sum + Math.round(amt / 12);
       return sum + amt;
     }, 0);
-    const activeRecurringNotes: string[] = activeRecurring.map((rt: any) => (rt.note || '').toLowerCase().trim()).filter(Boolean);
+    const activeRecurringNotes: string[] = activeRecurring.map((rt) => (rt.note || '').toLowerCase().trim()).filter(Boolean);
 
     const isTier1Note = (note: string): boolean => {
       if (!note) return false;
@@ -418,7 +430,7 @@ ${goals.map((g: any) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetA
     // Detect income sources from pendapatan transactions
     const incomeSources: Record<string, { total: number; count: number }> = {};
     for (const m of last6Months) {
-      const mTxs = allTxsWithDate.filter((t: any) => t.date.startsWith(m) && t.type === 'pendapatan');
+      const mTxs = allTxsWithDate.filter((t) => (t.date || '').startsWith(m) && t.type === 'pendapatan');
       for (const t of mTxs) {
         const src = sanitize(t.note || t.category || 'Unknown', 80);
         if (!incomeSources[src]) incomeSources[src] = { total: 0, count: 0 };
@@ -533,8 +545,8 @@ ${goals.map((g: any) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetA
     const realNetDisposable = avgMonthlyIncome - totalTier1Deduction;
 
     // === ASSET LIQUIDITY & EMERGENCY FUND METRICS ===
-    const liquidAssets = (assets || []).filter((a: any) => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type));
-    const totalLiquidBalance = liquidAssets.reduce((sum: number, a: any) => sum + (a.balance || 0), 0);
+    const liquidAssets = (assets || []).filter((a) => !a.isDeleted && ['Cash', 'Bank Account', 'eWallet', 'Savings'].includes(a.type || ''));
+    const totalLiquidBalance = liquidAssets.reduce((sum: number, a) => sum + (a.balance || 0), 0);
     const monthlyLivingCost = (totalTier1Deduction || 0) + (categoryAverages.reduce((sum, c) => sum + (c.routineAvg3mo || 0), 0) || 0);
     const emergencyFundMonths = monthlyLivingCost > 0 ? (totalLiquidBalance / monthlyLivingCost).toFixed(1) : (totalLiquidBalance > 0 ? '5.0' : '0.0');
 
@@ -548,11 +560,11 @@ ${goals.map((g: any) => `- Goal "${sanitize(g.name, 60)}": Target Rp ${g.targetA
 
     // Food spending in current period so far
     const currentPeriodFoodSpent = currentPeriodTxs
-      .filter((t: any) => {
+      .filter((t) => {
         const cat = resolveCategoryName(t).toLowerCase();
         return cat.includes('makan') || cat.includes('food') || cat.includes('dapur') || cat.includes('kuliner');
       })
-      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      .reduce((sum: number, t) => sum + (t.amount || 0), 0);
 
     // Build compact multi-month summary
     let multiMonthSummary = '';
@@ -576,8 +588,8 @@ Recorded months: ${sortedMonths.length} (${sortedMonths[sortedMonths.length - 1]
 
 --- TIER 1: FIXED OBLIGATIONS & ACTIVE SUBSCRIPTIONS (Auto-Deducted in Advance) ---
 ${fixedObligations.map(f => `- [Detected Fixed] "${sanitize(f.note, 80)}" (${sanitize(f.category, 40)}): ~Rp ${f.avgAmount.toLocaleString('id-ID')}/mo (detected in ${f.frequency} of last ${f.months} months)`).join('\n')}
-${activeRecurring.map((r: any) => `- [Active Recurring Schedule] "${sanitize(r.note || r.categoryId, 80)}": Rp ${Number(r.amount).toLocaleString('id-ID')}/${r.frequency}`).join('\n')}
-${activeSubs.map((s: any) => `- [Active Subscription] "${sanitize(s.name, 60)}": Rp ${Number(s.amount).toLocaleString('id-ID')}/${s.billingCycle}`).join('\n')}
+${activeRecurring.map((r) => `- [Active Recurring Schedule] "${sanitize(r.note || r.categoryId, 80)}": Rp ${Number(r.amount).toLocaleString('id-ID')}/${r.frequency}`).join('\n')}
+${activeSubs.map((s) => `- [Active Subscription] "${sanitize(s.name, 60)}": Rp ${Number(s.amount).toLocaleString('id-ID')}/${s.billingCycle}`).join('\n')}
 Total Tier 1 Deductions (Fixed + Recurring + Subscriptions): ~Rp ${totalTier1Deduction.toLocaleString('id-ID')}/mo
 Estimated Net Disposable Income (after Tier 1): Rp ${realNetDisposable.toLocaleString('id-ID')}/mo
 
@@ -586,7 +598,7 @@ ${categoryAverages.map(c => `- ${sanitize(c.name, 60)}:
   * Routine Monthly Baseline (for Tier 2 Envelope Limit): Rp ${c.routineAvg3mo.toLocaleString('id-ID')}/month
   * Total 3-Month Average (including non-routine): Rp ${c.avg3mo.toLocaleString('id-ID')}/month
   * Non-Routine / One-Off Items Detected: ${sanitize(c.nonRoutineSummary, 120)}
-  * History per Month: [${c.monthlyBreakdown}]${c.topNotes.length > 0 ? `\n  * Common notes: ${c.topNotes.map((n: any) => sanitize(n, 40)).join(', ')}` : ''}`).join('\n')}
+  * History per Month: [${c.monthlyBreakdown}]${c.topNotes.length > 0 ? `\n  * Common notes: ${c.topNotes.map((n) => sanitize(n, 40)).join(', ')}` : ''}`).join('\n')}
 `;
     }
 
@@ -608,29 +620,29 @@ ${categoryAverages.map(c => `- ${sanitize(c.name, 60)}:
     const maxTxs = (isStatsRelated || isHistoryRelated || isDateRelated || isEndOfMonthRelated || isNearEndOfMonth || isAdviceRelated) ? 100 : (isBudgetRelated ? 20 : 15);
     const slicedTxs = (isEndOfMonthRelated || isNearEndOfMonth)
       ? allTxsWithDate
-          .filter((t: any) => t.date >= effectiveStartStr && t.date <= effectiveEndStr)
+          .filter((t) => (t.date || '') >= effectiveStartStr && (t.date || '') <= effectiveEndStr)
           .slice(0, maxTxs)
       : allTxsWithDate.slice(0, maxTxs);
     
     const categoryList = categories?.length > 0 
-      ? categories.filter((c: any) => !c.isDeleted).map((c: any) => {
-          const subs = c.subcategories?.filter((s: any) => !s.isDeleted).map((s: any) => sanitize(s.name, 40)).join(', ') || 'none';
+      ? categories.filter((c) => !c.isDeleted).map((c: ServerCategory) => {
+          const subs = c.subcategories?.filter((s) => typeof s === 'string' || !s.isDeleted).map((s) => sanitize(typeof s === 'string' ? s : s.name, 40)).join(', ') || 'none';
           return `ID: "${c.id}" Name: "${sanitize(c.name, 50)}" (${c.type}) [subs: ${subs}]`;
         }).join('; ') 
       : "None";
     
-    const filteredAssets = (assets || []).filter((a: any) => !a.isDeleted && !['Credit Card', 'Loan'].includes(a.type));
+    const filteredAssets = (assets || []).filter((a) => !a.isDeleted && !['Credit Card', 'Loan'].includes(a.type || ''));
     const assetList = filteredAssets.length > 0 
-      ? filteredAssets.map((a: any) => `- ID: "${a.id}", Name: "${sanitize(a.name, 50)}", Type: "${sanitize(a.type, 30)}", Balance: ${a.balance}`).join('\n') 
+      ? filteredAssets.map((a) => `- ID: "${a.id}", Name: "${sanitize(a.name, 50)}", Type: "${sanitize(a.type, 30)}", Balance: ${a.balance}`).join('\n') 
       : "None";
 
     const contactList = (isDebtRelated || isTripRelated || isSettingsRelated)
-      ? (contacts?.length > 0 ? contacts.map((c: any) => `- Name: "${sanitize(c.name, 50)}"`).join('\n') : "No existing contacts.")
+      ? (contacts?.length > 0 ? contacts.map((c) => `- Name: "${sanitize(c.name, 50)}"`).join('\n') : "No existing contacts.")
       : `Omitted to save tokens. Total registered contacts: ${contacts?.length || 0}. (Ask about debts or contacts to view)`;
 
     const transactionSummary = slicedTxs.length > 0
-      ? slicedTxs.map((t: any) => {
-          const catObj = (categories || []).find((c: any) => c.id === t.categoryId || c.name === t.categoryId || c.id === t.category || c.name === t.category);
+      ? slicedTxs.map((t: ServerTransaction) => {
+          const catObj = (categories || []).find((c) => c.id === t.categoryId || c.name === t.categoryId || c.id === t.category || c.name === t.category);
           const catName = catObj ? sanitize(catObj.name, 40) : sanitize(t.category || t.categoryId || 'N/A', 40);
           return `${t.date}: ${t.type} ${t.amount} [${catName}] ${sanitize(t.note, 80)}`;
         }).join('\n')
@@ -638,19 +650,19 @@ ${categoryAverages.map(c => `- ${sanitize(c.name, 60)}:
     
     const recurringSummary = (isSubscriptionRelated || isBudgetRelated || isStatsRelated)
       ? (recurringTransactions?.length > 0
-          ? recurringTransactions.map((rt: any) => {
-              const catObj = (categories || []).find((c: any) => c.id === rt.categoryId || c.name === rt.categoryId || c.id === rt.category || c.name === rt.category);
+          ? recurringTransactions.map((rt: ServerRecurring) => {
+              const catObj = (categories || []).find((c) => c.id === rt.categoryId || c.name === rt.categoryId || c.id === rt.category || c.name === rt.category);
               const catName = catObj ? sanitize(catObj.name, 40) : sanitize(rt.category || rt.categoryId || 'N/A', 40);
               return `- ${rt.type} ${rt.amount} [${catName}] ${rt.frequency} starts ${rt.startDate} (${sanitize(rt.note, 80)})`;
             }).join('\n')
           : "None")
-      : `Omitted to save tokens. Total active recurring: ${recurringTransactions?.filter((rt: any) => rt.isActive).length || 0}`;
+      : `Omitted to save tokens. Total active recurring: ${recurringTransactions?.filter((rt) => rt.isActive).length || 0}`;
 
     const subscriptionSummary = (isSubscriptionRelated || isBudgetRelated || isStatsRelated)
       ? (subscriptions?.length > 0
-          ? subscriptions.map((s: any) => `- ${sanitize(s.name, 50)}: ${s.amount}/${s.billingCycle} next: ${s.nextBillingDate}`).join('\n')
+          ? subscriptions.map((s: ServerSubscription) => `- ${sanitize(s.name, 50)}: ${s.amount}/${s.billingCycle} next: ${s.nextBillingDate}`).join('\n')
           : "None")
-      : `Omitted to save tokens. Total subscriptions active: ${subscriptions?.filter((s: any) => s.isActive).length || 0}`;
+      : `Omitted to save tokens. Total subscriptions active: ${subscriptions?.filter((s) => s.isActive).length || 0}`;
 
     // 4. Modular Prompt Injection
     let modularRules = "";
@@ -1120,20 +1132,20 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
 
     const safeHistory = Array.isArray(messages)
       ? messages
-          .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+          .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
           .slice(-40)
-          .map((m: any) => ({ role: m.role, content: m.content.slice(0, 4000) }))
+          .map((m) => ({ role: m.role, content: (m.content || '').slice(0, 4000) }))
       : [];
 
-    const apiMessages = [
+    const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
-      ...safeHistory
+      ...safeHistory.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content }))
     ];
 
     const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: apiMessages,
-      tools: tools as any,
+      tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
       tool_choice: "auto",
     });
 
@@ -1214,7 +1226,7 @@ Keep these rules in mind when suggesting or auto-drafting transactions so the as
 
     // Check if the AI decided to call the tool
     if (message.tool_calls && message.tool_calls.length > 0) {
-      const toolCall = message.tool_calls[0] as any;
+      const toolCall = message.tool_calls[0] as ServerToolCall;
       
       if (toolCall.type === 'function') {
         const functionName = toolCall.function.name;
@@ -1292,11 +1304,12 @@ Silakan tanyakan salah satu topik di atas untuk panduan mendalam!`;
       isPremium: quotaResult?.isPremium
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Chat API Error:', error);
-    return res.status(500).json({
+    const { status, message } = getErrorResponse(error);
+    return res.status(status).json({
       message: 'Chat Failed',
-      error: error.message
+      error: message
     });
   }
 }

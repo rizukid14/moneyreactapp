@@ -18,7 +18,7 @@ import { FamilyManagement } from '../components/FamilyManagement';
 import CategoryManagerModal from '../components/modals/CategoryManagerModal';
 
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import { ALL_CARD_DEFS, getGachaTier, calcCardValue } from '../components/AssetSummaryCarousel';
+import { ALL_CARD_DEFS, getGachaTier, calcCardValue, type CardId } from '../components/AssetSummaryCarousel';
 
 import { useToast } from '../components/common/Toast';
 import { changelogData, changelogTypeMeta } from '../data/changelog';
@@ -112,7 +112,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
             {activeCards.map((id, i) => {
               const def = ALL_CARD_DEFS.find(d => d.id === id);
               if (!def) return null;
-              const val = calcCardValue(id as any, assets, balances);
+              const val = calcCardValue(id as CardId, assets, balances);
               const tier = getGachaTier(id === 'liabilities' ? -val : val);
               const isDragOver = dragOverIdx === i;
               return (
@@ -170,7 +170,7 @@ const CarouselCardSettings: React.FC<CarouselCardSettingsProps> = ({ activeCards
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {ALL_CARD_DEFS.filter(d => !activeCards.includes(d.id)).map(def => {
-          const val = calcCardValue(def.id as any, assets, balances);
+          const val = calcCardValue(def.id as CardId, assets, balances);
           const tier = getGachaTier(def.negate ? -val : val);
           return (
             <button
@@ -246,8 +246,9 @@ const Settings: React.FC = () => {
   // Deep linking: open modal based on navigation state
   React.useEffect(() => {
     if (location.state && typeof location.state === 'object' && 'activeModal' in location.state) {
-      const modal = (location.state as any).activeModal;
+      const modal = (location.state as { activeModal?: string }).activeModal;
       if (modal) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveModal(modal);
       }
     }
@@ -312,11 +313,13 @@ const Settings: React.FC = () => {
   const [tempAvatar, setTempAvatar] = useState(user.avatar || '');
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (!isEditingProfile && activeModal !== 'profile') {
       setTempName(user.name);
       setTempEmail(user.email);
       setTempAvatar(user.avatar || '');
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [user.name, user.email, user.avatar, isEditingProfile, activeModal]);
 
   // PIN Form State
@@ -334,6 +337,7 @@ const Settings: React.FC = () => {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(localStorage.getItem('last_cloud_sync_time'));
   const formatLastSync = (ts: string | null) => {
     if (!ts) return 'Belum pernah';
+    // eslint-disable-next-line react-hooks/purity
     const diff = Math.floor((Date.now() - parseInt(ts)) / 60000); // minutes
     if (diff < 1) return 'Baru saja';
     if (diff < 60) return `${diff}m lalu`;
@@ -487,13 +491,14 @@ const Settings: React.FC = () => {
         await verifyBeforeUpdateEmail(auth.currentUser, tempEmail);
         showToast('Tautan verifikasi telah dikirim ke email baru Anda. Silakan klik tautan tersebut untuk mengonfirmasi.', 'success');
         finalEmail = user.email; // Keep old email locally until verified
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Update email error:', error);
-        if (error.code === 'auth/requires-recent-login') {
+        const err = error as { code?: string; message?: string };
+        if (err.code === 'auth/requires-recent-login') {
           setShowReauthModal(true);
           return; // Stop here, wait for re-auth
         } else {
-          showToast('Gagal mengubah email: ' + error.message, 'error');
+          showToast('Gagal mengubah email: ' + (err.message || 'Error'), 'error');
           return;
         }
       }
@@ -557,7 +562,7 @@ const Settings: React.FC = () => {
           />
         );
 
-      case 'subscriptions':
+      case 'subscriptions': {
         const totalMonthly = subscriptions
           .filter(s => s.isActive)
           .reduce((sum, s) => sum + (s.billingCycle === 'monthly' ? s.amount : s.amount / 12), 0);
@@ -672,6 +677,7 @@ const Settings: React.FC = () => {
             </div>
           </>
         );
+      }
 
       case 'preferences':
         return (
@@ -1292,7 +1298,7 @@ const Settings: React.FC = () => {
           </>
         );
 
-      case 'subscription_form':
+      case 'subscription_form': {
         const handleSubFormSubmit = (e: React.FormEvent) => {
           e.preventDefault();
           if (!newSubName.trim() || !newSubAmount) return;
@@ -1476,6 +1482,7 @@ const Settings: React.FC = () => {
             </div>
           </>
         );
+      }
 
       case 'recurring':
         return (
@@ -2174,7 +2181,7 @@ const Settings: React.FC = () => {
                         key={preset.id}
                         type="button"
                         onClick={() => {
-                          setExcelMappingPreset(preset.id as any);
+                          setExcelMappingPreset(preset.id as 'default' | 'custom' | 'bca' | 'mandiri');
                           setIsExcelPresetOpen(false);
                         }}
                         className={`w-full flex items-center justify-between p-2.5 rounded-lg border-none cursor-pointer transition-colors text-left ${
@@ -2235,8 +2242,9 @@ const Settings: React.FC = () => {
                         const r = await syncData();
                         setPushResult(r);
                         if (r.success > 0) { const now = Date.now().toString(); localStorage.setItem('last_cloud_sync_time', now); setLastSyncTime(now); }
-                      } catch (e: any) {
-                        setPushResult({ success: 0, failed: 0, error: e?.message || 'SYNC_ERROR' });
+                      } catch (e: unknown) {
+                        const err = e as { message?: string } | null;
+                        setPushResult({ success: 0, failed: 0, error: err?.message || 'SYNC_ERROR' });
                       } finally {
                         setIsPushing(false);
                       }
@@ -2570,7 +2578,7 @@ const Settings: React.FC = () => {
           setShowReauthModal(false);
           // Auto-trigger the update profile save again now that they are re-authenticated
           const event = new Event('submit', { bubbles: true, cancelable: true });
-          handleUpdateProfile(event as any);
+          handleUpdateProfile(event as unknown as React.FormEvent);
         }}
       />
 

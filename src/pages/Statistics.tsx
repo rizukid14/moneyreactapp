@@ -27,6 +27,21 @@ const SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt
 
 const COLORS = ['var(--primary)', 'var(--success)', 'var(--warning)', 'var(--danger)', 'var(--secondary)', 'hsl(330, 70%, 55%)', 'hsl(170, 60%, 40%)', 'hsl(350, 75%, 55%)', 'hsl(250, 60%, 55%)'];
 
+interface CategoryPieItem {
+  name: string;
+  id?: string;
+  value: number;
+  __isOthers?: boolean;
+}
+
+export interface StatDetailPayload {
+  isOpen: boolean;
+  title: string;
+  explanation?: string;
+  formula?: React.ReactNode;
+  details: StatDetailItem[];
+}
+
 const Statistics: React.FC = () => {
   const {
     transactions, assets, categories,
@@ -68,7 +83,7 @@ const Statistics: React.FC = () => {
       if (saved === 'linear' || saved === 'log' || saved === 'dual') {
         return saved;
       }
-    } catch { }
+    } catch { /* ignore */ }
     return 'dual'; // default to dual (independent scales) as requested to make small expenses significant
   });
 
@@ -76,7 +91,7 @@ const Statistics: React.FC = () => {
     setChartScale(scale);
     try {
       localStorage.setItem('moneyapp-chart-scale', scale);
-    } catch { }
+    } catch { /* ignore */ }
   }, []);
 
   const fmt = useCallback((value: number) => formatCurrency(value, currencySymbol), [currencySymbol]);
@@ -87,12 +102,13 @@ const Statistics: React.FC = () => {
   const activeAssets = useMemo(() => assets.filter(a => !a.isDeleted), [assets]);
   const isAllAssetsSelected = selectedAssetIds.length === 0 || selectedAssetIds.length === activeAssets.length;
 
-  const filterButtonInfo = useMemo(() => {
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  const filterButtonInfo = useMemo((): { label: string; icon: string; badge: number | null } => {
     if (isAllAssetsSelected) {
       return {
         label: 'Semua Aset',
         icon: 'account_balance_wallet',
-        badge: null as number | null
+        badge: null
       };
     }
 
@@ -105,7 +121,7 @@ const Statistics: React.FC = () => {
         return {
           label: `Semua ${meta?.label || type}`,
           icon: meta?.icon || 'savings',
-          badge: null as number | null
+          badge: null
         };
       }
     }
@@ -118,7 +134,7 @@ const Statistics: React.FC = () => {
         return {
           label: asset.name,
           icon: meta?.icon || 'account_balance',
-          badge: null as number | null
+          badge: null
         };
       }
     }
@@ -420,7 +436,7 @@ const Statistics: React.FC = () => {
         cells: mo.cells.map(c => ({ ...c, level: c.amount === 0 ? 0 : Math.ceil((c.amount / maxVal) * 4) }))
       }));
     }
-  }, [transactions, assets, viewDate, drillDownCategory, selectedAssetIds, categoryMap, startOfMonthDay]);
+  }, [transactions, assets, viewDate, drillDownCategory, selectedAssetIds, categoryMap, startOfMonthDay, isAllAssetsSelected, selectedAssetSet]);
 
   const scaledDailyChart = useMemo(() => {
     if (chartScale === 'log') {
@@ -515,7 +531,7 @@ const Statistics: React.FC = () => {
           ]}
           activeTabId={activeViewId === 'health' ? 'health' : activeViewId === 'forecast' ? 'forecast' : 'all'}
           onChange={(val) => {
-            setActiveViewId(val as any);
+            setActiveViewId(val as 'all' | 'health' | 'forecast');
             setDrillDownCategory(null);
           }}
         />
@@ -641,7 +657,7 @@ const Statistics: React.FC = () => {
                     <Tooltip
                       cursor={{ fill: 'var(--bg-main)' }}
                       contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
-                      formatter={(val: any) => fmt(Number(val))}
+                      formatter={(val: unknown) => fmt(Number(val))}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                     <Bar dataKey="pendapatan" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pendapatan" />
@@ -1265,8 +1281,8 @@ const Statistics: React.FC = () => {
                       <YAxis hide domain={chartScale === 'log' ? [0, 'dataMax + 0.5'] : [0, 'dataMax + 5000']} />
                       <Tooltip
                         contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontSize: '12px' }}
-                        formatter={(val: any) => [fmt(Number(val)), 'Pengeluaran']}
-                        labelFormatter={(label: any) => `Tgl ${label}`}
+                        formatter={(val: unknown) => [fmt(Number(val)), 'Pengeluaran']}
+                        labelFormatter={(label: React.ReactNode) => `Tgl ${String(label)}`}
                       />
                       <Area
                         type="monotone"
@@ -1323,8 +1339,9 @@ const Statistics: React.FC = () => {
                           paddingAngle={3}
                           dataKey="value"
                           onClick={(data, index) => {
-                            if (!drillDownCategory && !(data as any).__isOthers) {
-                              setDrillDownCategory({ name: (data as any).id ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
+                            const pieItem = data as unknown as CategoryPieItem;
+                            if (!drillDownCategory && !pieItem.__isOthers) {
+                              setDrillDownCategory({ name: pieItem.id ?? '', type: 'pengeluaran', colorIndex: index % COLORS.length });
                             }
                           }}
                           style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
@@ -1334,7 +1351,7 @@ const Statistics: React.FC = () => {
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(val: any) => fmt(Number(val))}
+                          formatter={(val: unknown) => fmt(Number(val))}
                           contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', fontSize: '11px' }}
                         />
                       </PieChart>
@@ -1357,7 +1374,7 @@ const Statistics: React.FC = () => {
                   >
                     {expenseCategoryData.map((item, index) => {
                       const color = COLORS[(index + (drillDownCategory?.colorIndex ?? 0)) % COLORS.length];
-                      const isOthers = (item as any).__isOthers;
+                      const isOthers = (item as unknown as CategoryPieItem).__isOthers;
                       return (
                         <div
                           key={index}
@@ -1414,8 +1431,9 @@ const Statistics: React.FC = () => {
                           paddingAngle={3}
                           dataKey="value"
                           onClick={(data, index) => {
-                            if (!drillDownCategory && !(data as any).__isOthers) {
-                              setDrillDownCategory({ name: (data as any).id ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
+                            const pieItem = data as unknown as CategoryPieItem;
+                            if (!drillDownCategory && !pieItem.__isOthers) {
+                              setDrillDownCategory({ name: pieItem.id ?? '', type: 'pendapatan', colorIndex: (index + 3) % COLORS.length });
                             }
                           }}
                           style={{ cursor: drillDownCategory ? 'default' : 'pointer' }}
@@ -1425,7 +1443,7 @@ const Statistics: React.FC = () => {
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(val: any) => fmt(Number(val))}
+                          formatter={(val: unknown) => fmt(Number(val))}
                           contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', fontSize: '11px' }}
                         />
                       </PieChart>
@@ -1448,7 +1466,7 @@ const Statistics: React.FC = () => {
                   >
                     {incomeCategoryData.map((item, index) => {
                       const color = COLORS[(index + (drillDownCategory ? drillDownCategory.colorIndex : 3)) % COLORS.length];
-                      const isOthers = (item as any).__isOthers;
+                      const isOthers = (item as unknown as CategoryPieItem).__isOthers;
                       return (
                         <div
                           key={index}
@@ -1579,7 +1597,7 @@ const SCORE_COLORS = {
   poor: 'var(--danger)'
 };
 
-const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ onShowDetail }) => {
+const FinancialHealth: React.FC<{ onShowDetail?: (props: StatDetailPayload) => void }> = ({ onShowDetail }) => {
   const {
     transactions, assets, debts, budgets, categories,
     currencySymbol, theme
@@ -1805,7 +1823,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
               
               let formula = '';
               let explanation = '';
-              let details: any[] = [];
+              let details: StatDetailItem[] = [];
               
               if (m.label === 'Rasio Tabungan') {
                 formula = '(Rata-rata Pemasukan - Rata-rata Pengeluaran) / Rata-rata Pemasukan × 100%';
@@ -1937,7 +1955,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
               />
               <Tooltip
                 contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
-                formatter={(val: any) => fmt(Number(val))}
+                formatter={(val: unknown) => fmt(Number(val))}
                 labelFormatter={(label) => MONTH_NAMES[label]}
               />
               <Area type="monotone" dataKey="netWorth" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorNetWorth)" />
@@ -1950,7 +1968,7 @@ const FinancialHealth: React.FC<{ onShowDetail?: (props: any) => void }> = ({ on
 };
 
 // ─── CashFlowForecast Component ──────────────────────────────────────────────
-const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ onShowDetail }) => {
+const CashFlowForecast: React.FC<{ onShowDetail?: (props: StatDetailPayload) => void }> = ({ onShowDetail }) => {
   const {
     assets, recurringTransactions, subscriptions, currencySymbol, theme, getAssetBalance
   } = useMoney();
@@ -2203,7 +2221,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
           {[30, 60, 90].map(days => (
             <button
               key={days}
-              onClick={() => setForecastDays(days as any)}
+              onClick={() => setForecastDays(days as 30 | 60 | 90)}
               className={`px-3 py-1 rounded-lg border-none text-[10px] font-extrabold cursor-pointer transition-all ${
                 forecastDays === days ? 'bg-primary text-white shadow-sm' : 'bg-transparent text-on-surface-variant hover:text-on-surface'
               }`}
@@ -2250,7 +2268,7 @@ const CashFlowForecast: React.FC<{ onShowDetail?: (props: any) => void }> = ({ o
               />
               <Tooltip
                 contentStyle={{ borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}
-                formatter={(val: any) => fmt(Number(val))}
+                formatter={(val: unknown) => fmt(Number(val))}
                 labelStyle={{ fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}
               />
               <Area

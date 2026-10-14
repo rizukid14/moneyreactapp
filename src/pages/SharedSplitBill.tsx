@@ -9,20 +9,60 @@ import { useToast } from '../components/common/Toast';
 import SharedExpenseDetailModal from '../components/modals/SharedExpenseDetailModal';
 const SettlementExplanationModal = lazy(() => import('../components/modals/SettlementExplanationModal'));
 
+interface SharedMember {
+  id: string;
+  name: string;
+  contactName?: string;
+}
+
+interface SharedSplitItem {
+  id?: string;
+  contactName?: string;
+  name?: string;
+  amount: number;
+  isPayer?: boolean;
+  from?: string;
+  to?: string;
+}
+
+interface SharedExpense {
+  description: string;
+  amount: number;
+  payer: string;
+  payerId?: string;
+  date: string;
+  splits?: { memberId: string; amount: number }[];
+}
+
+interface SharedLineItem {
+  name: string;
+  amount: number;
+}
+
+interface SharedSplitData extends Omit<SharedSplit, 'splits' | 'secondarySplits' | 'lineItems' | 'tripExpenses' | 'members' | 'memberPayments' | 'paymentDetails'> {
+  splits: SharedSplitItem[];
+  secondarySplits?: SharedSplitItem[];
+  lineItems?: SharedLineItem[];
+  tripExpenses?: SharedExpense[];
+  members?: SharedMember[];
+  paymentDetails?: { bankName?: string; accountName?: string; accountNumber?: string; accountHolder?: string };
+  memberPayments?: Record<string, boolean>;
+}
+
 const SharedSplitBill: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { addDebt, isReady } = useMoney();
   const { showToast } = useToast();
-  const [split, setSplit] = useState<SharedSplit | null>(null);
+  const [split, setSplit] = useState<SharedSplitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState<'simple' | 'detailed'>('simple');
   const [savedItems, setSavedItems] = useState<Set<number>>(new Set());
   
-  const [selectedExpense, setSelectedExpense] = useState<any>(null);
-  const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
-  const [selectedContactForItems, setSelectedContactForItems] = useState<any>(null);
+  const [selectedExpense, setSelectedExpense] = useState<SharedExpense | null>(null);
+  const [selectedSettlement, setSelectedSettlement] = useState<SharedSplitItem | null>(null);
+  const [selectedContactForItems, setSelectedContactForItems] = useState<SharedSplitItem | null>(null);
 
   useEffect(() => {
     const fetchSplit = async () => {
@@ -33,12 +73,12 @@ const SharedSplitBill: React.FC = () => {
         const token = new URLSearchParams(window.location.search).get('t') || undefined;
         const data = await dbGetSharedSplit(id, token);
         if (data) {
-          setSplit(data);
-          if (data.settlementMode) setMode(data.settlementMode as any);
+          setSplit(data as unknown as SharedSplitData);
+          if (data.settlementMode) setMode(data.settlementMode);
         } else {
           setError('Link split bill tidak ditemukan atau sudah dihapus.');
         }
-      } catch (err) {
+      } catch {
         setError('Gagal memuat data split bill.');
       } finally {
         setLoading(false);
@@ -48,7 +88,7 @@ const SharedSplitBill: React.FC = () => {
     fetchSplit();
   }, [id]);
 
-  const activeTransactions = useMemo(() => {
+  const activeTransactions: SharedSplitItem[] = useMemo(() => {
     if (!split) return [];
     if (split.type !== 'trip') return split.splits;
 
@@ -58,9 +98,9 @@ const SharedSplitBill: React.FC = () => {
     return split.secondarySplits || [];
   }, [split, mode]);
 
-  const [identityPicker, setIdentityPicker] = useState<{ item: any; idx: number } | null>(null);
+  const [identityPicker, setIdentityPicker] = useState<{ item: SharedSplitItem; idx: number } | null>(null);
 
-  const handleSaveToDebts = (item: any, idx: number) => {
+  const handleSaveToDebts = (item: SharedSplitItem, idx: number) => {
     if (!split) return;
 
     // For Trip Settlement — need to identify who the user is
@@ -75,16 +115,16 @@ const SharedSplitBill: React.FC = () => {
 
     if (item.isPayer) {
       debtType = 'hutang';
-      contact = item.contactName;
+      contact = item.contactName || 'Kontak';
     } else {
       debtType = 'piutang';
-      contact = item.contactName;
+      contact = item.contactName || 'Kontak';
     }
 
     addDebt({
       type: debtType,
       contact: contact,
-      description: `${(split as any).type === 'trip' ? 'Trip' : 'Split'}: ${split.merchantName}`,
+      description: `Split: ${split.merchantName}`,
       totalAmount: item.amount,
       isPaid: false,
       date: split.date || getLocalDate(),
@@ -106,7 +146,7 @@ const SharedSplitBill: React.FC = () => {
     const { item, idx } = identityPicker;
 
     const debtType: 'hutang' | 'piutang' = role === 'from' ? 'hutang' : 'piutang';
-    const contact = role === 'from' ? item.to : item.from;
+    const contact = (role === 'from' ? item.to : item.from) || 'Kontak';
 
     addDebt({
       type: debtType,
@@ -240,7 +280,7 @@ const SharedSplitBill: React.FC = () => {
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', background: 'white', opacity: 0.1, borderRadius: '50%', filter: 'blur(30px)' }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <p style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', opacity: 0.8, marginBottom: '8px' }}>
-              {(split as any).type === 'trip' ? 'Total Biaya Perjalanan' : 'Total Tagihan'}
+              {split.type === 'trip' ? 'Total Biaya Perjalanan' : 'Total Tagihan'}
             </p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '24px', fontWeight: 700, opacity: 0.9 }}>{split.currencySymbol}</span>
@@ -251,12 +291,12 @@ const SharedSplitBill: React.FC = () => {
 
             <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex' }}>
-                {(split.type === 'trip' ? (split.members || []) : split.splits).map((s: any, i: number) => (
+                {(split.type === 'trip' ? (split.members || []) : split.splits).map((s: SharedMember | SharedSplitItem, i: number) => (
                   <div
                     key={i}
                     style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--primary)', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, marginLeft: i === 0 ? 0 : '-12px' }}
                   >
-                    {(s.name || s.contactName || 'U').charAt(0)}
+                    {(('name' in s && s.name) || ('contactName' in s && s.contactName) || 'U').charAt(0)}
                   </div>
                 ))}
               </div>
@@ -293,7 +333,7 @@ const SharedSplitBill: React.FC = () => {
             </div>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(split.paymentDetails!.accountNumber);
+                navigator.clipboard.writeText(split.paymentDetails?.accountNumber || '');
                 showToast('Nomor rekening disalin!', 'success');
               }}
               style={{
@@ -348,10 +388,10 @@ const SharedSplitBill: React.FC = () => {
           )}
 
           <div style={{ display: 'grid', gap: '12px' }}>
-            {activeTransactions.map((item: any, idx: number) => {
+            {activeTransactions.map((item: SharedSplitItem, idx: number) => {
               const isPersonPaid = split.type === 'trip'
-                ? Boolean(split.memberPayments?.[`${item.from}->${item.to}`] || split.memberPayments?.[item.from])
-                : (item.isPayer || Boolean(split.memberPayments?.[item.contactName]));
+                ? Boolean((item.from && item.to && split.memberPayments?.[`${item.from}->${item.to}`]) || (item.from && split.memberPayments?.[item.from]))
+                : (item.isPayer || Boolean(item.contactName && split.memberPayments?.[item.contactName]));
 
               return (
               <motion.div
@@ -389,10 +429,10 @@ const SharedSplitBill: React.FC = () => {
                     fontSize: '20px', fontWeight: 800, background: isPersonPaid ? 'var(--success)' : 'var(--bg-main)',
                     color: isPersonPaid ? 'white' : 'var(--primary)'
                   }}>
-                    {item.contactName.charAt(0).toUpperCase()}
+                    {(item.contactName || 'K').charAt(0).toUpperCase()}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', marginBottom: '2px' }}>{item.contactName}</div>
+                    <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', marginBottom: '2px' }}>{item.contactName || 'Kontak'}</div>
                     <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px', color: isPersonPaid ? 'var(--success)' : 'var(--text-muted)' }}>
                       {isPersonPaid ? '✓ LUNAS / Sudah Bayar' : <><MaterialIcon name="south_west" className="text-[10px] text-danger" /> Belum Bayar</>}
                     </div>
@@ -436,13 +476,13 @@ const SharedSplitBill: React.FC = () => {
         </div>
 
         {/* Trip History (Only for Trip) */}
-        {(split as any).type === 'trip' && (split as any).tripExpenses && (
+        {split.type === 'trip' && split.tripExpenses && (
           <div style={{ marginBottom: '40px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px 16px 8px' }}>
               <h3 style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Riwayat Pengeluaran</h3>
             </div>
             <div style={{ display: 'grid', gap: '8px' }}>
-              {(split as any).tripExpenses.map((exp: any, idx: number) => (
+              {split.tripExpenses.map((exp: SharedExpense, idx: number) => (
                 <div 
                   key={idx} 
                   onClick={() => setSelectedExpense(exp)}
@@ -510,7 +550,7 @@ const SharedSplitBill: React.FC = () => {
         isOpen={!!selectedExpense}
         onClose={() => setSelectedExpense(null)}
         expense={selectedExpense}
-        members={(split as any).members || []}
+        members={split.members || []}
         currencySymbol={split.currencySymbol || 'Rp'}
       />
 
@@ -518,10 +558,10 @@ const SharedSplitBill: React.FC = () => {
         <SettlementExplanationModal
           isOpen={!!selectedSettlement}
           onClose={() => setSelectedSettlement(null)}
-          settlement={selectedSettlement}
+          settlement={selectedSettlement?.from && selectedSettlement?.to ? { from: selectedSettlement.from, to: selectedSettlement.to, amount: selectedSettlement.amount } : null}
           mode={mode}
-          trip={{ members: (split as any).members || [] }}
-          expenses={(split as any).tripExpenses || []}
+          trip={{ members: split.members || [] }}
+          expenses={split.tripExpenses?.map(e => ({ ...e, payerId: e.payerId || '' })) || []}
           currencySymbol={split.currencySymbol || 'Rp'}
         />
       </Suspense>
@@ -661,10 +701,10 @@ const SharedSplitBill: React.FC = () => {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 900,
                 color: selectedContactForItems.isPayer ? 'var(--success)' : 'var(--primary)'
               }}>
-                {selectedContactForItems.contactName.charAt(0).toUpperCase()}
+                {(selectedContactForItems.contactName || 'K').charAt(0).toUpperCase()}
               </div>
               <div>
-                <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{selectedContactForItems.contactName}</div>
+                <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{selectedContactForItems.contactName || 'Kontak'}</div>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>
                   {split?.currencySymbol}{(Number(selectedContactForItems.amount) || 0).toLocaleString('id-ID')}
                 </div>
@@ -682,9 +722,9 @@ const SharedSplitBill: React.FC = () => {
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '8px' }}>
-                  {split.lineItems?.map((item: any, idx: number) => {
+                  {split.lineItems?.map((item: SharedLineItem, idx: number) => {
                     const assignees = split.itemAssignments?.[idx] || [];
-                    if (!assignees.includes(selectedContactForItems.id)) return null;
+                    if (!selectedContactForItems?.id || !assignees.includes(selectedContactForItems.id)) return null;
                     const share = item.amount / assignees.length;
                     return (
                       <div key={idx} style={{ padding: '12px 16px', background: 'var(--bg-neutral)', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

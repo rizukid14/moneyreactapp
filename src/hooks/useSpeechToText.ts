@@ -1,9 +1,33 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useToast } from '../components/common/Toast';
 
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      [index: number]: { transcript?: string };
+      isFinal?: boolean;
+    };
+  };
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
 export function useSpeechToText(separator: string = '\n') {
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speechBaseRef = useRef('');
   const finalTranscriptRef = useRef('');
   const { showToast } = useToast();
@@ -22,7 +46,11 @@ export function useSpeechToText(separator: string = '\n') {
       return;
     }
 
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const win = window as unknown as {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const SR = win.SpeechRecognition || win.webkitSpeechRecognition;
     if (!SR) {
       showToast('Speech-to-text tidak didukung di browser ini.', 'warning');
       return;
@@ -38,7 +66,7 @@ export function useSpeechToText(separator: string = '\n') {
     finalTranscriptRef.current = '';
     setIsListening(true);
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       let newFinalText = '';
       let interimText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {

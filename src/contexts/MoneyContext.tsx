@@ -12,7 +12,7 @@ import {
   dbGetAllTripExpenses, dbPutTripExpense, dbDeleteTripExpense,
   dbGetAllMonthlyIncomes, dbPutMonthlyIncome, dbDeleteMonthlyIncome,
   dbGetAllBudgetReallocations, dbPutBudgetReallocation, dbDeleteBudgetReallocation,
-  dbExportAll, dbImportAll,
+  dbExportAll, dbImportAll, type ExportData,
   migrateFromLocalStorage, migrateFromIndexedDBToFirebase,
   dbGetPendingSyncCount, dbSyncPendingItems, dbForceCloudSync, localDbGetSetting, localDbPutSetting,
   dbGetAllNotifications, dbPutNotification, dbDeleteNotification, dbClearAllNotifications,
@@ -36,6 +36,8 @@ const E2E_AUTH_BYPASS = import.meta.env.DEV && import.meta.env.VITE_E2E === 'tru
 
 const isE2EBypassActive = (): boolean =>
   E2E_AUTH_BYPASS && typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true';
+
+type AuthUserLike = { uid?: string; email?: string | null } | null;
 
 export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
 export type BudgetMode = 'regular' | 'zero-based';
@@ -109,6 +111,7 @@ export interface Budget {
   period: 'monthly';
   month: number;
   year: number;
+  updatedAt?: number;
 }
 
 export interface AutoSettleOptions {
@@ -352,6 +355,41 @@ export interface NotificationItem {
   updatedBy?: string;
 }
 
+// ─── Dynamic settings payload (kept loose; narrowed structurally on use) ─────
+interface ApplySettingsPayload {
+  user?: UserProfile;
+  pin?: string | null;
+  theme?: 'light' | 'dark';
+  isPrivateMode?: boolean;
+  defaultAssetId?: string | null;
+  startOfMonthDay?: number;
+  showDebtInTransactions?: boolean;
+  autoOffsetDebts?: boolean;
+  currencySymbol?: string;
+  defaultTransactionGrouping?: 'date' | 'categoryId';
+  assetCarouselCards?: string[];
+  statsCarouselCards?: string[];
+  defaultStatsView?: string;
+  chartStyle?: 'area' | 'line';
+  budgetMode?: BudgetMode;
+  zbbMode?: 'flexible' | 'strict';
+  monthlyIncome?: number;
+}
+
+// Legacy records encountered during migrations (may still carry category names).
+interface MigratableRecord extends Partial<Transaction> {
+  category?: string;
+  subCategory?: string;
+}
+
+// Shape of legacy transaction docs coming back from Firestore.
+interface LegacyCloudTx {
+  category?: string;
+  subCategory?: string;
+  categoryId?: string;
+  subCategoryId?: string;
+}
+
 // ─── Default seed data ───────────────────────────────────────────────────────
 const DEFAULT_ASSET: Asset = { id: 'default-1', name: 'Dompet Tunai', type: 'Cash', initialBalance: 0 };
 
@@ -539,12 +577,12 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [autoOffsetDebts, setAutoOffsetDebtsState] = useState<boolean>(true);
   const [currencySymbol, setCurrencySymbolState] = useState<string>('Rp');
   const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'categoryId'>('date');
-  const [authUser, setAuthUser] = useState<any>(() => {
+  const [authUser, setAuthUser] = useState<AuthUserLike>(() => {
     try {
       if (isE2EBypassActive()) {
         return { uid: 'test-user-uid', email: 'test@example.com' };
       }
-    } catch (e) { }
+    } catch { /* ignore */ }
     return null;
   });
   const [authChecked, setAuthChecked] = useState(() => {
@@ -552,7 +590,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (isE2EBypassActive()) {
         return true;
       }
-    } catch (e) { }
+    } catch { /* ignore */ }
     return !isFirebaseConfigured;
   });
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
@@ -575,49 +613,52 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const notificationsRef = useRef<NotificationItem[]>(notifications);
   useEffect(() => { notificationsRef.current = notifications; }, [notifications]);
 
-  const applySettingsToState = useCallback((s: Record<string, any>, options?: { lockAppOnPin?: boolean }) => {
-    if (s.user) setUser(s.user);
+  const applySettingsToState = useCallback((s: Record<string, unknown>, options?: { lockAppOnPin?: boolean }) => {
+    const st = s as ApplySettingsPayload;
+    if (st.user) setUser(st.user);
     // PIN: hanya lock app jika dipanggil dari bootstrap (saat app baru buka)
     // Dari pullFromCloud, PIN disimpan ke IDB tapi app tidak langsung dikunci
-    if (s.pin) {
-      setPin(s.pin);
+    if (st.pin) {
+      setPin(st.pin);
       if (options?.lockAppOnPin !== false) setIsAppLocked(true);
     }
-    if (s.pin === null || s.pin === undefined) { setPin(null); }
-    if (s.theme) {
-      setTheme(s.theme as 'light' | 'dark');
-      try { localStorage.setItem('moneyapp-theme', s.theme); } catch { }
+    if (st.pin === null || st.pin === undefined) { setPin(null); }
+    if (st.theme) {
+      setTheme(st.theme);
+      try { localStorage.setItem('moneyapp-theme', st.theme); } catch { /* ignore */ }
     }
-    if (s.isPrivateMode !== undefined) setIsPrivateMode(s.isPrivateMode);
-    if (s.defaultAssetId !== undefined) setDefaultAssetIdState(s.defaultAssetId);
-    if (s.startOfMonthDay) setStartOfMonthDayState(s.startOfMonthDay);
-    if (s.showDebtInTransactions !== undefined) setShowDebtInTransactionsState(s.showDebtInTransactions);
-    if (s.autoOffsetDebts !== undefined) setAutoOffsetDebtsState(s.autoOffsetDebts);
-    if (s.currencySymbol) setCurrencySymbolState(s.currencySymbol);
-    if (s.defaultTransactionGrouping) setDefaultTransactionGroupingState(s.defaultTransactionGrouping);
-    if (s.assetCarouselCards?.length) setAssetCarouselCardsState(s.assetCarouselCards);
-    if (s.statsCarouselCards?.length) setStatsCarouselCardsState(s.statsCarouselCards);
-    if (s.defaultStatsView) setDefaultStatsViewState(s.defaultStatsView);
-    if (s.chartStyle) setChartStyleState(s.chartStyle as 'area' | 'line');
-    if (s.budgetMode) setBudgetModeState(s.budgetMode);
-    if (s.zbbMode) setZbbModeState(s.zbbMode);
-    if (s.monthlyIncome !== undefined) setMonthlyIncomeState(s.monthlyIncome);
+    if (st.isPrivateMode !== undefined) setIsPrivateMode(st.isPrivateMode);
+    if (st.defaultAssetId !== undefined) setDefaultAssetIdState(st.defaultAssetId);
+    if (st.startOfMonthDay) setStartOfMonthDayState(st.startOfMonthDay);
+    if (st.showDebtInTransactions !== undefined) setShowDebtInTransactionsState(st.showDebtInTransactions);
+    if (st.autoOffsetDebts !== undefined) setAutoOffsetDebtsState(st.autoOffsetDebts);
+    if (st.currencySymbol) setCurrencySymbolState(st.currencySymbol);
+    if (st.defaultTransactionGrouping) setDefaultTransactionGroupingState(st.defaultTransactionGrouping);
+    if (st.assetCarouselCards?.length) setAssetCarouselCardsState(st.assetCarouselCards);
+    if (st.statsCarouselCards?.length) setStatsCarouselCardsState(st.statsCarouselCards);
+    if (st.defaultStatsView) setDefaultStatsViewState(st.defaultStatsView);
+    if (st.chartStyle) setChartStyleState(st.chartStyle);
+    if (st.budgetMode) setBudgetModeState(st.budgetMode);
+    if (st.zbbMode) setZbbModeState(st.zbbMode);
+    if (st.monthlyIncome !== undefined) setMonthlyIncomeState(st.monthlyIncome);
   }, []);
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- bootstrap auth state on mount */
     try {
       if (isE2EBypassActive()) {
         setAuthUser({ uid: 'test-user-uid', email: 'test@example.com' });
         setAuthChecked(true);
         return;
       }
-    } catch (e) { }
+    } catch { /* ignore */ }
     if (!isFirebaseConfigured) {
       setAuthUser({}); // Mock user if not using firebase
       setAuthChecked(true);
       return;
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
         setIsReady(false);
@@ -640,8 +681,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             const result = await dbForceCloudSync();
             setAutoCloudSync({ status: 'success', total: result.total });
             sessionStorage.setItem('cloud_synced_uid', u.uid);
-          } catch (err: any) {
-            setAutoCloudSync({ status: 'error', message: err?.message || 'Gagal sinkronisasi dari cloud' });
+          } catch (err) {
+            const message = (err as { message?: string } | null)?.message || 'Gagal sinkronisasi dari cloud';
+            setAutoCloudSync({ status: 'error', message });
           }
         } else {
           setAutoCloudSync({ status: 'idle' });
@@ -697,10 +739,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const updatedTxs = dbTxs.map(tx => {
           let newType = tx.type;
           if (tx.type === 'pengeluaran') {
-            if ((tx as any).categoryId === 'Pinjaman & Piutang' || (tx as any).categoryId === 'Tambah Piutang') newType = 'piutang_keluar';
-            else if ((tx as any).categoryId === 'Bayar Hutang') newType = 'hutang_keluar';
+            if (tx.categoryId === 'Pinjaman & Piutang' || tx.categoryId === 'Tambah Piutang') newType = 'piutang_keluar';
+            else if (tx.categoryId === 'Bayar Hutang') newType = 'hutang_keluar';
           } else if (tx.type === 'pendapatan') {
-            if ((tx as any).categoryId === 'Pelunasan Piutang') newType = 'piutang_masuk';
+            if (tx.categoryId === 'Pelunasan Piutang') newType = 'piutang_masuk';
           }
 
           if (newType !== tx.type) {
@@ -726,7 +768,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         let needsMigration = false;
         
         // Helper to find or create categoryId shadow
-        const getCatIds = (tx: any) => {
+        const getCatIds = (tx: MigratableRecord) => {
           const categoryName = tx.category || tx.categoryId;
           const subCategoryName = tx.subCategory || tx.subCategoryId;
           let cat = dbCats.find(c => c.name.toLowerCase() === categoryName?.toLowerCase() && c.type === tx.type);
@@ -735,7 +777,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             cat = {
               id: `cat-migrated-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               name: categoryName,
-              type: tx.type as any,
+              type: tx.type as Category['type'],
               subcategories: [],
               isDeleted: true
             };
@@ -750,13 +792,15 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           return { categoryId: cat?.id || 'unknown', subCategoryId: subCatId };
         };
 
-        const migrateArray = (arr: any[]) => {
+        const migrateArray = (arr: MigratableRecord[]) => {
           return arr.map(item => {
             if (item.category && !item.categoryId) {
               needsMigration = true;
               const { categoryId, subCategoryId } = getCatIds(item);
               // Remove old fields while mapping
-              const { category, subCategory, ...rest } = item;
+              const rest: Record<string, unknown> = { ...item };
+              delete rest.category;
+              delete rest.subCategory;
               return { ...rest, categoryId, subCategoryId };
             }
             return item;
@@ -788,14 +832,14 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         console.log('Running Category ID migration Phase 2...');
         let needsMigration2 = false;
 
-        const fixCategoryId = (item: any) => {
+        const fixCategoryId = (item: MigratableRecord) => {
           if (!item.categoryId || item.categoryId.startsWith('sys-cat-')) return item;
           // Check if categoryId is actually a name
           const isIdValid = dbCats.some(c => c.id === item.categoryId) || SYSTEM_CATEGORIES.some(c => c.id === item.categoryId);
           if (isIdValid) return item;
 
-          let newId = item.categoryId;
-          let newSubId = item.subCategoryId;
+          let newId: string | undefined = item.categoryId;
+          let newSubId: string | undefined = item.subCategoryId;
 
           if (item.categoryId === 'Transfer') newId = undefined;
           else if (item.categoryId === 'Koreksi Saldo') newId = SYS_CAT.BALANCE_ADJ;
@@ -817,7 +861,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               const shadow = {
                 id: `cat-migrated-p2-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                 name: item.categoryId,
-                type: item.type as any,
+                type: item.type as Category['type'],
                 subcategories: [],
                 isDeleted: true
               };
@@ -898,7 +942,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         try {
           const mDb = await import('../lib/db');
           const snapshot = await getDocs(collection(firestore, 'users', authUser.uid, 'transactions'));
-          const cloudTxsMap = new Map<string, any>();
+          const cloudTxsMap = new Map<string, LegacyCloudTx>();
           snapshot.docs.forEach(doc => {
             cloudTxsMap.set(doc.id, doc.data());
           });
@@ -908,7 +952,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (tx.categoryId === 'unknown') {
               const cloudTx = cloudTxsMap.get(tx.id);
               if (cloudTx && (cloudTx.category || (cloudTx.categoryId && cloudTx.categoryId !== 'unknown'))) {
-                const categoryName = cloudTx.category || cloudTx.categoryId;
+                const categoryName = (cloudTx.category || cloudTx.categoryId) as string;
                 const subCategoryName = cloudTx.subCategory || cloudTx.subCategoryId;
                 
                 let cat = dbCats.find(c => c.name.toLowerCase() === categoryName.toLowerCase() && c.type === tx.type);
@@ -917,7 +961,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                   cat = {
                     id: `cat-migrated-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                     name: categoryName,
-                    type: tx.type as any,
+                    type: tx.type as Category['type'],
                     subcategories: [],
                     isDeleted: true
                   };
@@ -1014,7 +1058,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
 
-      const settingsToApply: Record<string, any> = {};
+      const settingsToApply: Record<string, unknown> = {};
       if (profile) settingsToApply.user = profile;
       if (savedPin) settingsToApply.pin = savedPin;
       if (savedTheme) settingsToApply.theme = savedTheme;
@@ -1067,30 +1111,32 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
 
-      console.log('--- MONEYAPP DIAGNOSTICS ---');
-      console.log('User UID:', authUser?.uid || 'Not Logged In');
-      console.log('Firebase Configured:', isFirebaseConfigured);
-      console.log('Local Transactions Count:', dbTxs.length);
-      console.log('Local Categories Count:', dbCats.length);
-      
-      const unknownTxs = dbTxs.filter(tx => tx.categoryId === 'unknown');
-      console.log('Unknown categoryId Txs:', unknownTxs.length);
-      if (unknownTxs.length > 0) {
-        console.log('First 5 Unknown Txs:', unknownTxs.slice(0, 5).map(tx => ({ id: tx.id, date: tx.date, note: tx.note, amount: tx.amount, type: tx.type })));
+      if (import.meta.env.DEV) {
+        console.log('--- MONEYAPP DIAGNOSTICS ---');
+        console.log('User UID:', authUser?.uid || 'Not Logged In');
+        console.log('Firebase Configured:', isFirebaseConfigured);
+        console.log('Local Transactions Count:', dbTxs.length);
+        console.log('Local Categories Count:', dbCats.length);
+        
+        const unknownTxs = dbTxs.filter(tx => tx.categoryId === 'unknown');
+        console.log('Unknown categoryId Txs:', unknownTxs.length);
+        if (unknownTxs.length > 0) {
+          console.log('First 5 Unknown Txs:', unknownTxs.slice(0, 5).map(tx => ({ id: tx.id, date: tx.date, note: tx.note, amount: tx.amount, type: tx.type })));
+        }
+        
+        const undefinedCatTxs = dbTxs.filter(tx => !tx.categoryId);
+        console.log('Undefined/empty categoryId Txs:', undefinedCatTxs.length);
+        if (undefinedCatTxs.length > 0) {
+          console.log('First 5 Undefined Cat Txs:', undefinedCatTxs.slice(0, 5).map(tx => ({ id: tx.id, date: tx.date, note: tx.note, amount: tx.amount, type: tx.type })));
+        }
+        
+        const missingCatTxs = dbTxs.filter(tx => tx.categoryId && tx.categoryId !== 'unknown' && !dbCats.some(c => c.id === tx.categoryId));
+        console.log('Txs with categoryId missing from dbCats:', missingCatTxs.length);
+        if (missingCatTxs.length > 0) {
+          console.log('First 5 Missing Cat Txs:', missingCatTxs.slice(0, 5).map(tx => ({ id: tx.id, categoryId: tx.categoryId, date: tx.date, note: tx.note })));
+        }
+        console.log('----------------------------');
       }
-      
-      const undefinedCatTxs = dbTxs.filter(tx => !tx.categoryId);
-      console.log('Undefined/empty categoryId Txs:', undefinedCatTxs.length);
-      if (undefinedCatTxs.length > 0) {
-        console.log('First 5 Undefined Cat Txs:', undefinedCatTxs.slice(0, 5).map(tx => ({ id: tx.id, date: tx.date, note: tx.note, amount: tx.amount, type: tx.type })));
-      }
-      
-      const missingCatTxs = dbTxs.filter(tx => tx.categoryId && tx.categoryId !== 'unknown' && !dbCats.some(c => c.id === tx.categoryId));
-      console.log('Txs with categoryId missing from dbCats:', missingCatTxs.length);
-      if (missingCatTxs.length > 0) {
-        console.log('First 5 Missing Cat Txs:', missingCatTxs.slice(0, 5).map(tx => ({ id: tx.id, categoryId: tx.categoryId, date: tx.date, note: tx.note })));
-      }
-      console.log('----------------------------');
 
       // ─── Migration: Add updatedAt to existing documents ───
       const hasMigratedUpdatedAt = localStorage.getItem('migrated_updatedAt_v2');
@@ -1098,7 +1144,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         console.log('Migrating existing documents to add updatedAt...');
         try {
           const now = Date.now();
-          const toEnrich = (items: any[]) => items.filter(i => !i.updatedAt).map(i => ({ ...i, updatedAt: now }));
+          const toEnrich = <T extends { id: string; updatedAt?: number }>(items: T[]) => items.filter(i => !i.updatedAt).map(i => ({ ...i, updatedAt: now }));
           
           const enrichedAssets = toEnrich(dbAssets);
           const enrichedTxs = toEnrich(dbTxs);
@@ -1115,7 +1161,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           const enrichedReallocations = toEnrich(dbReallocations);
           const enrichedNotifications = toEnrich(dbNotifications);
 
-          const promises: Promise<any>[] = [];
+          const promises: Promise<unknown>[] = [];
           const { dbPutAsset, dbPutTransaction, dbPutCategory, dbPutDebt, dbPutGoal, dbPutRecurringTransaction, dbPutContact, dbPutSubscription, dbPutTrip, dbPutTripExpense, dbPutMonthlyIncome, dbPutBudgetReallocation, dbPutNotification, dbPutSetting } = await import('../lib/db');
           
           enrichedAssets.forEach(a => promises.push(dbPutAsset(a)));
@@ -1157,7 +1203,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => {
     if (!isReady || !isFirebaseConfigured || !authUser) return;
 
-    const handleDocChange = async (colName: string, data: any, changeType: 'added' | 'modified' | 'removed') => {
+    const handleDocChange = async (colName: string, data: { id: string; isDeleted?: boolean; [key: string]: unknown }, changeType: 'added' | 'modified' | 'removed') => {
       if (import.meta.env.DEV) console.log(`[DeltaSync] Received change: ${colName} - ${changeType}`, data);
       
       const { getDB } = await import('../lib/db');
@@ -1165,9 +1211,9 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       // Update IndexedDB
       if (data.isDeleted) {
-        await db.delete(colName as any, data.id);
+        await db.delete(colName as never, data.id);
       } else {
-        await db.put(colName as any, data);
+        await db.put(colName as never, data as never);
       }
 
       // Update React State
@@ -1216,25 +1262,27 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       } else {
         const updateState = <T extends { id: string }>(setFn: React.Dispatch<React.SetStateAction<T[]>>) => {
           setFn(prev => {
+            const item = data as unknown as T;
             const idx = prev.findIndex(x => x.id === data.id);
             if (idx >= 0) {
               const next = [...prev];
-              next[idx] = data;
+              next[idx] = item;
               return next;
             }
-            return [data, ...prev];
+            return [item, ...prev];
           });
         };
 
         const updateStateAppend = <T extends { id: string }>(setFn: React.Dispatch<React.SetStateAction<T[]>>) => {
           setFn(prev => {
+            const item = data as unknown as T;
             const idx = prev.findIndex(x => x.id === data.id);
             if (idx >= 0) {
               const next = [...prev];
-              next[idx] = data;
+              next[idx] = item;
               return next;
             }
-            return [...prev, data];
+            return [...prev, item];
           });
         };
 
@@ -1278,10 +1326,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           case 'recurring_transactions':
             updateStateAppend(setRecurringTransactions);
             break;
-          case 'settings':
+          case 'settings': {
             const freshSettings = { [data.id]: data.value };
             applySettingsToState(freshSettings, { lockAppOnPin: false });
             break;
+          }
         }
       }
     };
@@ -1316,7 +1365,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return;
     }
     const count = await dbGetPendingSyncCount();
-    console.log('[MoneyContext] Updating pending sync count:', count);
+    if (import.meta.env.DEV) console.log('[MoneyContext] Updating pending sync count:', count);
     setPendingSyncCount(count);
   }, []);
 
@@ -1341,6 +1390,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   useEffect(() => {
     if (isReady && isFirebaseConfigured) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       refreshSyncCount();
       // Poll sync count every 10 seconds and automatically sync if there's pending data
       const interval = setInterval(async () => {
@@ -2477,7 +2527,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setTheme(prev => {
       const next = prev === 'light' ? 'dark' : 'light';
       dbPutSetting('theme', next);
-      try { localStorage.setItem('moneyapp-theme', next); } catch { }
+      try { localStorage.setItem('moneyapp-theme', next); } catch { /* ignore */ }
       return next;
     });
   }, []);
@@ -2641,7 +2691,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const importData = useCallback(async (file: File) => {
-    let data: any;
+    let data: ExportData;
     try {
       const text = await file.text();
       data = JSON.parse(text);
@@ -2742,7 +2792,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const mDb = await import('../lib/db');
       const { collection, getDocs } = await import('firebase/firestore');
       const snapshot = await getDocs(collection(firestore, 'users', authUser.uid, 'transactions'));
-      const cloudTxsMap = new Map<string, any>();
+      const cloudTxsMap = new Map<string, LegacyCloudTx>();
       snapshot.docs.forEach(doc => {
         cloudTxsMap.set(doc.id, doc.data());
       });
@@ -2755,7 +2805,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (tx.categoryId === 'unknown') {
           const cloudTx = cloudTxsMap.get(tx.id);
           if (cloudTx && (cloudTx.category || (cloudTx.categoryId && cloudTx.categoryId !== 'unknown'))) {
-            const categoryName = cloudTx.category || cloudTx.categoryId;
+            const categoryName = (cloudTx.category || cloudTx.categoryId) as string;
             const subCategoryName = cloudTx.subCategory || cloudTx.subCategoryId;
             
             let cat = dbCats.find(c => c.name.toLowerCase() === categoryName.toLowerCase() && c.type === tx.type);
@@ -2763,7 +2813,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               cat = {
                 id: `cat-migrated-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                 name: categoryName,
-                type: tx.type as any,
+                type: tx.type as Category['type'],
                 subcategories: [],
                 isDeleted: true
               };
@@ -2797,9 +2847,10 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return { success: true, recoveredCount, message: `Berhasil memulihkan ${recoveredCount} transaksi!` };
       }
       return { success: true, recoveredCount: 0, message: 'Tidak ada transaksi dengan kategori "unknown" yang dapat dipulihkan di server.' };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Manual recovery failed:', err);
-      return { success: false, recoveredCount: 0, message: `Gagal memproses pemulihan: ${err?.message || err}` };
+      const msg = (err as Error)?.message || String(err);
+      return { success: false, recoveredCount: 0, message: `Gagal memproses pemulihan: ${msg}` };
     }
   }, [authUser?.uid]);
 
@@ -2877,7 +2928,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (dismissed.length > 500) dismissed.shift();
         localStorage.setItem('dismissedNotifIds', JSON.stringify(dismissed));
       }
-    } catch (e) {}
+    } catch { /* ignore */ }
   }, []);
 
   const clearAllNotifs = useCallback(() => {
@@ -2889,7 +2940,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         });
         const recentDismissed = dismissed.slice(-500);
         localStorage.setItem('dismissedNotifIds', JSON.stringify(recentDismissed));
-      } catch (e) {}
+      } catch { /* ignore */ }
       return [];
     });
     dbClearAllNotifications();
@@ -2909,7 +2960,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           if (!notificationsRef.current.some(n => n.id === notif.id) && !dismissedIds.includes(notif.id)) {
             newNotifs.push(notif);
           }
-        } catch (e) {
+        } catch {
           if (!notificationsRef.current.some(n => n.id === notif.id)) {
             newNotifs.push(notif);
           }

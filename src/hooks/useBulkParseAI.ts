@@ -3,6 +3,7 @@ import { getLocalDate } from '../lib/utils';
 import { resizeImage, blobToBase64 } from '../lib/imageUtils';
 import { auth } from '../lib/firebase';
 import { cleanMerchantNote } from '../utils/categoryMatcher';
+import type { Category, Asset } from '../contexts/MoneyContext';
 
 export interface ParsedTransaction {
   id: string; // temporary id for frontend listing
@@ -40,10 +41,10 @@ export const useBulkParseAI = () => {
   }: {
     text?: string;
     imageBlob?: Blob;
-    categories?: any[];
-    assets?: any[];
+    categories?: Category[];
+    assets?: Asset[];
     defaultAssetId?: string;
-    userHistory?: any[];
+    userHistory?: { note: string; category: string; subCategory?: string }[];
   }): Promise<{ 
     transactions: ParsedTransaction[]; 
     documentType?: 'bank_statement' | 'receipt' | 'invalid';
@@ -91,8 +92,8 @@ export const useBulkParseAI = () => {
               .map(c => ({ 
                 name: c.name, 
                 subcategories: (c.subcategories || [])
-                  ?.filter((s: any) => !s.isDeleted)
-                  .map((s: any) => typeof s === 'string' ? s : s.name) 
+                  ?.filter((s) => typeof s === 'string' || !s.isDeleted)
+                  .map((s) => typeof s === 'string' ? s : s.name) 
               })),
             assets: assets?.map(a => ({ name: a.name, id: a.id })),
             defaultAssetId,
@@ -126,8 +127,22 @@ export const useBulkParseAI = () => {
         throw new Error('Format balasan dari AI tidak valid.');
       }
 
+      interface RawParsedItem {
+        type?: string;
+        amount?: number;
+        date?: string;
+        note?: string;
+        category?: string;
+        subCategory?: string;
+        asset?: string;
+        fromAsset?: string;
+        toAsset?: string;
+        adminFee?: number;
+        adminFeeTarget?: string;
+      }
+
       // Map raw result to frontend model, guaranteeing 'selected' property
-      const mappedTransactions: ParsedTransaction[] = result.transactions.map((item: any, index: number) => {
+      const mappedTransactions: ParsedTransaction[] = result.transactions.map((item: RawParsedItem, index: number) => {
         let type: 'pengeluaran' | 'pendapatan' | 'transfer' = 'pengeluaran';
         if (item.type === 'pendapatan') type = 'pendapatan';
         if (item.type === 'transfer') type = 'transfer';
@@ -161,8 +176,8 @@ export const useBulkParseAI = () => {
         isPremium: result.isPremium
       };
 
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat analisa teks.');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Terjadi kesalahan saat analisa teks.');
       return null;
     } finally {
       setIsParsing(false);

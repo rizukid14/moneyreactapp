@@ -22,6 +22,24 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import MaterialIcon from '../common/MaterialIcon';
 
+interface TransactionDraft {
+  type?: Transaction['type'];
+  amount?: string;
+  categoryId?: string;
+  subCategoryId?: string;
+  date?: string;
+  time?: string;
+  note?: string;
+  description?: string;
+  assetId?: string;
+  fromAssetId?: string;
+  toAssetId?: string;
+  goalId?: string;
+  isRecurring?: boolean;
+  frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurringEndDate?: string;
+}
+
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -111,7 +129,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const submitActionRef = React.useRef<'close' | 'continue'>('close');
 
   // Load drafts from localStorage on mount/open
-  const [allDrafts, setAllDrafts] = useState<Record<string, any>>(() => {
+  const [allDrafts, setAllDrafts] = useState<Record<string, TransactionDraft>>(() => {
     try {
       const saved = localStorage.getItem('tx_drafts');
       return saved ? JSON.parse(saved) : {};
@@ -121,7 +139,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   });
 
   const [reallocationModal, setReallocationModal] = useState<{ isOpen: boolean; deficitCategoryId: string | null; deficitAmount: number; month: number; year: number }>({ isOpen: false, deficitCategoryId: null, deficitAmount: 0, month: 0, year: 0 });
-  const [pendingTxData, setPendingTxData] = useState<any>(null);
+  const [pendingTxData, setPendingTxData] = useState<Omit<Transaction, 'id'> | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   // ─── Draft Logic ────────────────────────────────────────────────────────
@@ -369,7 +387,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     setTimeout(() => setIsSubmitting(false), 1000);
   };
 
-  const performSave = (txData: any) => {
+  const performSave = (txData: Omit<Transaction, 'id'>) => {
     if (editingTransaction && updateTransaction && !isCopyMode) {
       updateTransaction(editingTransaction.id, txData);
 
@@ -472,7 +490,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           delete savedObj[type];
           localStorage.setItem('tx_drafts', JSON.stringify(savedObj));
           setAllDrafts(savedObj);
-        } catch (e) {}
+        } catch { /* ignore */ }
       }
 
       // Reset local fields immediately so reopening doesn't flash old data
@@ -580,7 +598,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                   ) : (
                     <TabBar
                       activeTabId={type}
-                      onChange={(id) => setType(id as any)}
+                      onChange={(id) => setType(id as Transaction['type'])}
                       tabs={[
                         { id: 'pengeluaran', label: 'Pengeluaran', 'data-testid': 'tx-type-pengeluaran' },
                         { id: 'pendapatan', label: 'Pendapatan', 'data-testid': 'tx-type-pendapatan' },

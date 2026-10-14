@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MaterialIcon from '../common/MaterialIcon';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMoney } from '../../contexts/MoneyContext';
+import { useMoney, type Transaction, type Debt, type Subscription, type RecurringTransaction } from '../../contexts/MoneyContext';
 import { usePremium } from '../../contexts/PremiumContext';
 import { PremiumBadge } from '../common/PremiumBadge';
 import { useToast } from '../common/Toast';
@@ -12,12 +12,115 @@ import AssetSelectModal from '../modals/AssetSelectModal';
 import SplitBillModal from '../modals/SplitBillModal';
 import { auth } from '../../lib/firebase';
 
+interface ToolCallLineItem {
+  name?: string;
+  amount?: number;
+  total?: number;
+  price?: number;
+  assignedContacts?: string[];
+}
+
+interface BudgetRecommendation {
+  categoryId: string;
+  categoryIdName?: string;
+  categoryName?: string;
+  limit: number;
+  reason?: string;
+}
+
+interface TransferRecommendation {
+  fromAssetId?: string;
+  toAssetId?: string;
+  fromAssetName?: string;
+  toAssetName?: string;
+  amount: number;
+  reason?: string;
+  isExecuted?: boolean;
+}
+
+interface RecurringRecommendation {
+  type?: string;
+  amount?: number;
+  categoryId?: string;
+  category?: string;
+  note?: string;
+  frequency?: string;
+  dayOfMonth?: number;
+  reason?: string;
+  isExecuted?: boolean;
+}
+
+interface GoalRecommendation {
+  name?: string;
+  targetAmount?: number;
+  targetDate?: string;
+  assetId?: string;
+  reason?: string;
+  isExecuted?: boolean;
+}
+
+interface ToolCallArguments {
+  type?: string;
+  amount?: number;
+  categoryId?: string;
+  subCategoryId?: string;
+  note?: string;
+  date?: string;
+  time?: string;
+  fromAssetId?: string;
+  toAssetId?: string;
+  adminFee?: number;
+  adminFeeTarget?: string;
+  assetId?: string;
+  linkDebt?: boolean;
+  debtContact?: string;
+  debtType?: string;
+  category?: string;
+  categoryName?: string;
+  name?: string;
+  description?: string;
+  contactName?: string;
+  targetAmount?: number;
+  targetDate?: string;
+  billingCycle?: string;
+  nextBillingDate?: string;
+  merchantName?: string;
+  totalAmount?: number;
+  contacts?: string[];
+  lineItems?: ToolCallLineItem[];
+  recommendations?: BudgetRecommendation[];
+  transferRecommendations?: TransferRecommendation[];
+  recurringRecommendations?: RecurringRecommendation[];
+  goalRecommendations?: GoalRecommendation[];
+  month?: number;
+  year?: number;
+  isInstallment?: boolean;
+  totalInstallments?: number;
+  frequency?: string;
+  dayOfMonth?: number;
+  isExecuted?: boolean;
+}
+
+interface SplitBillLineItem {
+  name: string;
+  amount: number;
+  assignedContacts: string[];
+  selected: boolean;
+}
+
+interface SplitBillDraft {
+  merchantName: string;
+  totalAmount: number;
+  contacts: string[];
+  lineItems: SplitBillLineItem[];
+}
+
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   toolCall?: {
     name: string;
-    arguments: any;
+    arguments: ToolCallArguments;
   };
 }
 
@@ -40,7 +143,7 @@ const ChatBot: React.FC = () => {
   const [assetSelectCallback, setAssetSelectCallback] = useState<((assetId: string) => void) | null>(null);
 
   const [splitBillModalOpen, setSplitBillModalOpen] = useState(false);
-  const [splitBillData, setSplitBillData] = useState<any>(null);
+  const [splitBillData, setSplitBillData] = useState<SplitBillDraft | null>(null);
   
   const { 
     categories, assets, transactions, contacts, getAssetBalance, addTransaction, addDebt, 
@@ -242,11 +345,13 @@ const ChatBot: React.FC = () => {
         const today = new Date();
         const monthKey = `has_seen_eom_${today.getFullYear()}_${today.getMonth()}`;
         if (!localStorage.getItem(monthKey)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           triggerEOMReview();
           localStorage.setItem(monthKey, 'true');
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChatOpen, messages.length]);
 
   const handleSend = async (overrideText?: string) => {
@@ -356,7 +461,7 @@ const ChatBot: React.FC = () => {
     toggleListening(input, setInput);
   };
 
-  const handleConfirmTransaction = (msgIndex: number, toolArgs: any) => {
+  const handleConfirmTransaction = (msgIndex: number, toolArgs: ToolCallArguments) => {
     try {
       if (toolArgs.type === 'transfer') {
         const fromId = toolArgs.fromAssetId;
@@ -397,7 +502,7 @@ const ChatBot: React.FC = () => {
         }
       } else {
         addTransaction({
-          type: toolArgs.type,
+          type: toolArgs.type as Transaction['type'],
           amount: Number(toolArgs.amount),
           categoryId: resolveCategoryId(toolArgs.category, toolArgs.type),
           subCategoryId: toolArgs.subCategoryId || undefined,
@@ -434,16 +539,16 @@ const ChatBot: React.FC = () => {
       ));
       
       showToast(hasDebtCreated ? 'Transaksi & Hutang/Piutang berhasil ditambahkan!' : 'Transaksi berhasil ditambahkan via AI!', 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal menambahkan transaksi', 'error');
+    } catch (err) {
+      showToast((err as { message?: string }).message || 'Gagal menambahkan transaksi', 'error');
     }
   };
 
-  const handleConfirmDebt = (msgIndex: number, toolArgs: any) => {
+  const handleConfirmDebt = (msgIndex: number, toolArgs: ToolCallArguments) => {
     try {
       addDebt({
-        type: toolArgs.type,
-        contact: toolArgs.contactName,
+        type: toolArgs.type as Debt['type'],
+        contact: toolArgs.contactName || '',
         description: toolArgs.description || '',
         totalAmount: Number(toolArgs.amount),
         isPaid: false,
@@ -460,8 +565,8 @@ const ChatBot: React.FC = () => {
       ));
       
       showToast(`${toolArgs.type === 'hutang' ? 'Hutang' : 'Piutang'} berhasil ditambahkan!`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal menambahkan catatan hutang', 'error');
+    } catch (err) {
+      showToast((err as { message?: string }).message || 'Gagal menambahkan catatan hutang', 'error');
     }
   };
 
@@ -471,19 +576,19 @@ const ChatBot: React.FC = () => {
     ));
   };
   
-  const handleUpdateDraftField = (msgIndex: number, field: string, value: any) => {
+  const handleUpdateDraftField = (msgIndex: number, field: string, value: unknown) => {
     setMessages(prev => prev.map((m, i) => 
       i === msgIndex && m.toolCall ? { 
         ...m, 
         toolCall: { 
           ...m.toolCall, 
-          arguments: { ...m.toolCall.arguments, [field]: value } 
+          arguments: { ...m.toolCall.arguments, [field]: value } as ToolCallArguments
         } 
       } : m
     ));
   };
 
-  const handleConfirmBudget = (msgIndex: number, toolArgs: any) => {
+  const handleConfirmBudget = (msgIndex: number, toolArgs: ToolCallArguments) => {
     try {
       const { recommendations, month, year, goalRecommendations } = toolArgs;
       if (!recommendations || !Array.isArray(recommendations)) {
@@ -499,7 +604,7 @@ const ChatBot: React.FC = () => {
         targetMonth = targetMonth - 1;
       }
 
-      recommendations.forEach((rec: any) => {
+      recommendations.forEach((rec: BudgetRecommendation) => {
         const matchedCat = categories.find(c => 
           c.id === rec.categoryId || 
           (c.name && c.name.toLowerCase() === (rec.categoryId || '').toLowerCase()) ||
@@ -526,10 +631,10 @@ const ChatBot: React.FC = () => {
 
       // Also create any unexecuted goalRecommendations if present
       if (goalRecommendations && Array.isArray(goalRecommendations)) {
-        goalRecommendations.forEach((g: any) => {
+        goalRecommendations.forEach((g: GoalRecommendation) => {
           if (!g.isExecuted) {
             addGoal({
-              name: g.name,
+              name: g.name || 'Target Tabungan',
               targetAmount: Number(g.targetAmount),
               targetDate: g.targetDate || getLocalDate(),
               assetId: g.assetId || undefined,
@@ -543,15 +648,15 @@ const ChatBot: React.FC = () => {
       ));
       
       showToast('Anggaran berhasil diperbarui berdasarkan rekomendasi!', 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal menerapkan anggaran', 'error');
+    } catch (err) {
+      showToast((err as { message?: string }).message || 'Gagal menerapkan anggaran', 'error');
     }
   };
 
   const handleUpdateDraftBudgetLimit = (msgIndex: number, categoryId: string, newLimit: number) => {
     setMessages(prev => prev.map((m, i) => {
       if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
-        const updatedRecs = m.toolCall.arguments.recommendations.map((rec: any) => 
+        const updatedRecs = (m.toolCall.arguments.recommendations || []).map((rec: BudgetRecommendation) => 
           rec.categoryId === categoryId ? { ...rec, limit: newLimit } : rec
         );
         return {
@@ -569,8 +674,8 @@ const ChatBot: React.FC = () => {
   const handleRemoveDraftBudgetCategory = (msgIndex: number, categoryId: string) => {
     setMessages(prev => prev.map((m, i) => {
       if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
-        const updatedRecs = m.toolCall.arguments.recommendations.filter(
-          (rec: any) => rec.categoryId !== categoryId
+        const updatedRecs = (m.toolCall.arguments.recommendations || []).filter(
+          (rec: BudgetRecommendation) => rec.categoryId !== categoryId
         );
         return {
           ...m,
@@ -590,7 +695,8 @@ const ChatBot: React.FC = () => {
 
     setMessages(prev => prev.map((m, i) => {
       if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
-        const exists = m.toolCall.arguments.recommendations.some((rec: any) => rec.categoryId === categoryId);
+        const currentRecs = m.toolCall.arguments.recommendations || [];
+        const exists = currentRecs.some((rec: BudgetRecommendation) => rec.categoryId === categoryId);
         if (exists) {
           showToast(`Kategori ${cat.name} sudah ada dalam rekomendasi!`, 'error');
           return m;
@@ -602,7 +708,7 @@ const ChatBot: React.FC = () => {
           limit: 0,
           reason: 'Ditambahkan manual'
         };
-        const updatedRecs = [...m.toolCall.arguments.recommendations, newRec];
+        const updatedRecs = [...currentRecs, newRec];
         return {
           ...m,
           toolCall: {
@@ -615,15 +721,15 @@ const ChatBot: React.FC = () => {
     }));
   };
 
-  const handleConfirmSubscription = (msgIndex: number, toolArgs: any) => {
+  const handleConfirmSubscription = (msgIndex: number, toolArgs: ToolCallArguments) => {
     try {
       addSubscription({
-        name: toolArgs.name,
+        name: toolArgs.name || 'Langganan',
         amount: Number(toolArgs.amount),
-        billingCycle: toolArgs.billingCycle,
+        billingCycle: toolArgs.billingCycle as Subscription['billingCycle'],
         nextBillingDate: toolArgs.nextBillingDate || getLocalDate(),
         categoryId: resolveCategoryId(toolArgs.category, 'pengeluaran'),
-        assetId: toolArgs.assetId,
+        assetId: toolArgs.assetId || (assets[0]?.id ?? 'default-1'),
         isActive: true,
         note: toolArgs.note || ''
       });
@@ -633,12 +739,12 @@ const ChatBot: React.FC = () => {
       ));
       
       showToast(`Langganan ${toolArgs.name} berhasil ditambahkan!`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal menambahkan langganan', 'error');
+    } catch (err) {
+      showToast((err as { message?: string }).message || 'Gagal menambahkan langganan', 'error');
     }
   };
 
-  const handleExecuteTransferRecommendation = (msgIndex: number, transferIdx: number, tf: any) => {
+  const handleExecuteTransferRecommendation = (msgIndex: number, transferIdx: number, tf: TransferRecommendation) => {
     try {
       const fromAsset = assets.find(a => 
         a.id === tf.fromAssetId || 
@@ -670,7 +776,7 @@ const ChatBot: React.FC = () => {
 
       setMessages(prev => prev.map((m, i) => {
         if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
-          const updatedTfs = (m.toolCall.arguments.transferRecommendations || []).map((t: any, idx: number) => 
+          const updatedTfs = (m.toolCall.arguments.transferRecommendations || []).map((t: TransferRecommendation, idx: number) => 
             idx === transferIdx ? { ...t, isExecuted: true } : t
           );
           return {
@@ -685,12 +791,12 @@ const ChatBot: React.FC = () => {
       }));
 
       showToast(`Berhasil mentransfer Rp${tf.amount.toLocaleString('id-ID')} dari ${tf.fromAssetName} ke ${tf.toAssetName}!`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal melakukan transfer', 'error');
+    } catch (err) {
+      showToast((err as { message?: string }).message || 'Gagal melakukan transfer', 'error');
     }
   };
 
-  const handleExecuteRecurringRecommendation = (msgIndex: number, recIdx: number, rt: any) => {
+  const handleExecuteRecurringRecommendation = (msgIndex: number, recIdx: number, rt: RecurringRecommendation) => {
     try {
       // Use the detected day-of-month when provided (R6), else today.
       const anchor = (() => {
@@ -703,11 +809,11 @@ const ChatBot: React.FC = () => {
         return getLocalDate();
       })();
       addRecurringTransaction({
-        type: rt.type,
+        type: rt.type as RecurringTransaction['type'],
         amount: Number(rt.amount),
         categoryId: resolveCategoryId(rt.category || rt.categoryId, rt.type),
-        note: rt.note,
-        frequency: rt.frequency,
+        note: rt.note || '',
+        frequency: rt.frequency as RecurringTransaction['frequency'],
         anchorDate: anchor,
         startDate: anchor,
         isActive: true
@@ -715,7 +821,7 @@ const ChatBot: React.FC = () => {
 
       setMessages(prev => prev.map((m, i) => {
         if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
-          const updatedRts = (m.toolCall.arguments.recurringRecommendations || []).map((t: any, idx: number) => 
+          const updatedRts = (m.toolCall.arguments.recurringRecommendations || []).map((t: RecurringRecommendation, idx: number) => 
             idx === recIdx ? { ...t, isExecuted: true } : t
           );
           return {
@@ -730,15 +836,15 @@ const ChatBot: React.FC = () => {
       }));
 
       showToast(`Berhasil mengaktifkan transaksi rutin: ${rt.note}!`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal mengaktifkan transaksi rutin', 'error');
+    } catch (err) {
+      showToast((err as { message?: string }).message || 'Gagal mengaktifkan transaksi rutin', 'error');
     }
   };
 
-  const handleConfirmGoal = (msgIndex: number, toolArgs: any) => {
+  const handleConfirmGoal = (msgIndex: number, toolArgs: ToolCallArguments) => {
     try {
       addGoal({
-        name: toolArgs.name,
+        name: toolArgs.name || 'Target Tabungan',
         targetAmount: Number(toolArgs.targetAmount),
         targetDate: toolArgs.targetDate || getLocalDate(),
         assetId: toolArgs.assetId || undefined,
@@ -749,15 +855,15 @@ const ChatBot: React.FC = () => {
       ));
       
       showToast(`Target tabungan "${toolArgs.name}" berhasil ditambahkan!`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal menambahkan target tabungan', 'error');
+    } catch (err) {
+      showToast((err as { message?: string }).message || 'Gagal menambahkan target tabungan', 'error');
     }
   };
 
-  const handleExecuteGoalRecommendation = (msgIndex: number, goalIdx: number, goalRec: any) => {
+  const handleExecuteGoalRecommendation = (msgIndex: number, goalIdx: number, goalRec: GoalRecommendation) => {
     try {
       addGoal({
-        name: goalRec.name,
+        name: goalRec.name || 'Target Tabungan',
         targetAmount: Number(goalRec.targetAmount),
         targetDate: goalRec.targetDate || getLocalDate(),
         assetId: goalRec.assetId || undefined,
@@ -765,7 +871,7 @@ const ChatBot: React.FC = () => {
 
       setMessages(prev => prev.map((m, i) => {
         if (i === msgIndex && m.toolCall && m.toolCall.name === 'recommend_budget') {
-          const updatedGoals = (m.toolCall.arguments.goalRecommendations || []).map((g: any, idx: number) => 
+          const updatedGoals = (m.toolCall.arguments.goalRecommendations || []).map((g: GoalRecommendation, idx: number) => 
             idx === goalIdx ? { ...g, isExecuted: true } : g
           );
           return {
@@ -780,8 +886,8 @@ const ChatBot: React.FC = () => {
       }));
 
       showToast(`Target tabungan "${goalRec.name}" berhasil dibuat!`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal membuat target tabungan', 'error');
+    } catch (err) {
+      showToast((err as { message?: string }).message || 'Gagal membuat target tabungan', 'error');
     }
   };
 
@@ -1537,7 +1643,7 @@ const ChatBot: React.FC = () => {
                               onClick={() => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
-                                setCategorySelectCallback(() => (categoryIdName: string, _subCategoryIdName?: string) => {
+                                setCategorySelectCallback(() => (categoryIdName: string) => {
                                   handleUpdateDraftField(idx, 'categoryId', categoryIdName);
                                 });
                               }}
@@ -1703,20 +1809,20 @@ const ChatBot: React.FC = () => {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                           Sistem mendeteksi <b>{msg.toolCall.arguments.lineItems?.length || 0} item</b>
-                          {msg.toolCall.arguments.contacts?.length > 0 && (
-                            <span> bersama <b>{msg.toolCall.arguments.contacts.join(', ')}</b></span>
+                          {Boolean(msg.toolCall.arguments.contacts && msg.toolCall.arguments.contacts.length > 0) && (
+                            <span> bersama <b>{(msg.toolCall.arguments.contacts || []).join(', ')}</b></span>
                           )} untuk dibuat Split Bill.
                         </div>
                         <button
                           onClick={() => {
                             const rawItems = msg.toolCall?.arguments.lineItems || [];
-                            const normalizedItems = rawItems.map((item: any) => ({
+                            const normalizedItems = rawItems.map((item: ToolCallLineItem) => ({
                               name: item.name || 'Item',
                               amount: Number(item.amount || item.total || item.price || 0),
                               assignedContacts: item.assignedContacts || [],
                               selected: true,
                             }));
-                            const computedTotal = msg.toolCall?.arguments.totalAmount || normalizedItems.reduce((s: number, i: any) => s + (i.amount || 0), 0);
+                            const computedTotal = msg.toolCall?.arguments.totalAmount || normalizedItems.reduce((s: number, i) => s + (i.amount || 0), 0);
 
                             setSplitBillData({
                               merchantName: msg.toolCall?.arguments.merchantName || 'Split Bill',
@@ -1752,12 +1858,12 @@ const ChatBot: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', color: 'var(--primary)' }}>
                       <MaterialIcon name="error" className="text-[16px]" />
                       <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                        Rekomendasi Anggaran ({MONTH_NAMES[msg.toolCall.arguments.month] || msg.toolCall.arguments.month} {msg.toolCall.arguments.year})
+                        Rekomendasi Anggaran ({msg.toolCall.arguments.month !== undefined ? MONTH_NAMES[msg.toolCall.arguments.month] || msg.toolCall.arguments.month : ''} {msg.toolCall.arguments.year})
                       </span>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-                      {msg.toolCall.arguments.recommendations.map((rec: any, recIdx: number) => {
+                      {(msg.toolCall.arguments.recommendations || []).map((rec: BudgetRecommendation, recIdx: number) => {
                         const existing = budgets.find(
                           b => b.categoryId === rec.categoryId && b.month === msg.toolCall?.arguments.month && b.year === msg.toolCall?.arguments.year
                         );
@@ -1837,7 +1943,7 @@ const ChatBot: React.FC = () => {
                       })}
 
                       {(() => {
-                        const draftCategoryIds = msg.toolCall.arguments.recommendations.map((r: any) => r.categoryId);
+                        const draftCategoryIds = (msg.toolCall.arguments.recommendations || []).map((r: BudgetRecommendation) => r.categoryId);
                         const availableCategoriesToAdd = categories.filter(
                           c => c.type === 'pengeluaran' && !c.isDeleted && !draftCategoryIds.includes(c.id)
                         );
@@ -1863,7 +1969,7 @@ const ChatBot: React.FC = () => {
                               onClick={() => {
                                 setActiveSelectCategoryMsgIdx(idx);
                                 setCategoryModalType('pengeluaran');
-                                setCategorySelectCallback(() => (categoryIdName: string, _subCategoryIdName: string) => {
+                                setCategorySelectCallback(() => (categoryIdName: string) => {
                                   const cat = categories.find(c => c.id === categoryIdName && c.type === 'pengeluaran' && !c.isDeleted) ||
                                               categories.find(c => c.id === categoryIdName && c.type === 'pengeluaran');
                                   if (cat) {

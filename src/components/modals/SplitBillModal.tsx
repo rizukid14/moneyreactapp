@@ -15,7 +15,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import MaterialIcon from '../common/MaterialIcon';
 
-interface SplitPerson {
+export interface SplitPerson {
   id: string;
   contactName: string;
   amount: number;

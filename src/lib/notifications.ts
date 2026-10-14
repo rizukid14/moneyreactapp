@@ -12,7 +12,7 @@ export const setupPushNotifications = async (): Promise<boolean> => {
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      console.log('[MoneyApp] Notification permission granted.');
+      if (import.meta.env.DEV) console.log('[MoneyApp] Notification permission granted.');
       
       // Get the existing Workbox/Vite PWA service worker registration
       const swRegistration = await navigator.serviceWorker.ready;
@@ -25,12 +25,12 @@ export const setupPushNotifications = async (): Promise<boolean> => {
       
       if (currentToken) {
         // Save token to Firestore so the backend knows where to push messages
-        console.log('[MoneyApp] FCM Token generated:', currentToken);
+        if (import.meta.env.DEV) console.log('[MoneyApp] FCM Token generated:', currentToken);
         await dbPutSetting('fcmToken', currentToken);
         
         // Listen for foreground messages while the app is actively open
         onMessage(messaging, (payload) => {
-          console.log('[MoneyApp] Foreground message received:', payload);
+          if (import.meta.env.DEV) console.log('[MoneyApp] Foreground message received:', payload);
           // Show a local notification
           new Notification(payload.notification?.title || 'System', {
             body: payload.notification?.body || 'You have a new message',

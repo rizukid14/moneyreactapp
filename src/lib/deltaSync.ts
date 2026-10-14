@@ -33,10 +33,17 @@ export const setDeltaLastSyncTimestamp = (workspaceId: string | null, timestamp:
   localStorage.setItem(key, String(timestamp));
 };
 
+export interface DeltaChangeData {
+  id: string;
+  isDeleted?: boolean;
+  updatedAt?: number;
+  [key: string]: unknown;
+}
+
 export const startDeltaListeners = (
   workspaceId: string | null,
   getWorkspacePath: (col: string) => string,
-  onDocChange: (collectionName: string, docData: any, changeType: 'added' | 'modified' | 'removed') => void
+  onDocChange: (collectionName: string, docData: DeltaChangeData, changeType: 'added' | 'modified' | 'removed') => void
 ) => {
   stopDeltaListeners();
 
@@ -56,7 +63,7 @@ export const startDeltaListeners = (
 
       const unsub = onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
-          const docData = { id: change.doc.id, ...change.doc.data() } as any;
+          const docData = { id: change.doc.id, ...change.doc.data() } as DeltaChangeData;
 
           // Skip local changes since local handlers already updated state and IDB
           if (snapshot.metadata.hasPendingWrites) {
@@ -86,11 +93,11 @@ export const startDeltaListeners = (
       console.error(`[deltaSync] Failed to setup listener for ${colName}:`, e);
     }
   });
-  console.log(`[deltaSync] Started real-time delta listeners for workspace: ${workspaceId || 'Personal'} (lastSync: ${lastSync})`);
+  if (import.meta.env.DEV) console.log(`[deltaSync] Started real-time delta listeners for workspace: ${workspaceId || 'Personal'} (lastSync: ${lastSync})`);
 };
 
 export const stopDeltaListeners = () => {
   unsubscribers.forEach((unsub) => unsub());
   unsubscribers = [];
-  console.log('[deltaSync] Stopped all listeners.');
+  if (import.meta.env.DEV) console.log('[deltaSync] Stopped all listeners.');
 };

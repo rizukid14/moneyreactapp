@@ -107,7 +107,7 @@ export const FamilyManagement: React.FC = () => {
       updateUser({ rewardPoints: data.pointsLeft, unlockedWorkspaceSlots: data.slots });
       showToast('Berhasil membeli 1 slot workspace tambahan!', 'success');
       setIsPurchaseModalOpen(false);
-    } catch (e) {
+    } catch {
       showToast('Gagal membeli slot', 'error');
     } finally {
       setIsSubmitting(false);
@@ -125,8 +125,8 @@ export const FamilyManagement: React.FC = () => {
       showToast('Keluarga berhasil dibuat', 'success');
       setNewFamilyName('');
       setIsCreating(false);
-    } catch (e: any) {
-      showToast(e.message || 'Gagal membuat keluarga', 'error');
+    } catch (e: unknown) {
+      showToast((e as Error).message || 'Gagal membuat keluarga', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -143,8 +143,8 @@ export const FamilyManagement: React.FC = () => {
       showToast('Berhasil bergabung dengan keluarga', 'success');
       setJoinCode('');
       setIsJoining(false);
-    } catch (e: any) {
-      showToast(e.message || 'Gagal bergabung, cek kode undangan', 'error');
+    } catch (e: unknown) {
+      showToast((e as Error).message || 'Gagal bergabung, cek kode undangan', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -166,8 +166,8 @@ export const FamilyManagement: React.FC = () => {
       await editFamilyName(activeWorkspaceId, editedName.trim());
       showToast('Nama keluarga berhasil diubah', 'success');
       setIsEditingName(false);
-    } catch (err: any) {
-      showToast(err.message || 'Gagal mengubah nama', 'error');
+    } catch (err: unknown) {
+      showToast((err as Error).message || 'Gagal mengubah nama', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -192,8 +192,8 @@ export const FamilyManagement: React.FC = () => {
         try {
           await leaveFamily(familyId);
           showToast('Berhasil keluar dari keluarga', 'success');
-        } catch (err: any) {
-          showToast(err.message || 'Gagal keluar dari keluarga', 'error');
+        } catch (err: unknown) {
+          showToast((err as Error).message || 'Gagal keluar dari keluarga', 'error');
         } finally {
           setIsSubmitting(false);
         }
@@ -213,8 +213,8 @@ export const FamilyManagement: React.FC = () => {
         try {
           await removeMember(activeWorkspaceId, memberUid);
           showToast('Anggota berhasil dikeluarkan', 'success');
-        } catch (err: any) {
-          showToast(err.message || 'Gagal mengeluarkan anggota', 'error');
+        } catch (err: unknown) {
+          showToast((err as Error).message || 'Gagal mengeluarkan anggota', 'error');
         } finally {
           setIsSubmitting(false);
         }
@@ -234,8 +234,8 @@ export const FamilyManagement: React.FC = () => {
         try {
           await transferOwnership(activeWorkspaceId, memberUid);
           showToast('Kepemilikan berhasil ditransfer', 'success');
-        } catch (err: any) {
-          showToast(err.message || 'Gagal mentransfer kepemilikan', 'error');
+        } catch (err: unknown) {
+          showToast((err as Error).message || 'Gagal mentransfer kepemilikan', 'error');
         } finally {
           setIsSubmitting(false);
         }
@@ -256,8 +256,8 @@ export const FamilyManagement: React.FC = () => {
       showToast('Keluarga berhasil dihapus', 'success');
       setIsDeleteModalOpen(false);
       setDeleteConfirmText('');
-    } catch (err: any) {
-      showToast(err.message || 'Gagal menghapus keluarga', 'error');
+    } catch (err: unknown) {
+      showToast((err as Error).message || 'Gagal menghapus keluarga', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -556,8 +556,8 @@ export const FamilyManagement: React.FC = () => {
                               try {
                                 await deleteFamily(f.id);
                                 showToast('Keluarga berhasil dihapus', 'success');
-                              } catch (err: any) {
-                                showToast(err.message || 'Gagal menghapus', 'error');
+                              } catch (err: unknown) {
+                                showToast((err as Error).message || 'Gagal menghapus', 'error');
                               } finally {
                                 setIsSubmitting(false);
                               }

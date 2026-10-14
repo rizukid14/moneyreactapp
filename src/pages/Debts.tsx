@@ -672,13 +672,13 @@ const Debts: React.FC = () => {
         {/* Type Filter Pills (Semua / Hutang / Piutang) */}
         <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
           {[
-            { id: 'all', label: 'Semua' },
-            { id: 'hutang', label: 'Hutang' },
-            { id: 'piutang', label: 'Piutang' }
+            { id: 'all' as const, label: 'Semua' },
+            { id: 'hutang' as const, label: 'Hutang' },
+            { id: 'piutang' as const, label: 'Piutang' }
           ].map((item) => (
             <button
               key={item.id}
-              onClick={() => setTypeFilter(item.id as any)}
+              onClick={() => setTypeFilter(item.id)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer ${
                 typeFilter === item.id
                   ? 'bg-primary text-white border-primary shadow-sm'
@@ -945,7 +945,7 @@ const Debts: React.FC = () => {
             isOpen={!!editingHistoryTx}
             onClose={() => setEditingHistoryTx(null)}
             assets={assets}
-            addTransaction={() => ({} as any)}
+            addTransaction={addTransaction}
             updateTransaction={updateTransaction}
             deleteTransaction={deleteTransaction}
             editingTransaction={editingHistoryTx}
