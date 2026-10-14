@@ -7,7 +7,7 @@ import {
   dbGetAllBudgets, dbPutBudget, dbDeleteBudget,
   dbGetAllDebts, dbPutDebt, dbDeleteDebt,
   dbGetAllGoals, dbPutGoal, dbDeleteGoal,
-  dbGetSetting, dbPutSetting, dbDeleteSetting,
+  dbGetSetting, dbPutSetting,
   dbGetAllTrips, dbPutTrip, dbDeleteTrip,
   dbGetAllTripExpenses, dbPutTripExpense, dbDeleteTripExpense,
   dbGetAllMonthlyIncomes, dbPutMonthlyIncome, dbDeleteMonthlyIncome,
@@ -25,10 +25,77 @@ import { collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db as firestore } from '../lib/firebase';
 import { AuthScreen } from '../components/AuthScreen';
 import SplashScreen from '../components/SplashScreen';
-import { getLocalDate, getLocalTime, generateId, hashPinSecure, verifyPin, parseLocalDate, getNextDateSafe, computeOccurrenceDates } from '../lib/utils';
+import { getLocalDate, getLocalTime, generateId, parseLocalDate, getNextDateSafe, computeOccurrenceDates } from '../lib/utils';
 import { calculateDebtBalance, isDebtPrincipalTx, isDebtPaymentTx } from '../lib/debtCalculations';
 import { startDeltaListeners, stopDeltaListeners } from '../lib/deltaSync';
 import { fetchLiveExchangeRates } from '../lib/currency';
+import { useAppLock } from '../hooks/useAppLock';
+import { useAppSettings } from '../hooks/useAppSettings';
+
+export type {
+  AssetType,
+  BudgetMode,
+  DebtTransactionRole,
+  SavingsChallenge,
+  UserProfile,
+  SubCategory,
+  Category,
+  Asset,
+  Budget,
+  AutoSettleOptions,
+  Debt,
+  Goal,
+  TripMember,
+  TripExpenseSplit,
+  TripExpenseItem,
+  TripExpense,
+  Trip,
+  MonthlyIncome,
+  BudgetReallocation,
+  ItemizedDetail,
+  DebtAllocation,
+  Transaction,
+  Contact,
+  RecurringTransaction,
+  Subscription,
+  NotificationItem,
+  ApplySettingsPayload,
+} from './moneyTypes';
+
+export {
+  SYS_CAT,
+  SYSTEM_CATEGORIES,
+  DEFAULT_ASSET,
+  DEFAULT_CATEGORIES,
+  DEFAULT_USER,
+} from './moneyTypes';
+
+import {
+  type Asset,
+  type Category,
+  type Transaction,
+  type Budget,
+  type Debt,
+  type Goal,
+  type Contact,
+  type RecurringTransaction,
+  type Subscription,
+  type Trip,
+  type TripExpense,
+  type MonthlyIncome,
+  type BudgetReallocation,
+  type NotificationItem,
+  type UserProfile,
+  type AutoSettleOptions,
+  type DebtAllocation,
+  type BudgetMode,
+  type ApplySettingsPayload,
+  DEFAULT_ASSET,
+  DEFAULT_CATEGORIES,
+  DEFAULT_USER,
+  SYSTEM_CATEGORIES,
+  SYS_CAT,
+} from './moneyTypes';
 
 // E2E auth bypass is ONLY allowed in dev builds explicitly opted-in via VITE_E2E.
 // This prevents the production bundle from ever honoring localStorage.test_bypass_auth.
@@ -38,343 +105,6 @@ const isE2EBypassActive = (): boolean =>
   E2E_AUTH_BYPASS && typeof window !== 'undefined' && localStorage.getItem('test_bypass_auth') === 'true';
 
 type AuthUserLike = { uid?: string; email?: string | null } | null;
-
-export type AssetType = 'Cash' | 'Bank Account' | 'Credit Card' | 'eWallet' | 'Savings' | 'Investment' | 'Loan';
-export type BudgetMode = 'regular' | 'zero-based';
-export type DebtTransactionRole = 'principal' | 'payment' | 'offset';
-
-export interface SavingsChallenge {
-  id: string;
-  type: '52_week' | 'no_spend';
-  title: string;
-  targetAmount?: number;
-  currentAmount?: number;
-  currentWeek?: number;
-  noSpendStreak?: number;
-  lastNoSpendCheck?: string; // YYYY-MM-DD
-  isCompleted?: boolean;
-  updatedAt?: number;
-}
-
-export interface UserProfile {
-  name: string;
-  email: string;
-  avatar?: string;
-  dailyReminder?: boolean;
-  weeklyReport?: boolean;
-  lastLoginDate?: string;
-  loginStreak?: number;
-  rewardPoints?: number;
-  unlockedWorkspaceSlots?: number;
-  emergencyFundMonthsTarget?: number; // Default 6 months
-  savingsChallenges?: SavingsChallenge[];
-}
-
-export interface SubCategory {
-  id: string;
-  name: string;
-  isDeleted?: boolean;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  type: 'pengeluaran' | 'pendapatan' | 'hutang_keluar' | 'hutang_masuk' | 'piutang_keluar' | 'piutang_masuk';
-  subcategories?: SubCategory[];
-  isDeleted?: boolean;
-  updatedAt?: number;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface Asset {
-  id: string;
-  name: string;
-  type: AssetType;
-  initialBalance: number;
-  isHidden?: boolean;
-  isDeleted?: boolean;
-  accountNumber?: string;
-  currency?: string;            // 'IDR' | 'USD' | 'SGD' | 'JPY' | 'SAR'
-  statementCutoffDay?: number;  // 1-31 (Billing Cut-off Day for Credit Cards)
-  paymentDueDay?: number;       // 1-31 (Payment Due Day for Credit Cards)
-  isEmergencyFund?: boolean;    // Emergency Fund Shield Flag
-  updatedAt?: number;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface Budget {
-  id: string;
-  categoryId: string | null;
-  limit: number;
-  period: 'monthly';
-  month: number;
-  year: number;
-  updatedAt?: number;
-}
-
-export interface AutoSettleOptions {
-  mode: 'note_only' | 'with_tx';
-  outAssetId?: string;
-  inAssetId?: string;
-}
-
-export interface Debt {
-  id: string;
-  type: 'hutang' | 'piutang';   // hutang=I owe, piutang=they owe me
-  contact: string;               // person or institution name
-  description: string;
-  totalAmount: number;           // original loan amount
-  dueDate?: string;              // YYYY-MM-DD
-  isPaid: boolean;
-  date: string;                  // Occurrence date (YYYY-MM-DD)
-  createdAt: string;
-  // Interest fields
-  principalAmount?: number;      // Original loan amount without interest
-  interestType?: 'fixed' | 'percentage';
-  interestRate?: number;         // percentage value
-  interestAmount?: number;       // calculated or fixed interest amount
-  // Installment fields
-  isInstallment: boolean;
-  installmentAmount?: number;    // monthly payment amount
-  installmentDay?: number;       // day of month e.g. 25
-  totalInstallments?: number;    // total number of monthly payments
-  paidInstallments: number;      // how many paid so far
-  // Asset fields — two-asset model for proper balance tracking
-  liabilityAssetId?: string;     // HUTANG: asset where debt lives (e.g. ShopeePay Later)
-  paymentAssetId?: string;       // HUTANG: asset to pay FROM (e.g. BCA) | PIUTANG: asset used to LEND FROM (e.g. Cash)
-  receiveAssetId?: string;       // PIUTANG: asset to receive payment INTO (e.g. BCA)
-  sourceAssetId?: string;        // DEPRECATED - prefer paymentAssetId for simplicity; added for schema compatibility if needed
-  tripId?: string; // Link to trip
-  relatedId?: string; // General link to related items (e.g. TripExpense)
-  excludeAutoOffset?: boolean; // Exclude from auto-offset potong silang
-  sourceSplitId?: string;     // Link to shared_splits sourceId (for split bill sync)
-  sourceSplitMember?: string; // Member name in the split (for split bill sync)
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface Goal {
-  id: string;
-  name: string;
-  targetAmount: number;
-  targetDate: string; // YYYY-MM-DD
-  createdAt: string;
-  assetId?: string;
-  isCompleted: boolean;
-  recurringTransactionId?: string;
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface TripMember {
-  id: string;
-  name: string;
-}
-
-export interface TripExpenseSplit {
-  memberId: string;
-  amount: number;
-}
-
-export interface TripExpenseItem {
-  id: string;
-  name: string;
-  amount: number;
-  assignments: string[]; // memberIds
-}
-
-export interface TripExpense {
-  id: string;
-  tripId: string;
-  description: string;
-  amount: number;
-  payerId: string; // memberId
-  splits: TripExpenseSplit[];
-  items?: TripExpenseItem[];
-  date: string;
-  createdAt: string;
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface Trip {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  members: TripMember[];
-  isSettled: boolean;
-  settlementMode?: 'simple' | 'detailed';
-  paidSettlements?: string[];
-  settlementPaidAmounts?: Record<string, number>;
-  createdAt: string;
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface MonthlyIncome {
-  id: string; // format: "YYYY-MM"
-  month: number;
-  year: number;
-  amount: number;
-  isLocked: boolean;
-  createdAt: number;
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface BudgetReallocation {
-  id: string;
-  month: number;
-  year: number;
-  fromCategoryId: string | 'unassigned';
-  toCategoryId: string | 'unassigned';
-  amount: number;
-  date: string; // ISO String
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface ItemizedDetail {
-  id: string;
-  name: string;
-  amount: number;
-  categoryId?: string;
-  subCategoryId?: string;
-}
-
-export interface DebtAllocation {
-  principalTxId: string;   // id transaksi principal (nota) yang dibayar
-  amount: number;          // nominal yang dialokasikan ke nota itu
-}
-
-export interface Transaction {
-  id: string;
-  type: 'pengeluaran' | 'pendapatan' | 'transfer' | 'piutang_keluar' | 'piutang_masuk' | 'hutang_masuk' | 'hutang_keluar';
-  amount: number;
-  categoryId?: string;
-  subCategoryId?: string;
-  date: string; // YYYY-MM-DD
-  time?: string; // HH:mm
-  note: string;
-  description?: string;
-  assetId?: string;
-  fromAssetId?: string;
-  toAssetId?: string;
-  relatedId?: string; // Links to Debt.id, etc.
-  sourceRecurringId?: string; // If auto-generated from a recurring rule
-  debtRole?: DebtTransactionRole; // 'principal' | 'payment' | 'offset'
-  debtAllocations?: DebtAllocation[]; // Alokasi pembayaran ke nota-nota spesifik
-  goalId?: string; // Links to Goal.id
-  currency?: string; // 'IDR' | 'USD' | 'SGD' | 'JPY' | 'SAR'
-  exchangeRate?: number; // Kurs ke IDR saat transaksi dicatat
-  itemizedDetails?: ItemizedDetail[];
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface Contact {
-  id: string;
-  name: string;
-  phone?: string;
-  note?: string;
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface RecurringTransaction {
-  id: string;
-  type: Transaction['type'];
-  amount: number;
-  categoryId?: string;
-  subCategoryId?: string;
-  assetId?: string;
-  fromAssetId?: string;
-  toAssetId?: string;
-  note: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  anchorDate?: string;       // YYYY-MM-DD — canonical day/month of the rule (R1)
-  startDate: string;        // YYYY-MM-DD (legacy; kept for backward compatibility)
-  lastProcessedDate?: string; // YYYY-MM-DD
-  endDate?: string;          // YYYY-MM-DD (Optional stop date)
-  isActive: boolean;
-  goalId?: string;
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface Subscription {
-  id: string;
-  name: string;
-  amount: number;
-  billingCycle: 'monthly' | 'yearly';
-  nextBillingDate: string; // YYYY-MM-DD
-  categoryId?: string;
-  icon?: string;
-  assetId: string;
-  isActive: boolean;
-  note?: string;
-  recurringTransactionId?: string;
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-export interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  icon: string;
-  color: 'success' | 'warning' | 'error' | 'info' | 'primary';
-  createdAt: string; // ISO string
-  isRead: boolean;
-  updatedAt?: number;
-  isDeleted?: boolean;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-// ─── Dynamic settings payload (kept loose; narrowed structurally on use) ─────
-interface ApplySettingsPayload {
-  user?: UserProfile;
-  pin?: string | null;
-  theme?: 'light' | 'dark';
-  isPrivateMode?: boolean;
-  defaultAssetId?: string | null;
-  startOfMonthDay?: number;
-  showDebtInTransactions?: boolean;
-  autoOffsetDebts?: boolean;
-  currencySymbol?: string;
-  defaultTransactionGrouping?: 'date' | 'categoryId';
-  assetCarouselCards?: string[];
-  statsCarouselCards?: string[];
-  defaultStatsView?: string;
-  chartStyle?: 'area' | 'line';
-  budgetMode?: BudgetMode;
-  zbbMode?: 'flexible' | 'strict';
-  monthlyIncome?: number;
-}
 
 // Legacy records encountered during migrations (may still carry category names).
 interface MigratableRecord extends Partial<Transaction> {
@@ -390,23 +120,6 @@ interface LegacyCloudTx {
   subCategoryId?: string;
 }
 
-// ─── Default seed data ───────────────────────────────────────────────────────
-const DEFAULT_ASSET: Asset = { id: 'default-1', name: 'Dompet Tunai', type: 'Cash', initialBalance: 0 };
-
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-1', name: 'Makanan', type: 'pengeluaran', subcategories: [{ id: 'sub-1', name: 'Makan Diluar' }, { id: 'sub-2', name: 'Groceries' }] },
-  { id: 'cat-2', name: 'Transportasi', type: 'pengeluaran', subcategories: [{ id: 'sub-3', name: 'Bensin' }, { id: 'sub-4', name: 'Parkir' }] },
-  { id: 'cat-3', name: 'Hiburan', type: 'pengeluaran', subcategories: [] },
-  { id: 'cat-4', name: 'Belanja', type: 'pengeluaran', subcategories: [{ id: 'sub-5', name: 'Laundry & Jasa' }, { id: 'sub-6', name: 'Pakaian & Kebutuhan' }] },
-  { id: 'cat-5', name: 'Tagihan', type: 'pengeluaran', subcategories: [{ id: 'sub-7', name: 'Listrik & Utilitas' }, { id: 'sub-8', name: 'Pulsa & Internet' }] },
-  { id: 'cat-6', name: 'Gaji', type: 'pendapatan', subcategories: [] },
-  { id: 'cat-7', name: 'Bonus', type: 'pendapatan', subcategories: [] },
-  { id: 'cat-8', name: 'Investasi', type: 'pendapatan', subcategories: [] },
-];
-
-const DEFAULT_USER: UserProfile = { name: 'Pengguna Monetiq', email: 'pengguna@email.com', loginStreak: 0, rewardPoints: 0 };
-
-// ─── Context type ────────────────────────────────────────────────────────────
 interface MoneyContextType {
   isReady: boolean;
   notifications: NotificationItem[];
@@ -529,29 +242,6 @@ interface MoneyContextType {
 const MoneyContext = createContext<MoneyContextType | undefined>(undefined);
 
 // ─── Provider ────────────────────────────────────────────────────────────────
-export const SYS_CAT = {
-  ADMIN_FEE: 'sys-cat-admin-fee',
-  BALANCE_ADJ: 'sys-cat-balance-adj',
-  ROUNDING_DIFF: 'sys-cat-rounding-diff',
-  DEBT_PAY: 'sys-cat-debt-pay',
-  DEBT_RECEIVE: 'sys-cat-debt-receive',
-  RECEIVABLE_PAY: 'sys-cat-receivable-pay',
-  RECEIVABLE_RECEIVE: 'sys-cat-receivable-receive',
-  TRIP: 'sys-cat-trip-expense',
-  TRIP_SUB: 'sys-sub-trip'
-} as const;
-
-export const SYSTEM_CATEGORIES: Category[] = [
-  { id: 'sys-cat-debt-pay', name: 'Bayar Hutang', type: 'hutang_keluar' },
-  { id: 'sys-cat-debt-receive', name: 'Terima Pinjaman', type: 'hutang_masuk' },
-  { id: 'sys-cat-receivable-pay', name: 'Memberi Pinjaman', type: 'piutang_keluar' },
-  { id: 'sys-cat-receivable-receive', name: 'Pelunasan Piutang', type: 'piutang_masuk' },
-  { id: 'sys-cat-admin-fee', name: 'Biaya Admin', type: 'pengeluaran' },
-  { id: 'sys-cat-balance-adj', name: 'Koreksi Saldo', type: 'pengeluaran' },
-  { id: 'sys-cat-rounding-diff', name: 'Pembulatan / Selisih Bayar', type: 'pengeluaran' },
-  { id: 'sys-cat-trip-expense', name: 'Liburan & Perjalanan', type: 'pengeluaran', subcategories: [{ id: 'sys-sub-trip', name: 'Biaya Trip', isDeleted: false }] },
-];
-
 export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isReady, setIsReady] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -566,17 +256,49 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [trips, setTrips] = useState<Trip[]>([]);
   const [tripExpenses, setTripExpenses] = useState<TripExpense[]>([]);
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
-  const [pin, setPin] = useState<string | null>(null);
-  const [isAppLocked, setIsAppLocked] = useState(false);
+
+  // App Lock domain (PIN, lockout, state) extracted to hook
+  const {
+    pin,
+    setPin,
+    isAppLocked,
+    setIsAppLocked,
+    setAppPin,
+    unlockApp,
+    lockApp,
+  } = useAppLock();
+
+  // App Settings domain extracted to hook
+  const {
+    theme,
+    setTheme,
+    toggleTheme,
+    isPrivateMode,
+    togglePrivateMode,
+    defaultAssetId,
+    setDefaultAssetId,
+    startOfMonthDay,
+    setStartOfMonthDay,
+    showDebtInTransactions,
+    setShowDebtInTransactions,
+    autoOffsetDebts,
+    setAutoOffsetDebts,
+    currencySymbol,
+    setCurrencySymbol,
+    defaultTransactionGrouping,
+    setDefaultTransactionGrouping,
+    assetCarouselCards,
+    setAssetCarouselCards,
+    statsCarouselCards,
+    setStatsCarouselCards,
+    defaultStatsView,
+    setDefaultStatsView,
+    chartStyle,
+    setChartStyle,
+    applySettingsToAppSettings,
+  } = useAppSettings();
+
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [isPrivateMode, setIsPrivateMode] = useState(false);
-  const [defaultAssetId, setDefaultAssetIdState] = useState<string | null>(null);
-  const [startOfMonthDay, setStartOfMonthDayState] = useState<number>(1);
-  const [showDebtInTransactions, setShowDebtInTransactionsState] = useState<boolean>(true);
-  const [autoOffsetDebts, setAutoOffsetDebtsState] = useState<boolean>(true);
-  const [currencySymbol, setCurrencySymbolState] = useState<string>('Rp');
-  const [defaultTransactionGrouping, setDefaultTransactionGroupingState] = useState<'date' | 'categoryId'>('date');
   const [authUser, setAuthUser] = useState<AuthUserLike>(() => {
     try {
       if (isE2EBypassActive()) {
@@ -595,10 +317,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   });
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [autoCloudSync, setAutoCloudSync] = useState<{ status: 'idle' | 'pulling' | 'success' | 'error'; total?: number; message?: string }>({ status: 'idle' });
-  const [assetCarouselCards, setAssetCarouselCardsState] = useState<string[]>(['net_worth']);
-  const [statsCarouselCards, setStatsCarouselCardsState] = useState<string[]>(['all', 'health', 'forecast']);
-  const [defaultStatsView, setDefaultStatsViewState] = useState<string>('all');
-  const [chartStyle, setChartStyleState] = useState<'area' | 'line'>('area');
   const [budgetMode, setBudgetModeState] = useState<BudgetMode>('regular');
   const [zbbMode, setZbbModeState] = useState<'flexible' | 'strict'>('flexible');
   const [monthlyIncome, setMonthlyIncomeState] = useState<number>(0);
@@ -623,25 +341,11 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (options?.lockAppOnPin !== false) setIsAppLocked(true);
     }
     if (st.pin === null || st.pin === undefined) { setPin(null); }
-    if (st.theme) {
-      setTheme(st.theme);
-      try { localStorage.setItem('moneyapp-theme', st.theme); } catch { /* ignore */ }
-    }
-    if (st.isPrivateMode !== undefined) setIsPrivateMode(st.isPrivateMode);
-    if (st.defaultAssetId !== undefined) setDefaultAssetIdState(st.defaultAssetId);
-    if (st.startOfMonthDay) setStartOfMonthDayState(st.startOfMonthDay);
-    if (st.showDebtInTransactions !== undefined) setShowDebtInTransactionsState(st.showDebtInTransactions);
-    if (st.autoOffsetDebts !== undefined) setAutoOffsetDebtsState(st.autoOffsetDebts);
-    if (st.currencySymbol) setCurrencySymbolState(st.currencySymbol);
-    if (st.defaultTransactionGrouping) setDefaultTransactionGroupingState(st.defaultTransactionGrouping);
-    if (st.assetCarouselCards?.length) setAssetCarouselCardsState(st.assetCarouselCards);
-    if (st.statsCarouselCards?.length) setStatsCarouselCardsState(st.statsCarouselCards);
-    if (st.defaultStatsView) setDefaultStatsViewState(st.defaultStatsView);
-    if (st.chartStyle) setChartStyleState(st.chartStyle);
+    applySettingsToAppSettings(st);
     if (st.budgetMode) setBudgetModeState(st.budgetMode);
     if (st.zbbMode) setZbbModeState(st.zbbMode);
     if (st.monthlyIncome !== undefined) setMonthlyIncomeState(st.monthlyIncome);
-  }, []);
+  }, [applySettingsToAppSettings, setIsAppLocked, setPin]);
 
   // ─── Auth Listener ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2480,66 +2184,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   }, [refreshSyncCount]);
 
-  const setAppPin = useCallback(async (newPin: string | null) => {
-    let finalPin = newPin;
-    if (newPin) {
-      finalPin = await hashPinSecure(newPin);
-    }
-    setPin(finalPin);
-    if (finalPin) dbPutSetting('pin', finalPin);
-    else dbDeleteSetting('pin');
-    if (!finalPin) setIsAppLocked(false);
-  }, []);
-
-  const unlockApp = useCallback(async (enteredPin: string) => {
-    if (!pin) return true;
-
-    // Legacy support: if stored pin is 6 digits, it's likely plain text
-    if (pin.length === 6 && /^\d+$/.test(pin)) {
-      if (enteredPin === pin) {
-        // Upgrade to salted PBKDF2 automatically
-        const secured = await hashPinSecure(enteredPin);
-        setPin(secured);
-        dbPutSetting('pin', secured);
-        setIsAppLocked(false);
-        return true;
-      }
-      return false;
-    }
-
-    const ok = await verifyPin(enteredPin, pin);
-    if (ok) {
-      // Migrate legacy unsalted hash or older 100k iteration hash to 600k iterations
-      if (!pin.startsWith('pbkdf2$600000$')) {
-        const secured = await hashPinSecure(enteredPin);
-        setPin(secured);
-        dbPutSetting('pin', secured);
-      }
-      setIsAppLocked(false);
-      return true;
-    }
-    return false;
-  }, [pin]);
-
-  const lockApp = useCallback(() => { if (pin) setIsAppLocked(true); }, [pin]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => {
-      const next = prev === 'light' ? 'dark' : 'light';
-      dbPutSetting('theme', next);
-      try { localStorage.setItem('moneyapp-theme', next); } catch { /* ignore */ }
-      return next;
-    });
-  }, []);
-
-  const togglePrivateMode = useCallback(() => {
-    setIsPrivateMode(prev => {
-      const next = !prev;
-      dbPutSetting('isPrivateMode', next);
-      return next;
-    });
-  }, []);
-
   // ─── Trips ───────────────────────────────────────────────────────────────
   const addTrip = useCallback(async (tripReq: Omit<Trip, 'id' | 'createdAt'>) => {
     const newTrip: Trip = { ...tripReq, id: generateId(), createdAt: new Date().toISOString() };
@@ -2631,51 +2275,6 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     await refreshSyncCount();
   }, [refreshSyncCount, tripExpenses]);
-
-  const setDefaultAssetId = useCallback((id: string | null) => {
-    setDefaultAssetIdState(id);
-    dbPutSetting('defaultAssetId', id);
-  }, []);
-
-  const setStartOfMonthDay = useCallback((day: number) => {
-    setStartOfMonthDayState(day);
-    dbPutSetting('startOfMonthDay', day);
-  }, []);
-
-  const setShowDebtInTransactions = useCallback((show: boolean) => {
-    setShowDebtInTransactionsState(show);
-    dbPutSetting('showDebtInTransactions', show);
-  }, []);
-
-  const setAutoOffsetDebts = useCallback((auto: boolean) => {
-    setAutoOffsetDebtsState(auto);
-    dbPutSetting('autoOffsetDebts', auto);
-  }, []);
-
-  const setCurrencySymbol = useCallback((symbol: string) => {
-    setCurrencySymbolState(symbol);
-    dbPutSetting('currencySymbol', symbol);
-  }, []);
-
-  const setDefaultTransactionGrouping = useCallback((grouping: 'date' | 'categoryId') => {
-    setDefaultTransactionGroupingState(grouping);
-    dbPutSetting('defaultTransactionGrouping', grouping);
-  }, []);
-
-  const setAssetCarouselCards = useCallback((cards: string[]) => {
-    setAssetCarouselCardsState(cards);
-    dbPutSetting('assetCarouselCards', cards);
-  }, []);
-
-  const setStatsCarouselCards = useCallback((cards: string[]) => {
-    setStatsCarouselCardsState(cards);
-    dbPutSetting('statsCarouselCards', cards);
-  }, []);
-
-  const setChartStyle = useCallback((style: 'area' | 'line') => {
-    setChartStyleState(style);
-    dbPutSetting('chartStyle', style);
-  }, []);
 
   // ─── Export / Import ─────────────────────────────────────────────────────
   const exportData = useCallback(async () => {
@@ -3214,11 +2813,7 @@ export const MoneyProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     startOfMonthDay, setStartOfMonthDay, showDebtInTransactions, setShowDebtInTransactions, autoOffsetDebts, setAutoOffsetDebts, currencySymbol, setCurrencySymbol, defaultTransactionGrouping, setDefaultTransactionGrouping,
     assetCarouselCards, setAssetCarouselCards,
     statsCarouselCards, setStatsCarouselCards,
-    defaultStatsView,
-    setDefaultStatsView: (viewId: string) => {
-      setDefaultStatsViewState(viewId);
-      dbPutSetting('defaultStatsView', viewId);
-    },
+    defaultStatsView, setDefaultStatsView,
     chartStyle, setChartStyle,
     addAsset, deleteAsset, updateAsset,
     addTransaction, deleteTransaction, updateTransaction,
